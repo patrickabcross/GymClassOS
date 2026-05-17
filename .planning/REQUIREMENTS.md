@@ -18,7 +18,7 @@
 - [ ] **FND-07**: Customer onboarding checklist completed — Meta Business Manager set up; WhatsApp number 2FA off, no personal-WhatsApp history; class-mix confirmed (no spot-picking / 1:1 PT / 24-7 door)
 - [ ] **FND-08**: Test strategy committed — Vitest for non-UI, Playwright for UI/E2E
 
-### Schema & Database (Phase 1)
+### Schema & Database (Phase 1a)
 
 - [ ] **DB-01**: Drizzle schema deployed to Neon including: `members`, `coaches`, `conversations`, `messages`, `class_definitions`, `schedule_rule`, `class_occurrence` (materialised), `bookings`, `waitlist`, `passes` (grants), `pass_debits` (append-only ledger), `stripe_customers`, `stripe_subscriptions`, `payments`, `whatsapp_templates`, `whatsapp_window_state`, `whatsapp_opt_in`, `webhook_events`, `audit_log`
 - [ ] **DB-02**: NO `studio_id` column anywhere in the schema (single-tenant code, multi-tenant deploy enforced by linter or test)
@@ -27,7 +27,7 @@
 - [ ] **DB-05**: `webhook_events` table with `external_id` PK + `provider`, `event_type`, `received_at`, `processed_at`, `payload_raw` — idempotency foundation
 - [ ] **DB-06**: Migrations managed by `drizzle-kit generate + migrate` only; `drizzle-kit push` blocked by `guard:no-drizzle-push` script
 
-### Webhook & Worker Spine (Phase 1)
+### Webhook & Worker Spine (Phase 1b)
 
 - [ ] **WEB-01**: `apps/edge-webhooks` deployed to Fly.io as Hono app with `min_machines = 1` (always-on)
 - [ ] **WEB-02**: Webhook receiver verifies HMAC against raw body BEFORE any JSON parsing (Stripe + WhatsApp)
@@ -36,7 +36,7 @@
 - [ ] **WEB-05**: Worker job processing is idempotent — re-running with the same `external_id` produces the same DB state, never duplicates writes
 - [ ] **WEB-06**: Stripe webhook handler wraps `webhook_events` insert + business work in a single DB transaction; refetches event from Stripe API rather than trusting payload; `apiVersion` explicitly pinned in Stripe SDK init
 
-### Stripe Integration (Phase 1)
+### Stripe Integration (Phase 1b)
 
 - [ ] **STR-01**: Stripe Connect OAuth flow lets the studio authorise GymOS onto their existing Stripe account (one-shot per studio at onboarding)
 - [ ] **STR-02**: `checkout.session.completed` handler creates/updates `payments` row + grants pass if line item is a pack
@@ -47,7 +47,7 @@
 - [ ] **STR-07**: All Stripe handlers idempotent (verified by replaying the same event twice in tests — no duplicate `payments` or pass-balance changes)
 - [ ] **STR-08**: No card data ever stored — only Stripe tokenised IDs in DB
 
-### WhatsApp Integration (Phase 1)
+### WhatsApp Integration (Phase 1b)
 
 - [ ] **WA-01**: Inbound webhook materialises `conversations` + `messages` from Meta payloads; dedup on `(provider_event_type, external_id)`
 - [ ] **WA-02**: Message status webhooks (`sent`/`delivered`/`read`/`failed`) update `messages.status` via ordinal-guarded UPDATE (never downgrades)
@@ -57,7 +57,7 @@
 - [ ] **WA-06**: WhatsApp template send path uses the approved template list from `whatsapp_templates` (synced daily by a worker housekeeping job)
 - [ ] **WA-07**: WhatsApp client wrapped in a thin adapter (`packages/whatsapp/`) so swapping `@great-detail/whatsapp` for hand-rolled Graph API calls is a one-file change
 
-### Staff Authentication (Phase 1)
+### Staff Authentication (Phase 1a)
 
 - [ ] **AUTH-01**: Coach can sign in to staff-web with email + password via Better-auth
 - [ ] **AUTH-02**: Coach session persists across browser refresh and SSR loaders
@@ -65,14 +65,14 @@
 - [ ] **AUTH-04**: Two roles supported (`admin`, `coach`); `admin` can manage class definitions + Stripe settings, `coach` cannot
 - [ ] **AUTH-05**: Better-auth wired via `runAuthGuard` from `@agent-native/core/server` (matches upstream pattern)
 
-### Per-Customer Deploy (Phase 1)
+### Per-Customer Deploy (Phase 1a)
 
 - [ ] **DEP-01**: `scripts/deploy.sh <studio>` deploys all 3 apps (staff-web → Vercel, edge-webhooks + worker → Fly) for the named studio — no manual deploys
 - [ ] **DEP-02**: Per-studio config lives in `studios/<studio>/env.yml` (sops-encrypted); no per-studio config rows in the DB
 - [ ] **DEP-03**: Boot-time Zod validation of env vars — missing or malformed config fails the deploy fast
 - [ ] **DEP-04**: `scripts/deploy-all.sh` deploys every studio in `studios/` (for when N > 1)
 
-### Observability & Hygiene (Phase 1)
+### Observability & Hygiene (Phase 1a)
 
 - [ ] **OBS-01**: Pino logger configured across all 3 apps with PII redaction (phone numbers, emails, card last4 masked in logs)
 - [ ] **OBS-02**: `/healthz` endpoint on edge-webhooks reports webhook receive latency, queue depth, last-processed timestamps
@@ -217,33 +217,36 @@ Explicitly excluded from v1. Reasoning preserved to prevent re-adding under dead
 
 ## Traceability
 
-Populated by the roadmapper when ROADMAP.md is created. Empty initially.
+Mapped by `/gsd:new-project` roadmapper on 2026-05-17. Status `Pending` until each requirement is delivered + verified.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FND-01 — FND-08 | Phase 0 | Pending |
-| DB-01 — DB-06 | Phase 1 | Pending |
-| WEB-01 — WEB-06 | Phase 1 | Pending |
-| STR-01 — STR-08 | Phase 1 | Pending |
-| WA-01 — WA-07 | Phase 1 | Pending |
-| AUTH-01 — AUTH-05 | Phase 1 | Pending |
-| DEP-01 — DEP-04 | Phase 1 | Pending |
-| OBS-01 — OBS-02 | Phase 1 | Pending |
-| INBX-01 — INBX-07 | Phase 2 | Pending |
-| MEM-01 — MEM-04 | Phase 2 | Pending |
-| SCH-01 — SCH-06 | Phase 2 | Pending |
-| BKG-01 — BKG-06 | Phase 2 | Pending |
-| WAIT-01 — WAIT-06 | Phase 2 | Pending |
-| PAY-01 — PAY-05 | Phase 2 | Pending |
-| NOTIF-01 — NOTIF-05 | Phase 2 | Pending |
-| RTC-01 — RTC-03 | Phase 2 | Pending |
-| SET-01 — SET-03 | Phase 2 | Pending |
+| FND-01 — FND-08 (8 reqs) | Phase 0 — Audit & De-Risk | Pending |
+| DB-01 — DB-06 (6 reqs) | Phase 1a — Data Foundation, Auth & Deploy | Pending |
+| AUTH-01 — AUTH-05 (5 reqs) | Phase 1a — Data Foundation, Auth & Deploy | Pending |
+| DEP-01 — DEP-04 (4 reqs) | Phase 1a — Data Foundation, Auth & Deploy | Pending |
+| OBS-01 — OBS-02 (2 reqs) | Phase 1a — Data Foundation, Auth & Deploy | Pending |
+| WEB-01 — WEB-06 (6 reqs) | Phase 1b — Webhook + Worker Spine | Pending |
+| STR-01 — STR-08 (8 reqs) | Phase 1b — Webhook + Worker Spine | Pending |
+| WA-01 — WA-07 (7 reqs) | Phase 1b — Webhook + Worker Spine | Pending |
+| INBX-01 — INBX-07 (7 reqs) | Phase 2 — Staff Product Surfaces | Pending |
+| MEM-01 — MEM-04 (4 reqs) | Phase 2 — Staff Product Surfaces | Pending |
+| SCH-01 — SCH-06 (6 reqs) | Phase 2 — Staff Product Surfaces | Pending |
+| BKG-01 — BKG-06 (6 reqs) | Phase 2 — Staff Product Surfaces | Pending |
+| WAIT-01 — WAIT-06 (6 reqs) | Phase 2 — Staff Product Surfaces | Pending |
+| PAY-01 — PAY-05 (5 reqs) | Phase 2 — Staff Product Surfaces | Pending |
+| NOTIF-01 — NOTIF-05 (5 reqs) | Phase 2 — Staff Product Surfaces | Pending |
+| RTC-01 — RTC-03 (3 reqs) | Phase 2 — Staff Product Surfaces | Pending |
+| SET-01 — SET-03 (3 reqs) | Phase 2 — Staff Product Surfaces | Pending |
 
-**Coverage (provisional — confirmed by roadmapper):**
-- v1 requirements: 86 total (8 + 30 + 48)
-- Mapped to phases: 86 (8 → Phase 0, 30 → Phase 1, 48 → Phase 2)
+**Coverage (confirmed by roadmapper 2026-05-17):**
+- v1 requirements: **91 total** (8 Phase 0 + 17 Phase 1a + 21 Phase 1b + 45 Phase 2)
+- Mapped to phases: **91 / 91** ✓
 - Unmapped: 0 ✓
+- Duplicates (a requirement in multiple phases): 0 ✓
+
+*Correction note:* the provisional counts in the previous traceability block ("86 total = 8 + 30 + 48") under-counted Phase 1 and Phase 2 by category-row arithmetic; the true totals after recount are 8 + 38 + 45 = 91. The Phase 1 figure (38) is then split between Phase 1a (17) and Phase 1b (21) per the roadmap split.
 
 ---
 *Requirements defined: 2026-05-17*
-*Last updated: 2026-05-17 after initial definition*
+*Last updated: 2026-05-17 — traceability table populated by roadmapper; Phase 1 split into 1a (data + auth + deploy + observability) and 1b (webhook + worker spine + Stripe + WhatsApp).*
