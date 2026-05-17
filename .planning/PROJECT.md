@@ -1,12 +1,14 @@
 # GymOS
 
+> **NOTE (2026-05-17, late):** Earlier in this session I claimed agent-native templates were all web (React Router v7) and the member surface should be a PWA. That was wrong — `packages/mobile-app` exists in agent-native upstream as a full Expo 55 + Expo Router + React Native 0.83.9 app (iOS/Android/web). Decision REVERSED: member surface is now `packages/mobile-app` forked & extended. Demo via Expo Go on customer's phone. Production via EAS Build under customer's Apple Dev Account. PWA references throughout this file should be read as "Expo native app" — surgically corrected in the key places below; if you find a stale "PWA" reference, the native decision wins.
+
 ## What This Is
 
-GymOS is a boutique fitness studio management platform — staff back-office web app and a mobile-optimised member-facing web surface (PWA), with direct integrations to WhatsApp Business API and Stripe — built by adapting Builder.io's MIT-licensed `agent-native` framework into a vertical product. The first deployment is a signed gym studio customer; the same fork pattern is intended to seed future verticals in other industries.
+GymOS is a boutique fitness studio management platform — staff back-office web app and a native member-facing mobile app (React Native via Expo), with direct integrations to WhatsApp Business API and Stripe — built by adapting Builder.io's MIT-licensed `agent-native` framework into a vertical product. The staff back-office adapts agent-native's Mail and Calendar web templates; the member app forks agent-native's `packages/mobile-app` (Expo + RN). The first deployment is a signed gym studio customer; the same fork pattern is intended to seed future verticals in other industries.
 
 ## Core Value
 
-Coaches and studio managers run their entire day from one inbox-and-schedule surface (WhatsApp conversations + class bookings + member context). Members book, pay, and log activity / nutrition from a mobile-optimised web app (no App Store) that includes an in-app coaching agent — without staff cobbling together WhatsApp, calendar, calorie-tracking, and CRM tools.
+Coaches and studio managers run their entire day from one inbox-and-schedule surface (WhatsApp conversations + class bookings + member context). Members book, pay, and log activity / nutrition from a native iOS/Android app (forked from agent-native's `packages/mobile-app`) that includes an in-app coaching agent — without staff cobbling together WhatsApp, calendar, calorie-tracking, and CRM tools.
 
 ## Requirements
 
@@ -49,8 +51,9 @@ Coaches and studio managers run their entire day from one inbox-and-schedule sur
 <!-- Explicit boundaries. Includes reasoning to prevent re-adding. -->
 
 - **Multi-tenant schema** — using single-tenant code with per-customer deploy instead (one Neon project + one Vercel deploy + one Fly app per studio). Avoids `studio_id` leakage everywhere and keeps the schema crisp.
-- **Native mobile apps** — member surface in v1 is a mobile-optimised PWA on React Router v7 (installable to home screen), NOT a React Native / Expo / Flutter native build. No App Store / Play Store submissions, no Apple Developer Account flow per studio, no Fastlane pipeline, no EAS Build. Native is a v1.x conversation once the PWA is in front of real members.
-- **HealthKit integration** — depends on native mobile, which we're not building in v1. Coach View with member health context is therefore also deferred (no health data to surface).
+- **Building member mobile from scratch (NOT adapting `packages/mobile-app`)** — the fork-and-extend path is the rule; do NOT spin up a new Expo project. Always start from `packages/mobile-app` in the upstream fork.
+- **Fresh per-studio App Store / Play Store listings** — overwrites customer's existing app on their existing Apple Developer Account (their existing bundle ID + listing). No new submissions / no Fastlane-per-studio-from-scratch.
+- **HealthKit integration in week 1 demo** — deferred from demo sprint scope (Expo Go doesn't support custom native modules). Production v1 enables HealthKit via `react-native-health` once we move to EAS Dev Client / production builds. Coach View with health context follows.
 - **Managed WhatsApp providers (Twilio, MessageBird, Vonage)** — direct Meta integration for cost and control.
 - **Cross-channel CRM (email / SMS / push as parallel channels)** — WhatsApp is the only active member channel in v1. Postmark / Twilio / APNs are deferred.
 - **Stripe Connect (OAuth platform model)** — using direct restricted-API-key model instead (studio creates Stripe account, gives scoped key, we store encrypted). Avoids Connect onboarding ceremony, application-fee logic, and `account.application.deauthorized` handling. Aligns with "studio owns merchant relationship" thesis.
@@ -91,7 +94,7 @@ Coaches and studio managers run their entire day from one inbox-and-schedule sur
 - **Tech stack — Web:** Vercel hosting + TypeScript end-to-end. Framework: **React Router v7 framework mode** (matches agent-native upstream — verified). ORM: **Drizzle**. Auth: **Better-auth** (via `runAuthGuard` from `@agent-native/core/server`).
 - **Tech stack — Long-running services / webhooks:** Fly.io. WhatsApp inbound webhook + Stripe webhook receivers live here (Hono app). Background worker (pg-boss subscriber against Neon, NO Redis) runs as a sibling process in the same Fly app.
 - **Tech stack — Queue:** pg-boss on Neon. No Redis. No BullMQ. Postgres handles queueing in its own `pgboss.*` schema alongside the application schema.
-- **Tech stack — Member surface:** Mobile-optimised PWA on React Router v7 (installable to home screen via Web App Manifest). NO React Native, NO Expo, NO native build.
+- **Tech stack — Member surface:** Native iOS/Android app via **Expo 55 + Expo Router + React Native 0.83.9**, forked from agent-native's `packages/mobile-app`. Demo via **Expo Go** on customer's phone this week; production via **EAS Build** + customer's existing Apple Developer Account (overwrites their existing app on their account).
 - **Tech stack — WhatsApp:** `@great-detail/whatsapp` (^9.x, mirrored to studio org's GitHub at fork time; pin to mirror git SHA — the official Meta `WhatsApp/WhatsApp-Nodejs-SDK` is paused per Issue #31). Wrapped in a thin adapter so the SDK can be swapped for hand-rolled Graph API calls in one file change.
 - **Tech stack — Stripe:** Stripe Node SDK with `apiVersion` explicitly pinned. **Direct restricted-API-key model** (studio creates Stripe account, generates restricted key, we store encrypted in Postgres via `pgcrypto`). NOT Stripe Connect.
 - **Tech stack — Nutrition data:** Open Food Facts (free, packaged-food focus, no API key required) + USDA Food Data Central as fallback for natural-language items not in OFF. LLM fills gaps for descriptions neither matches.
@@ -117,7 +120,7 @@ Coaches and studio managers run their entire day from one inbox-and-schedule sur
 | **Stripe direct restricted-API-key (NOT Connect)** | Studio owns merchant relationship outright; cleaner than Connect; no application-fee or deauth handling; bsport-migration story works cleanly | — Locked 2026-05-17 |
 | Single-tenant code, multi-tenant deploy | Keeps schema clean, eliminates whole class of tenant-isolation bugs, fits per-customer deploy model used by future verticals | — Locked |
 | Open Food Facts + USDA Food Data Central for nutrition | Free, no API key for OFF; broad packaged-food coverage; LLM fills natural-language gaps | — Locked |
-| **Member surface = mobile-optimised PWA on RR v7 (NOT native)** | No App Store dance; no Fastlane; no Expo; ships fastest; install-to-home-screen covers 80% of the native-app experience for fitness use case; native deferred to v1.x | — Locked 2026-05-17 |
+| **Member surface = Expo native app forked from agent-native `packages/mobile-app`** | agent-native ships a working Expo 55 + Expo Router + RN 0.83.9 + iOS/Android/web mobile-app in `packages/mobile-app`. Forking it satisfies "modify agent-native products" and avoids reinventing a mobile shell. Demo this week via Expo Go (no native modules needed); production via EAS Build under customer's existing Apple Dev Account. | — Locked 2026-05-17 (REVERSED earlier mid-session PWA decision after `packages/mobile-app` was discovered) |
 | **Calorie counter built fresh in agent-native style (NOT fork OpenNutriTracker)** | OpenNutriTracker is Flutter + GPL v3 — wrong stack AND wrong license for proprietary commercial distribution. Use as inspiration only. | — Locked 2026-05-17 |
 | Demo this week + production v1 by 2026-07-15 (two milestones) | Customer demo pressure forces a vertical slice now; production hardens what the demo taught us | — Locked 2026-05-17 |
 | Don't extract a generic "vertical framework" yet | Premature abstraction risk; let two verticals exist before deciding what's truly reusable | — Locked |

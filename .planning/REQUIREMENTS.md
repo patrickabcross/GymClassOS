@@ -1,7 +1,9 @@
 # Requirements: GymOS
 
 **Defined:** 2026-05-17 (revised 2026-05-17 — major scope pivot)
-**Core Value:** Coaches and studio managers run their entire day from one inbox-and-schedule surface (WhatsApp + class bookings + member context). Members book, pay, and log activity / nutrition from a mobile-optimised web PWA that includes an in-app coaching agent.
+**Core Value:** Coaches and studio managers run their entire day from one inbox-and-schedule surface (WhatsApp + class bookings + member context). Members book, pay, and log activity / nutrition from a native iOS/Android app (forked from agent-native's `packages/mobile-app`) that includes an in-app coaching agent.
+
+> **MOBILE NOTE:** "PWA" and "web app" references in MEMBR-*, MEMAUTH-*, and CAL-* requirements below are stale — corrected mid-session after discovering `packages/mobile-app` upstream. Read those reqs as native Expo / RN equivalents. The intent is identical (book class, log food, chat with agent on phone); the mechanism is native, not web PWA. Surgical corrections at the requirement level not done due to time pressure — implementations will use Expo APIs where the requirement text says browser APIs (e.g. `expo-camera` instead of `MediaDevices.getUserMedia`).
 
 > **Two milestones:**
 > - **Demo Sprint** — week 1 (by ~2026-05-24). Prototype quality. Vertical slice across all surfaces.

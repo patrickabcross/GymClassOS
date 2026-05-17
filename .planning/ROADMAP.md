@@ -48,9 +48,11 @@ Post-v1 backlog (HealthKit + native mobile, Coach View with health context, CRM 
 4. Member context panel in the inbox shows next-class + pass-balance for the opened conversation's member (real data)
 5. Stripe Checkout link generated for a 10-pack purchase + paid in Stripe test mode + resulting pass grant visible in member profile
 
-### Phase D2: Member PWA + Calorie Counter + Agent (Days 4–7)
+### Phase D2: Member Mobile App + Calorie Counter + Agent (Days 4–7)
 
-**Goal:** Member can install the PWA to their phone home screen, log in, browse + book a class, log a meal, and chat with the in-app agent.
+**Goal:** Member opens an Expo Go link on their phone, loads the GymOS member app (forked from agent-native's `packages/mobile-app`), logs in, browses + books a class, logs a meal, and chats with the in-app agent.
+
+> **CORRECTION (2026-05-17 late):** Earlier text in this file said "PWA" for the member surface. Replaced — member surface is native via Expo + RN, forked from upstream `packages/mobile-app`. Demo via Expo Go (no native module compile, no Apple Dev Account this week). Production via EAS Build later. Read "PWA" / "web manifest" / "install-to-home-screen" elsewhere in this file as native Expo Go install for the demo and EAS Build install for production.
 
 **Requirements:** MEMBR-01, MEMBR-02, MEMBR-03, MEMBR-06 (basic manifest), CAL-01, CAL-02, CAL-03, AGENT-01, AGENT-02, AGENT-03, WA-01 (verify inbound), WA-02 (one outbound)
 
