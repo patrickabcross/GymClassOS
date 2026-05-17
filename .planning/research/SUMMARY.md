@@ -1,5 +1,14 @@
 # Project Research Summary — GymOS
 
+> **⚠️ PARTIALLY STALE (revised 2026-05-17):** Written before the major scope revision. Specifically:
+> - **Stripe Connect → direct restricted-API-key** (no Connect ceremony, no app-fee, no deauth handler)
+> - **BullMQ + Redis → pg-boss on Neon** (queue lives in same DB as app data, no Redis)
+> - **Mobile = updates to existing RN app → mobile-optimised PWA on RR v7** (no native, no Expo, no Fastlane)
+> - **Phase 5 calorie counter → built fresh in v1** (no upstream "Calorie tracker" template; OpenNutriTracker reference-only due to Flutter+GPL v3 incompatibility)
+> - **Phases 0/1a/1b/2 → Demo Sprint (Week 1) + Production v1 (Weeks 2-9)** two-milestone shape
+>
+> Read this for stack/feature/architecture *patterns*; architecture-of-record is PROJECT.md.
+
 **Project:** GymOS — boutique fitness studio management platform (fork of `BuilderIO/agent-native`)
 **Domain:** Vertical SaaS — WhatsApp-first staff inbox + class scheduling/bookings/passes + Stripe Connect billing; mobile features (Phase 3+) embed into customer's existing React Native app
 **Researched:** 2026-05-17

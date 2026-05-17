@@ -49,8 +49,7 @@ This means: **the only DB swap we need to make is configuring Drizzle for `pg`/`
 | **Stripe Node SDK** | `^17.x` (latest stable — verify the exact patch at install time; pin to the version that matches your target API version) | Payments | Use `stripe.webhooks.constructEvent()` — never hand-roll HMAC. Use Stripe Connect (OAuth) so studios authorise GymOS onto their *existing* account. |
 | **`@great-detail/whatsapp`** | `^9.x` (April 2026) | WhatsApp Cloud API client | **Critical**: Meta's official `WhatsApp/WhatsApp-Nodejs-SDK` was paused (see Issue #31, "Pausing Development of the WhatsApp SDK"). `@great-detail/whatsapp` is the maintained fork. Tracks Cloud API v23, ships TS types, ESM + CJS, includes `event.verifySignature(appSecret)` for webhook validation. **Confidence: MEDIUM** — depends on a single maintainer; mitigation in the "What NOT to Use" section below. |
 | **Hono** | `^4.x` | The Fly.io webhook receiver app + the Fly.io background worker's tiny admin HTTP surface | Hono is the right TS-native choice for the *Fly.io side* (which is a *separate* app from the React Router app on Vercel). Tiny bundle, first-class TS, easy raw-body handling for Stripe and WhatsApp signature verification. Do *not* use Hono for the staff web app — that's React Router. |
-| **BullMQ** | `^5.x` | Background job queue on Fly.io | Industry-standard Node queue. Pairs with Redis. Workers run as a separate Fly machine. Used for: outbound WhatsApp send queue, Stripe webhook idempotent post-processing, class reminder scheduling. |
-| **Upstash for Redis** (via Fly) | latest | Redis for BullMQ | Provisioned with `fly redis create` — runs inside the Fly org, private network, no public Redis exposure. Fixed-price plan (start at $10/mo / 250MB) because BullMQ is chatty and PAYG will surprise you. |
+| **pg-boss** | `^10.x` | Background job queue on Fly.io (Postgres-backed) | Postgres-native queue running against the same Neon instance as application data. Eliminates Redis entirely — one fewer service, one fewer secret, one fewer failure mode. Supports delayed jobs (`sendAfter`), idempotency (`singletonKey`), retries with backoff, cron schedules, and dead-letter via `expireInHours`. Used for: outbound WhatsApp send queue, Stripe webhook post-processing, class reminder scheduling, weekly schedule materialisation. Locked in over BullMQ for the simplicity gain — solo-dev, low-volume v1. |
 
 ### Supporting Libraries
 
@@ -91,7 +90,7 @@ This means: **the only DB swap we need to make is configuring Drizzle for `pg`/`
 pnpm add @great-detail/whatsapp        # WhatsApp Cloud API client (maintained fork)
 pnpm add stripe                        # Stripe Node SDK
 pnpm add hono                          # Fly.io webhook receiver framework
-pnpm add bullmq ioredis                # Background job queue + Redis client
+pnpm add pg-boss                       # Background job queue (Postgres-backed, no Redis)
 pnpm add date-fns-tz                   # Timezone-aware date math for class schedules
 pnpm add pino pino-http                # Structured logging on Fly
 
@@ -110,8 +109,8 @@ The locked-in tenancy model (one Neon project + one Vercel deploy + one Fly app 
 | App | Where | What | Why there |
 |---|---|---|---|
 | **`apps/staff-web`** (forked from agent-native templates: Mail → WhatsApp client, Calendar → class schedule, Content → KB, Analytics → reporting, Calorie tracker → calorie counter) | Vercel | React Router v7 SSR app — staff login, WhatsApp inbox, schedule, member directory, reports | Stateless, edge/serverless-friendly. Vercel's React Router v7 support (`@vercel/react-router` adapter) is first-class. |
-| **`apps/edge-webhooks`** (new — Hono) | Fly.io (single small machine, always on) | Receives Meta WhatsApp inbound webhooks and Stripe webhooks. Verifies signatures. Enqueues to BullMQ. Returns 200 within Meta's/Stripe's tight timeout windows. | Vercel functions are *fine for Stripe* but Meta WhatsApp webhooks need a permanently warm endpoint with a stable IP for Meta's allowlist — Fly is the right home. Co-locating Stripe here too keeps idempotency state in one Redis. |
-| **`apps/worker`** (new — Node BullMQ workers) | Fly.io (same Fly app or sibling) | Processes the BullMQ queues: outbound WhatsApp sender (enforces 24h window + template gate), Stripe event reducer, class-reminder scheduler | Long-running, needs persistent process + Redis. Vercel cron is too coarse for reminder windows. |
+| **`apps/edge-webhooks`** (new — Hono) | Fly.io (single small machine, always on) | Receives Meta WhatsApp inbound webhooks and Stripe webhooks. Verifies signatures. Enqueues via pg-boss directly against Neon. Returns 200 within Meta's/Stripe's tight timeout windows. | Vercel functions are *fine for Stripe* but Meta WhatsApp webhooks need a permanently warm endpoint with a stable IP for Meta's allowlist — Fly is the right home. Co-locating Stripe here keeps webhook ingress in one place; idempotency state lives in Postgres (`webhook_events` table). |
+| **`apps/worker`** (new — Node pg-boss workers) | Fly.io (same Fly app or sibling) | Processes the pg-boss queues: outbound WhatsApp sender (enforces 24h window + template gate), Stripe event reducer, class-reminder scheduler, schedule materialisation cron | Long-running, needs persistent process. Workers subscribe to pg-boss queues over the same Neon connection used for app data. Vercel cron is too coarse for reminder windows. |
 
 ## Server Actions vs API Routes — Use Loaders + Actions
 
@@ -132,10 +131,10 @@ This is a Next.js-shaped question; in React Router v7 the answer is different. U
 | `@great-detail/whatsapp` | Hand-rolling Graph API calls with `fetch` + a 300-line typed wrapper | Acceptable backup if the maintained fork goes stale. Track it in PITFALLS.md. The Graph API itself is simple; the value of the SDK is mostly the webhook signature verification + typed templates. If you hand-roll, copy their `verifySignature` implementation. |
 | `@great-detail/whatsapp` | Twilio/MessageBird/Vonage | **Locked out** by project constraint. |
 | Hono on Fly for webhooks | Express on Fly | Hono's raw-body story is cleaner and the TS types are designed-in. Express works but you'll fight `express.json()` middleware order for webhook signature verification — a documented Stripe footgun. |
-| BullMQ + Redis on Fly | Inngest (managed) | Inngest is excellent and tempting for solo devs, but it's a *third-party SaaS* — adds another vendor, another billing relationship, and routes job execution through their cloud. For a per-studio deploy model this means N Inngest projects to manage. BullMQ on Fly stays inside the Fly app boundary and matches the one-deploy-per-studio mental model. Reconsider Inngest if you ever centralise multi-studio observability. |
-| BullMQ + Redis on Fly | Trigger.dev | Same trade as Inngest, plus Trigger.dev shines for *long, complex multi-step workflows* — overkill for the current job set (send a message, idempotency-check an event, schedule a reminder). |
-| BullMQ + Redis on Fly | pg-boss (Postgres-backed queue, no Redis) | Genuinely viable for a low-volume v1 and would remove the Redis dependency. **If the Phase 0 audit finds Redis ops a meaningful burden, switch to pg-boss.** Marked LOW-MEDIUM confidence; revisit at Phase 2 milestone planning. |
-| BullMQ + Redis on Fly | Native Node `setInterval` / Vercel Cron | Insufficient — reminders need per-class scheduling, WhatsApp sender needs queue retries + rate limits. |
+| pg-boss on Neon | BullMQ + Redis on Fly | Pick BullMQ only if v1 job volume actually exceeds pg-boss's comfortable range (broadly ~10k jobs/day per studio with default polling). Trade: + more mature rate-limit primitives and priority lanes; − adds Redis as a service, adds an Upstash bill, adds a secret, doubles the things-that-can-break. For a solo-dev / one-studio / 2-month ship, the simplicity wins. Re-evaluate at the milestone after the first studio is live. |
+| pg-boss on Neon | Inngest (managed) | Inngest is excellent and tempting for solo devs, but it's a *third-party SaaS* — adds another vendor, another billing relationship, and routes job execution through their cloud. For a per-studio deploy model this means N Inngest projects to manage. pg-boss stays inside the per-studio Neon boundary and matches the one-deploy-per-studio mental model. Reconsider Inngest if you ever centralise multi-studio observability. |
+| pg-boss on Neon | Trigger.dev | Same trade as Inngest, plus Trigger.dev shines for *long, complex multi-step workflows* — overkill for the current job set (send a message, idempotency-check an event, schedule a reminder). |
+| pg-boss on Neon | Native Node `setInterval` / Vercel Cron | Insufficient — reminders need per-class scheduling, WhatsApp sender needs queue retries + delayed jobs, no observability story. |
 | shadcn/ui on top of agent-native's existing Radix components | Mantine, Chakra, custom Tailwind | Agent-native already uses Radix + Tailwind + CVA, which IS shadcn's stack. Adding shadcn = adding more components in the same idiom. Switching to Mantine/Chakra means two design systems clashing. |
 | Better Stack (log management) | Axiom | Axiom is arguably stronger for high-volume serverless logs; pick it if you grow past 50GB/month or want Vercel-native function logs. For a per-studio deploy with modest volume, Better Stack's free tier + Fly Logshipper + Vercel integration is the lower-friction starting point. |
 
@@ -174,9 +173,10 @@ This is a Next.js-shaped question; in React Router v7 the answer is different. U
 - Drop agent-native entirely. Reconsider: do you still want React Router v7? (Probably yes, for the speed-of-iteration and SSR ergonomics.) Do you still want Better-auth? (Yes — the auth analysis above is independent of the framework choice.)
 - Effectively a different STACK.md. Flag for re-research if this branch is chosen.
 
-**If background job volume stays under ~1k jobs/day after v1:**
-- Drop BullMQ, drop Redis, use `pg-boss` (Postgres-backed queue) on the existing Neon instance
-- Removes a service. Loses some queue-features (less mature rate limiting, no built-in priority lanes) but the simplicity wins at low volume.
+**If background job volume per studio exceeds ~10k jobs/day after launch:**
+- Re-evaluate pg-boss → BullMQ + Redis. Concrete trigger: pg-boss polling latency p95 > 2s OR Postgres write contention on the queue tables observed in slow-query logs.
+- Migration path is contained: the worker subscribe/handler signature is conceptually identical between the two libraries, and `webhook_events` (the source-of-truth idempotency table) is unchanged. The change is the queue library and the addition of one Redis (Upstash on Fly).
+- Until that trigger fires, the simpler choice is correct.
 
 ## Version Compatibility
 
@@ -191,7 +191,7 @@ This is a Next.js-shaped question; in React Router v7 the answer is different. U
 | Better-auth 1.6.x | React Router v7 + H3 | Used in this exact combo by agent-native — confirm at Phase 0 by reading `runAuthGuard` source in `@agent-native/core/server` |
 | `@great-detail/whatsapp` 9.x | Node 22+ | Will not run on Node 20 LTS — pin Fly machine to Node 22 (or Bun 1.2+) |
 | Hono 4.x | Node 22+ on Fly | Works on Node 20 too, but match the WhatsApp SDK's Node 22 requirement and standardise |
-| BullMQ 5.x | Redis 6.2+ (Upstash satisfies) | Use a fixed-price Upstash plan, not PAYG |
+| pg-boss 10.x | Postgres 11+ (Neon satisfies) | Auto-creates its own `pgboss` schema on `boss.start()`; runs alongside the application schema in the same Neon project |
 | Stripe Node SDK 17.x | Stripe API version pinned in `apiVersion` constructor option | Always pin `apiVersion` explicitly; never let it float |
 
 ## Confidence Notes (Read Before Locking Any Choice)
@@ -200,7 +200,7 @@ This is a Next.js-shaped question; in React Router v7 the answer is different. U
 - **HIGH** confidence in Tailwind v4 + Radix + shadcn — agent-native uses Radix + Tailwind already; shadcn is additive.
 - **HIGH** confidence on Stripe SDK + webhook pattern — Stripe's official docs are authoritative.
 - **MEDIUM** confidence on `@great-detail/whatsapp` — official Meta SDK is dead; the fork is the best option, but it's a single-maintainer project. **Mitigation**: at Phase 0, fork the package to your own GitHub org as insurance, and write the webhook signature verification + send-template paths in such a way that swapping to hand-rolled Graph API calls is a one-file change.
-- **MEDIUM** confidence on **BullMQ vs pg-boss** — BullMQ is more capable but pg-boss is simpler. Final call should depend on actual job volume estimates from REQUIREMENTS.md. Flag for Phase 2 plan-time revisit.
+- **HIGH** confidence on **pg-boss as v1 queue** — locked in 2026-05-17. Trades BullMQ's mature primitives for the operational simplicity of eliminating Redis. Re-evaluation trigger documented in §Stack Patterns by Variant ("If background job volume per studio exceeds ~10k jobs/day").
 - **MEDIUM** confidence on **Vercel deployment of React Router v7 framework mode** — Vercel officially supports it (per changelog) but the community thread "React Router v7 with middleware fails on Vercel" shows there are edge cases with v7's middleware feature. **Action**: at Phase 0, deploy a hello-world React Router v7 + Better-auth app to Vercel before committing to the architecture.
 - **LOW-MEDIUM** confidence on the **exact React Router v7 patch version** — the 7.x line is moving fast. Pin to whatever `BuilderIO/agent-native@main` currently uses at fork time.
 
@@ -221,7 +221,8 @@ This is a Next.js-shaped question; in React Router v7 the answer is different. U
 - Stripe docs (`docs.stripe.com/webhooks/signature`, `docs.stripe.com/webhooks/quickstart?lang=node`) — `stripe.webhooks.constructEvent()` is the only correct pattern
 - Better-auth docs + 2026 comparison surveys (PkgPulse, BuildPilot) — Better-auth is the current state of the art for self-hosted auth, Lucia confirmed in maintenance mode
 - shadcn/ui docs (`ui.shadcn.com/docs/installation/react-router`, `ui.shadcn.com/docs/tailwind-v4`) — first-class React Router v7 and Tailwind v4 support
-- Fly.io docs (`fly.io/docs/blueprints/work-queues/`, `fly.io/docs/upstash/redis/`) — BullMQ + Upstash Redis is the official pattern; fixed-price plans recommended
+- Fly.io docs (`fly.io/docs/blueprints/work-queues/`) — Fly's documented queue patterns include BullMQ + Redis; pg-boss is the lighter alternative when the application is already on Postgres
+- pg-boss docs (`github.com/timgit/pg-boss/blob/master/docs/readme.md`) — `boss.start()`, `boss.send()`, `boss.work()`, `singletonKey`, `sendAfter`, schedule API
 - Hono docs (`hono.dev`) + Express vs Hono 2026 surveys — Hono is the TS-native default for new webhook receivers
 - Better Stack + Axiom Vercel/Fly integration docs — both supported; Better Stack lower-friction at GymOS volume
 
@@ -229,4 +230,4 @@ This is a Next.js-shaped question; in React Router v7 the answer is different. U
 
 *Stack research for: boutique fitness studio management platform (GymOS)*
 *Researched: 2026-05-17*
-*Confidence: HIGH for framework stack, MEDIUM for WhatsApp client and job runtime choice*
+*Confidence: HIGH for framework stack and pg-boss queue choice; MEDIUM for WhatsApp client (single-maintainer mitigation in §What NOT to Use)*

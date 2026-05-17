@@ -130,7 +130,7 @@ Drop-in Single-Class Purchase (table-stakes)
 Late-Cancel / No-Show Enforcement (table-stakes)
   ├──requires──> Cancellation window stored on class_template
   ├──requires──> Cancel-booking action that checks window
-  └──requires──> No-show detection (post-class scheduled job — BullMQ worker)
+  └──requires──> No-show detection (post-class scheduled job — pg-boss worker)
         └──requires──> A "class ended, mark no-shows" job per class_instance.start_at
 
 Waitlist Auto-Promote (table-stakes)
@@ -156,7 +156,7 @@ Reply-To-Confirm (DIFFERENTIATOR)
 Class Reminders via WhatsApp (table-stakes per industry; ours via WhatsApp)
   ├──requires──> WhatsApp Outbound Template
   ├──requires──> Scheduled job per booking (e.g., 24h-before and 2h-before)
-  └──requires──> BullMQ delayed-job for scheduling
+  └──requires──> pg-boss `sendAfter` delayed-job for scheduling
 ```
 
 ### Dependency Notes
@@ -190,7 +190,7 @@ The *narrowest* set that makes the signed customer's day-to-day work. Re-derived
 
 **Class scheduling:**
 - [ ] Class template: name, description, default capacity, default instructor, recurrence (weekly), cancellation window hours
-- [ ] Class instance materialisation (BullMQ scheduled job to roll the window forward weekly)
+- [ ] Class instance materialisation (pg-boss scheduled job to roll the window forward weekly)
 - [ ] Per-instance: cancel, swap instructor, change capacity
 - [ ] Calendar view (week + day, from agent-native Calendar template)
 

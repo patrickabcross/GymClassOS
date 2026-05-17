@@ -1,5 +1,13 @@
 # Pitfalls Research — GymOS
 
+> **⚠️ PARTIALLY STALE (revised 2026-05-17):** This file was written before the major scope revision. Specifically:
+> - **Stripe Connect pitfalls (#13 etc.)** no longer apply — we're using direct restricted-API-key (NOT Connect). Skip the deauth + app-fee sections; the rest of the Stripe idempotency / atomicity / raw-body / replay pitfalls still apply.
+> - **BullMQ references (#20, anti-patterns table, sources)** — replaced by pg-boss on Neon. The *pattern* (at-least-once delivery → duplicate sends → must use idempotent job IDs) is identical; just s/BullMQ jobId/pg-boss singletonKey/.
+> - **Vercel↔Fly Redis routing pitfalls** — moot. No Redis. Both Vercel and Fly connect directly to Neon for queue work (pg-boss).
+> - **Native mobile pitfalls** — not relevant for v1 (web PWA only). Re-engage when native mobile returns post-v1.
+>
+> Architecture-of-record is PROJECT.md. Read this for the underlying patterns; cross-check against PROJECT.md for what's still in scope.
+
 **Domain:** Boutique fitness studio management platform (WhatsApp Cloud API direct + Stripe Connect + Neon + React Router v7 fork of agent-native + per-customer-deploy)
 **Researched:** 2026-05-17
 **Confidence:** HIGH for WhatsApp/Stripe/booking-race patterns (verified against Meta, Stripe, Postgres docs and 2026 community write-ups); HIGH for fork-drift patterns (industry-wide documented pattern); MEDIUM for per-customer-deploy specifics (transferred from Microsoft 365 / multi-tenant ops literature; the underlying mechanics generalise but the exact tooling story is project-specific).
@@ -542,26 +550,26 @@ Meta's official SDK is paused. The fork is the best option, but it's structurall
 
 ---
 
-### Pitfall 20: BullMQ at-least-once delivery causes duplicate outbound WhatsApp sends
+### Pitfall 20: Worker queue at-least-once delivery causes duplicate outbound WhatsApp sends (pg-boss specifics)
 
 **Severity:** HIGH — member receives the same message twice, looks unprofessional, hits Meta quality rating
 
 **What goes wrong:**
-A class-reminder job is enqueued. Worker picks it up, sends the WhatsApp template successfully, but crashes/times-out BEFORE marking the job complete. BullMQ retries the job. Member gets two reminders. Multiply by 100 members across all daily reminders; quality rating tanks.
+A class-reminder job is enqueued. Worker picks it up, sends the WhatsApp template successfully, but crashes/times-out BEFORE marking the job complete. pg-boss retries the job (default `retryLimit` + `retryBackoff: true`). Member gets two reminders. Multiply by 100 members across all daily reminders; quality rating tanks.
 
 **Why it happens:**
-BullMQ aims for "exactly once" but explicitly guarantees only "at least once" — if a worker fails to renew its lock during processing, the job is considered stalled and re-runs. Without explicit idempotency, every send-side effect can repeat.
+pg-boss (like every durable queue, including BullMQ) guarantees "at least once" delivery — if a worker fails to complete the job within `expireInSeconds` (or crashes), the job re-runs. Without explicit idempotency, every send-side effect can repeat.
 
 **How to avoid:**
-1. **Idempotent job IDs:** `jobId = "send-reminder-{classOccurrenceId}-{memberId}"`. BullMQ deduplicates on `jobId` at enqueue time, so duplicate enqueues collapse.
-2. **Idempotent execution:** even with unique `jobId`, the job *body* can re-run if stalled. Before sending, check `whatsapp_sent_log` for `(class_occurrence_id, member_id, template_name)`. If a row exists, skip. After sending, INSERT the row in the same transaction as marking the message ID in the outbound log.
-3. **Lock duration tuned to actual processing time.** Default lock is 30s; if your WhatsApp send takes 10s under load, you're close to the cliff. Set `lockDuration: 60_000` for sends.
+1. **Use pg-boss `singletonKey` at enqueue time:** `singletonKey = "send-reminder-{classOccurrenceId}-{memberId}"`. pg-boss deduplicates on this key (returns `null` from `send()` if a job with that key already exists in the queue), so duplicate enqueues collapse.
+2. **Idempotent execution:** even with unique `singletonKey`, the job *body* can re-run if it crashes mid-processing. Before sending, check `whatsapp_sent_log` for `(class_occurrence_id, member_id, template_name)`. If a row exists, skip. After sending, INSERT the row in the same transaction as marking the message ID in the outbound log.
+3. **`expireInSeconds` tuned to actual processing time.** Default expiry is 15min for fetched jobs; tune lower for fast jobs to surface crashes faster, or higher for slow sends. Set explicitly in the job options.
 4. **Idempotency table for outbound sends:** `outbound_messages` with `(idempotency_key UNIQUE)` derived from job context. Worker checks before send.
 
 **Warning signs:**
 - Members report receiving the same reminder twice
 - `outbound_messages` table has multiple rows for the same `(member, template, scheduled_at)` triple
-- BullMQ "stalled jobs" metric is non-zero
+- pg-boss `pgboss.job` table shows jobs with `state='retry'` or `state='failed'` for the same `singletonKey` — visible via `SELECT name, state, count(*) FROM pgboss.job GROUP BY name, state`
 
 **Phase to address:** Phase 1 — outbound message infrastructure. Reused across Phase 2 reminders + Phase 3 mobile push.
 

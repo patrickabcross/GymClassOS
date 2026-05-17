@@ -43,21 +43,19 @@ Everything below follows from these three.
 │   │  - GET  /healthz                                                      │   │
 │   └────────────┬────────────────────────────────────────────┬────────────┘   │
 │                │ insert webhook_event (idempotency PK)      │                 │
-│                │ enqueue BullMQ job                         │                 │
+│                │ pg-boss.send() (Postgres-backed queue)     │                 │
 │                ▼                                            ▼                 │
 └────────────────┼────────────────────────────────────────────┼─────────────────┘
                  │                                            │
-                 │                            ┌───────────────┴──────────────┐
-                 │                            │   Redis (Upstash on Fly)     │
-                 │                            │   - BullMQ queues            │
-                 │                            │   - rate-limit counters      │
-                 │                            └───────────────┬──────────────┘
+                 │                                            │
+                 │      (no Redis — pg-boss owns queue        │
+                 │       state inside the same Neon DB)       │
                  │                                            │
                  ▼                                            ▼
 ┌──────────────────────────────────────────────────────────────────────────────┐
 │                      WORKER TIER (Fly.io, same app)                           │
 │   ┌──────────────────────────────────────────────────────────────────────┐   │
-│   │  apps/worker  (Node + BullMQ workers + tiny Hono admin surface)      │   │
+│   │  apps/worker  (Node + pg-boss workers + tiny Hono admin surface)     │   │
 │   │  Queues:                                                              │   │
 │   │   - whatsapp-inbound       (parse messages, materialise threads)     │   │
 │   │   - whatsapp-outbound      (24h-window gate, template gate, send)    │   │
@@ -118,11 +116,10 @@ Everything below follows from these three.
 
 | Component | Owns (writes) | Reads | Talks To | Why It Exists |
 |---|---|---|---|---|
-| **`apps/staff-web` (Vercel)** | Drafts, staff actions, member CRM edits, schedule definitions, template metadata, settings | All read views | Postgres (Drizzle/neon-http), enqueues to Redis via internal API to worker | The staff-facing UI. Stateless. SSR via React Router v7. Serverless-friendly. |
-| **`apps/edge-webhooks` (Fly)** | `webhook_events` rows (raw payload + dedupe key) | None (write-only at the receive boundary) | Postgres (insert-only), Redis (enqueue) | Two jobs: verify signatures with raw body; persist + enqueue within 200–500ms ack window. Owns NO domain state. |
-| **`apps/worker` (Fly)** | Conversations, messages (inbound + outbound state machines), members (from Stripe events), bookings (from WA bot replies post-v1), pass_debits, payments | `webhook_events`, all domain tables | Postgres (Drizzle/neon-serverless WS), Stripe API, WhatsApp Cloud API | Every cross-system write goes through here. Idempotent by design. Owns the 24h-window enforcement gate. |
-| **Neon Postgres** | (data tier) | — | — | Source of truth for everything *except* card data (Stripe) and content blobs (object storage if needed later). |
-| **Redis (Upstash on Fly)** | BullMQ job state, rate-limit counters | — | — | Job queue persistence + retries + DLQ. Not durable customer data — if you lose Redis you replay from `webhook_events`. |
+| **`apps/staff-web` (Vercel)** | Drafts, staff actions, member CRM edits, schedule definitions, template metadata, settings | All read views | Postgres (Drizzle/neon-http) — enqueues to pg-boss directly against the same Neon instance | The staff-facing UI. Stateless. SSR via React Router v7. Serverless-friendly. |
+| **`apps/edge-webhooks` (Fly)** | `webhook_events` rows (raw payload + dedupe key) | None (write-only at the receive boundary) | Postgres (insert + pg-boss send) | Two jobs: verify signatures with raw body; persist + enqueue within 200–500ms ack window. Owns NO domain state. |
+| **`apps/worker` (Fly)** | Conversations, messages (inbound + outbound state machines), members (from Stripe events), bookings (from WA bot replies post-v1), pass_debits, payments | `webhook_events`, all domain tables | Postgres (Drizzle/neon-serverless WS), pg-boss subscriber, Stripe API, WhatsApp Cloud API | Every cross-system write goes through here. Idempotent by design. Owns the 24h-window enforcement gate. |
+| **Neon Postgres** | (data tier) | — | — | Source of truth for everything *except* card data (Stripe) and content blobs (object storage if needed later). Also hosts the pg-boss queue schema (`pgboss.*`) alongside the application schema. |
 | **agent-native vendored packages** (`@agent-native/core`, copied templates) | NO runtime ownership | — | — | Provides framework primitives (auth, Drizzle config, UI components). Treated as a library. |
 
 ### Source-of-Truth Boundaries (Critical)
@@ -160,7 +157,7 @@ gymos/                                  # fork of BuilderIO/agent-native
 │   │   │   ├── lib/
 │   │   │   │   ├── db.ts               # Drizzle client (neon-http)
 │   │   │   │   ├── auth.ts             # Better-auth wrapper around runAuthGuard
-│   │   │   │   ├── queue.ts            # BullMQ producer (publishes to Redis)
+│   │   │   │   ├── queue.ts            # pg-boss producer (publishes to Neon)
 │   │   │   │   └── env.ts              # Zod-validated env contract
 │   │   │   └── root.tsx
 │   │   ├── react-router.config.ts
@@ -175,7 +172,7 @@ gymos/                                  # fork of BuilderIO/agent-native
 │   │   │   │   └── stripe.ts           # POST (constructEvent, persist, enqueue)
 │   │   │   ├── lib/
 │   │   │   │   ├── db.ts               # Drizzle client (neon-serverless WS)
-│   │   │   │   ├── queue.ts            # BullMQ producer
+│   │   │   │   ├── queue.ts            # pg-boss producer
 │   │   │   │   ├── idempotency.ts      # webhook_events insert-or-skip
 │   │   │   │   └── env.ts
 │   │   │   └── server.ts               # Hono app, bound to 0.0.0.0:3001
@@ -183,13 +180,13 @@ gymos/                                  # fork of BuilderIO/agent-native
 │   │   ├── fly.toml                    # services.internal_port=3001, hard ack timeout settings
 │   │   └── package.json
 │   │
-│   └── worker/                         # Fly.io — BullMQ workers (can share Fly app with edge-webhooks)
+│   └── worker/                         # Fly.io — pg-boss workers (can share Fly app with edge-webhooks)
 │       ├── src/
 │       │   ├── queues/
 │       │   │   ├── whatsapp-inbound.ts # process verified webhook → materialise threads/messages
 │       │   │   ├── whatsapp-outbound.ts # 24h-window gate, template gate, Graph send, persist ack
 │       │   │   ├── stripe-events.ts    # reduce event → upsert mirrored state (member, sub, payment)
-│       │   │   ├── reminders.ts        # class reminder scheduler (uses BullMQ delayed jobs)
+│       │   │   ├── reminders.ts        # class reminder scheduler (uses pg-boss sendAfter)
 │       │   │   └── housekeeping.ts     # template sync, KPI rollups, log shipping
 │       │   ├── domain/                 # idempotent state-machine functions
 │       │   │   ├── conversations.ts    # upsert thread, append message
@@ -246,7 +243,7 @@ gymos/                                  # fork of BuilderIO/agent-native
 - **`packages/db/`:** Schema lives in ONE place — both Vercel (`staff-web`) and Fly (`edge-webhooks`, `worker`) import it. Migrations are generated from this single source. Avoids the agent-native trap of "schema fragmented across templates".
 - **`templates/`:** Untouched. This is the upstream payload. You copy *out* of here into `apps/staff-web/app/routes/{inbox,schedule}/` and modify the copies. When you `git merge upstream/main`, conflicts land in `templates/` (where you can resolve them cleanly) — your copies in `apps/staff-web/` are unaffected by the merge.
 - **`packages-vendored/`:** The `@agent-native/core` package (and any sibling packages from upstream you depend on). Consumed via pnpm workspace `workspace:*` protocol so your code says `import { runAuthGuard } from "@agent-native/core/server"` and it resolves locally. Never edit these files — patches go into your own wrapper modules in `apps/staff-web/app/lib/`.
-- **`apps/edge-webhooks` and `apps/worker` may merge into one Fly app** with two processes in `fly.toml` (sharing the Dockerfile and image). Splitting into two Fly apps is also valid but doubles your operational surface. **Recommendation: single Fly app, two processes** (`web` for edge-webhooks, `worker` for workers). One Redis, one DB connection pool, one deploy command.
+- **`apps/edge-webhooks` and `apps/worker` may merge into one Fly app** with two processes in `fly.toml` (sharing the Dockerfile and image). Splitting into two Fly apps is also valid but doubles your operational surface. **Recommendation: single Fly app, two processes** (`web` for edge-webhooks, `worker` for workers). One DB connection pool, one deploy command, zero Redis to provision.
 
 ---
 
@@ -289,7 +286,7 @@ git merge upstream/main          # conflicts land in templates/ and packages-ven
 
 ### Pattern 1: Webhook Receiver → Idempotency Table → Worker Queue
 
-**What:** External webhooks (WhatsApp inbound, Stripe events) are received by `apps/edge-webhooks`, verified, persisted to `webhook_events` (with the external event ID as the unique key), enqueued to BullMQ, then acked with 200 OK. The actual domain work happens in `apps/worker`.
+**What:** External webhooks (WhatsApp inbound, Stripe events) are received by `apps/edge-webhooks`, verified, persisted to `webhook_events` (with the external event ID as the unique key), enqueued via `pg-boss.send()` against the same Neon instance, then acked with 200 OK. The actual domain work happens in `apps/worker`.
 
 **When to use:** Every external webhook. Without exception.
 
@@ -297,9 +294,10 @@ git merge upstream/main          # conflicts land in templates/ and packages-ven
 - ✅ Receiver completes in <100ms — stays within Meta's and Stripe's ack windows
 - ✅ Idempotent by construction — duplicate events insert-conflict and skip
 - ✅ Worker can be slow, can retry, can run business logic that takes seconds
-- ✅ Disaster recovery: lose Redis? Replay un-`processed_at` rows from `webhook_events`
+- ✅ Disaster recovery: pg-boss queue state lives in the same Neon DB as `webhook_events`; nothing to lose separately. Worst-case: replay un-`processed_at` rows from `webhook_events` straight into pg-boss.
+- ✅ One service to provision, one secret to manage (DATABASE_URL); no Redis, no Upstash bill
 - ❌ Two-process latency: action-on-event is enqueue + worker pickup, not synchronous
-- ❌ Requires Redis (the BullMQ alternative is pg-boss — see STACK.md trade-off)
+- ❌ Queue write contention is on Postgres — needs monitoring as volume grows (re-evaluate at the ~10k jobs/day per studio trigger in STACK.md)
 
 **Example (edge-webhooks/src/routes/stripe.ts, sketch):**
 
@@ -373,7 +371,7 @@ The worker then:
 
 **Trade-offs:**
 - ✅ UI latency stays under 200ms regardless of WhatsApp API latency
-- ✅ Retries on transient failures (network, Meta rate-limit) are free via BullMQ
+- ✅ Retries on transient failures (network, Meta rate-limit) are free via pg-boss (`retryLimit`, `retryDelay`, `retryBackoff` job options)
 - ✅ 24h-window enforcement happens at the sender, not the UI — *cannot* be bypassed
 - ✅ Audit log of every send attempt (the queued message row is the audit)
 - ❌ Send "feels async" — staff click send and the dot doesn't immediately flip to "delivered". Solve in UI with delivery_status polling or SSE from the worker via a Postgres LISTEN/NOTIFY channel (the second is overkill for v1).
@@ -484,8 +482,7 @@ export const sharedEnvSchema = z.object({
   // Data tier
   DATABASE_URL: z.string().url(),       // Neon connection string
 
-  // Redis (Fly only)
-  REDIS_URL: z.string().url().optional(),
+  // (No Redis — pg-boss uses DATABASE_URL above)
 
   // Stripe (per-studio, since OAuth onto their account)
   STRIPE_CONNECTED_ACCOUNT_ID: z.string().startsWith("acct_"),
@@ -536,10 +533,10 @@ export const sharedEnvSchema = z.object({
     │ 5. Enqueue 'whatsapp-inbound' job with { wamid }
     │ 6. Return 200 OK (< 100ms target)
     ▼
-[Redis: BullMQ queue]
+[Neon: pg-boss queue (pgboss.job table)]
     │
     ▼
-[Fly: worker — whatsapp-inbound processor]
+[Fly: worker — whatsapp-inbound processor (boss.work subscriber)]
     │ 1. Load raw payload from webhook_events
     │ 2. Find-or-create member by phone (E.164 normalised)
     │ 3. Find-or-create conversation for member (channel = 'whatsapp')
@@ -554,7 +551,7 @@ export const sharedEnvSchema = z.object({
 
 **Failure modes:**
 - Receiver crash after persisting webhook_events but before enqueueing → housekeeping job scans for un-`processed_at` events older than 1 minute and re-enqueues.
-- Worker crash mid-process → BullMQ retries with backoff. Domain function is idempotent (wamid PK), safe to re-run.
+- Worker crash mid-process → pg-boss retries with backoff (`retryLimit` + `retryBackoff: true`). Domain function is idempotent (wamid PK), safe to re-run.
 - DB outage → receiver returns 500; Meta retries (up to ~7 days per Meta docs). No data loss.
 
 ### Key Flow 2: Outbound WhatsApp Send (Free-form)
@@ -570,7 +567,7 @@ export const sharedEnvSchema = z.object({
     │ 4. Enqueue 'whatsapp-outbound' job { messageId }
     │ 5. Return 200 (UI shows message with "queued" indicator)
     ▼
-[Redis: BullMQ outbound queue]
+[Neon: pg-boss outbound queue]
     │
     ▼
 [Fly: worker — whatsapp-outbound processor]
@@ -581,7 +578,7 @@ export const sharedEnvSchema = z.object({
     │ 3. If allowed: Call WhatsApp Cloud API via @great-detail/whatsapp
     │ 4. On 200: UPDATE message { delivery_status='sent', wamid=response.id }
     │ 5. On 4xx: UPDATE message { delivery_status='failed', error=...} — no retry
-    │ 6. On 5xx / network: throw → BullMQ retries with exponential backoff
+    │ 6. On 5xx / network: throw → pg-boss retries with exponential backoff
     ▼
 [Meta delivers, then sends status webhooks: sent → delivered → read]
     │
@@ -628,7 +625,7 @@ export const sharedEnvSchema = z.object({
     │ 4. If insert happened: enqueue 'stripe-events' job { eventId }
     │ 5. Return 200 OK
     ▼
-[Redis: BullMQ stripe-events queue]
+[Neon: pg-boss stripe-events queue]
     │
     ▼
 [Fly: worker — stripe-events processor]
@@ -661,14 +658,14 @@ The per-customer-deploy model changes the scaling question. You don't scale to "
 
 | Scale | Architecture Adjustments |
 |---|---|
-| **1 studio (v1)** | Single Neon free tier + single Vercel hobby project + single Fly app (1 small machine, two processes). Redis on the smallest Upstash plan. Total cost: < $30/month per studio. |
+| **1 studio (v1)** | Single Neon free tier + single Vercel hobby project + single Fly app (1 small machine, two processes). No Redis (pg-boss runs in the Neon DB). Total cost: < $20/month per studio. |
 | **5–10 studios** | Same architecture, N copies. Deploy automation matters now — script the `vercel link && fly launch && neonctl project create` sequence. Centralised logging (Better Stack) becomes mandatory to see across deploys. |
 | **20–50 studios** | The per-studio cost dominates (Neon paid tier per project, Fly machine minimums). Consider Neon's "branch per customer" model with one project as a cheaper alternative IF the tenancy decision is revisitable. Per-studio deploys still work, but you'll want CD pipelines + a small "ops" SQLite/Notion to track which version is on which deploy. |
 | **100+ studios** | The single-tenant code, multi-tenant deploy decision becomes a question worth re-opening. Either: (a) invest in Pulumi/Terraform-driven deploy automation; (b) introduce shared infrastructure with hard tenant isolation. This is a vertical-#2-or-later concern. |
 
 ### Scaling Priorities
 
-1. **First bottleneck (per studio): Fly worker throughput on outbound WhatsApp during busy hours.** WhatsApp Cloud API rate limits per phone number can become tight if a studio sends to hundreds of members at once. Mitigation: BullMQ concurrency tuning, `pacer` rate limit pattern, batch reminders with jitter.
+1. **First bottleneck (per studio): Fly worker throughput on outbound WhatsApp during busy hours.** WhatsApp Cloud API rate limits per phone number can become tight if a studio sends to hundreds of members at once. Mitigation: pg-boss `teamSize` + `teamConcurrency` per queue, batch reminders with jitter via `sendAfter` offsets, app-level token-bucket pacer if Meta rate-limit headers bite.
 2. **Second bottleneck: Neon serverless connection limits from the Fly worker during webhook storms.** Mitigation: use the `neon-serverless` WebSocket driver with a connection pool, not per-request HTTP. (Already documented in STACK.md.)
 3. **Third bottleneck: per-customer deploy ops overhead.** Mitigation: a single `scripts/provision-studio.ts` that does Neon + Vercel + Fly + secrets in one command. Worth writing once you onboard the second customer, not before.
 
@@ -761,9 +758,8 @@ The per-customer-deploy model changes the scaling question. You don't scale to "
 | Boundary | Communication | Notes |
 |---|---|---|
 | **staff-web ↔ Postgres** | Drizzle queries from loaders/actions | Reads + GymOS-owned writes (bookings, member CRM, schedule, templates). Never writes Stripe-mirrored or WhatsApp-mirrored tables. |
-| **staff-web ↔ Redis/BullMQ** | Enqueue-only (producer) via shared `packages/queue` helper. The Vercel function needs the Redis URL. | Vercel→Upstash Redis works fine; the Upstash REST API or `ioredis` with TLS both work. **Decision needed at Phase 1:** whether Vercel can reach Fly's private Upstash Redis (probably not — need a public Upstash plan). Alternative: staff-web doesn't enqueue directly; it calls a small internal HTTP endpoint on the Fly worker which enqueues. Adds one hop but keeps Redis private. **Recommendation: Fly internal HTTP endpoint** for cleaner secrets boundary. |
-| **edge-webhooks ↔ Postgres** | Drizzle inserts to `webhook_events` only | The receiver is allowed to touch ONE table. Anything else is the worker's job. |
-| **edge-webhooks ↔ Redis/BullMQ** | Enqueue (producer) | Co-located on Fly, private network, no auth surface. |
+| **staff-web ↔ pg-boss (queue)** | Enqueue-only (producer) via shared `packages/queue` helper. Connects to the same Neon DATABASE_URL the staff-web already uses. | No Redis to provision, no extra network hop, no secret. Vercel uses the `neon-http` driver for stateless action handlers; pg-boss's `send()` is one INSERT. The Vercel↔Fly-Redis routing question that existed in the BullMQ design is moot. |
+| **edge-webhooks ↔ Postgres** | Drizzle inserts to `webhook_events` + pg-boss `send()` (same connection) | The receiver is allowed to touch the idempotency table + enqueue. Anything else is the worker's job. |
 | **worker ↔ Postgres** | Drizzle reads + writes across all tables | The worker is the only place that writes Stripe mirrors, conversation/message state, pass debits. |
 | **worker ↔ External APIs** | Stripe SDK + `@great-detail/whatsapp` | All retries, rate-limit handling, error classification lives here. |
 | **agent-native vendored code ↔ GymOS code** | One-way: GymOS imports from `@agent-native/*`, never the reverse | Enforced by the directory structure and pnpm workspace topology. If GymOS code "needs to be" in `@agent-native/core/`, it's a refactor smell — wrap, don't reach back. |
@@ -784,7 +780,7 @@ This ordering minimises blocking dependencies between components. The phase numb
 ### Phase 1 — Webhook + Worker Spine (blocks everything else WhatsApp/Stripe-touching)
 
 5. **Stand up `apps/edge-webhooks` on Fly** with a `/healthz` and a stub `/webhooks/stripe` that just inserts to `webhook_events`. Verify with Stripe CLI.
-6. **Stand up `apps/worker` on Fly** with BullMQ + a do-nothing job. Verify queue round-trip.
+6. **Stand up `apps/worker` on Fly** with pg-boss (`boss.start()`, `boss.work('hello', ...)`) + a do-nothing job. Verify queue round-trip — `boss.send('hello', {})` from edge-webhooks should fire the worker handler.
 7. **Wire the `webhook_events → queue → worker` pattern end-to-end** with Stripe (easier to test than WhatsApp). Implement the first reducer (`customer.created`). This is the architectural skeleton — once this works, everything else is filling in domain logic.
 8. **Add WhatsApp inbound webhook** to `edge-webhooks` with HMAC verify. Inbound is easier than outbound (no template/window complexity).
 9. **Add WhatsApp inbound processor** to worker — materialise conversations + messages.
@@ -811,7 +807,7 @@ This ordering minimises blocking dependencies between components. The phase numb
     ↓                                 ↓
     └──────────────┬──────────────────┘
                    ↓
-        [Hello-world Fly app (edge + worker + Redis)]
+        [Hello-world Fly app (edge + worker, pg-boss against Neon)]
                    ↓
         [webhook_events + Stripe spine working end-to-end]
                    ↓
@@ -872,4 +868,4 @@ This ordering minimises blocking dependencies between components. The phase numb
 
 *Architecture research for: boutique fitness studio management platform (GymOS)*
 *Researched: 2026-05-17*
-*Confidence: HIGH on the receiver/worker/idempotency topology; MEDIUM on the agent-native fork mechanics until Phase 0 audit confirms the upstream layout; MEDIUM on Vercel↔Fly Redis routing (resolve at Phase 1).*
+*Confidence: HIGH on the receiver/worker/idempotency topology; MEDIUM on the agent-native fork mechanics until Phase 0 audit confirms the upstream layout. Queue choice locked to pg-boss 2026-05-17 (no Redis); BullMQ migration trigger documented in STACK.md if studio volume ever exceeds ~10k jobs/day.*
