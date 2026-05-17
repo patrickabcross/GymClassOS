@@ -1,0 +1,37 @@
+{
+  "name": "clips-desktop",
+  "private": true,
+  "version": "0.1.1",
+  "type": "module",
+  "description": "Clips menu-bar tray app (Tauri 2). Quick-record + recent recordings from the OS tray.",
+  "scripts": {
+    "check:prereqs": "node ./scripts/check-tauri-prereqs.mjs",
+    "kill:installed": "pkill -x Clips 2>/dev/null; exit 0",
+    "dev": "pnpm run check:prereqs && pnpm run kill:installed && tauri dev",
+    "build": "vite build",
+    "build:tauri": "pnpm run check:prereqs && tauri build",
+    "tauri": "tauri",
+    "vite:dev": "vite",
+    "vite:build": "vite build"
+  },
+  "dependencies": {
+    "@radix-ui/react-popover": "^1.1.15",
+    "@radix-ui/react-tooltip": "^1.2.8",
+    "@tabler/icons-react": "^3.26.0",
+    "@tauri-apps/api": "^2.11.0",
+    "@tauri-apps/plugin-fs": "2.5.1",
+    "@tauri-apps/plugin-process": "^2.3.1",
+    "@tauri-apps/plugin-shell": "^2.3.5",
+    "@tauri-apps/plugin-updater": "^2.10.1",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.10.1",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "catalog:",
+    "typescript": "^6.0.3",
+    "vite": "^8.0.9"
+  }
+}

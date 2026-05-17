@@ -1,0 +1,1040 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { PlatformAdapter } from "./types.js";
+import type { PendingTask } from "./pending-tasks-store.js";
+
+const getThreadMappingMock = vi.hoisted(() => vi.fn());
+const saveThreadMappingMock = vi.hoisted(() => vi.fn());
+const createThreadMock = vi.hoisted(() => vi.fn());
+const getThreadMock = vi.hoisted(() => vi.fn());
+const updateThreadDataMock = vi.hoisted(() => vi.fn());
+const resolveOrgIdForEmailMock = vi.hoisted(() => vi.fn());
+const getOwnerActiveApiKeyMock = vi.hoisted(() => vi.fn());
+const getOwnerApiKeyMock = vi.hoisted(() => vi.fn());
+const runAgentLoopMock = vi.hoisted(() => vi.fn());
+const actionsToEngineToolsMock = vi.hoisted(() => vi.fn());
+const resolveEngineMock = vi.hoisted(() => vi.fn());
+const getStoredModelForEngineMock = vi.hoisted(() => vi.fn());
+const isLocalDatabaseMock = vi.hoisted(() => vi.fn());
+const readDeployCredentialEnvMock = vi.hoisted(() => vi.fn());
+const originalNodeEnv = process.env.NODE_ENV;
+
+vi.mock("./thread-mapping-store.js", () => ({
+  getThreadMapping: getThreadMappingMock,
+  saveThreadMapping: saveThreadMappingMock,
+}));
+
+vi.mock("../chat-threads/store.js", () => ({
+  createThread: createThreadMock,
+  getThread: getThreadMock,
+  updateThreadData: updateThreadDataMock,
+}));
+
+vi.mock("../org/context.js", () => ({
+  resolveOrgIdForEmail: resolveOrgIdForEmailMock,
+}));
+
+vi.mock("../agent/production-agent.js", () => ({
+  getOwnerActiveApiKey: getOwnerActiveApiKeyMock,
+  getOwnerApiKey: getOwnerApiKeyMock,
+  engineToProvider: (engineName: string) =>
+    engineName.startsWith("ai-sdk:")
+      ? engineName.slice("ai-sdk:".length)
+      : engineName,
+  actionsToEngineTools: actionsToEngineToolsMock,
+  runAgentLoop: runAgentLoopMock,
+}));
+
+vi.mock("../agent/engine/index.js", () => ({
+  getStoredModelForEngine: getStoredModelForEngineMock,
+  resolveEngine: resolveEngineMock,
+}));
+
+vi.mock("../db/client.js", async () => {
+  const actual =
+    await vi.importActual<typeof import("../db/client.js")>("../db/client.js");
+  return {
+    ...actual,
+    isLocalDatabase: isLocalDatabaseMock,
+  };
+});
+
+vi.mock("../server/credential-provider.js", () => ({
+  readDeployCredentialEnv: readDeployCredentialEnvMock,
+}));
+
+vi.mock("../agent/run-manager.js", () => ({
+  startRun: vi.fn((runId, threadId, runFn, onComplete) => {
+    const events: any[] = [];
+    const send = (event: any) => {
+      events.push({
+        id: `event-${events.length + 1}`,
+        runId,
+        event,
+        createdAt: Date.now(),
+      });
+    };
+    Promise.resolve(runFn(send, new AbortController().signal)).then(() =>
+      onComplete?.({
+        runId,
+        threadId,
+        events,
+        status: "completed",
+        subscribers: new Set(),
+        abort: new AbortController(),
+        startedAt: Date.now(),
+      }),
+    );
+    return {
+      runId,
+      threadId,
+      events,
+      status: "running",
+      subscribers: new Set(),
+      abort: new AbortController(),
+      startedAt: Date.now(),
+    };
+  }),
+}));
+
+function createAdapter(sendResponse = vi.fn()): PlatformAdapter {
+  return {
+    platform: "fake",
+    label: "Fake",
+    getRequiredEnvKeys: () => [],
+    handleVerification: async () => ({ handled: false }),
+    verifyWebhook: async () => true,
+    parseIncomingMessage: async () => null,
+    sendResponse,
+    formatAgentResponse: (text) => ({ text, platformContext: {} }),
+    getStatus: async () => ({
+      platform: "fake",
+      label: "Fake",
+      enabled: true,
+      configured: true,
+    }),
+  };
+}
+
+function pendingTask(
+  overrides: Partial<PendingTask> & { payload?: PendingTask["payload"] } = {},
+): PendingTask {
+  const id = overrides.id ?? "task-qa";
+  return {
+    id,
+    platform: "fake",
+    externalEventKey: `fake:${id}:1001`,
+    externalThreadId: "thread-qa",
+    payload:
+      overrides.payload ??
+      JSON.stringify({
+        incoming: {
+          platform: "fake",
+          externalThreadId: "thread-qa",
+          text: "hello from slack",
+          senderName: "QA User",
+          platformContext: { channel: "C123" },
+          timestamp: 1001,
+        },
+      }),
+    ownerEmail: "dispatch+qa@integration.local",
+    orgId: "org-qa",
+    status: "processing",
+    attempts: 1,
+    errorMessage: null,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+    completedAt: null,
+    ...overrides,
+  };
+}
+
+describe("integration webhook handler engine resolution", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    getThreadMappingMock.mockResolvedValue(null);
+    saveThreadMappingMock.mockResolvedValue(undefined);
+    createThreadMock.mockResolvedValue({ id: "thread-qa" });
+    getThreadMock.mockResolvedValue({ threadData: "{}" });
+    updateThreadDataMock.mockResolvedValue(undefined);
+    resolveOrgIdForEmailMock.mockResolvedValue("org-qa");
+    getOwnerActiveApiKeyMock.mockResolvedValue(undefined);
+    getOwnerApiKeyMock.mockResolvedValue(undefined);
+    isLocalDatabaseMock.mockReturnValue(true);
+    readDeployCredentialEnvMock.mockReturnValue(undefined);
+    actionsToEngineToolsMock.mockReturnValue([]);
+    getStoredModelForEngineMock.mockResolvedValue(undefined);
+    resolveEngineMock.mockResolvedValue({
+      name: "builder",
+      defaultModel: "builder-default-model",
+      stream: vi.fn(),
+    });
+    runAgentLoopMock.mockImplementation(async ({ engine, model, send }) => {
+      send({
+        type: "text",
+        text: `resolved ${engine.name} ${model}`,
+      });
+    });
+  });
+
+  afterEach(() => {
+    if (originalNodeEnv === undefined) {
+      delete process.env.NODE_ENV;
+    } else {
+      process.env.NODE_ENV = originalNodeEnv;
+    }
+  });
+
+  // CI runs this suite with a much longer transform/import phase than local
+  // (~28s vs ~7s observed on 2026-05-11), which left the per-test 5s budget
+  // too tight for the full processIntegrationTask pipeline. Bumping these two
+  // mock-heavy run-loop tests to 15s avoids flake without masking real perf
+  // regressions: the test bodies still finish in well under a second locally.
+  it(
+    "uses the shared engine resolver instead of forcing Anthropic",
+    { timeout: 15000 },
+    async () => {
+      const { processIntegrationTask } = await import("./webhook-handler.js");
+      const sendResponse = vi.fn();
+      const task: PendingTask = {
+        id: "task-qa",
+        platform: "fake",
+        externalEventKey: "fake:thread-1:1001",
+        externalThreadId: "thread-1",
+        payload: JSON.stringify({
+          incoming: {
+            platform: "fake",
+            externalThreadId: "thread-1",
+            text: "hello from slack",
+            senderName: "QA User",
+            platformContext: { channel: "C123" },
+            timestamp: 1001,
+          },
+        }),
+        ownerEmail: "dispatch+qa@integration.local",
+        orgId: "org-qa",
+        status: "processing",
+        attempts: 1,
+        errorMessage: null,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        completedAt: null,
+      };
+
+      await processIntegrationTask(task, {
+        adapter: createAdapter(sendResponse),
+        systemPrompt: "system",
+        actions: {},
+        model: "claude-sonnet-4-6",
+        apiKey: "",
+        ownerEmail: task.ownerEmail,
+      });
+
+      expect(getOwnerActiveApiKeyMock).toHaveBeenCalledWith(task.ownerEmail);
+      expect(resolveEngineMock).toHaveBeenCalledWith({
+        engineOption: undefined,
+        apiKey: undefined,
+        model: "claude-sonnet-4-6",
+      });
+      expect(runAgentLoopMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          engine: expect.objectContaining({ name: "builder" }),
+          model: "claude-sonnet-4-6",
+          systemPrompt: expect.stringContaining("<runtime-context>"),
+        }),
+      );
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          text: "resolved builder claude-sonnet-4-6",
+        }),
+        expect.objectContaining({ externalThreadId: "thread-1" }),
+        expect.objectContaining({ placeholderRef: undefined }),
+      );
+    },
+  );
+
+  it(
+    "uses the explicit engine provider when resolving owner API keys",
+    { timeout: 15000 },
+    async () => {
+      const { processIntegrationTask } = await import("./webhook-handler.js");
+      const sendResponse = vi.fn();
+      getOwnerApiKeyMock.mockResolvedValue("openai-user-key");
+      const task: PendingTask = {
+        id: "task-openai",
+        platform: "fake",
+        externalEventKey: "fake:thread-2:1002",
+        externalThreadId: "thread-2",
+        payload: JSON.stringify({
+          incoming: {
+            platform: "fake",
+            externalThreadId: "thread-2",
+            text: "hello from slack",
+            senderName: "QA User",
+            platformContext: { channel: "C123" },
+            timestamp: 1002,
+          },
+        }),
+        ownerEmail: "dispatch+qa@integration.local",
+        orgId: "org-qa",
+        status: "processing",
+        attempts: 1,
+        errorMessage: null,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        completedAt: null,
+      };
+
+      await processIntegrationTask(task, {
+        adapter: createAdapter(sendResponse),
+        systemPrompt: "system",
+        actions: {},
+        model: "gpt-5.2",
+        apiKey: "deploy-anthropic-key",
+        engine: "ai-sdk:openai",
+        ownerEmail: task.ownerEmail,
+      });
+
+      expect(getOwnerApiKeyMock).toHaveBeenCalledWith(
+        "openai",
+        task.ownerEmail,
+      );
+      expect(getOwnerActiveApiKeyMock).not.toHaveBeenCalled();
+      expect(resolveEngineMock).toHaveBeenCalledWith({
+        engineOption: "ai-sdk:openai",
+        apiKey: "openai-user-key",
+        model: "gpt-5.2",
+      });
+    },
+  );
+
+  it("sanitizes missing LLM credential text before sending platform replies", async () => {
+    const { processIntegrationTask } = await import("./webhook-handler.js");
+    const sendResponse = vi.fn();
+    runAgentLoopMock.mockImplementationOnce(async ({ send }) => {
+      send({ type: "text", text: "ANTHROPIC_API_KEY is not set" });
+    });
+    const task: PendingTask = {
+      id: "task-missing-llm",
+      platform: "fake",
+      externalEventKey: "fake:thread-missing-llm:1007",
+      externalThreadId: "thread-missing-llm",
+      payload: JSON.stringify({
+        incoming: {
+          platform: "fake",
+          externalThreadId: "thread-missing-llm",
+          text: "hello from slack",
+          senderName: "QA User",
+          platformContext: { channel: "C123" },
+          timestamp: 1007,
+        },
+      }),
+      ownerEmail: "dispatch+qa@integration.local",
+      orgId: "org-qa",
+      status: "processing",
+      attempts: 1,
+      errorMessage: null,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      completedAt: null,
+    };
+
+    await processIntegrationTask(task, {
+      adapter: createAdapter(sendResponse),
+      systemPrompt: "system",
+      actions: {},
+      model: "claude-sonnet-4-6",
+      apiKey: "",
+      ownerEmail: task.ownerEmail,
+    });
+
+    const sentText = vi.mocked(sendResponse).mock.calls[0]?.[0].text ?? "";
+    expect(sentText).toContain("Agent settings > LLM");
+    expect(sentText).not.toContain("ANTHROPIC_API_KEY");
+  });
+
+  it("uses the explicit provider env key when no owner key exists in single-tenant mode", async () => {
+    const { processIntegrationTask } = await import("./webhook-handler.js");
+    const sendResponse = vi.fn();
+    readDeployCredentialEnvMock.mockImplementation((key: string) =>
+      key === "OPENAI_API_KEY" ? "openai-env-key" : undefined,
+    );
+    const task: PendingTask = {
+      id: "task-openai-env",
+      platform: "fake",
+      externalEventKey: "fake:thread-env:1005",
+      externalThreadId: "thread-env",
+      payload: JSON.stringify({
+        incoming: {
+          platform: "fake",
+          externalThreadId: "thread-env",
+          text: "hello from slack",
+          senderName: "QA User",
+          platformContext: { channel: "C123" },
+          timestamp: 1005,
+        },
+      }),
+      ownerEmail: "dispatch+qa@integration.local",
+      orgId: "org-qa",
+      status: "processing",
+      attempts: 1,
+      errorMessage: null,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      completedAt: null,
+    };
+
+    await processIntegrationTask(task, {
+      adapter: createAdapter(sendResponse),
+      systemPrompt: "system",
+      actions: {},
+      model: "gpt-5.2",
+      apiKey: "",
+      engine: "ai-sdk:openai",
+      ownerEmail: task.ownerEmail,
+    });
+
+    expect(readDeployCredentialEnvMock).toHaveBeenCalledWith("OPENAI_API_KEY");
+    expect(resolveEngineMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        engineOption: "ai-sdk:openai",
+        apiKey: "openai-env-key",
+      }),
+    );
+  });
+
+  it("does not fall back to deployment keys in multi-tenant mode", async () => {
+    const { processIntegrationTask } = await import("./webhook-handler.js");
+    const sendResponse = vi.fn();
+    process.env.NODE_ENV = "production";
+    isLocalDatabaseMock.mockReturnValue(false);
+    const task: PendingTask = {
+      id: "task-multitenant",
+      platform: "fake",
+      externalEventKey: "fake:thread-mt:1006",
+      externalThreadId: "thread-mt",
+      payload: JSON.stringify({
+        incoming: {
+          platform: "fake",
+          externalThreadId: "thread-mt",
+          text: "hello from slack",
+          senderName: "QA User",
+          platformContext: { channel: "C123" },
+          timestamp: 1006,
+        },
+      }),
+      ownerEmail: "dispatch+qa@integration.local",
+      orgId: "org-qa",
+      status: "processing",
+      attempts: 1,
+      errorMessage: null,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      completedAt: null,
+    };
+
+    await processIntegrationTask(task, {
+      adapter: createAdapter(sendResponse),
+      systemPrompt: "system",
+      actions: {},
+      model: "gpt-5.2",
+      apiKey: "deploy-key",
+      engine: "ai-sdk:openai",
+      ownerEmail: task.ownerEmail,
+    });
+
+    expect(readDeployCredentialEnvMock).not.toHaveBeenCalled();
+    expect(resolveEngineMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        engineOption: "ai-sdk:openai",
+        apiKey: undefined,
+      }),
+    );
+  });
+
+  it("prefers stored model settings over the integration plugin default", async () => {
+    const { processIntegrationTask } = await import("./webhook-handler.js");
+    const sendResponse = vi.fn();
+    getStoredModelForEngineMock.mockResolvedValue("stored-builder-model");
+    const task: PendingTask = {
+      id: "task-model",
+      platform: "fake",
+      externalEventKey: "fake:thread-3:1003",
+      externalThreadId: "thread-3",
+      payload: JSON.stringify({
+        incoming: {
+          platform: "fake",
+          externalThreadId: "thread-3",
+          text: "hello from slack",
+          senderName: "QA User",
+          platformContext: { channel: "C123" },
+          timestamp: 1003,
+        },
+      }),
+      ownerEmail: "dispatch+qa@integration.local",
+      orgId: "org-qa",
+      status: "processing",
+      attempts: 1,
+      errorMessage: null,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      completedAt: null,
+    };
+
+    await processIntegrationTask(task, {
+      adapter: createAdapter(sendResponse),
+      systemPrompt: "system",
+      actions: {},
+      model: "claude-sonnet-4-6",
+      apiKey: "",
+      ownerEmail: task.ownerEmail,
+    });
+
+    expect(runAgentLoopMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        model: "stored-builder-model",
+      }),
+    );
+  });
+
+  it("exposes integration task context while running tools", async () => {
+    const { processIntegrationTask } = await import("./webhook-handler.js");
+    const { getIntegrationRequestContext } =
+      await import("../server/request-context.js");
+    const sendResponse = vi.fn();
+    let captured: ReturnType<typeof getIntegrationRequestContext>;
+    runAgentLoopMock.mockImplementationOnce(async ({ send }) => {
+      captured = getIntegrationRequestContext();
+      send({ type: "text", text: "ok" });
+    });
+    const task: PendingTask = {
+      id: "task-context",
+      platform: "fake",
+      externalEventKey: "fake:thread-4:1004",
+      externalThreadId: "thread-4",
+      payload: JSON.stringify({
+        placeholderRef: "placeholder-qa",
+        incoming: {
+          platform: "fake",
+          externalThreadId: "thread-4",
+          text: "hello from slack",
+          senderName: "QA User",
+          platformContext: { channel: "C123" },
+          timestamp: 1004,
+        },
+      }),
+      ownerEmail: "dispatch+qa@integration.local",
+      orgId: "org-qa",
+      status: "processing",
+      attempts: 2,
+      errorMessage: null,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      completedAt: null,
+    };
+
+    await processIntegrationTask(task, {
+      adapter: createAdapter(sendResponse),
+      systemPrompt: "system",
+      actions: {},
+      model: "claude-sonnet-4-6",
+      apiKey: "",
+      ownerEmail: task.ownerEmail,
+    });
+
+    expect(captured).toEqual(
+      expect.objectContaining({
+        taskId: "task-context",
+        attempts: 2,
+        placeholderRef: "placeholder-qa",
+        incoming: expect.objectContaining({
+          platform: "fake",
+          externalThreadId: "thread-4",
+        }),
+      }),
+    );
+  });
+
+  it("reruns the agent loop when a previously queued continuation task is retried", async () => {
+    const { processIntegrationTask } = await import("./webhook-handler.js");
+    const { A2A_CONTINUATION_QUEUED_MARKER } =
+      await import("./a2a-continuation-marker.js");
+    const sendResponse = vi.fn();
+    const task = pendingTask({ id: "task-retry-existing-continuation" });
+    runAgentLoopMock
+      .mockImplementationOnce(async ({ send }) => {
+        send({
+          type: "tool_start",
+          tool: "call-agent",
+          input: { agent: "starter", message: "finish the setup" },
+        });
+        send({
+          type: "tool_done",
+          tool: "call-agent",
+          result: `${A2A_CONTINUATION_QUEUED_MARKER}\nThe Starter agent is still working.`,
+        });
+      })
+      .mockImplementationOnce(async ({ send }) => {
+        send({
+          type: "text",
+          text: "Recovered final answer after the retry.",
+        });
+      });
+
+    await processIntegrationTask(task, {
+      adapter: createAdapter(sendResponse),
+      systemPrompt: "system",
+      actions: {},
+      model: "claude-sonnet-4-6",
+      apiKey: "",
+      ownerEmail: "dispatch+qa@integration.local",
+    });
+    await processIntegrationTask(task, {
+      adapter: createAdapter(sendResponse),
+      systemPrompt: "system",
+      actions: {},
+      model: "claude-sonnet-4-6",
+      apiKey: "",
+      ownerEmail: "dispatch+qa@integration.local",
+    });
+
+    expect(runAgentLoopMock).toHaveBeenCalledTimes(2);
+    expect(sendResponse).toHaveBeenCalledTimes(1);
+    expect(sendResponse.mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({
+        text: "Recovered final answer after the retry.",
+      }),
+    );
+  });
+
+  it("suppresses stale A2A continuation deferral replies", async () => {
+    const { processIntegrationTask } = await import("./webhook-handler.js");
+    const { A2A_CONTINUATION_QUEUED_MARKER } =
+      await import("./a2a-continuation-marker.js");
+    const sendResponse = vi.fn();
+    runAgentLoopMock.mockImplementationOnce(async ({ send }) => {
+      send({
+        type: "tool_start",
+        tool: "call-agent",
+        input: { agent: "analytics", message: "count pageviews" },
+      });
+      send({
+        type: "tool_done",
+        tool: "call-agent",
+        result: `${A2A_CONTINUATION_QUEUED_MARKER}\nThe Analytics agent is still working.`,
+      });
+      send({
+        type: "text",
+        text: "Here is the relay from the Analytics agent. It is still processing and will post the result back to this thread when complete.",
+      });
+    });
+
+    await processIntegrationTask(pendingTask({ id: "task-continuation" }), {
+      adapter: createAdapter(sendResponse),
+      systemPrompt: "system",
+      actions: {},
+      model: "claude-sonnet-4-6",
+      apiKey: "",
+      ownerEmail: "dispatch+qa@integration.local",
+    });
+
+    expect(sendResponse).not.toHaveBeenCalled();
+    expect(updateThreadDataMock).toHaveBeenCalled();
+  });
+
+  it("suppresses alternate A2A continuation deferral wording", async () => {
+    const { processIntegrationTask } = await import("./webhook-handler.js");
+    const { A2A_CONTINUATION_QUEUED_MARKER } =
+      await import("./a2a-continuation-marker.js");
+    const sendResponse = vi.fn();
+    const deferrals = [
+      "",
+      A2A_CONTINUATION_QUEUED_MARKER,
+      "The Analytics answer will show up here shortly.",
+      "I will relay from the Analytics agent when the result is ready.",
+      "The Slides agent is working on your *Launch Readiness Snapshot* deck (title, risks, next steps). The result will be posted here in this thread as soon as it's ready - hang tight!",
+      "The Design agent is working on your *Launch Readiness Status Card* - it'll post the artifact URL directly here in this thread as soon as it's ready. Hang tight! :art:",
+    ];
+
+    for (const [index, text] of deferrals.entries()) {
+      runAgentLoopMock.mockImplementationOnce(async ({ send }) => {
+        send({
+          type: "tool_start",
+          tool: "call-agent",
+          input: { agent: "analytics", message: "count pageviews" },
+        });
+        send({
+          type: "tool_done",
+          tool: "call-agent",
+          result: `${A2A_CONTINUATION_QUEUED_MARKER}\nThe Analytics agent is still working.`,
+        });
+        if (text) {
+          send({
+            type: "text",
+            text,
+          });
+        }
+      });
+
+      await processIntegrationTask(
+        pendingTask({ id: `task-continuation-wording-${index}` }),
+        {
+          adapter: createAdapter(sendResponse),
+          systemPrompt: "system",
+          actions: {},
+          model: "claude-sonnet-4-6",
+          apiKey: "",
+          ownerEmail: "dispatch+qa@integration.local",
+        },
+      );
+    }
+
+    expect(sendResponse).not.toHaveBeenCalled();
+  });
+
+  it("still sends real final text after an A2A continuation marker", async () => {
+    const { processIntegrationTask } = await import("./webhook-handler.js");
+    const { A2A_CONTINUATION_QUEUED_MARKER } =
+      await import("./a2a-continuation-marker.js");
+    const sendResponse = vi.fn();
+    runAgentLoopMock.mockImplementationOnce(async ({ send }) => {
+      send({
+        type: "tool_start",
+        tool: "call-agent",
+        input: { agent: "analytics", message: "count pageviews" },
+      });
+      send({
+        type: "tool_done",
+        tool: "call-agent",
+        result: `${A2A_CONTINUATION_QUEUED_MARKER}\nThe Analytics agent is still working.`,
+      });
+      send({
+        type: "text",
+        text: "371 pageview events were recorded in the requested window.",
+      });
+    });
+
+    await processIntegrationTask(pendingTask({ id: "task-final" }), {
+      adapter: createAdapter(sendResponse),
+      systemPrompt: "system",
+      actions: {},
+      model: "claude-sonnet-4-6",
+      apiKey: "",
+      ownerEmail: "dispatch+qa@integration.local",
+    });
+
+    expect(sendResponse).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: "371 pageview events were recorded in the requested window.",
+      }),
+      expect.any(Object),
+      expect.objectContaining({ placeholderRef: undefined }),
+    );
+  });
+
+  it("sends substantive partial answers even when one A2A continuation will post separately", async () => {
+    const { processIntegrationTask } = await import("./webhook-handler.js");
+    const { A2A_CONTINUATION_QUEUED_MARKER } =
+      await import("./a2a-continuation-marker.js");
+    const sendResponse = vi.fn();
+    const partialAnswer =
+      "Analytics completed: 259,850 page views and 9,337 unique visitors from BigQuery. " +
+      "Content page was created successfully with document id abc123. " +
+      "Slides will post its result separately.";
+    runAgentLoopMock.mockImplementationOnce(async ({ send }) => {
+      send({
+        type: "tool_start",
+        tool: "call-agent",
+        input: { agent: "slides", message: "create deck" },
+      });
+      send({
+        type: "tool_done",
+        tool: "call-agent",
+        result: `${A2A_CONTINUATION_QUEUED_MARKER}\nThe Slides agent accepted this delegated subtask and will post its own final result.`,
+      });
+      send({
+        type: "text",
+        text: partialAnswer,
+      });
+    });
+
+    await processIntegrationTask(pendingTask({ id: "task-partial-final" }), {
+      adapter: createAdapter(sendResponse),
+      systemPrompt: "system",
+      actions: {},
+      model: "claude-sonnet-4-6",
+      apiKey: "",
+      ownerEmail: "dispatch+qa@integration.local",
+    });
+
+    expect(sendResponse).toHaveBeenCalledWith(
+      expect.objectContaining({ text: partialAnswer }),
+      expect.any(Object),
+      expect.objectContaining({ placeholderRef: undefined }),
+    );
+  });
+
+  it("sends verified recoverable A2A artifact tool results when no final text is emitted", async () => {
+    const { processIntegrationTask } = await import("./webhook-handler.js");
+    const sendResponse = vi.fn();
+    runAgentLoopMock.mockImplementationOnce(async ({ send }) => {
+      send({
+        type: "tool_start",
+        tool: "call-agent",
+        input: { agent: "slides", message: "make a launch deck" },
+      });
+      send({
+        type: "tool_done",
+        tool: "call-agent",
+        result:
+          "The agent is still working on the full response, but these verified artifacts already exist:\n\n" +
+          "Artifacts:\n" +
+          "- Deck: https://slides.agent.test/deck/deck-real (ID: deck-real)",
+      });
+    });
+
+    await processIntegrationTask(pendingTask({ id: "task-recoverable-a2a" }), {
+      adapter: createAdapter(sendResponse),
+      systemPrompt: "system",
+      actions: {},
+      model: "claude-sonnet-4-6",
+      apiKey: "",
+      ownerEmail: "dispatch+qa@integration.local",
+    });
+
+    expect(sendResponse).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: expect.stringContaining(
+          "https://slides.agent.test/deck/deck-real",
+        ),
+      }),
+      expect.any(Object),
+      expect.objectContaining({ placeholderRef: undefined }),
+    );
+  });
+
+  it("guards recoverable A2A artifact fallbacks before sending Slack-style replies", async () => {
+    const { processIntegrationTask } = await import("./webhook-handler.js");
+    const previousAppUrl = process.env.APP_URL;
+    process.env.APP_URL = "https://dispatch.agent-native.com";
+    const sendResponse = vi.fn();
+    runAgentLoopMock.mockImplementationOnce(async ({ send }) => {
+      send({
+        type: "tool_start",
+        tool: "call-agent",
+        input: { agent: "design", message: "make a launch card" },
+      });
+      send({
+        type: "tool_done",
+        tool: "call-agent",
+        result:
+          "The agent is still working on the full response, but these verified artifacts already exist:\n\n" +
+          "Artifacts:\n" +
+          "- Design: https://design.agent-native.com/design/design-empty (ID: design-empty, 0 files)",
+      });
+    });
+
+    try {
+      await processIntegrationTask(
+        pendingTask({ id: "task-recoverable-a2a-empty-design" }),
+        {
+          adapter: createAdapter(sendResponse),
+          systemPrompt: "system",
+          actions: {},
+          model: "claude-sonnet-4-6",
+          apiKey: "",
+          ownerEmail: "dispatch+qa@integration.local",
+        },
+      );
+    } finally {
+      if (previousAppUrl === undefined) {
+        delete process.env.APP_URL;
+      } else {
+        process.env.APP_URL = previousAppUrl;
+      }
+    }
+
+    expect(sendResponse).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: expect.stringContaining("could not verify the design URL"),
+      }),
+      expect.any(Object),
+      expect.objectContaining({ placeholderRef: undefined }),
+    );
+    expect(sendResponse.mock.calls[0][0].text).not.toContain("design-empty");
+  });
+
+  it("does not fall back to unmarked A2A tool URLs when no final text is emitted", async () => {
+    const { processIntegrationTask } = await import("./webhook-handler.js");
+    const sendResponse = vi.fn();
+    runAgentLoopMock.mockImplementationOnce(async ({ send }) => {
+      send({
+        type: "tool_start",
+        tool: "call-agent",
+        input: { agent: "slides", message: "make a launch deck" },
+      });
+      send({
+        type: "tool_done",
+        tool: "call-agent",
+        result: "Maybe try https://slides.agent.test/deck/deck-guessed",
+      });
+    });
+
+    await processIntegrationTask(pendingTask({ id: "task-unmarked-a2a" }), {
+      adapter: createAdapter(sendResponse),
+      systemPrompt: "system",
+      actions: {},
+      model: "claude-sonnet-4-6",
+      apiKey: "",
+      ownerEmail: "dispatch+qa@integration.local",
+    });
+
+    expect(sendResponse).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: "(No response)",
+      }),
+      expect.any(Object),
+      expect.objectContaining({ placeholderRef: undefined }),
+    );
+    expect(sendResponse.mock.calls[0][0].text).not.toContain("deck-guessed");
+  });
+
+  it("does not send hallucinated local design URLs to Slack-style integrations", async () => {
+    const { processIntegrationTask } = await import("./webhook-handler.js");
+    const previousAppUrl = process.env.APP_URL;
+    process.env.APP_URL = "https://design.agent.test";
+    const sendResponse = vi.fn();
+    runAgentLoopMock.mockImplementationOnce(async ({ send }) => {
+      send({
+        type: "text",
+        text: "Done: https://design.agent.test/design/DSyLeIdyBc9p_drm40Tfp",
+      });
+    });
+
+    try {
+      await processIntegrationTask(pendingTask({ id: "task-false-design" }), {
+        adapter: createAdapter(sendResponse),
+        systemPrompt: "system",
+        actions: {},
+        model: "claude-sonnet-4-6",
+        apiKey: "",
+        ownerEmail: "dispatch+qa@integration.local",
+      });
+    } finally {
+      if (previousAppUrl === undefined) {
+        delete process.env.APP_URL;
+      } else {
+        process.env.APP_URL = previousAppUrl;
+      }
+    }
+
+    expect(sendResponse).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: expect.stringContaining("could not verify the design URL"),
+      }),
+      expect.any(Object),
+      expect.objectContaining({ placeholderRef: undefined }),
+    );
+    expect(sendResponse.mock.calls[0][0].text).not.toContain(
+      "DSyLeIdyBc9p_drm40Tfp",
+    );
+  });
+
+  it("does not relay unverified production Design URLs from Dispatch Slack replies", async () => {
+    const { processIntegrationTask } = await import("./webhook-handler.js");
+    const previousAppUrl = process.env.APP_URL;
+    process.env.APP_URL = "https://dispatch.agent-native.com";
+    const sendResponse = vi.fn();
+    runAgentLoopMock.mockImplementationOnce(async ({ send }) => {
+      send({
+        type: "text",
+        text: "The Design agent returned https://design.agent-native.com/design/us1sfMEZNWUQZHDldxoFA",
+      });
+    });
+
+    try {
+      await processIntegrationTask(
+        pendingTask({ id: "task-cross-app-false-design" }),
+        {
+          adapter: createAdapter(sendResponse),
+          systemPrompt: "system",
+          actions: {},
+          model: "claude-sonnet-4-6",
+          apiKey: "",
+          ownerEmail: "dispatch+qa@integration.local",
+        },
+      );
+    } finally {
+      if (previousAppUrl === undefined) {
+        delete process.env.APP_URL;
+      } else {
+        process.env.APP_URL = previousAppUrl;
+      }
+    }
+
+    expect(sendResponse).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: expect.stringContaining("could not verify the design URL"),
+      }),
+      expect.any(Object),
+      expect.objectContaining({ placeholderRef: undefined }),
+    );
+    expect(sendResponse.mock.calls[0][0].text).toContain("saved app data");
+    expect(sendResponse.mock.calls[0][0].text).not.toContain(
+      "us1sfMEZNWUQZHDldxoFA",
+    );
+    expect(sendResponse.mock.calls[0][0].text).not.toContain(
+      "https://design.agent-native.com/design/",
+    );
+  });
+
+  it("adds real design URLs to Slack-style integration replies after generate-design succeeds", async () => {
+    const { processIntegrationTask } = await import("./webhook-handler.js");
+    const previousAppUrl = process.env.APP_URL;
+    process.env.APP_URL = "https://design.agent.test";
+    const sendResponse = vi.fn();
+    runAgentLoopMock.mockImplementationOnce(async ({ send }) => {
+      send({
+        type: "tool_done",
+        tool: "create-design",
+        result: JSON.stringify({ id: "design_123", title: "Prototype" }),
+      });
+      send({
+        type: "tool_done",
+        tool: "generate-design",
+        result: JSON.stringify({
+          designId: "design_123",
+          savedFiles: [{ id: "file_1", filename: "index.html" }],
+          fileCount: 1,
+        }),
+      });
+      send({ type: "text", text: "The prototype is ready." });
+    });
+
+    try {
+      await processIntegrationTask(pendingTask({ id: "task-real-design" }), {
+        adapter: createAdapter(sendResponse),
+        systemPrompt: "system",
+        actions: {},
+        model: "claude-sonnet-4-6",
+        apiKey: "",
+        ownerEmail: "dispatch+qa@integration.local",
+      });
+    } finally {
+      if (previousAppUrl === undefined) {
+        delete process.env.APP_URL;
+      } else {
+        process.env.APP_URL = previousAppUrl;
+      }
+    }
+
+    expect(sendResponse).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: expect.stringContaining(
+          "https://design.agent.test/design/design_123",
+        ),
+      }),
+      expect.any(Object),
+      expect.objectContaining({ placeholderRef: undefined }),
+    );
+  });
+});

@@ -1,0 +1,107 @@
+import { Links, Meta, Outlet, Scripts, ScrollRestoration } from "react-router";
+import { useState } from "react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { Toaster } from "@/components/ui/toaster";
+import { Toaster as Sonner } from "@/components/ui/sonner";
+import {
+  ClientOnly,
+  DefaultSpinner,
+  appPath,
+  useDbSync,
+} from "@agent-native/core/client";
+import { getThemeInitScript } from "@agent-native/core/client";
+import { ThemeProvider } from "next-themes";
+import { AuthProvider } from "@/components/auth/AuthProvider";
+import { CommandPalette } from "./components/layout/CommandPalette";
+import { Layout as AppLayout } from "./components/layout/Layout";
+import type { LinksFunction } from "react-router";
+import stylesheet from "./global.css?url";
+import { configureTracking } from "@agent-native/core/client";
+configureTracking({
+  getDefaultProps: (_name, properties) => ({
+    ...properties,
+    app: "agent-native-analytics",
+  }),
+});
+
+export const links: LinksFunction = () => [
+  { rel: "stylesheet", href: stylesheet },
+];
+
+const THEME_INIT_SCRIPT = getThemeInitScript("dark", true);
+
+export function Layout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <meta charSet="utf-8" />
+        <meta
+          name="viewport"
+          content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"
+        />
+        <script
+          suppressHydrationWarning
+          dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }}
+        />
+        <link rel="manifest" href={appPath("/manifest.json")} />
+        <meta name="theme-color" content="#F59E0B" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta
+          name="apple-mobile-web-app-status-bar-style"
+          content="black-translucent"
+        />
+        <meta name="apple-mobile-web-app-title" content="Analytics" />
+        <link rel="icon" type="image/svg+xml" href={appPath("/favicon.svg")} />
+        <link rel="apple-touch-icon" href={appPath("/icon-180.svg")} />
+        <Meta />
+        <Links />
+      </head>
+      <body>
+        {children}
+        <ScrollRestoration />
+        <Scripts />
+      </body>
+    </html>
+  );
+}
+
+function DbSyncBridge({ queryClient }: { queryClient: QueryClient }) {
+  // Invalidate react-query caches on DB changes (agent edits, other tabs,
+  // cron jobs). The hook invalidates every active query on any non-own
+  // change event, so we no longer need to enumerate dashboard / analysis
+  // / explorer keys here. Screen-refresh is handled automatically inside
+  // AgentSidebar.
+  useDbSync({ queryClient });
+  return null;
+}
+
+export default function Root() {
+  const [queryClient] = useState(() => new QueryClient());
+  return (
+    <ClientOnly fallback={<DefaultSpinner />}>
+      <ThemeProvider
+        attribute="class"
+        defaultTheme="dark"
+        enableSystem
+        disableTransitionOnChange
+      >
+        <QueryClientProvider client={queryClient}>
+          <DbSyncBridge queryClient={queryClient} />
+          <TooltipProvider>
+            <Toaster />
+            <Sonner position="bottom-left" />
+            <AuthProvider>
+              <CommandPalette />
+              <AppLayout>
+                <Outlet />
+              </AppLayout>
+            </AuthProvider>
+          </TooltipProvider>
+        </QueryClientProvider>
+      </ThemeProvider>
+    </ClientOnly>
+  );
+}
+
+export { ErrorBoundary } from "@agent-native/core/client";

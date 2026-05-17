@@ -1,0 +1,11 @@
+node_modules
+dist
+.netlify
+out
+pnpm-lock.yaml
+**/SKILL.md
+**/routeTree.gen.ts
+**/.react-router
+**/src-tauri/target
+# Generated file — formatting flips between runs
+packages/docs/app/components/searchIndex.ts

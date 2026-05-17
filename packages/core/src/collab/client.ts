@@ -1,0 +1,461 @@
+/**
+ * Client-side hook for collaborative document editing via Yjs.
+ *
+ * Creates a STABLE Y.Doc per docId that never changes identity. This allows
+ * TipTap's Collaboration extension to bind once without editor recreation.
+ * Server state is applied to the existing doc when it arrives.
+ *
+ * Also manages Yjs Awareness for cursor positions and user presence,
+ * synced via polling to the server's awareness endpoint.
+ */
+
+import { useEffect, useRef, useState, useMemo } from "react";
+import * as Y from "yjs";
+import { Awareness } from "y-protocols/awareness";
+import { agentNativePath } from "../client/api-path.js";
+
+export interface CollabUser {
+  name: string;
+  email: string;
+  color: string;
+}
+
+export interface UseCollaborativeDocOptions {
+  /** Document ID to collaborate on. Pass null to disable. */
+  docId: string | null;
+  /** Poll interval in ms. Default: 2000 */
+  pollInterval?: number;
+  /** Pause remote update/presence polling while the tab is hidden. Default: true */
+  pauseWhenHidden?: boolean;
+  /** Base URL for collab endpoints. Default: "/_agent-native/collab" */
+  baseUrl?: string;
+  /** Request source ID for jitter prevention (e.g., tab ID). */
+  requestSource?: string;
+  /** Current user info for cursor labels. */
+  user?: CollabUser;
+}
+
+export interface UseCollaborativeDocResult {
+  /** The Yjs document instance. Stable per docId — never changes identity. */
+  ydoc: Y.Doc | null;
+  /** Yjs Awareness instance for cursor/presence sync. */
+  awareness: Awareness | null;
+  /** Whether the initial state is still loading from the server. */
+  isLoading: boolean;
+  /** Whether the doc is synced with the server. */
+  isSynced: boolean;
+  /** Active users on this document (from awareness). */
+  activeUsers: CollabUser[];
+  /** True briefly when the AI agent makes an edit (for presence indicator). */
+  agentActive: boolean;
+  /** True when the AI agent has an active awareness entry (durable presence). */
+  agentPresent: boolean;
+}
+
+// Consistent color palette for user cursors
+const CURSOR_COLORS = [
+  "#f87171",
+  "#fb923c",
+  "#fbbf24",
+  "#a3e635",
+  "#34d399",
+  "#22d3ee",
+  "#60a5fa",
+  "#14b8a6",
+  "#f472b6",
+  "#e879f9",
+];
+
+/** Hash a string to a consistent color from the palette. */
+export function emailToColor(email: string): string {
+  let hash = 0;
+  for (let i = 0; i < email.length; i++) {
+    hash = ((hash << 5) - hash + email.charCodeAt(i)) | 0;
+  }
+  return CURSOR_COLORS[Math.abs(hash) % CURSOR_COLORS.length];
+}
+
+/** Derive a display name from an email address. */
+export function emailToName(email: string): string {
+  const local = email.split("@")[0] || email;
+  return local.charAt(0).toUpperCase() + local.slice(1);
+}
+
+function normalizeCollabEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
+function isDocumentHidden(): boolean {
+  return (
+    typeof document !== "undefined" && document.visibilityState === "hidden"
+  );
+}
+
+export function dedupeCollabUsersByEmail(users: CollabUser[]): CollabUser[] {
+  const byEmail = new Map<string, CollabUser>();
+  for (const user of users) {
+    const email = normalizeCollabEmail(user.email);
+    if (!email || byEmail.has(email)) continue;
+    byEmail.set(email, {
+      name: user.name || emailToName(email),
+      email,
+      color: user.color || emailToColor(email),
+    });
+  }
+  return Array.from(byEmail.values());
+}
+
+export interface RemoteAwarenessSnapshot {
+  clientId: number;
+  state: unknown;
+}
+
+export function reconcileRemoteAwarenessStates(
+  states: Map<number, unknown>,
+  localClientId: number,
+  remoteStates: RemoteAwarenessSnapshot[],
+): { added: number[]; updated: number[]; removed: number[] } {
+  const incoming = new Set<number>();
+  const added: number[] = [];
+  const updated: number[] = [];
+  const removed: number[] = [];
+
+  for (const remote of remoteStates) {
+    if (
+      !Number.isFinite(remote.clientId) ||
+      remote.clientId === localClientId
+    ) {
+      continue;
+    }
+    incoming.add(remote.clientId);
+    const hadState = states.has(remote.clientId);
+    states.set(remote.clientId, remote.state);
+    (hadState ? updated : added).push(remote.clientId);
+  }
+
+  for (const clientId of Array.from(states.keys())) {
+    if (clientId === localClientId) continue;
+    if (incoming.has(clientId)) continue;
+    states.delete(clientId);
+    removed.push(clientId);
+  }
+
+  return { added, updated, removed };
+}
+
+// Base64 helpers
+function uint8ArrayToBase64(arr: Uint8Array): string {
+  let binary = "";
+  for (let i = 0; i < arr.length; i++) {
+    binary += String.fromCharCode(arr[i]);
+  }
+  return btoa(binary);
+}
+
+function base64ToUint8Array(b64: string): Uint8Array {
+  const binary = atob(b64);
+  const arr = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    arr[i] = binary.charCodeAt(i);
+  }
+  return arr;
+}
+
+export function useCollaborativeDoc(
+  options: UseCollaborativeDocOptions,
+): UseCollaborativeDocResult {
+  const {
+    docId,
+    pollInterval = 2000,
+    pauseWhenHidden = true,
+    baseUrl = agentNativePath("/_agent-native/collab"),
+    requestSource,
+    user,
+  } = options;
+
+  // Stable Y.Doc per docId
+  const ydoc = useMemo(() => {
+    if (!docId) return null;
+    return new Y.Doc();
+  }, [docId]);
+
+  // Stable Awareness per ydoc
+  const awareness = useMemo(() => {
+    if (!ydoc) return null;
+    return new Awareness(ydoc);
+  }, [ydoc]);
+
+  const [isLoading, setIsLoading] = useState(!!docId);
+  const [isSynced, setIsSynced] = useState(false);
+  const [activeUsers, setActiveUsers] = useState<CollabUser[]>([]);
+  const [agentActive, setAgentActive] = useState(false);
+  const [agentPresent, setAgentPresent] = useState(false);
+  // Set when the initial state fetch returns 404/403 — stops the awareness
+  // poll so we don't spam the console with errors against a doc that doesn't
+  // exist or isn't accessible.
+  const [docMissing, setDocMissing] = useState(false);
+  const agentTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pollVersionRef = useRef(0);
+
+  // Set local awareness state (user info for cursor labels)
+  useEffect(() => {
+    if (!awareness || !user) return;
+    awareness.setLocalStateField("user", {
+      name: user.name,
+      email: user.email,
+      color: user.color,
+    });
+  }, [awareness, user?.name, user?.email, user?.color]);
+
+  // Track active users from awareness changes
+  useEffect(() => {
+    if (!awareness) return;
+
+    const updateUsers = () => {
+      const users: CollabUser[] = [];
+      let hasAgent = false;
+      awareness.getStates().forEach((state, clientId) => {
+        if (clientId === ydoc?.clientID) return; // Skip self
+        if (state.user) {
+          users.push(state.user as CollabUser);
+          if ((state.user as CollabUser).email === "agent@system") {
+            hasAgent = true;
+          }
+        }
+      });
+      setActiveUsers(dedupeCollabUsersByEmail(users));
+      setAgentPresent(hasAgent);
+    };
+
+    awareness.on("change", updateUsers);
+    return () => {
+      awareness.off("change", updateUsers);
+    };
+  }, [awareness, ydoc]);
+
+  // Clean up on unmount or docId change
+  useEffect(() => {
+    return () => {
+      awareness?.destroy();
+      ydoc?.destroy();
+    };
+  }, [ydoc, awareness]);
+
+  // Fetch server state and apply to existing doc
+  useEffect(() => {
+    if (!ydoc || !docId) {
+      setIsLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setIsLoading(true);
+    setIsSynced(false);
+    setDocMissing(false);
+
+    fetch(`${baseUrl}/${docId}/state`)
+      .then(async (res) => {
+        if (cancelled) return;
+        if (res.status === 404 || res.status === 403) {
+          setDocMissing(true);
+          setIsLoading(false);
+          setIsSynced(true);
+          return;
+        }
+        const data = (await res.json().catch(() => null)) as {
+          state?: string;
+        } | null;
+        if (data?.state) {
+          const binary = base64ToUint8Array(data.state);
+          if (binary.length > 4) {
+            Y.applyUpdate(ydoc, binary);
+          }
+        }
+        setIsLoading(false);
+        setIsSynced(true);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setIsLoading(false);
+        setIsSynced(true);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [ydoc, docId, baseUrl]);
+
+  // Send local updates to server
+  useEffect(() => {
+    if (!ydoc || !docId || docMissing) return;
+
+    const handler = (update: Uint8Array, origin: unknown) => {
+      if (origin === "remote") return;
+
+      fetch(`${baseUrl}/${docId}/update`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          update: uint8ArrayToBase64(update),
+          requestSource,
+        }),
+      });
+    };
+
+    ydoc.on("update", handler);
+    return () => {
+      ydoc.off("update", handler);
+    };
+  }, [ydoc, docId, baseUrl, requestSource, docMissing]);
+
+  // Poll for remote doc updates + awareness sync
+  useEffect(() => {
+    if (!ydoc || !docId || docMissing) return;
+
+    let stopped = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    function schedulePoll() {
+      if (stopped) return;
+      if (pauseWhenHidden && isDocumentHidden()) return;
+      timer = setTimeout(poll, pollInterval);
+    }
+
+    async function poll() {
+      if (stopped) return;
+      try {
+        // Poll for document updates
+        const res = await fetch(
+          agentNativePath(
+            `/_agent-native/poll?since=${pollVersionRef.current}`,
+          ),
+        );
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const data = await res.json();
+        const { version, events } = data as {
+          version: number;
+          events: Array<{
+            source: string;
+            docId?: string;
+            update?: string;
+            requestSource?: string;
+          }>;
+        };
+
+        for (const evt of events) {
+          if (evt.source === "collab" && evt.docId === docId && evt.update) {
+            if (requestSource && evt.requestSource === requestSource) continue;
+            Y.applyUpdate(ydoc, base64ToUint8Array(evt.update), "remote");
+
+            // Show agent presence indicator briefly
+            if (evt.requestSource === "agent") {
+              setAgentActive(true);
+              if (agentTimerRef.current) clearTimeout(agentTimerRef.current);
+              agentTimerRef.current = setTimeout(
+                () => setAgentActive(false),
+                3000,
+              );
+            }
+          }
+        }
+
+        pollVersionRef.current = version;
+
+        // Sync awareness (cursor positions)
+        if (awareness) {
+          const localState = awareness.getLocalState();
+          if (localState) {
+            const awarenessRes = await fetch(`${baseUrl}/${docId}/awareness`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                clientId: ydoc.clientID,
+                state: JSON.stringify(localState),
+              }),
+            });
+            if (awarenessRes.ok) {
+              const awarenessData = await awarenessRes.json();
+              const remoteStates: RemoteAwarenessSnapshot[] = [];
+              for (const remote of awarenessData.states || []) {
+                try {
+                  const remoteState = JSON.parse(remote.state);
+                  remoteStates.push({
+                    clientId: Number(remote.clientId),
+                    state: remoteState,
+                  });
+                } catch {
+                  // Invalid state — skip
+                }
+              }
+              const changes = reconcileRemoteAwarenessStates(
+                awareness.getStates() as Map<number, unknown>,
+                ydoc.clientID,
+                remoteStates,
+              );
+              if (
+                changes.added.length ||
+                changes.updated.length ||
+                changes.removed.length
+              ) {
+                awareness.emit("change", [changes, "remote"]);
+              }
+            }
+          }
+        }
+      } catch {
+        // Network error — retry next interval
+      }
+      schedulePoll();
+    }
+
+    function pollNow() {
+      if (pauseWhenHidden && isDocumentHidden()) return;
+      if (timer) {
+        clearTimeout(timer);
+        timer = null;
+      }
+      void poll();
+    }
+
+    function handleVisibilityChange() {
+      if (document.visibilityState === "visible") {
+        pollNow();
+      } else if (pauseWhenHidden && timer) {
+        clearTimeout(timer);
+        timer = null;
+      }
+    }
+
+    if (!pauseWhenHidden || !isDocumentHidden()) {
+      void poll();
+    }
+    window.addEventListener("focus", pollNow);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      stopped = true;
+      if (timer) clearTimeout(timer);
+      window.removeEventListener("focus", pollNow);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [
+    ydoc,
+    awareness,
+    docId,
+    pollInterval,
+    pauseWhenHidden,
+    requestSource,
+    baseUrl,
+    docMissing,
+  ]);
+
+  return {
+    ydoc,
+    awareness,
+    isLoading,
+    isSynced,
+    activeUsers,
+    agentActive,
+    agentPresent,
+  };
+}

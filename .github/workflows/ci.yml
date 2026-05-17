@@ -1,0 +1,200 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint & format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+          cache: "pnpm"
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Prettier check
+        run: pnpm fmt:check
+
+  typecheck:
+    name: Typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+          cache: "pnpm"
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+          cache: "pnpm"
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Run tests
+        run: pnpm test
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+          cache: "pnpm"
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build all packages
+        run: pnpm build
+
+  scaffold-e2e:
+    name: Scaffold E2E — create + pnpm install
+    runs-on: ubuntu-latest
+    env:
+      AGENT_NATIVE_CREATE_USE_LOCAL_CORE: "1"
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+          cache: "pnpm"
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm build
+
+      - name: Scaffold standalone app (starter) and verify pnpm install
+        run: |
+          cd "$(mktemp -d)"
+          node "$GITHUB_WORKSPACE/packages/core/dist/cli/index.js" create test-standalone --template starter
+          cd test-standalone
+          # Fail fast if any workspace: or catalog: refs leaked
+          if grep -r '"workspace:' package.json; then
+            echo "::error::workspace:* ref found in standalone scaffold"
+            exit 1
+          fi
+          if grep -r '"catalog:' package.json; then
+            echo "::error::catalog: ref found in standalone scaffold"
+            exit 1
+          fi
+          pnpm install
+
+      - name: Scaffold workspace (starter + calendar + dispatch) and verify pnpm install + build
+        # Dispatch is in the combo because it exercises the
+        # workspacify.ts dispatch-rewrite path (workspace:* → "latest" for
+        # @agent-native/dispatch, the only published package consumed as a
+        # workspace app). Calendar covers the requiredPackages →
+        # packages/scheduling scaffold path. Together they guard the two
+        # distinct ways a workspace template can break `pnpm install`.
+        run: |
+          cd "$(mktemp -d)"
+          node "$GITHUB_WORKSPACE/packages/core/dist/cli/index.js" create test-workspace --template starter,calendar,dispatch
+          cd test-workspace
+          # Required package must be scaffolded
+          if [ ! -d "packages/scheduling" ]; then
+            echo "::error::packages/scheduling not scaffolded for calendar template"
+            exit 1
+          fi
+          # Root must have postinstall for required packages
+          if ! grep -q 'postinstall' package.json; then
+            echo "::error::postinstall script missing for required packages"
+            exit 1
+          fi
+          # Every workspace:* dep in scaffolded apps must resolve to a
+          # package actually present in the workspace. Catches the class of
+          # bug Sami hit: a template depended on @agent-native/dispatch
+          # (a published package, not a workspace member) and `pnpm install`
+          # blew up with ERR_PNPM_WORKSPACE_PKG_NOT_FOUND.
+          node -e '
+            const fs = require("fs");
+            const path = require("path");
+            const wsMembers = new Set();
+            for (const dir of ["apps", "packages"]) {
+              if (!fs.existsSync(dir)) continue;
+              for (const sub of fs.readdirSync(dir)) {
+                const pj = path.join(dir, sub, "package.json");
+                if (fs.existsSync(pj)) {
+                  const n = JSON.parse(fs.readFileSync(pj, "utf8")).name;
+                  if (n) wsMembers.add(n);
+                }
+              }
+            }
+            const offenders = [];
+            for (const dir of ["apps", "packages"]) {
+              if (!fs.existsSync(dir)) continue;
+              for (const sub of fs.readdirSync(dir)) {
+                const pj = path.join(dir, sub, "package.json");
+                if (!fs.existsSync(pj)) continue;
+                const pkg = JSON.parse(fs.readFileSync(pj, "utf8"));
+                for (const dt of ["dependencies","devDependencies","peerDependencies"]) {
+                  for (const [name, ver] of Object.entries(pkg[dt] || {})) {
+                    if (typeof ver === "string" && ver.startsWith("workspace:")) {
+                      if (!wsMembers.has(name)) {
+                        offenders.push(pj + ": " + dt + "." + name + "=" + ver);
+                      }
+                    }
+                  }
+                }
+              }
+            }
+            if (offenders.length) {
+              console.error("::error::dangling workspace:* refs in scaffold (no matching workspace member):");
+              for (const o of offenders) console.error("  " + o);
+              process.exit(1);
+            }
+          '
+          pnpm install
+          # Build the calendar app — catches missing peer/runtime deps that
+          # `pnpm install` alone won't surface (e.g. core importing a peer
+          # dep that templates don't declare).
+          pnpm --filter ./apps/calendar build
+
+  guard-no-drizzle-push:
+    name: Guard — no drizzle-kit push in build paths
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+
+      # No install needed — the guard script only uses Node builtins.
+      - name: Scan netlify.toml + package.json for `drizzle-kit push`
+        run: node scripts/guard-no-drizzle-push.mjs

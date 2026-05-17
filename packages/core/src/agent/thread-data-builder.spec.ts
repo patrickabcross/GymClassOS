@@ -1,0 +1,696 @@
+import { describe, expect, it } from "vitest";
+import {
+  buildAssistantMessage,
+  buildUserMessage,
+  mergeThreadDataForClientSave,
+  normalizeThreadRepository,
+  upsertAssistantMessage,
+  upsertUserMessage,
+} from "./thread-data-builder.js";
+import type { RunEvent } from "./types.js";
+
+describe("buildAssistantMessage", () => {
+  it("does not persist partial output from internal continuation boundaries", () => {
+    const events: RunEvent[] = [
+      { seq: 0, event: { type: "text", text: "partial answer" } },
+      { seq: 1, event: { type: "auto_continue", reason: "run_timeout" } },
+    ];
+
+    expect(
+      buildAssistantMessage(events, "run-timeout", {
+        suppressInternalContinuation: true,
+      }),
+    ).toBeNull();
+  });
+
+  it("does not persist partial output from suppressed loop-limit boundaries", () => {
+    const events: RunEvent[] = [
+      { seq: 0, event: { type: "text", text: "partial answer" } },
+      { seq: 1, event: { type: "loop_limit", maxIterations: 50 } },
+    ];
+
+    expect(
+      buildAssistantMessage(events, "run-loop-limit", {
+        suppressInternalContinuation: true,
+      }),
+    ).toBeNull();
+  });
+
+  it("does not persist partial output from recoverable gateway errors when suppressed", () => {
+    const events: RunEvent[] = [
+      { seq: 0, event: { type: "text", text: "checking..." } },
+      {
+        seq: 1,
+        event: {
+          type: "error",
+          error: "Builder gateway timed out after 45s",
+          errorCode: "builder_gateway_timeout",
+        },
+      },
+    ];
+
+    expect(
+      buildAssistantMessage(events, "run-gateway-timeout", {
+        suppressInternalContinuation: true,
+      }),
+    ).toBeNull();
+  });
+
+  it("persists bare gateway stop errors when continuation errors are suppressed", () => {
+    const events: RunEvent[] = [
+      { seq: 0, event: { type: "text", text: "checking..." } },
+      {
+        seq: 1,
+        event: {
+          type: "error",
+          error:
+            'Gateway error (no detail; raw event: {"type":"stop","reason":"error","requestId":"req_1"})',
+          errorCode: "builder_gateway_error",
+          recoverable: true,
+        },
+      },
+    ];
+
+    const message = buildAssistantMessage(events, "run-gateway-error", {
+      suppressInternalContinuation: true,
+    });
+
+    expect(message?.content).toEqual([
+      {
+        type: "text",
+        text: 'checking...\n\nError: Gateway error (no detail; raw event: {"type":"stop","reason":"error","requestId":"req_1"})',
+      },
+    ]);
+    expect(message?.status).toEqual({ type: "incomplete", reason: "error" });
+  });
+
+  it("persists recoverable errors by default for non-continuation server paths", () => {
+    const events: RunEvent[] = [
+      { seq: 0, event: { type: "text", text: "checking..." } },
+      {
+        seq: 1,
+        event: {
+          type: "error",
+          error: "Builder gateway timed out after 45s",
+          errorCode: "builder_gateway_timeout",
+        },
+      },
+    ];
+
+    const message = buildAssistantMessage(events, "run-gateway-timeout");
+
+    expect(message?.content).toEqual([
+      {
+        type: "text",
+        text: "checking...\n\nError: Builder gateway timed out after 45s",
+      },
+    ]);
+    expect(message?.status).toEqual({ type: "incomplete", reason: "error" });
+  });
+
+  it("still persists non-recoverable errors", () => {
+    const events: RunEvent[] = [
+      { seq: 0, event: { type: "text", text: "checking..." } },
+      {
+        seq: 1,
+        event: {
+          type: "error",
+          error: "Missing API key",
+          errorCode: "missing_api_key",
+        },
+      },
+    ];
+
+    const message = buildAssistantMessage(events, "run-missing-key");
+
+    expect(message?.content).toEqual([
+      { type: "text", text: "checking...\n\nError: Missing API key" },
+    ]);
+    expect(message?.status).toEqual({ type: "incomplete", reason: "error" });
+  });
+
+  it("replaces a non-terminal partial assistant message for the same run", () => {
+    const finalMessage = buildAssistantMessage(
+      [
+        { seq: 0, event: { type: "text", text: "I can see there are " } },
+        { seq: 1, event: { type: "text", text: "12 matching emails." } },
+        { seq: 2, event: { type: "done" } },
+      ],
+      "run-archive",
+    );
+    expect(finalMessage).not.toBeNull();
+
+    const repo = {
+      messages: [
+        {
+          message: {
+            id: "user-1",
+            role: "user",
+            content: [{ type: "text", text: "archive them" }],
+          },
+          parentId: null,
+        },
+        {
+          message: {
+            id: "assistant-partial",
+            role: "assistant",
+            content: [{ type: "text", text: "I can see there are " }],
+            status: { type: "running" },
+            metadata: { custom: { runId: "run-archive" } },
+          },
+          parentId: "user-1",
+        },
+      ],
+    };
+
+    const updated = upsertAssistantMessage(repo, finalMessage!);
+
+    expect(updated.messages).toHaveLength(2);
+    expect(updated.messages[1].parentId).toBe("user-1");
+    expect(updated.messages[1].message).toMatchObject({
+      id: "server-run-archive",
+      role: "assistant",
+      content: [
+        { type: "text", text: "I can see there are 12 matching emails." },
+      ],
+      status: { type: "complete", reason: "stop" },
+      metadata: { runId: "run-archive" },
+    });
+  });
+
+  it("does not duplicate when the frontend already saved the final same-run message", () => {
+    const finalMessage = buildAssistantMessage(
+      [
+        { seq: 0, event: { type: "text", text: "Done." } },
+        { seq: 1, event: { type: "done" } },
+      ],
+      "run-done",
+    );
+    expect(finalMessage).not.toBeNull();
+
+    const repo = {
+      messages: [
+        {
+          id: "user-1",
+          role: "user",
+          content: [{ type: "text", text: "do it" }],
+        },
+        {
+          id: "client-run-done",
+          role: "assistant",
+          content: [{ type: "text", text: "Done." }],
+          status: { type: "complete", reason: "stop" },
+          metadata: { custom: { runId: "run-done" } },
+        },
+      ],
+    };
+
+    const updated = upsertAssistantMessage(repo, finalMessage!);
+
+    expect(updated.messages).toHaveLength(2);
+    expect(updated.messages[1].message).toMatchObject({
+      id: "server-run-done",
+      role: "assistant",
+      content: [{ type: "text", text: "Done." }],
+      status: { type: "complete", reason: "stop" },
+      metadata: { runId: "run-done" },
+    });
+  });
+
+  it("appends when the last assistant belongs to a different completed run", () => {
+    const finalMessage = buildAssistantMessage(
+      [
+        { seq: 0, event: { type: "text", text: "New answer." } },
+        { seq: 1, event: { type: "done" } },
+      ],
+      "run-new",
+    );
+    expect(finalMessage).not.toBeNull();
+
+    const repo = {
+      messages: [
+        {
+          id: "server-run-old",
+          role: "assistant",
+          content: [{ type: "text", text: "Old answer." }],
+          status: { type: "complete", reason: "stop" },
+          metadata: { runId: "run-old" },
+        },
+      ],
+    };
+
+    const updated = upsertAssistantMessage(repo, finalMessage!);
+
+    expect(updated.messages).toHaveLength(2);
+    expect(updated.messages[1].message).toMatchObject({
+      id: "server-run-new",
+      content: [{ type: "text", text: "New answer." }],
+    });
+  });
+
+  it("does not replace a completed different-run answer with a prefix-matching recovery answer", () => {
+    const finalMessage = buildAssistantMessage(
+      [
+        {
+          seq: 0,
+          event: {
+            type: "text",
+            text: "Let me start a subagent to analyze the data. Finished.",
+          },
+        },
+        { seq: 1, event: { type: "done" } },
+      ],
+      "run-new",
+    );
+    expect(finalMessage).not.toBeNull();
+
+    const repo = {
+      messages: [
+        {
+          id: "server-run-old",
+          role: "assistant",
+          content: [
+            {
+              type: "text",
+              text: "Let me start a subagent to analyze the data.",
+            },
+          ],
+          status: { type: "complete", reason: "stop" },
+          metadata: { runId: "run-old" },
+        },
+      ],
+    };
+
+    const updated = upsertAssistantMessage(repo, finalMessage!);
+
+    expect(updated.messages).toHaveLength(2);
+    expect(updated.messages[0].message).toMatchObject({
+      metadata: { runId: "run-old" },
+    });
+    expect(updated.messages[1].message).toMatchObject({
+      id: "server-run-new",
+      content: [
+        {
+          type: "text",
+          text: "Let me start a subagent to analyze the data. Finished.",
+        },
+      ],
+    });
+  });
+});
+
+describe("mergeThreadDataForClientSave", () => {
+  it("preserves server-only assistant messages when a stale client save arrives", () => {
+    const existing = {
+      queuedMessages: [{ id: "queued", text: "next" }],
+      messages: [
+        {
+          role: "user",
+          id: "user-1",
+          content: [{ type: "text", text: "start" }],
+        },
+        {
+          role: "assistant",
+          id: "server-run-1",
+          content: [{ type: "text", text: "server answer" }],
+          status: { type: "complete", reason: "stop" },
+          metadata: { runId: "run-1" },
+        },
+      ],
+    };
+    const staleIncoming = {
+      messages: [
+        {
+          role: "user",
+          id: "user-1",
+          content: [{ type: "text", text: "start" }],
+        },
+      ],
+    };
+
+    const merged = mergeThreadDataForClientSave(existing, staleIncoming);
+
+    expect(merged.queuedMessages).toEqual([{ id: "queued", text: "next" }]);
+    expect(merged.messages.map((entry: any) => entry.message.id)).toEqual([
+      "user-1",
+      "server-run-1",
+    ]);
+    expect(merged.messages[0].parentId).toBeNull();
+    expect(merged.messages[1].parentId).toBe("user-1");
+  });
+
+  it("preserves non-runtime top-level thread metadata across stale client saves", () => {
+    const existing = {
+      engineMeta: { engineName: "builder", model: "claude-sonnet-4" },
+      _debugRuns: [{ runId: "run-1" }],
+      messages: [
+        {
+          id: "user-1",
+          role: "user",
+          content: [{ type: "text", text: "start" }],
+        },
+      ],
+    };
+    const staleIncoming = {
+      messages: [
+        {
+          id: "user-1",
+          role: "user",
+          content: [{ type: "text", text: "start" }],
+        },
+      ],
+    };
+
+    const merged = mergeThreadDataForClientSave(existing, staleIncoming);
+
+    expect(merged.engineMeta).toEqual({
+      engineName: "builder",
+      model: "claude-sonnet-4",
+    });
+    expect(merged._debugRuns).toEqual([{ runId: "run-1" }]);
+  });
+
+  it("can treat queued messages as authoritative when clearing the queue", () => {
+    const existing = {
+      queuedMessages: [{ id: "queued", text: "next" }],
+      messages: [
+        {
+          id: "user-1",
+          role: "user",
+          content: [{ type: "text", text: "start" }],
+        },
+      ],
+    };
+    const incoming = {
+      messages: [
+        {
+          id: "user-1",
+          role: "user",
+          content: [{ type: "text", text: "start" }],
+        },
+      ],
+    };
+
+    const merged = mergeThreadDataForClientSave(existing, incoming, {
+      preserveExistingQueuedMessages: false,
+    });
+
+    expect(merged.queuedMessages).toBeUndefined();
+  });
+
+  it("dedupes a client-save user message against the server's submittedRunId copy of the same prompt", () => {
+    // The runtime's saveThreadData PUT sends the runtime export, which
+    // assigns every user message `attachments: []`. The server's
+    // `persistSubmittedUserMessage` → `buildUserMessage` writes the same
+    // logical message but omits `attachments` entirely. Without
+    // attachment normalization in `messageIdentityKeys`, the merge sees
+    // them as different fingerprints and keeps both, producing a duplicate
+    // user-message row per turn (observed on slides prod: every turn
+    // ended up as `client_user → assistant → server_user`).
+    const existing = {
+      messages: [
+        {
+          message: {
+            id: "server-user-run-2026-05-10",
+            role: "user",
+            content: [{ type: "text", text: "make me a deck about pumpkins" }],
+            metadata: { custom: { submittedRunId: "run-2026-05-10" } },
+          },
+          parentId: null,
+        },
+      ],
+    };
+    const incoming = {
+      messages: [
+        {
+          message: {
+            id: "client-runtime-id",
+            role: "user",
+            content: [{ type: "text", text: "make me a deck about pumpkins" }],
+            attachments: [],
+            metadata: { custom: {} },
+          },
+          parentId: null,
+        },
+      ],
+    };
+
+    const merged = mergeThreadDataForClientSave(existing, incoming);
+
+    expect(merged.messages).toHaveLength(1);
+    expect(merged.messages[0].message.id).toBe("client-runtime-id");
+  });
+
+  it("keeps a terminal server message over a stale same-run partial", () => {
+    const existing = {
+      messages: [
+        {
+          role: "assistant",
+          id: "server-run-1",
+          content: [{ type: "text", text: "Final answer" }],
+          status: { type: "complete", reason: "stop" },
+          metadata: { runId: "run-1" },
+        },
+      ],
+    };
+    const staleIncoming = {
+      messages: [
+        {
+          role: "assistant",
+          id: "assistant-partial",
+          content: [{ type: "text", text: "Final" }],
+          status: { type: "running" },
+          metadata: { custom: { runId: "run-1" } },
+        },
+      ],
+    };
+
+    const merged = mergeThreadDataForClientSave(existing, staleIncoming);
+
+    expect(merged.messages).toHaveLength(1);
+    expect(merged.messages[0].message.id).toBe("server-run-1");
+    expect(merged.messages[0].message.content).toEqual([
+      { type: "text", text: "Final answer" },
+    ]);
+  });
+
+  it("matches server-persisted user attachments to later client saves by attachment metadata", () => {
+    const existing = {
+      messages: [
+        buildUserMessage({
+          text: "Use the attached context.",
+          runId: "run-user",
+          attachments: [
+            {
+              type: "file",
+              name: "gong-transcript.txt",
+              contentType: "text/plain",
+              text: "truncated transcript",
+            },
+          ],
+        }),
+      ],
+    };
+    const incoming = {
+      messages: [
+        {
+          id: "client-user",
+          role: "user",
+          content: [{ type: "text", text: "Use the attached context." }],
+          attachments: [
+            {
+              id: "client-attachment",
+              type: "file",
+              name: "gong-transcript.txt",
+              contentType: "text/plain",
+              status: { type: "complete" },
+              content: [
+                {
+                  type: "text",
+                  text: '<attachment name="gong-transcript.txt">\nfull transcript\n</attachment>',
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+
+    const merged = mergeThreadDataForClientSave(existing, incoming);
+
+    expect(merged.messages).toHaveLength(1);
+    expect(merged.messages[0].message.id).toBe("client-user");
+  });
+
+  it("rewrites assistant parent links when a duplicate server user id is replaced by the client id", () => {
+    const existing = {
+      messages: [
+        {
+          message: {
+            id: "server-user-run-1",
+            role: "user",
+            content: [{ type: "text", text: "make this slide punchier" }],
+            metadata: { custom: { submittedRunId: "run-1" } },
+          },
+          parentId: null,
+        },
+        {
+          message: {
+            id: "server-run-1",
+            role: "assistant",
+            content: [{ type: "text", text: "Done." }],
+            status: { type: "complete", reason: "stop" },
+            metadata: { runId: "run-1" },
+          },
+          parentId: "server-user-run-1",
+        },
+      ],
+    };
+    const incoming = {
+      messages: [
+        {
+          message: {
+            id: "client-user-1",
+            role: "user",
+            content: [{ type: "text", text: "make this slide punchier" }],
+            attachments: [],
+            metadata: { custom: {} },
+          },
+          parentId: null,
+        },
+      ],
+    };
+
+    const merged = mergeThreadDataForClientSave(existing, incoming);
+
+    expect(merged.messages.map((entry: any) => entry.message.id)).toEqual([
+      "client-user-1",
+      "server-run-1",
+    ]);
+    expect(merged.messages[1].parentId).toBe("client-user-1");
+  });
+});
+
+describe("normalizeThreadRepository", () => {
+  it("wraps legacy flat messages and repairs missing parent links", () => {
+    const normalized = normalizeThreadRepository({
+      headId: "missing-head",
+      messages: [
+        {
+          id: "user-1",
+          role: "user",
+          content: [{ type: "text", text: "start" }],
+        },
+        {
+          message: {
+            id: "assistant-1",
+            role: "assistant",
+            content: [{ type: "text", text: "done" }],
+            status: { type: "complete", reason: "stop" },
+          },
+          parentId: "does-not-exist",
+        },
+      ],
+    });
+
+    expect(normalized.headId).toBe("assistant-1");
+    expect(normalized.messages).toEqual([
+      expect.objectContaining({
+        parentId: null,
+        message: expect.objectContaining({ id: "user-1" }),
+      }),
+      expect.objectContaining({
+        parentId: "user-1",
+        message: expect.objectContaining({ id: "assistant-1" }),
+      }),
+    ]);
+  });
+});
+
+describe("upsertUserMessage", () => {
+  it("persists submitted text attachments in assistant-ui attachment shape", () => {
+    const message = buildUserMessage({
+      text: "Summarize this",
+      runId: "run-submit",
+      attachments: [
+        {
+          type: "file",
+          name: "notes.txt",
+          contentType: "text/plain",
+          text: "Call notes",
+        },
+      ],
+    });
+
+    const updated = upsertUserMessage({}, message);
+
+    expect(updated.messages).toEqual([
+      expect.objectContaining({
+        parentId: null,
+        message: expect.objectContaining({
+          id: "server-user-run-submit",
+          role: "user",
+          content: [{ type: "text", text: "Summarize this" }],
+          attachments: [
+            expect.objectContaining({
+              name: "notes.txt",
+              contentType: "text/plain",
+              content: [
+                {
+                  type: "text",
+                  text: '<attachment name="notes.txt" contentType="text/plain" type="file">\nCall notes\n</attachment>',
+                },
+              ],
+            }),
+          ],
+        }),
+      }),
+    ]);
+    expect(updated.headId).toBe("server-user-run-submit");
+  });
+
+  it("does not duplicate the latest same submitted user message", () => {
+    const message = buildUserMessage({
+      text: "Use the attached context.",
+      runId: "run-submit",
+      attachments: [
+        {
+          type: "file",
+          name: "source.txt",
+          contentType: "text/plain",
+          text: "Source",
+        },
+      ],
+    });
+
+    const updated = upsertUserMessage({ messages: [message] }, message);
+
+    expect(updated.messages).toHaveLength(1);
+  });
+
+  it("still appends a repeated prompt after an assistant reply", () => {
+    const message = buildUserMessage({
+      text: "continue",
+      runId: "run-repeat",
+    });
+    const repo = {
+      messages: [
+        buildUserMessage({ text: "continue", runId: "run-old" }),
+        {
+          id: "assistant-old",
+          role: "assistant",
+          content: [{ type: "text", text: "Sure." }],
+          status: { type: "complete", reason: "stop" },
+        },
+      ],
+    };
+
+    const updated = upsertUserMessage(repo, message);
+
+    expect(updated.messages).toHaveLength(3);
+    expect(updated.messages[2].message).toMatchObject({
+      id: "server-user-run-repeat",
+      role: "user",
+    });
+  });
+});

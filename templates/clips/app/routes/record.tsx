@@ -1,0 +1,1906 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
+import { Link, useLocation, useNavigate } from "react-router";
+import {
+  IconAlertTriangle,
+  IconArrowLeft,
+  IconCamera,
+  IconDeviceDesktop,
+  IconExternalLink,
+  IconMicrophone,
+  IconRefresh,
+  IconVideo,
+} from "@tabler/icons-react";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  agentNativePath,
+  appBasePath,
+  captureClientException,
+} from "@agent-native/core/client";
+import { RequireActiveOrg } from "@agent-native/core/client/org";
+import { useLiveTranscription } from "@agent-native/core/client/transcription/use-live-transcription";
+import { useDesktopPromo } from "@/hooks/use-desktop-promo";
+import {
+  fetchVideoStorageStatus,
+  useVideoStorageStatus,
+  VIDEO_STORAGE_STATUS_KEY,
+  type VideoStorageStatus,
+} from "@/hooks/use-video-storage-status";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  captureVideoThumbnailBlob,
+  uploadRecordingThumbnail,
+} from "@/lib/thumbnail-capture";
+import {
+  buildCaptureTitle,
+  defaultRecordingTitle,
+  inferWindowTitleFromDisplayStream,
+} from "@/lib/recording-title";
+import {
+  COMPRESS_THRESHOLD_BYTES,
+  MAX_UPLOAD_BYTES,
+  compressBlobIfTooLarge,
+  formatMb,
+} from "@/lib/compress";
+import { cn } from "@/lib/utils";
+
+// Client-side app-state writer (the server module pulls in Node's `events`
+// and cannot be bundled for the browser).
+async function writeAppState(key: string, value: unknown): Promise<void> {
+  await fetch(
+    agentNativePath(
+      `/_agent-native/application-state/${encodeURIComponent(key)}`,
+    ),
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ value }),
+    },
+  );
+}
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
+import { toast } from "sonner";
+
+import { PreRecordPanel } from "@/components/recorder/pre-record-panel";
+import { StorageSetupCard } from "@/components/recorder/storage-setup-card";
+import { CountdownOverlay } from "@/components/recorder/countdown-overlay";
+import { CameraBubble } from "@/components/recorder/camera-bubble";
+import { RecordingToolbar } from "@/components/recorder/recording-toolbar";
+import {
+  ConfettiCanvas,
+  type ConfettiHandle,
+} from "@/components/recorder/confetti-canvas";
+import {
+  RecorderEngine,
+  NO_MIC_DEVICE_ID,
+  type DisplaySurface,
+  type RecordingMode,
+} from "@/components/recorder/recorder-engine";
+import type { CameraBubbleSize } from "@/components/recorder/camera-bubble";
+
+export function meta() {
+  return [{ title: "New recording — Clips" }];
+}
+
+export function headers() {
+  return {
+    "Permissions-Policy":
+      "camera=(self), microphone=(self), display-capture=(self), geolocation=(), screen-wake-lock=()",
+  };
+}
+
+type UiState =
+  | "idle"
+  | "pickingSources"
+  | "countdown"
+  | "recording"
+  | "compressing"
+  | "uploading"
+  | "complete"
+  | "error";
+
+const MAC_SCREEN_RECORDING_PREF_URL =
+  "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture";
+const MAC_CAMERA_PREF_URL =
+  "x-apple.systempreferences:com.apple.preference.security?Privacy_Camera";
+const MAC_MICROPHONE_PREF_URL =
+  "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone";
+
+type BrowserDocumentPolicy = {
+  allowsFeature?: (feature: string) => boolean;
+};
+
+function isMacPlatform(): boolean {
+  return /^darwin|mac/i.test(
+    typeof navigator !== "undefined" ? navigator.platform : "",
+  );
+}
+
+function isEmbeddedWindow(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.self !== window.top;
+  } catch {
+    return true;
+  }
+}
+
+function openUrlFromUserGesture(url: string): void {
+  const opened = window.open(url, "_blank", "noopener,noreferrer");
+  if (!opened) {
+    window.location.href = url;
+  }
+}
+
+function capturePolicy(): BrowserDocumentPolicy | null {
+  if (typeof document === "undefined") return null;
+  const doc = document as Document & {
+    permissionsPolicy?: BrowserDocumentPolicy;
+    featurePolicy?: BrowserDocumentPolicy;
+  };
+  return doc.permissionsPolicy ?? doc.featurePolicy ?? null;
+}
+
+function isCaptureFeatureBlockedByPolicy(feature: string): boolean {
+  const policy = capturePolicy();
+  if (!policy?.allowsFeature) return false;
+  try {
+    return !policy.allowsFeature(feature);
+  } catch {
+    return false;
+  }
+}
+
+function getPolicyBlockedCaptureLabel(opts: {
+  mode: RecordingMode;
+  micDeviceId?: string | null;
+}): "screen" | "camera" | "microphone" | null {
+  if (
+    (opts.mode === "screen" || opts.mode === "screen+camera") &&
+    isCaptureFeatureBlockedByPolicy("display-capture")
+  ) {
+    return "screen";
+  }
+  if (
+    (opts.mode === "camera" || opts.mode === "screen+camera") &&
+    isCaptureFeatureBlockedByPolicy("camera")
+  ) {
+    return "camera";
+  }
+  if (
+    wantsMicrophone(opts.micDeviceId) &&
+    isCaptureFeatureBlockedByPolicy("microphone")
+  ) {
+    return "microphone";
+  }
+  return null;
+}
+
+function directRecorderUrl(opts?: {
+  mode: RecordingMode;
+  displaySurface: DisplaySurface;
+}): string {
+  if (typeof window === "undefined") return "/record";
+  const url = new URL(window.location.href);
+  if (opts) {
+    url.searchParams.set("mode", opts.mode);
+    url.searchParams.set("surface", opts.displaySurface);
+  }
+  return url.toString();
+}
+
+function isPermissionError(message: string): boolean {
+  // Device-busy errors ("That camera is busy in another app", "Microphone is
+  // currently in use") mention the device name but are not permission failures
+  // — sending the user to enable a permission they already have wastes their
+  // time. Require an explicit permission/denied/blocked keyword to qualify.
+  const isDeviceBusy =
+    /\b(busy|in use|already in use|in another (app|application|tab)|currently used|conflicting)\b/i.test(
+      message,
+    );
+  const hasPermissionKeyword =
+    /\b(permission|blocked|denied|not allowed|privacy|allow|disable[d]?|enable)\b/i.test(
+      message,
+    );
+  if (isDeviceBusy && !hasPermissionKeyword) return false;
+  return /screen|camera|microphone|mic|permission|blocked|denied|not allowed|privacy/i.test(
+    message,
+  );
+}
+
+function isPolicyPermissionError(message: string): boolean {
+  return /permissions-policy|app frame|embedding frame|frame that allows/i.test(
+    message,
+  );
+}
+
+function isScreenPermissionError(message: string): boolean {
+  return (
+    isPermissionError(message) &&
+    /screen|display|share|system audio|screen recording|Screen & System Audio Recording/i.test(
+      message,
+    )
+  );
+}
+
+function isCameraPermissionError(message: string): boolean {
+  return isPermissionError(message) && /camera/i.test(message);
+}
+
+function isMicrophonePermissionError(message: string): boolean {
+  return isPermissionError(message) && /microphone|mic/i.test(message);
+}
+
+function wantsMicrophone(micDeviceId?: string | null): boolean {
+  return micDeviceId !== NO_MIC_DEVICE_ID;
+}
+
+function getModePermissionLabels(
+  mode?: RecordingMode,
+  micDeviceId?: string | null,
+): Array<"screen" | "camera" | "microphone"> {
+  const labels: Array<"screen" | "camera" | "microphone"> = [];
+  if (mode === "screen" || mode === "screen+camera") labels.push("screen");
+  if (mode === "camera" || mode === "screen+camera") labels.push("camera");
+  if (mode && wantsMicrophone(micDeviceId)) labels.push("microphone");
+  return labels;
+}
+
+function getPreparingSourcesCopy(
+  mode: RecordingMode,
+  micDeviceId?: string | null,
+): string {
+  const labels = getModePermissionLabels(mode, micDeviceId);
+  if (labels.length === 0) return "Choose a source before recording starts.";
+  const readable = labels.map((label) =>
+    label === "microphone" ? "microphone" : label,
+  );
+  const last = readable.pop();
+  return `Allow ${readable.length ? `${readable.join(", ")} and ${last}` : last} access before recording starts.`;
+}
+
+function permissionGuidance(
+  message: string,
+  opts?: { mode?: RecordingMode; micDeviceId?: string | null },
+): string | null {
+  if (!isPermissionError(message)) return null;
+  if (isPolicyPermissionError(message)) {
+    if (opts?.mode === "screen") {
+      return "Browser site permissions are not the blocker here. Open Clips directly in a browser tab, or use an app frame that delegates screen capture.";
+    }
+    return "Browser site permissions are not the blocker here. Open Clips directly in a browser tab, or use an app frame that delegates the selected capture sources.";
+  }
+  if (isScreenPermissionError(message)) {
+    if (isEmbeddedWindow()) {
+      return "The web client is running Clips inside a frame. Open the recorder in its own tab, then start recording; Chrome can block screen sharing in embedded pages even when macOS access is enabled.";
+    }
+    if (isMacPlatform()) {
+      return "Chrome can have Camera and Microphone allowed while macOS still blocks screen capture. Enable your browser in System Settings > Privacy & Security > Screen & System Audio Recording, then quit and reopen it.";
+    }
+    return "Choose a source in the browser screen picker. If it still fails, check this site's browser permissions and reload Clips.";
+  }
+  if (isCameraPermissionError(message)) {
+    if (isMacPlatform()) {
+      return "Allow Camera in this site's browser settings and in macOS System Settings > Privacy & Security > Camera, then reload Clips.";
+    }
+    return "Open this site's browser settings, allow Camera, then reload Clips.";
+  }
+  if (isMicrophonePermissionError(message)) {
+    if (isMacPlatform()) {
+      return "Allow Microphone in this site's browser settings and in macOS System Settings > Privacy & Security > Microphone, then reload Clips.";
+    }
+    return "Open this site's browser settings, allow Microphone, then reload Clips.";
+  }
+  if (isMacPlatform()) {
+    const labels = getModePermissionLabels(opts?.mode, opts?.micDeviceId);
+    if (labels.length > 0) {
+      const readable = labels
+        .map((label) =>
+          label === "screen"
+            ? "Screen & System Audio Recording"
+            : label === "camera"
+              ? "Camera"
+              : "Microphone",
+        )
+        .join(", ");
+      return `Check this site's browser permissions first. If it still fails, enable ${readable} for your browser in macOS System Settings > Privacy & Security, then quit and reopen it.`;
+    }
+    return "Check this site's browser permissions first. If it still fails, open macOS System Settings > Privacy & Security for your browser, then quit and reopen it.";
+  }
+  return "Open this site's browser settings and allow the selected capture sources, then reload this page.";
+}
+
+function permissionSettingsUrl(
+  message: string,
+  mode?: RecordingMode,
+): string | null {
+  if (!isMacPlatform() || isPolicyPermissionError(message)) return null;
+  if (isScreenPermissionError(message)) return MAC_SCREEN_RECORDING_PREF_URL;
+  if (isCameraPermissionError(message)) return MAC_CAMERA_PREF_URL;
+  if (isMicrophonePermissionError(message)) return MAC_MICROPHONE_PREF_URL;
+  if (mode === "screen") return MAC_SCREEN_RECORDING_PREF_URL;
+  return MAC_SCREEN_RECORDING_PREF_URL;
+}
+
+function isDismissedCapturePicker(err: unknown, message: string): boolean {
+  const name = err instanceof Error ? err.name : "";
+  return (
+    name === "AbortError" ||
+    /screen sharing was cancelled|cancelled|canceled|dismissed/i.test(message)
+  );
+}
+
+function getRecordingModeParam(value: string | null): RecordingMode | null {
+  if (value === "screen" || value === "camera") return value;
+  if (
+    value === "screen+camera" ||
+    value === "screen camera" ||
+    value === "screen-camera"
+  ) {
+    return "screen+camera";
+  }
+  return null;
+}
+
+function makeAbortError(message: string): Error {
+  const error = new Error(message);
+  error.name = "AbortError";
+  return error;
+}
+
+function getDisplaySurfaceParam(value: string | null): DisplaySurface | null {
+  if (value === "monitor" || value === "window" || value === "browser") {
+    return value;
+  }
+  if (value === "screen") return "monitor";
+  return null;
+}
+
+function getRecordingErrorTitle(error: string): string {
+  if (/upload failed|chunk/i.test(error)) return "Upload failed";
+  if (isScreenPermissionError(error)) return "Screen recording needs access";
+  if (isCameraPermissionError(error)) return "Camera needs access";
+  if (isMicrophonePermissionError(error)) return "Microphone needs access";
+  return "Couldn't start recording";
+}
+
+function friendlyRecordingErrorMessage(error: string): string {
+  if (isPolicyPermissionError(error)) {
+    return "This recorder is embedded somewhere that blocks capture permissions.";
+  }
+  if (isScreenPermissionError(error)) {
+    if (isMacPlatform()) {
+      return "Clips could not start screen capture. Enable screen recording for your browser, then try again.";
+    }
+    return "Clips could not start screen capture. Allow screen sharing for this site, then try again.";
+  }
+  if (isCameraPermissionError(error)) {
+    return "Clips could not start the camera. Allow camera access, then try again.";
+  }
+  if (isMicrophonePermissionError(error)) {
+    return "Clips could not start the microphone. Allow microphone access, then try again.";
+  }
+  if (/upload failed|chunk/i.test(error)) {
+    return "The recording could not finish uploading. Check video storage, then try again.";
+  }
+  if (error.length > 220) {
+    return "Something blocked the recorder before it could start.";
+  }
+  return error;
+}
+
+function captureThumbnailFromPreview(
+  video: HTMLVideoElement | null,
+  recordingId: string,
+): void {
+  void captureVideoThumbnailBlob(video)
+    .then((blob) => (blob ? uploadRecordingThumbnail(recordingId, blob) : null))
+    .catch(() => {
+      // best effort — the player has a backfill path if this misses.
+    });
+}
+
+interface PendingRecording {
+  id: string;
+  uploadChunkUrl: string;
+  abortUrl: string;
+}
+
+function PreRecordPanelSkeleton() {
+  return (
+    <div className="mx-auto w-full max-w-md overflow-hidden rounded-2xl border border-border bg-muted/20 shadow-lg">
+      <div className="space-y-4 p-6">
+        <div className="space-y-2">
+          <Skeleton className="h-5 w-40" />
+          <Skeleton className="h-3 w-64" />
+        </div>
+        <div className="grid grid-cols-3 gap-1 rounded-xl bg-muted p-1">
+          <Skeleton className="h-11 rounded-lg" />
+          <Skeleton className="h-11 rounded-lg" />
+          <Skeleton className="h-11 rounded-lg" />
+        </div>
+      </div>
+      <div className="space-y-0 border-t border-border">
+        <div className="flex items-center gap-3 px-6 py-4">
+          <Skeleton className="h-8 w-8 rounded-lg" />
+          <div className="flex-1 space-y-2">
+            <Skeleton className="h-4 w-28" />
+            <Skeleton className="h-3 w-36" />
+          </div>
+        </div>
+        <div className="flex items-center gap-3 border-t border-border px-6 py-4">
+          <Skeleton className="h-8 w-8 rounded-lg" />
+          <div className="flex-1 space-y-2">
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-3 w-48" />
+          </div>
+        </div>
+      </div>
+      <div className="space-y-3 border-t border-border p-6">
+        <Skeleton className="h-11 w-full rounded-md" />
+        <Skeleton className="mx-auto h-8 w-48 rounded-md" />
+      </div>
+    </div>
+  );
+}
+
+function DesktopRecorderCallout() {
+  return (
+    <aside className="w-full p-1">
+      <div className="min-w-0">
+        <div className="text-sm font-medium text-foreground">
+          Get the desktop app
+        </div>
+        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+          Menu-bar launch and global shortcuts make repeat recordings smoother.
+        </p>
+      </div>
+      <Button
+        asChild
+        variant="outline"
+        size="sm"
+        className="mt-3 w-full bg-background/70"
+      >
+        <Link to="/download">Download</Link>
+      </Button>
+    </aside>
+  );
+}
+
+function RecordingErrorCard({
+  error,
+  mode,
+  micDeviceId,
+  onTryAgain,
+}: {
+  error: string;
+  mode: RecordingMode;
+  micDeviceId: string | null;
+  onTryAgain: () => void;
+}) {
+  const guidance = permissionGuidance(error, { mode, micDeviceId });
+  const permissionError = isPermissionError(error);
+  const policyError = isPolicyPermissionError(error);
+  const embeddedScreenError =
+    isEmbeddedWindow() && isScreenPermissionError(error);
+  const settings = getModePermissionLabels(mode, micDeviceId);
+  const directUrl = directRecorderUrl();
+  const friendlyMessage = friendlyRecordingErrorMessage(error);
+  const showTechnicalDetails = friendlyMessage !== error;
+
+  return (
+    <div className="w-full max-w-md overflow-hidden rounded-2xl border border-border bg-card shadow-lg">
+      <div className="border-b border-border p-6">
+        <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-destructive/10 text-destructive">
+          <IconAlertTriangle className="h-5 w-5" />
+        </div>
+        <h2 className="text-lg font-semibold text-foreground">
+          {getRecordingErrorTitle(error)}
+        </h2>
+        <p className="mt-2 break-words text-sm leading-relaxed text-muted-foreground">
+          {friendlyMessage}
+        </p>
+        {showTechnicalDetails && (
+          <details className="mt-3 text-left text-xs text-muted-foreground">
+            <summary className="cursor-pointer font-medium text-foreground">
+              Technical details
+            </summary>
+            <p className="mt-2 max-h-28 overflow-auto break-words rounded-lg border border-border bg-muted/40 p-2 leading-relaxed">
+              {error}
+            </p>
+          </details>
+        )}
+      </div>
+
+      {guidance && (
+        <div className="border-b border-border bg-muted/25 px-6 py-4 text-left">
+          <div className="text-xs font-medium text-foreground">
+            What to check
+          </div>
+          <p className="mt-1 break-words text-xs leading-relaxed text-muted-foreground">
+            {guidance}
+          </p>
+        </div>
+      )}
+
+      <div className="space-y-3 p-6">
+        <Button variant="outline" onClick={onTryAgain} className="w-full gap-2">
+          <IconRefresh className="h-4 w-4" />
+          Try again
+        </Button>
+        {(policyError || embeddedScreenError) && (
+          <Button
+            type="button"
+            onClick={() => openUrlFromUserGesture(directUrl)}
+            className="w-full gap-2"
+          >
+            <IconExternalLink className="h-4 w-4" />
+            Open recorder in tab
+          </Button>
+        )}
+        {permissionError &&
+          isMacPlatform() &&
+          !policyError &&
+          settings.length > 0 && (
+            <div
+              className={cn(
+                "grid gap-2",
+                settings.length === 1
+                  ? "grid-cols-1"
+                  : settings.length === 2
+                    ? "grid-cols-2"
+                    : "grid-cols-3",
+              )}
+            >
+              {settings.includes("screen") && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    openUrlFromUserGesture(MAC_SCREEN_RECORDING_PREF_URL);
+                  }}
+                  className="gap-1.5 px-2 text-xs"
+                >
+                  <IconDeviceDesktop className="h-3.5 w-3.5" />
+                  Screen
+                </Button>
+              )}
+              {settings.includes("camera") && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    openUrlFromUserGesture(MAC_CAMERA_PREF_URL);
+                  }}
+                  className="gap-1.5 px-2 text-xs"
+                >
+                  <IconCamera className="h-3.5 w-3.5" />
+                  Camera
+                </Button>
+              )}
+              {settings.includes("microphone") && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    openUrlFromUserGesture(MAC_MICROPHONE_PREF_URL);
+                  }}
+                  className="gap-1.5 px-2 text-xs"
+                >
+                  <IconMicrophone className="h-3.5 w-3.5" />
+                  Mic
+                </Button>
+              )}
+            </div>
+          )}
+      </div>
+    </div>
+  );
+}
+
+export default function RecordRoute() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [uiState, setUiState] = useState<UiState>("idle");
+  const [error, setError] = useState<string | null>(null);
+  const [isPaused, setIsPaused] = useState(false);
+  const [elapsedMs, setElapsedMs] = useState(0);
+  const [showStopConfirm, setShowStopConfirm] = useState(false);
+  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
+  const [cameraSize, setCameraSize] = useState<CameraBubbleSize>("md");
+  const [previewStream, setPreviewStream] = useState<MediaStream | null>(null);
+  const [recordingMode, setRecordingMode] =
+    useState<RecordingMode>("screen+camera");
+  // Surfaced during the post-stop compression pass so the spinner can show
+  // "Compressing… 42%" instead of "Saving your recording…" — otherwise
+  // multi-minute encodes on long screen recordings look frozen.
+  const [compressionProgress, setCompressionProgress] = useState<number | null>(
+    null,
+  );
+
+  const queryClient = useQueryClient();
+  const { isDesktopApp } = useDesktopPromo();
+  const storageQuery = useVideoStorageStatus();
+
+  // When the user clicks "Record for this space/folder", the empty-state CTA
+  // appends ?spaceId or ?folderId so the new recording lands there.
+  const spaceIdFromUrl = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    return params.get("spaceId") || null;
+  }, [location.search]);
+  const folderIdFromUrl = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    return params.get("folderId") || null;
+  }, [location.search]);
+  const storageConfigured: boolean | null = storageQuery.isLoading
+    ? null
+    : !!storageQuery.data?.configured;
+  const initialRecorderOptions = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    const mode = params.get("mode");
+    const surface = params.get("surface");
+    return {
+      mode: getRecordingModeParam(mode),
+      surface: getDisplaySurfaceParam(surface),
+    };
+  }, [location.search]);
+  const markStorageConfigured = useCallback(
+    (status?: VideoStorageStatus) => {
+      queryClient.setQueryData<VideoStorageStatus>(
+        VIDEO_STORAGE_STATUS_KEY,
+        (prev) =>
+          status ?? {
+            configured: true,
+            activeProvider: prev?.activeProvider ?? null,
+            builderConfigured: prev?.builderConfigured ?? false,
+          },
+      );
+    },
+    [queryClient],
+  );
+
+  const liveTranscription = useLiveTranscription();
+
+  const engineRef = useRef<RecorderEngine | null>(null);
+  const pendingRef = useRef<PendingRecording | null>(null);
+  const confettiRef = useRef<ConfettiHandle>(null);
+  // Stable ref to doStop so engine callbacks created during startFlow always
+  // call the latest version (avoids stale-closure problems with useCallback deps).
+  const doStopRef = useRef<() => Promise<void>>(async () => {});
+  // Tracks whether opening the stop-confirm dialog auto-paused a live
+  // recording — so closing the dialog without choosing an action resumes
+  // it, but doesn't unpause a recording the user had paused themselves.
+  const autoPausedForStopConfirmRef = useRef(false);
+  const pendingStartOptsRef = useRef<{
+    mode: RecordingMode;
+    displaySurface: DisplaySurface;
+    micDeviceId: string | null;
+    cameraDeviceId: string | null;
+  } | null>(null);
+  const tickRef = useRef<number | null>(null);
+  const previewVideoRef = useRef<HTMLVideoElement>(null);
+  const fileUploadAbortRef = useRef<AbortController | null>(null);
+  // Bumped by doCancel() to invalidate any in-flight startFlow().
+  const startSessionRef = useRef(0);
+
+  // -------------------------------------------------------------------------
+  // Timer
+  // -------------------------------------------------------------------------
+  useEffect(() => {
+    if (uiState !== "recording") {
+      if (tickRef.current !== null) {
+        window.clearInterval(tickRef.current);
+        tickRef.current = null;
+      }
+      return;
+    }
+    tickRef.current = window.setInterval(() => {
+      const e = engineRef.current?.getElapsedMs() ?? 0;
+      setElapsedMs(e);
+    }, 250);
+    return () => {
+      if (tickRef.current !== null) {
+        window.clearInterval(tickRef.current);
+        tickRef.current = null;
+      }
+    };
+  }, [uiState]);
+
+  // -------------------------------------------------------------------------
+  // Wire preview stream into its video element.
+  // -------------------------------------------------------------------------
+  useEffect(() => {
+    if (!previewVideoRef.current) return;
+    previewVideoRef.current.srcObject = previewStream;
+    if (previewStream) {
+      previewVideoRef.current.play().catch(() => {});
+    }
+  }, [previewStream]);
+
+  const showRecordingErrorToast = useCallback((message: string) => {
+    const pendingOpts = pendingStartOptsRef.current;
+    const guidance = permissionGuidance(message, pendingOpts ?? undefined);
+    const settingsUrl = permissionSettingsUrl(message, pendingOpts?.mode);
+    const friendlyMessage = friendlyRecordingErrorMessage(message);
+    toast.error("Couldn't start recording", {
+      description: guidance ?? friendlyMessage,
+      duration: guidance ? 20_000 : 10_000,
+      action: settingsUrl
+        ? {
+            label: "Open settings",
+            onClick: () => {
+              openUrlFromUserGesture(settingsUrl);
+            },
+          }
+        : undefined,
+    });
+  }, []);
+
+  // -------------------------------------------------------------------------
+  // Acquire media, create recording row, start countdown.
+  // -------------------------------------------------------------------------
+  const startFlow = useCallback(
+    async (opts: {
+      mode: RecordingMode;
+      displaySurface: DisplaySurface;
+      micDeviceId: string | null;
+      cameraDeviceId: string | null;
+    }) => {
+      const blockedFeature = isEmbeddedWindow()
+        ? getPolicyBlockedCaptureLabel({
+            mode: opts.mode,
+            micDeviceId: opts.micDeviceId,
+          })
+        : null;
+      if (blockedFeature) {
+        openUrlFromUserGesture(directRecorderUrl(opts));
+        toast.info("Opened recorder in a new tab", {
+          description: `Chrome is blocking ${blockedFeature} access in this embedded web client.`,
+          duration: 8000,
+        });
+        return;
+      }
+
+      // Claim a session id; doCancel() bumps the ref to invalidate us.
+      const session = startSessionRef.current + 1;
+      startSessionRef.current = session;
+      const isStale = () => startSessionRef.current !== session;
+
+      setError(null);
+      setRecordingMode(opts.mode);
+      pendingStartOptsRef.current = opts;
+      flushSync(() => {
+        setUiState("pickingSources");
+      });
+
+      try {
+        // Build the engine and trigger browser media prompts before any
+        // network await. Brave drops the transient user activation after async
+        // work, so calling getDisplayMedia after create-recording can fail
+        // silently without showing a picker.
+        const engine = new RecorderEngine({
+          recordingId: "__pending__",
+          mode: opts.mode,
+          displaySurface: opts.displaySurface,
+          micDeviceId: opts.micDeviceId,
+          cameraDeviceId: opts.cameraDeviceId,
+          cameraBubbleSize: cameraSize,
+          uploadUrl: "",
+          abortUrl: "",
+          onError: (err) => {
+            console.error("[recorder] error:", err);
+            showRecordingErrorToast(err.message);
+            setError(err.message);
+            setUiState("error");
+          },
+          onState: (state) => {
+            // Mirror the engine's compression pass into the UI so the
+            // "Saving your recording…" spinner becomes "Compressing…" for
+            // the duration. Other engine states are managed by the UI's
+            // own state machine in startFlow / doStop.
+            if (state === "compressing") {
+              setUiState("compressing");
+            } else if (state === "uploading") {
+              // Reset compression progress when the engine moves on to
+              // upload — applies whether or not we just came from
+              // compressing.
+              setCompressionProgress(null);
+              // Always sync the UI back to "uploading"; if we were already
+              // there from doStop's pre-stop transition, this is a no-op.
+              setUiState("uploading");
+            }
+          },
+          onChunk: ({ index, bytes }) => {
+            const recordingId = pendingRef.current?.id;
+            if (!recordingId) return;
+            void writeAppState(`recording-upload-${recordingId}`, {
+              recordingId,
+              status: "uploading",
+              chunksReceived: index + 1,
+              lastChunkBytes: bytes,
+              updatedAt: new Date().toISOString(),
+            }).catch(() => {});
+          },
+          // When the user clicks the browser's native "Stop sharing" button,
+          // delegate to doStop() so the UI runs its full stop flow: thumbnail
+          // capture, transcription flush, state updates, and navigation.
+          // Using a ref so we always call the latest version of doStop even
+          // though startFlow itself has empty deps.
+          onDisplayTrackEnded: () => {
+            void doStopRef.current();
+          },
+          onCompressionProgress: ({ stage, progress }) => {
+            // The recorder engine is responsible for transitioning into the
+            // `compressing` state. We mirror that into the UI via the
+            // generic onState handler below; here we just track the
+            // numeric progress so the spinner can show a percentage.
+            if (stage === "encoding" && typeof progress === "number") {
+              setCompressionProgress(progress);
+            } else if (stage === "loading-ffmpeg" || stage === "preparing") {
+              setCompressionProgress(null);
+            } else if (stage === "finalizing") {
+              setCompressionProgress(1);
+            }
+          },
+        });
+        engineRef.current = engine;
+
+        // 1. Acquire media (triggers permission prompts) while the click's
+        // transient activation is still live.
+        const { previewStream: ps, cameraStream: cs } = await engine.acquire();
+        if (isStale()) {
+          await engine.cancel().catch(() => {});
+          return;
+        }
+        const captureTitle = buildCaptureTitle({
+          windowTitle: inferWindowTitleFromDisplayStream(ps),
+          displaySurface: opts.displaySurface,
+          mode: opts.mode,
+        });
+
+        const wantsMic = opts.micDeviceId !== NO_MIC_DEVICE_ID;
+        if (wantsMic && liveTranscription.supported) {
+          liveTranscription.start();
+        }
+
+        const status = await fetchVideoStorageStatus();
+        if (isStale()) {
+          await liveTranscription.stopAndWait().catch(() => "");
+          await engine.cancel().catch(() => {});
+          return;
+        }
+        markStorageConfigured(status);
+        if (!status.configured) {
+          throw new Error(
+            "No video storage configured. Open Settings to connect Builder.io or S3-compatible storage.",
+          );
+        }
+
+        // 2. Create the recording row server-side once permissions are granted.
+        const res = await fetch(
+          agentNativePath("/_agent-native/actions/create-recording"),
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              title: captureTitle.title,
+              titleSource: captureTitle.titleSource,
+              sourceAppName: captureTitle.sourceAppName,
+              sourceWindowTitle: captureTitle.sourceWindowTitle,
+              hasCamera: opts.mode !== "screen",
+              hasAudio: wantsMic,
+              visibility: "public",
+              spaceIds: spaceIdFromUrl ? [spaceIdFromUrl] : undefined,
+              folderId: folderIdFromUrl ?? undefined,
+            }),
+          },
+        );
+        if (!res.ok) {
+          if (res.status === 401 || res.status === 403) {
+            throw new Error("SESSION_EXPIRED");
+          }
+          const body = (await res.json().catch(() => null)) as {
+            error?: string;
+          } | null;
+          throw new Error(
+            body?.error ?? `create-recording failed (${res.status})`,
+          );
+        }
+        const created = (await res.json()) as {
+          result?: {
+            id: string;
+            uploadChunkUrl: string;
+            abortUrl: string;
+          };
+          id?: string;
+          uploadChunkUrl?: string;
+          abortUrl?: string;
+        };
+        const info = created.result ?? (created as PendingRecording);
+        if (!info?.id) {
+          throw new Error("create-recording did not return an id");
+        }
+        // Cancelled mid-POST: pendingRef is still null, so trash directly.
+        if (isStale()) {
+          await liveTranscription.stopAndWait().catch(() => "");
+          fetch(agentNativePath("/_agent-native/actions/trash-recording"), {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id: info.id }),
+          }).catch(() => {});
+          await engine.cancel().catch(() => {});
+          return;
+        }
+        const uploadChunkUrl = `${appBasePath()}${info.uploadChunkUrl!}`;
+        const abortUrl = `${appBasePath()}${info.abortUrl!}`;
+        pendingRef.current = {
+          id: info.id,
+          uploadChunkUrl,
+          abortUrl,
+        };
+        engine.setUploadTarget({
+          recordingId: info.id,
+          uploadUrl: uploadChunkUrl,
+          abortUrl,
+        });
+
+        setPreviewStream(ps);
+        setCameraStream(cs);
+        setUiState("countdown");
+      } catch (err) {
+        // doCancel() owns teardown if a cancel raced ahead — don't clobber it.
+        if (isStale()) return;
+        const message =
+          err instanceof Error ? err.message : "Could not start recording";
+        const pickerDismissed = isDismissedCapturePicker(err, message);
+        await liveTranscription.stopAndWait().catch(() => "");
+        // If the recording row was created before the failure, trash it so it
+        // doesn't sit in the library forever in 'uploading' status. This
+        // is the bug that produced "stuck UPLOADING" cards from failed
+        // record attempts.
+        const orphan = pendingRef.current;
+        if (orphan?.id) {
+          fetch(agentNativePath("/_agent-native/actions/trash-recording"), {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id: orphan.id }),
+          }).catch(() => {});
+        }
+        // Release any tracks the engine grabbed before failing.
+        try {
+          await engineRef.current?.cancel();
+        } catch {
+          // ignore
+        }
+        pendingRef.current = null;
+        engineRef.current = null;
+        if (pickerDismissed) {
+          setError(null);
+          setUiState("idle");
+          return;
+        }
+        setError(message);
+        setUiState("error");
+        if (
+          !message.includes("No video storage configured") &&
+          message !== "SESSION_EXPIRED"
+        ) {
+          showRecordingErrorToast(message);
+        }
+      }
+    },
+    [liveTranscription, markStorageConfigured, showRecordingErrorToast],
+  );
+
+  // -------------------------------------------------------------------------
+  // Upload a local video file as a Clip.
+  // Reads metadata via a hidden <video>, creates the recording row, then
+  // streams the file to /api/uploads/:id/chunk in 5MB slices (the chunk
+  // route caps at 6MB) with isFinal=1 on the last slice. Mirrors the
+  // recorder's upload pipeline so finalize-recording handles it identically.
+  // -------------------------------------------------------------------------
+  const UPLOAD_CHUNK_BYTES = 5 * 1024 * 1024; // 5 MiB; chunk route allows up to 6.
+
+  const probeVideoMetadata = useCallback(
+    (
+      file: File,
+    ): Promise<{ durationMs: number; width: number; height: number }> => {
+      return new Promise((resolve) => {
+        const url = URL.createObjectURL(file);
+        const video = document.createElement("video");
+        video.preload = "metadata";
+        video.muted = true;
+        const cleanup = () => {
+          URL.revokeObjectURL(url);
+        };
+        video.onloadedmetadata = () => {
+          resolve({
+            durationMs: Math.round((video.duration || 0) * 1000),
+            width: video.videoWidth || 0,
+            height: video.videoHeight || 0,
+          });
+          cleanup();
+        };
+        video.onerror = () => {
+          resolve({ durationMs: 0, width: 0, height: 0 });
+          cleanup();
+        };
+        video.src = url;
+      });
+    },
+    [],
+  );
+
+  const uploadFile = useCallback(
+    async (file: File) => {
+      const session = startSessionRef.current + 1;
+      startSessionRef.current = session;
+      const isStale = () => startSessionRef.current !== session;
+      const abort = new AbortController();
+      fileUploadAbortRef.current?.abort(makeAbortError("Upload cancelled"));
+      fileUploadAbortRef.current = abort;
+
+      setError(null);
+      setUiState("uploading");
+      setCompressionProgress(null);
+
+      const acceptedMime = new Set([
+        "video/mp4",
+        "video/webm",
+        "video/quicktime",
+      ]);
+      const baseType = (file.type || "").split(";")[0]?.trim().toLowerCase();
+      let mimeType = baseType && acceptedMime.has(baseType) ? baseType : null;
+      // Fallback by extension when the browser doesn't provide a type
+      // (rare on macOS .mov files dragged from Finder).
+      if (!mimeType) {
+        const lower = file.name.toLowerCase();
+        if (lower.endsWith(".mp4")) mimeType = "video/mp4";
+        else if (lower.endsWith(".webm")) mimeType = "video/webm";
+        else if (lower.endsWith(".mov")) mimeType = "video/quicktime";
+      }
+      if (!mimeType) {
+        const message =
+          "That file type isn't supported. Try MP4, WebM, or MOV.";
+        if (fileUploadAbortRef.current === abort) {
+          fileUploadAbortRef.current = null;
+        }
+        setError(message);
+        setUiState("error");
+        toast.error(message);
+        return;
+      }
+
+      let createdId: string | null = null;
+      try {
+        const meta = await probeVideoMetadata(file);
+        if (isStale()) return;
+
+        let uploadBlob: Blob = file;
+        let uploadMimeType = mimeType;
+        let compressionError: {
+          message: string;
+          stderrTail: string[];
+          elapsedMs: number;
+        } | null = null;
+
+        if (file.size > COMPRESS_THRESHOLD_BYTES) {
+          setUiState("compressing");
+          const compression = await compressBlobIfTooLarge(file, mimeType, {
+            width: meta.width,
+            height: meta.height,
+            signal: abort.signal,
+            onProgress: ({ stage, progress }) => {
+              if (stage === "encoding" && typeof progress === "number") {
+                setCompressionProgress(progress);
+              } else if (stage === "finalizing") {
+                setCompressionProgress(1);
+              } else {
+                setCompressionProgress(null);
+              }
+            },
+            onError: (err) => {
+              compressionError = err;
+              captureClientException(
+                new Error(`Upload compression failed: ${err.message}`),
+                {
+                  tags: {
+                    uploadStep: "local-file-compression",
+                    mimeType,
+                  },
+                  extra: {
+                    filename: file.name,
+                    fileBytes: file.size,
+                    width: meta.width,
+                    height: meta.height,
+                    stderrTail: err.stderrTail,
+                    elapsedMs: err.elapsedMs,
+                  },
+                },
+              );
+            },
+          });
+          if (isStale()) return;
+
+          uploadBlob = compression.blob;
+          uploadMimeType = compression.outputMimeType || mimeType;
+          if (compressionError) {
+            console.warn(
+              "[recorder] upload compression failed, falling back to source file",
+              compressionError,
+            );
+          }
+          if (uploadBlob.size > MAX_UPLOAD_BYTES) {
+            const detail = compression.compressed
+              ? `${formatMb(uploadBlob.size)} after compression`
+              : `${formatMb(uploadBlob.size)}`;
+            throw new Error(
+              `Video is too large to upload (${detail}, limit is ${formatMb(
+                MAX_UPLOAD_BYTES,
+              )}). Try a shorter recording or lower the screen resolution / frame rate.`,
+            );
+          }
+          setCompressionProgress(null);
+          setUiState("uploading");
+        }
+
+        const res = await fetch(
+          agentNativePath("/_agent-native/actions/create-recording"),
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            signal: abort.signal,
+            body: JSON.stringify({
+              title:
+                file.name.replace(/\.[^/.]+$/, "") || defaultRecordingTitle(),
+              titleSource: "upload",
+              hasCamera: false,
+              hasAudio: true,
+              width: meta.width,
+              height: meta.height,
+              spaceIds: spaceIdFromUrl ? [spaceIdFromUrl] : undefined,
+              folderId: folderIdFromUrl ?? undefined,
+            }),
+          },
+        );
+        if (!res.ok) {
+          if (res.status === 401 || res.status === 403) {
+            throw new Error("SESSION_EXPIRED");
+          }
+          const body = (await res.json().catch(() => null)) as {
+            error?: string;
+          } | null;
+          throw new Error(
+            body?.error ?? `create-recording failed (${res.status})`,
+          );
+        }
+        const created = (await res.json()) as {
+          result?: { id: string; uploadChunkUrl: string; abortUrl?: string };
+          id?: string;
+          uploadChunkUrl?: string;
+          abortUrl?: string;
+        };
+        const info =
+          created.result ??
+          (created as {
+            id: string;
+            uploadChunkUrl: string;
+            abortUrl?: string;
+          });
+        if (!info?.id) {
+          throw new Error("create-recording did not return an id");
+        }
+        createdId = info.id;
+        if (isStale()) throw makeAbortError("Upload cancelled");
+        const uploadBase = `${appBasePath()}${info.uploadChunkUrl}`;
+
+        const totalChunks = Math.max(
+          1,
+          Math.ceil(uploadBlob.size / UPLOAD_CHUNK_BYTES),
+        );
+        let finalChunkResult: Record<string, unknown> | null = null;
+        for (let i = 0; i < totalChunks; i++) {
+          if (isStale()) throw makeAbortError("Upload cancelled");
+          const start = i * UPLOAD_CHUNK_BYTES;
+          const end = Math.min(start + UPLOAD_CHUNK_BYTES, uploadBlob.size);
+          const slice = uploadBlob.slice(start, end, uploadMimeType);
+          const isFinal = i === totalChunks - 1;
+          const params = new URLSearchParams({
+            index: String(i),
+            total: String(totalChunks),
+            isFinal: isFinal ? "1" : "0",
+            mimeType: uploadMimeType,
+          });
+          if (isFinal) {
+            params.set("durationMs", String(meta.durationMs));
+            params.set("width", String(meta.width));
+            params.set("height", String(meta.height));
+            params.set("hasAudio", "1");
+            params.set("hasCamera", "0");
+          }
+          const chunkRes = await fetch(`${uploadBase}?${params.toString()}`, {
+            method: "POST",
+            headers: { "Content-Type": uploadMimeType },
+            body: await slice.arrayBuffer(),
+            signal: abort.signal,
+          });
+          if (!chunkRes.ok) {
+            const text = await chunkRes.text().catch(() => "");
+            throw new Error(
+              `Upload failed at chunk ${i + 1}/${totalChunks}: ${
+                text || chunkRes.statusText
+              }`,
+            );
+          }
+          if (isFinal) {
+            finalChunkResult =
+              ((await chunkRes.json().catch(() => null)) as Record<
+                string,
+                unknown
+              > | null) ?? null;
+          }
+        }
+
+        setUiState("complete");
+        const waitingForStorage =
+          finalChunkResult?.waitingForStorage === true ||
+          finalChunkResult?.status === "waiting_storage";
+        if (waitingForStorage) {
+          toast.info("Video is ready to upload", {
+            description:
+              "Connect Builder.io or S3 storage on the next screen and Clips will finish saving it.",
+            duration: 12_000,
+          });
+        } else {
+          toast.success("Video uploaded");
+        }
+        await writeAppState("navigate", {
+          view: "recording",
+          recordingId: createdId,
+        });
+        setTimeout(() => {
+          if (createdId) navigate(`/r/${createdId}`);
+        }, 50);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Upload failed";
+        const aborted = err instanceof Error && err.name === "AbortError";
+        if (createdId) {
+          fetch(`${appBasePath()}/api/uploads/${createdId}/abort`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ reason: message }),
+          }).catch(() => {});
+        }
+        if (aborted || isStale()) return;
+        setError(message);
+        setUiState("error");
+        if (message !== "SESSION_EXPIRED") {
+          toast.error("Upload failed", {
+            description:
+              "The clip was marked failed in your library. You can remove it from the card menu.",
+            duration: 12_000,
+          });
+        }
+      } finally {
+        if (fileUploadAbortRef.current === abort) {
+          fileUploadAbortRef.current = null;
+        }
+        setCompressionProgress(null);
+      }
+    },
+    [navigate, probeVideoMetadata],
+  );
+
+  // -------------------------------------------------------------------------
+  // After countdown → actually start MediaRecorder.
+  // -------------------------------------------------------------------------
+  const onCountdownComplete = useCallback(async () => {
+    const engine = engineRef.current;
+    if (!engine) return;
+    try {
+      await engine.start();
+      setUiState("recording");
+      setIsPaused(false);
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Could not start recorder";
+      setError(message);
+      setUiState("error");
+      showRecordingErrorToast(message);
+    }
+  }, [liveTranscription, showRecordingErrorToast]);
+
+  // -------------------------------------------------------------------------
+  // Stop / upload / navigate.
+  // -------------------------------------------------------------------------
+  const doStop = useCallback(async () => {
+    const engine = engineRef.current;
+    const pending = pendingRef.current;
+    if (!engine || !pending) return;
+    // Guard against concurrent calls (e.g. browser "Stop sharing" fires at the
+    // same time the user also clicks the in-app stop button).
+    const engineState = engine.getState();
+    if (
+      engineState === "stopping" ||
+      engineState === "uploading" ||
+      engineState === "complete"
+    ) {
+      return;
+    }
+    setUiState("uploading");
+    try {
+      // Capture a still-frame thumbnail from the preview while the stream is
+      // still live — otherwise the library would show a blank card until the
+      // owner opens the recording and triggers the player's backfill path.
+      captureThumbnailFromPreview(previewVideoRef.current, pending.id);
+
+      // Stop live transcription and save the native web transcript before the
+      // engine finalizes. This gives the recording an instant transcript
+      // (from Web Speech API) with no API key required.
+      const browserTranscript = await liveTranscription.stopAndWait();
+      const trimmedTranscript = browserTranscript.trim();
+      if (trimmedTranscript) {
+        const transcriptRes = await fetch(
+          agentNativePath("/_agent-native/actions/save-browser-transcript"),
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              recordingId: pending.id,
+              fullText: trimmedTranscript,
+              source: "web-speech",
+            }),
+          },
+        ).catch((err) => {
+          console.warn("[recorder] native transcript save failed:", err);
+          return null;
+        });
+        if (transcriptRes && !transcriptRes.ok) {
+          console.warn(
+            "[recorder] native transcript save failed:",
+            transcriptRes.status,
+          );
+        }
+      }
+
+      const stopResult = await engine.stop();
+      // Recording is fully saved — clear refs so that if anything below throws
+      // and the user clicks "Try again", doCancel() won't trash a good recording.
+      pendingRef.current = null;
+      engineRef.current = null;
+      setCameraStream(null);
+      setPreviewStream(null);
+      setUiState("complete");
+      if (stopResult.waitingForStorage) {
+        toast.info("Recording is ready to upload", {
+          description:
+            "Connect Builder.io or S3 storage on the next screen and Clips will finish saving it.",
+          duration: 12_000,
+        });
+      } else {
+        toast.success("Recording saved");
+      }
+
+      await writeAppState("navigate", {
+        view: "recording",
+        recordingId: pending.id,
+      });
+      setTimeout(() => {
+        navigate(`/r/${pending.id}`);
+      }, 50);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Upload failed";
+      // Distinguish user-initiated cancel from real failure. When the user
+      // clicks Cancel mid-compression, engine.cancel() aborts the in-flight
+      // compression pass; the still-pending engine.stop() above then throws
+      // an error with `name === "AbortError"`. The recording was
+      // intentionally discarded — surfacing it as "Upload failed" is
+      // misleading (and was the original bug). So skip the error toast on
+      // the cancel path; doCancel() owns the UI teardown. Anything else
+      // (real upload failures, compression timeouts — which throw with
+      // `name === "TimeoutError"` — network errors) keeps the existing
+      // error toast.
+      //
+      // Detection is name-only. The abort invariant is: every cancel-shaped
+      // error from the engine arrives with `name === "AbortError"` —
+      // `RecorderEngine.cancel()` sets the name on the abort reason it
+      // creates, and downstream sites that interpret abort signals
+      // (`compress.ts`, the reset-chunks fetch catch in `recorder-engine`)
+      // preserve that identity. So we don't need to grep error messages.
+      if (err instanceof Error && err.name === "AbortError") {
+        return;
+      }
+      fetch(pending.abortUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: message }),
+      }).catch(() => {});
+      setError(message);
+      setUiState("error");
+      toast.error("Upload failed", {
+        description: message,
+        duration: 12_000,
+      });
+    }
+  }, [navigate, liveTranscription]);
+
+  // Keep the ref current so engine callbacks always invoke the latest doStop.
+  doStopRef.current = doStop;
+
+  const requestStop = useCallback(() => {
+    const engine = engineRef.current;
+    if (engine && engine.getState() === "recording") {
+      engine.pause();
+      setIsPaused(true);
+      autoPausedForStopConfirmRef.current = true;
+    } else {
+      autoPausedForStopConfirmRef.current = false;
+    }
+    setShowStopConfirm(true);
+  }, []);
+
+  const onStopConfirmOpenChange = useCallback((open: boolean) => {
+    setShowStopConfirm(open);
+    if (!open && autoPausedForStopConfirmRef.current) {
+      const engine = engineRef.current;
+      if (engine && engine.getState() === "paused") {
+        engine.resume();
+        setIsPaused(false);
+      }
+      autoPausedForStopConfirmRef.current = false;
+    }
+  }, []);
+
+  const doCancel = useCallback(async () => {
+    // Invalidate any in-flight startFlow().
+    startSessionRef.current += 1;
+    if (fileUploadAbortRef.current) {
+      fileUploadAbortRef.current.abort(makeAbortError("Upload cancelled"));
+      fileUploadAbortRef.current = null;
+    }
+    const engine = engineRef.current;
+    const pendingId = pendingRef.current?.id;
+    liveTranscription.stop();
+    try {
+      await engine?.cancel();
+    } catch {
+      // ignore
+    }
+    if (pendingId) {
+      fetch(agentNativePath("/_agent-native/actions/trash-recording"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: pendingId }),
+      }).catch(() => {});
+    }
+    setCameraStream(null);
+    setPreviewStream(null);
+    setIsPaused(false);
+    setUiState("idle");
+    pendingRef.current = null;
+    engineRef.current = null;
+  }, [liveTranscription]);
+
+  const togglePause = useCallback(() => {
+    const engine = engineRef.current;
+    if (!engine) return;
+    if (engine.getState() === "paused") {
+      engine.resume();
+      liveTranscription.resume();
+      setIsPaused(false);
+    } else {
+      engine.pause();
+      liveTranscription.pause();
+      setIsPaused(true);
+    }
+  }, [liveTranscription]);
+
+  const restart = useCallback(async () => {
+    await doCancel();
+    const opts = pendingStartOptsRef.current;
+    if (opts) {
+      await startFlow(opts);
+    }
+  }, [doCancel, startFlow]);
+
+  const fireConfetti = useCallback(() => {
+    confettiRef.current?.burst();
+  }, []);
+
+  // -------------------------------------------------------------------------
+  // Keyboard shortcuts.
+  // -------------------------------------------------------------------------
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const alt = e.altKey;
+      const shift = e.shiftKey;
+      const meta = e.metaKey;
+      const ctrl = e.ctrlKey;
+      const k = e.key.toLowerCase();
+
+      // Esc cancels the pre-record countdown. Once recording is live, it opens
+      // the stop confirmation instead.
+      if (e.key === "Escape") {
+        if (uiState === "countdown") {
+          e.preventDefault();
+          e.stopPropagation();
+          void doCancel();
+          return;
+        }
+        if (!showStopConfirm && uiState === "recording") {
+          e.preventDefault();
+          // Stop propagation so the same Esc keydown doesn't also trigger
+          // the AlertDialog's built-in Esc-to-close handler, which would
+          // immediately dismiss the dialog the moment it opens — leaving
+          // the user trapped in recording state with a flickering dialog.
+          e.stopPropagation();
+          requestStop();
+          return;
+        }
+      }
+
+      // Opt/Alt+Shift+P — pause/resume
+      if (alt && shift && k === "p") {
+        if (uiState === "recording") {
+          e.preventDefault();
+          togglePause();
+          return;
+        }
+      }
+
+      // Opt/Alt+Shift+C — cancel
+      if (alt && shift && k === "c") {
+        if (uiState !== "idle") {
+          e.preventDefault();
+          void doCancel();
+          return;
+        }
+      }
+
+      // Opt/Alt+Shift+R — quick restart
+      if (alt && shift && k === "r") {
+        if (uiState === "recording" || uiState === "countdown") {
+          e.preventDefault();
+          void restart();
+          return;
+        }
+      }
+
+      // Ctrl+Cmd+C OR Ctrl+Alt+C — confetti
+      if ((ctrl && meta && k === "c") || (ctrl && alt && k === "c")) {
+        if (uiState === "recording") {
+          e.preventDefault();
+          fireConfetti();
+          return;
+        }
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [
+    uiState,
+    showStopConfirm,
+    togglePause,
+    doCancel,
+    restart,
+    fireConfetti,
+    requestStop,
+  ]);
+
+  // Query params can preselect recorder controls, but browser capture must
+  // still start from the user's Start click. Calling getDisplayMedia from an
+  // effect loses Chrome's transient user activation and looks like a fake
+  // permission failure even when Camera and Microphone are already allowed.
+
+  // -------------------------------------------------------------------------
+  // Render.
+  // -------------------------------------------------------------------------
+  const showRecordingUi =
+    uiState === "recording" ||
+    uiState === "uploading" ||
+    uiState === "compressing";
+  const showCameraBubble =
+    cameraStream !== null && recordingMode !== "screen" && uiState !== "idle";
+
+  // `/record` is a fullscreen route outside the `_app` shell, so it has no
+  // sidebar back-affordance. Surface a back arrow whenever there's nothing in
+  // flight — during recording/countdown/uploading the toolbar's stop flow is
+  // the exit path. `pickingSources` is included so users aren't trapped
+  // when the browser's permission/source dialog hangs or they want to bail
+  // out before granting access.
+  const showBackButton =
+    uiState === "idle" || uiState === "error" || uiState === "pickingSources";
+
+  return (
+    <div className="relative min-h-screen bg-background">
+      {showBackButton && (
+        <button
+          type="button"
+          aria-label="Back to library"
+          onClick={async () => {
+            // If we landed in `error` after partial media acquisition, the
+            // engine may still hold live screen/camera tracks. doCancel()
+            // releases them synchronously (see RecorderEngine.cancel —
+            // hardware teardown runs before the server-abort fetch is
+            // awaited), so navigate() can fire immediately while the
+            // best-effort server abort settles in the background.
+            void doCancel();
+            navigate("/library");
+          }}
+          className="fixed left-4 top-4 z-30 inline-flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <IconArrowLeft className="h-5 w-5" />
+        </button>
+      )}
+
+      {/* Idle / pre-record panel. `/record` sits outside the `_app`
+          layout, so its own <RequireActiveOrg> gate is needed — otherwise
+          a direct visit (URL bar, bookmark, agent intent) would skip the
+          shell guard and hit a runtime error at create-recording. */}
+      {uiState === "idle" && (
+        <RequireActiveOrg
+          title="Create your organization"
+          description="Clips organizes recordings by team. Create an organization to continue — you can invite teammates afterward."
+        >
+          <div className="flex min-h-screen flex-col items-center justify-center px-4 py-10">
+            <div className="mb-6 flex items-center gap-2 text-primary">
+              <IconVideo className="h-6 w-6" />
+              <span className="text-sm font-medium uppercase tracking-wide">
+                Clips recorder
+              </span>
+            </div>
+            <div className="relative w-full max-w-6xl">
+              <div className="mx-auto w-full max-w-md">
+                {storageConfigured === null ? (
+                  <PreRecordPanelSkeleton />
+                ) : storageConfigured ? (
+                  <PreRecordPanel
+                    onStart={startFlow}
+                    initialMode={initialRecorderOptions.mode}
+                    initialDisplaySurface={initialRecorderOptions.surface}
+                    onUpload={uploadFile}
+                    cameraSize={cameraSize}
+                    onCameraSizeChange={setCameraSize}
+                  />
+                ) : (
+                  <StorageSetupCard
+                    onConfigured={() => markStorageConfigured()}
+                  />
+                )}
+              </div>
+              {!isDesktopApp && (
+                <div className="mx-auto mt-4 w-full max-w-md xl:absolute xl:left-[calc(50%+15rem)] xl:top-0 xl:mt-0 xl:w-72">
+                  <DesktopRecorderCallout />
+                </div>
+              )}
+            </div>
+          </div>
+        </RequireActiveOrg>
+      )}
+
+      {uiState === "pickingSources" && (
+        <div className="flex min-h-screen flex-col items-center justify-center gap-3 text-muted-foreground">
+          <div className="text-sm">Preparing sources…</div>
+          <div className="text-xs">
+            {getPreparingSourcesCopy(
+              recordingMode,
+              pendingStartOptsRef.current?.micDeviceId,
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Countdown */}
+      {uiState === "countdown" && (
+        <CountdownOverlay
+          seconds={3}
+          onComplete={onCountdownComplete}
+          onCancel={doCancel}
+        />
+      )}
+
+      {/* Preview (camera-only mode renders camera full-screen; screen modes
+          rely on the browser's "currently sharing" native pill). Also visible
+          during the countdown so users can frame themselves before recording
+          begins. */}
+      {recordingMode === "camera" &&
+        (showRecordingUi || uiState === "countdown") && (
+          <video
+            ref={previewVideoRef}
+            autoPlay
+            muted
+            playsInline
+            className="fixed inset-0 h-full w-full object-cover [transform:scaleX(-1)]"
+          />
+        )}
+
+      {recordingMode !== "camera" && showRecordingUi && (
+        <div className="pointer-events-none fixed inset-0 bg-gradient-to-br from-[#1a1a2e] via-[#16213e] to-[#0f0f1a] opacity-95">
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-white/70">
+            <div className="flex items-center gap-2 text-sm">
+              <span className="relative inline-flex">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-60" />
+                <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-red-500" />
+              </span>
+              Recording your screen — switch to the window you want to capture
+            </div>
+            <div className="text-[11px] text-white/50">
+              Press <kbd className="rounded bg-white/10 px-1.5 py-0.5">Esc</kbd>{" "}
+              to stop
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Camera bubble — visible during countdown (so the user can frame
+          themselves) and while actively recording. Hidden during
+          uploading/compressing so the save overlay isn't confused with an
+          ongoing recording. */}
+      {showCameraBubble && (
+        <CameraBubble
+          stream={cameraStream}
+          size={cameraSize}
+          onSizeChange={setCameraSize}
+          hidden={uiState !== "recording" && uiState !== "countdown"}
+        />
+      )}
+
+      {/* Confetti */}
+      <ConfettiCanvas ref={confettiRef} />
+
+      {/* Floating toolbar */}
+      {showRecordingUi && (
+        <RecordingToolbar
+          elapsedMs={elapsedMs}
+          isPaused={isPaused}
+          onTogglePause={togglePause}
+          onStop={requestStop}
+          onConfetti={fireConfetti}
+          onCancel={requestStop}
+        />
+      )}
+
+      {/* Uploading overlay (also covers the compressing pass which can run
+          for several minutes on long recordings — without a distinct copy
+          users wonder if the app froze). */}
+      {(uiState === "uploading" || uiState === "compressing") && (
+        <div className="fixed inset-0 z-[120] flex flex-col items-center justify-center gap-3 bg-black/70 text-white backdrop-blur">
+          <Spinner className="h-10 w-10 text-white/70" />
+          {uiState === "compressing" ? (
+            <>
+              <div className="text-sm">
+                Compressing your recording
+                {compressionProgress !== null
+                  ? ` — ${Math.round(compressionProgress * 100)}%`
+                  : "…"}
+              </div>
+              <div className="text-[11px] text-white/50">
+                Large clips need a quick re-encode before upload.
+              </div>
+            </>
+          ) : (
+            <div className="text-sm">Saving your recording…</div>
+          )}
+          <button
+            onClick={doCancel}
+            className="mt-1 text-xs text-white/50 underline-offset-2 hover:text-white/80 hover:underline"
+          >
+            Cancel
+          </button>
+        </div>
+      )}
+
+      {/* Error state */}
+      {uiState === "error" && error && (
+        <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-4 text-center">
+          {error.includes("No video storage configured") ? (
+            <>
+              <div className="mb-2 flex items-center gap-2 text-primary">
+                <IconVideo className="h-6 w-6" />
+                <span className="text-sm font-medium uppercase tracking-wide">
+                  Clips recorder
+                </span>
+              </div>
+              <StorageSetupCard
+                onConfigured={() => {
+                  markStorageConfigured();
+                  setError(null);
+                  setUiState("idle");
+                  const opts = pendingStartOptsRef.current;
+                  if (opts) {
+                    window.setTimeout(() => {
+                      void startFlow(opts);
+                    }, 0);
+                  }
+                }}
+                connectedDescription="Storage connected. Reopening recorder..."
+              />
+            </>
+          ) : error === "SESSION_EXPIRED" ? (
+            <div className="max-w-md rounded-xl border border-border bg-card p-6">
+              <div className="mb-2 text-sm font-semibold text-foreground">
+                Session expired
+              </div>
+              <div className="text-sm text-muted-foreground">
+                Your login session has expired. Log in again to start recording.
+              </div>
+              <div className="mt-4 flex justify-center">
+                <Button onClick={() => window.location.reload()}>Log in</Button>
+              </div>
+            </div>
+          ) : (
+            <RecordingErrorCard
+              error={error}
+              mode={recordingMode}
+              micDeviceId={pendingStartOptsRef.current?.micDeviceId ?? null}
+              onTryAgain={() => {
+                // Re-run the same flow with the current mode/surface — users
+                // expect "Try again" to retry, not to wipe their selections.
+                void restart();
+              }}
+            />
+          )}
+        </div>
+      )}
+
+      {/* Stop confirmation */}
+      <AlertDialog
+        open={showStopConfirm}
+        onOpenChange={onStopConfirmOpenChange}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Stop recording?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Save this recording to your library, discard it, or keep going.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+            <AlertDialogCancel>Keep recording</AlertDialogCancel>
+            <Button
+              variant="outline"
+              onClick={() => {
+                autoPausedForStopConfirmRef.current = false;
+                setShowStopConfirm(false);
+                void doCancel();
+              }}
+            >
+              Discard
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                autoPausedForStopConfirmRef.current = false;
+                setShowStopConfirm(false);
+                void restart();
+              }}
+            >
+              Restart
+            </Button>
+            <AlertDialogAction
+              onClick={() => {
+                autoPausedForStopConfirmRef.current = false;
+                setShowStopConfirm(false);
+                void doStop();
+              }}
+              className="bg-primary text-primary-foreground hover:bg-primary/90"
+            >
+              Stop and save
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}

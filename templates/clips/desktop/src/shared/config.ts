@@ -1,0 +1,76 @@
+import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
+import { useState, useEffect } from "react";
+
+export type LocalRecordingMode = "off" | "composed" | "separate";
+
+export interface RegionGuideRect {
+  id: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface RegionGuidesConfig {
+  enabled: boolean;
+  rects: RegionGuideRect[];
+  alwaysVisible?: boolean;
+}
+
+export interface FeatureConfig {
+  clipsEnabled: boolean;
+  meetingsEnabled: boolean;
+  voiceEnabled: boolean;
+  launchAtLoginEnabled: boolean;
+  autoHidePopoverEnabled: boolean;
+  meetingTranscriptionMode: "manual" | "ask" | "auto";
+  localRecordingMode: LocalRecordingMode;
+  showMeetingWidgetEnabled: boolean;
+  showInScreenCapture: boolean;
+  regionGuides: RegionGuidesConfig;
+  onboardingComplete: boolean;
+}
+
+export function useFeatureConfig() {
+  const [config, setConfig] = useState<FeatureConfig | null>(null);
+
+  useEffect(() => {
+    invoke<FeatureConfig>("get_feature_config")
+      .then(setConfig)
+      .catch(() => {});
+
+    const unlistens: Array<() => void> = [];
+    let stopped = false;
+
+    const p = listen<FeatureConfig>("app:feature-config-changed", (ev) => {
+      setConfig(ev.payload);
+    });
+
+    p.then((u) => {
+      if (stopped) {
+        try {
+          u();
+        } catch {
+          // ignore
+        }
+        return;
+      }
+      unlistens.push(u);
+    }).catch(() => {});
+
+    return () => {
+      stopped = true;
+      unlistens.forEach((u) => {
+        try {
+          u();
+        } catch {
+          // ignore
+        }
+      });
+      unlistens.length = 0;
+    };
+  }, []);
+
+  return config;
+}

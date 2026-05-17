@@ -1,0 +1,128 @@
+import { useEffect, useMemo, useState } from "react";
+import { useLocation } from "react-router";
+import { Sidebar } from "./Sidebar";
+import { Header } from "./Header";
+import { HeaderActionsProvider } from "./HeaderActions";
+import { AgentSidebar } from "@agent-native/core/client";
+import { InvitationBanner } from "@agent-native/core/client/org";
+import { IconMenu2 } from "@tabler/icons-react";
+import { cn } from "@/lib/utils";
+import { useSidebarCollapsed } from "@/hooks/use-sidebar-collapsed";
+import { useDecks } from "@/context/DeckContext";
+import { AgentWorkIndicator } from "./AgentWorkIndicator";
+import { TAB_ID } from "@/lib/tab-id";
+
+interface LayoutProps {
+  children: React.ReactNode;
+}
+
+/** Routes whose pages render their own toolbar — Layout still renders chrome
+ * (sidebar + AgentSidebar wrapper) but skips its own Header. */
+function pageHasOwnToolbar(pathname: string): boolean {
+  if (pathname.startsWith("/deck/")) return true;
+  // /extensions (list) and /extensions/<id> (viewer) both render their own headers
+  // from @agent-native/core/client/extensions.
+  if (pathname === "/extensions" || pathname.startsWith("/extensions/"))
+    return true;
+  return false;
+}
+
+export function Layout({ children }: LayoutProps) {
+  const location = useLocation();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { collapsed: sidebarCollapsed, setCollapsed: setSidebarCollapsed } =
+    useSidebarCollapsed();
+  const { getDeck } = useDecks();
+
+  // Scope new chats to the deck the user is currently editing. The route
+  // is `/deck/:id`; everywhere else (list, settings, presentation) leaves
+  // scope null so chats stay in the general pool. Falling back to the
+  // raw deck id keeps the chat bound even before the deck object has
+  // streamed in — once the title arrives the badge updates in place.
+  const deckScope = useMemo(() => {
+    const match = location.pathname.match(/^\/deck\/([^/]+)/);
+    const deckId = match?.[1];
+    if (!deckId) return null;
+    const deck = getDeck(deckId);
+    return { type: "deck" as const, id: deckId, label: deck?.title || "" };
+  }, [location.pathname, getDeck]);
+
+  useEffect(() => {
+    setSidebarOpen(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    const onResize = () => {
+      if (window.innerWidth >= 768) setSidebarOpen(false);
+    };
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  const ownToolbar = pageHasOwnToolbar(location.pathname);
+
+  return (
+    <HeaderActionsProvider>
+      <AgentSidebar
+        position="right"
+        defaultOpen
+        emptyStateText="Ask me anything about your presentations"
+        suggestions={[
+          "Build a 10-slide pitch from this doc",
+          "Apply our brand to this deck",
+          "Generate a hero image for this slide",
+        ]}
+        scope={deckScope}
+        browserTabId={TAB_ID}
+      >
+        <div className="flex h-screen w-full overflow-hidden bg-background text-foreground">
+          {sidebarOpen && (
+            <div
+              className="fixed inset-0 z-40 bg-black/50 md:hidden"
+              onClick={() => setSidebarOpen(false)}
+            />
+          )}
+          <div
+            className={cn(
+              "fixed inset-y-0 left-0 z-50 md:static md:z-auto",
+              sidebarOpen
+                ? "translate-x-0"
+                : "-translate-x-full md:translate-x-0",
+            )}
+          >
+            <Sidebar
+              collapsed={sidebarCollapsed && !sidebarOpen}
+              // In the mobile drawer the sidebar is forced expanded, so the
+              // desktop collapse toggle would be a silent no-op (worse: it'd
+              // mutate the desktop preference). Hide it while the drawer is
+              // open.
+              onToggleCollapsed={
+                sidebarOpen
+                  ? undefined
+                  : () => setSidebarCollapsed((prev) => !prev)
+              }
+            />
+          </div>
+          <div className="flex h-full flex-1 flex-col overflow-hidden">
+            {/* Mobile-only nav strip with hamburger — only when there's no page toolbar */}
+            {!ownToolbar && (
+              <div className="flex h-12 items-center border-b border-border px-4 md:hidden shrink-0">
+                <button
+                  onClick={() => setSidebarOpen(true)}
+                  className="flex h-9 w-9 items-center justify-center rounded-md border border-border bg-background text-muted-foreground hover:text-foreground cursor-pointer"
+                  aria-label="Open navigation"
+                >
+                  <IconMenu2 className="h-4 w-4" />
+                </button>
+              </div>
+            )}
+            {!ownToolbar && <Header />}
+            <InvitationBanner />
+            {children}
+          </div>
+          <AgentWorkIndicator />
+        </div>
+      </AgentSidebar>
+    </HeaderActionsProvider>
+  );
+}

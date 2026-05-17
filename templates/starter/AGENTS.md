@@ -1,0 +1,118 @@
+# {{APP_NAME}} — Agent Guide
+
+This app follows the agent-native core philosophy: the agent and UI are equal partners. Everything the UI can do, the agent can do via actions. The agent always knows what you're looking at via application state. See the root AGENTS.md for full framework documentation.
+
+This is an **@agent-native/core** application -- the AI agent and UI share state through a SQL database, with polling for real-time sync. **When you (the agent) write data, the UI must reflect the change without a manual refresh.** This is non-negotiable. Use `useActionQuery` (auto-covered) or fold `useChangeVersions([<source>, "action"])` into raw `useQuery` keys. See the `real-time-sync` and `adding-a-feature` skills.
+
+## Resources
+
+Resources are SQL-backed persistent files for storing notes, learnings, and context.
+
+**At the start of every conversation, read these resources (both personal and shared scopes):**
+
+1. **`AGENTS.md`** — user-specific context. Read both `--scope personal` and `--scope shared`.
+2. **`LEARNINGS.md`** — app memory with user preferences and corrections. Read both scopes.
+
+**Update `LEARNINGS.md` when you learn something important.**
+
+### Resource scripts
+
+| Action            | Args                                           | Purpose                 |
+| ----------------- | ---------------------------------------------- | ----------------------- |
+| `resource-read`   | `--name <name> [--scope personal\|shared]`     | Read a resource         |
+| `resource-write`  | `--name <name> --content <text> [--scope ...]` | Write/update a resource |
+| `resource-list`   | `[--scope personal\|shared]`                   | List all resources      |
+| `resource-delete` | `--name <name> [--scope personal\|shared]`     | Delete a resource       |
+
+## Application State
+
+Ephemeral UI state is stored in the SQL `application_state` table, accessed via `readAppState(key)` and `writeAppState(key, value)` from `@agent-native/core/application-state`.
+
+| State Key    | Purpose                                   | Direction                  |
+| ------------ | ----------------------------------------- | -------------------------- |
+| `navigation` | Current view (`home` or `new-app`)        | UI -> Agent (read-only)    |
+| `navigate`   | Navigate command (one-shot, auto-deleted) | Agent -> UI (auto-deleted) |
+
+## Workspace App Creation
+
+The `/new-app` route lets the user prompt a new workspace app. Dispatch vault
+access is all-apps by default, so every saved vault key is available to the new
+app; only choose/request specific keys when Dispatch vault access is switched to
+manual mode. When loaded inside Builder, code prompts are delegated to Builder
+chat; in local dev, they go to the agent-native code agent. In production, app
+creation is only enabled when Builder branching is explicitly configured.
+
+When the user asks to create, build, make, scaffold, or generate a new app from this flow, create a separate workspace app. If they ask for an "agent", classify the ask first: simple reminders, digests, monitors, routing rules, saved instructions, or recurring workflows can stay in Dispatch; robust unique products or teammates with their own UI, data model, actions, integrations, or domain workflow should become a separate workspace app. Keep new apps under `apps/<app-id>`, mount them at `/<app-id>`, use the shared workspace database/hosting model, and namespace any new domain tables so apps do not collide. Save a concise generated description in `apps/<app-id>/package.json` so Dispatch and A2A connected-agent context can describe what the app does.
+
+Do not satisfy a new-app request by adding a route, page, component, or file inside this starter app. Only edit `apps/starter` when the user explicitly asks to change the starter app itself.
+
+## Mounted Workspace Routing
+
+This app is mounted at `/starter` in a workspace. Inside app source, React Router paths are app-local: use `<Link to="/new-app">` and `navigate("/new-app")`, not `/starter/new-app`. The workspace gateway and `APP_BASE_PATH` add the mounted prefix in the browser; hardcoding it inside React Router links causes doubled URLs such as `/starter/starter/new-app`.
+
+For raw paths outside React Router, use the core helpers: `appPath()` for static assets or normal hrefs, `appApiPath()` for `/api/*`, and `agentNativePath()` for `/_agent-native/*`.
+
+## Agent Operations
+
+The current screen state is automatically included with each message as a `<current-screen>` block. You don't need to call `view-screen` before every action — use it only when you need a refreshed snapshot mid-conversation.
+
+**Running actions from the frame:** The terminal cwd is the framework root. Always `cd` to this template's root before running any action:
+
+```bash
+cd templates/starter && pnpm action <name> [args]
+```
+
+`.env` is loaded automatically — **never manually set `DATABASE_URL` or other env vars**.
+
+### Actions
+
+| Action        | Args                              | Purpose                         |
+| ------------- | --------------------------------- | ------------------------------- |
+| `view-screen` |                                   | See current UI state            |
+| `navigate`    | `--view <name>` or `--path <url>` | Navigate the UI                 |
+| `hello`       | `[--name <name>]`                 | Example script                  |
+| `db-schema`   |                                   | Show all tables, columns, types |
+| `db-query`    | `--sql "SELECT ..."`              | Run a SELECT query              |
+| `db-exec`     | `--sql "INSERT ..."`              | Run INSERT/UPDATE/DELETE        |
+
+## Skills
+
+| Skill                 | When to read                                                                      |
+| --------------------- | --------------------------------------------------------------------------------- |
+| `adding-a-feature`    | **Read first when adding ANY new feature** — the four-area parity checklist       |
+| `real-time-sync`      | Before wiring data fetching for anything the agent can mutate (must auto-refresh) |
+| `storing-data`        | Before storing or reading any app state                                           |
+| `delegate-to-agent`   | Before adding LLM calls or AI delegation                                          |
+| `actions`             | Before creating or modifying actions                                              |
+| `self-modifying-code` | Before editing source, components, or styles                                      |
+| `frontend-design`     | Before building or restyling any UI component, page, or layout                    |
+| `shadcn-ui`           | Before adding, updating, or debugging shadcn/ui components                        |
+
+## When Adding Features
+
+**Read the `adding-a-feature` skill first** — it has the full four-area checklist (UI / Action / Skills / App-State). Quick summary:
+
+1. **Add navigation state entries** — extend `use-navigation-state.ts` to track new routes
+2. **Enhance view-screen** — make the view-screen action return relevant context for the new view
+3. **Create domain actions** — add actions for CRUD operations on new data models
+4. **Wire UI for auto-refresh** — use `useActionQuery` (auto-covered) OR fold `useChangeVersions([<source>, "action"])` into raw `useQuery` keys with `placeholderData`. When the agent mutates this data, the UI must reflect the change without a manual refresh. See `real-time-sync` skill.
+5. **Create domain skills** — add `.agents/skills/<feature>/SKILL.md` documenting the data model, storage patterns, and agent operations
+6. **Update this AGENTS.md** — add the new actions, state keys, and common tasks
+
+### Authentication
+
+This template uses the framework's default auth — Better Auth, with email/password and optional Google / GitHub social providers. New users create an account on first visit. Use `getSession(event)` server-side and `useSession()` client-side.
+
+See the `authentication` skill for the full mode matrix (`AUTH_MODE=local` for solo dev, `ACCESS_TOKEN` for shared-token deploys, `AUTH_DISABLED` for infrastructure auth, BYOA for custom providers) and the `security` skill for per-user / per-org data scoping.
+
+### UI Components
+
+**Always use shadcn/ui components** from `app/components/ui/` for all standard UI patterns (dialogs, popovers, dropdowns, tooltips, buttons, etc). Never build custom modals or dropdowns with absolute/fixed positioning — use the shadcn primitives instead.
+
+**Always use Tabler Icons** (`@tabler/icons-react`) for all icons. Never use other icon libraries.
+
+**Never use browser dialogs** (`window.confirm`, `window.alert`, `window.prompt`) — use shadcn AlertDialog instead.
+
+---
+
+For code editing and development guidance, read `DEVELOPING.md`.

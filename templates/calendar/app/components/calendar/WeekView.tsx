@@ -1,0 +1,946 @@
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import {
+  startOfWeek,
+  endOfWeek,
+  eachDayOfInterval,
+  eachHourOfInterval,
+  isSameDay,
+  isToday,
+  format,
+  parseISO,
+  differenceInMinutes,
+  startOfDay,
+  set,
+  addDays,
+  addMinutes,
+} from "date-fns";
+import { cn } from "@/lib/utils";
+import { shouldSuppressAfterPopoverClose } from "@/lib/popover-click-guard";
+import { getEventDisplayColor, allOtherDeclined } from "@/lib/event-colors";
+import { IconAlertTriangleFilled } from "@tabler/icons-react";
+import { EventDetailPopover } from "./EventDetailPopover";
+import type { CalendarEvent } from "@shared/api";
+import { useEventDrag } from "@/hooks/use-event-drag";
+import { useCalendarContext } from "@/components/layout/AppLayout";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { useViewPreferences } from "@/hooks/use-view-preferences";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+
+interface WeekViewProps {
+  events: CalendarEvent[];
+  selectedDate: Date;
+  onDateSelect: (date: Date) => void;
+  onDeleteEvent: (eventId: string) => void;
+  onEventTimeChange?: (eventId: string, newStart: Date, newEnd: Date) => void;
+  onClickTimeSlot?: (date: Date, startTime: string, endTime: string) => void;
+  quickEditEventId?: string | null;
+  onQuickEditSave?: (eventId: string, title: string) => void;
+  onQuickEditCancel?: (eventId: string) => void;
+  isLoading?: boolean;
+}
+
+// [startHour, startMin, durationMin, widthPct] per day column (Sun–Sat)
+const WEEK_SKELETONS: [number, number, number, number][][] = [
+  [
+    [9, 0, 60, 78],
+    [14, 0, 30, 62],
+  ],
+  [[10, 0, 90, 82]],
+  [
+    [8, 30, 45, 74],
+    [15, 0, 60, 68],
+  ],
+  [[10, 0, 60, 80]],
+  [
+    [9, 0, 45, 70],
+    [13, 0, 90, 78],
+  ],
+  [[11, 0, 30, 65]],
+  [[9, 30, 60, 72]],
+];
+
+const START_HOUR = 0;
+const END_HOUR = 24;
+const HOUR_HEIGHT = 60;
+const DESKTOP_GUTTER_WIDTH = 60;
+const MOBILE_GUTTER_WIDTH = 40;
+
+/** Format an event's time range in compact Notion style: "8–10:30 AM" or "9 AM" */
+function formatEventTime(start: Date, end: Date): string {
+  const startMin = start.getMinutes();
+  const endMin = end.getMinutes();
+  const sameAmPm =
+    (start.getHours() < 12 && end.getHours() < 12) ||
+    (start.getHours() >= 12 && end.getHours() >= 12);
+
+  const startStr = startMin === 0 ? format(start, "h") : format(start, "h:mm");
+
+  const endStr = endMin === 0 ? format(end, "h a") : format(end, "h:mm a");
+
+  if (sameAmPm) {
+    return `${startStr}\u2013${endStr}`;
+  }
+  const startWithAmPm =
+    startMin === 0 ? format(start, "h a") : format(start, "h:mm a");
+  return `${startWithAmPm}\u2013${endStr}`;
+}
+
+interface LayoutInfo {
+  left: number; // percentage 0-100
+  width: number; // percentage 0-100
+  col: number;
+  totalCols: number;
+}
+
+/**
+ * Stacking layout — like the user's drawing and Google Cal.
+ *
+ * Every event is nearly full width. Overlapping events get a small left
+ * indent per nesting depth and stack on top with opaque backgrounds.
+ * Text at the top stays readable; the card beneath is covered.
+ */
+function computeLayout(dayEvents: CalendarEvent[]): Map<string, LayoutInfo> {
+  const result = new Map<string, LayoutInfo>();
+  if (dayEvents.length === 0) return result;
+
+  // Sort: earliest start first, then longest duration first (background)
+  const sorted = [...dayEvents].sort((a, b) => {
+    const aStart = parseISO(a.start).getTime();
+    const bStart = parseISO(b.start).getTime();
+    if (aStart !== bStart) return aStart - bStart;
+    return parseISO(b.end).getTime() - parseISO(a.end).getTime();
+  });
+
+  const times = new Map<string, { start: number; end: number }>();
+  for (const ev of sorted) {
+    times.set(ev.id, {
+      start: parseISO(ev.start).getTime(),
+      end: parseISO(ev.end).getTime(),
+    });
+  }
+
+  // Each event is full-width minus a small indent per overlap depth.
+  // Depth = how many earlier events in the sorted list overlap with this one.
+  const INDENT_PX = 16; // pixels per nesting level
+
+  for (const ev of sorted) {
+    let depth = 0;
+    for (const other of sorted) {
+      if (other.id === ev.id) break;
+      const ta = times.get(other.id)!;
+      const tb = times.get(ev.id)!;
+      if (ta.start < tb.end && tb.start < ta.end) depth++;
+    }
+
+    result.set(ev.id, {
+      left: depth * INDENT_PX, // pixels, not percentage
+      width: 0, // signal to use calc(100% - left)
+      col: depth,
+      totalCols: depth + 1,
+    });
+  }
+
+  return result;
+}
+
+/** Determine which day columns an all-day event spans within a given week */
+function getAllDaySpan(
+  event: CalendarEvent,
+  days: Date[],
+): { startCol: number; endCol: number } | null {
+  const evStart = parseISO(event.start);
+  const evEnd = event.end ? parseISO(event.end) : addDays(evStart, 1);
+
+  let startCol = -1;
+  let endCol = -1;
+
+  for (let i = 0; i < days.length; i++) {
+    const dayStart = startOfDay(days[i]);
+    const dayEnd = addDays(dayStart, 1);
+    // Event overlaps this day if it starts before day ends and ends after day starts
+    if (evStart < dayEnd && evEnd > dayStart) {
+      if (startCol === -1) startCol = i;
+      endCol = i;
+    }
+  }
+
+  if (startCol === -1) return null;
+  return { startCol, endCol };
+}
+
+export function WeekView({
+  events,
+  selectedDate,
+  onDateSelect,
+  onDeleteEvent,
+  onEventTimeChange,
+  onClickTimeSlot,
+  quickEditEventId,
+  onQuickEditSave,
+  onQuickEditCancel,
+  isLoading = false,
+}: WeekViewProps) {
+  const { setFocusedEvent } = useCalendarContext();
+  const isMobile = useIsMobile();
+  const GUTTER_WIDTH = isMobile ? MOBILE_GUTTER_WIDTH : DESKTOP_GUTTER_WIDTH;
+  const [now, setNow] = useState(new Date());
+  const [focusedEventId, setFocusedEventId] = useState<string | null>(null);
+  const currentTimeRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const allDayContainerRef = useRef<HTMLDivElement>(null);
+  const [timeGridScrollbarWidth, setTimeGridScrollbarWidth] = useState(0);
+  const [allDayScrollbarWidth, setAllDayScrollbarWidth] = useState(0);
+
+  // Escape clears the highlighted/elevated event so it drops behind others
+  useEffect(() => {
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        setFocusedEventId(null);
+        setFocusedEvent(null);
+      }
+    }
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [setFocusedEvent]);
+
+  // Update current time every minute
+  useEffect(() => {
+    const interval = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Scroll to ~7am on mount
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (container) {
+      const scrollTo7am = 7 * HOUR_HEIGHT;
+      container.scrollTop = scrollTo7am - 40;
+    }
+  }, []);
+
+  const { prefs } = useViewPreferences();
+  const weekStart = startOfWeek(selectedDate);
+  const weekEnd = endOfWeek(selectedDate);
+  const fullWeek = eachDayOfInterval({ start: weekStart, end: weekEnd });
+  const days = prefs.hideWeekends
+    ? fullWeek.filter((d) => d.getDay() !== 0 && d.getDay() !== 6)
+    : fullWeek;
+  const hours = eachHourOfInterval({
+    start: set(weekStart, { hours: START_HOUR, minutes: 0 }),
+    end: set(weekStart, { hours: END_HOUR - 1, minutes: 0 }),
+  });
+
+  // Separate all-day and timed events
+  const allDayEvents = useMemo(() => events.filter((e) => e.allDay), [events]);
+
+  const timedEvents = useMemo(() => events.filter((e) => !e.allDay), [events]);
+
+  // Pre-compute all-day event spans
+  const allDaySpans = useMemo(() => {
+    const spans: { event: CalendarEvent; startCol: number; endCol: number }[] =
+      [];
+    for (const ev of allDayEvents) {
+      const span = getAllDaySpan(ev, days);
+      if (span) {
+        spans.push({ event: ev, ...span });
+      }
+    }
+    return spans;
+  }, [allDayEvents, days]);
+
+  // Pre-compute timed events per day with layout
+  const dayData = useMemo(() => {
+    return days.map((day) => {
+      const dayEvents = timedEvents.filter((e) =>
+        isSameDay(parseISO(e.start), day),
+      );
+      const layout = computeLayout(dayEvents);
+      return { day, events: dayEvents, layout };
+    });
+  }, [days, timedEvents]);
+
+  function getEventStyle(event: CalendarEvent) {
+    const start = parseISO(event.start);
+    const end = parseISO(event.end);
+    const dayStart = set(startOfDay(start), { hours: START_HOUR });
+    const topMinutes = Math.max(0, differenceInMinutes(start, dayStart));
+    const durationMinutes = Math.max(15, differenceInMinutes(end, start));
+
+    return {
+      top: `${(topMinutes / 60) * HOUR_HEIGHT}px`,
+      height: `${(durationMinutes / 60) * HOUR_HEIGHT}px`,
+    };
+  }
+
+  // Current time indicator
+  const nowMinutes = (now.getHours() - START_HOUR) * 60 + now.getMinutes();
+  const nowTop = (nowMinutes / 60) * HOUR_HEIGHT;
+  const showNowIndicator =
+    nowMinutes >= 0 && nowMinutes <= (END_HOUR - START_HOUR) * 60;
+
+  const hasAnyAllDay = allDaySpans.length > 0;
+
+  // Compute the number of "rows" needed for all-day events (to handle stacking)
+  const allDayRows = useMemo(() => {
+    if (allDaySpans.length === 0) return 0;
+    // Simple row-packing algorithm
+    const rows: { startCol: number; endCol: number }[][] = [];
+    for (const span of allDaySpans) {
+      let placed = false;
+      for (const row of rows) {
+        const hasConflict = row.some(
+          (existing) =>
+            span.startCol <= existing.endCol &&
+            span.endCol >= existing.startCol,
+        );
+        if (!hasConflict) {
+          row.push(span);
+          placed = true;
+          break;
+        }
+      }
+      if (!placed) {
+        rows.push([span]);
+      }
+    }
+    return rows.length;
+  }, [allDaySpans]);
+
+  // Assign row index to each all-day span
+  const allDayRowAssignments = useMemo(() => {
+    const assignments = new Map<string, number>();
+    if (allDaySpans.length === 0) return assignments;
+    const rows: { startCol: number; endCol: number; id: string }[][] = [];
+    for (const span of allDaySpans) {
+      let placed = false;
+      for (let r = 0; r < rows.length; r++) {
+        const hasConflict = rows[r].some(
+          (existing) =>
+            span.startCol <= existing.endCol &&
+            span.endCol >= existing.startCol,
+        );
+        if (!hasConflict) {
+          rows[r].push({ ...span, id: span.event.id });
+          assignments.set(span.event.id, r);
+          placed = true;
+          break;
+        }
+      }
+      if (!placed) {
+        rows.push([{ ...span, id: span.event.id }]);
+        assignments.set(span.event.id, rows.length - 1);
+      }
+    }
+    return assignments;
+  }, [allDaySpans]);
+
+  const allDayRowHeight = 20;
+  const allDaySectionHeight = hasAnyAllDay
+    ? allDayRows * allDayRowHeight + 6
+    : 0;
+  const allDayHeaderSpacerWidth = Math.max(
+    0,
+    timeGridScrollbarWidth - allDayScrollbarWidth,
+  );
+
+  useEffect(() => {
+    const measureScrollbars = () => {
+      const timeGrid = scrollContainerRef.current;
+      const allDayGrid = allDayContainerRef.current;
+
+      setTimeGridScrollbarWidth(
+        timeGrid ? Math.max(0, timeGrid.offsetWidth - timeGrid.clientWidth) : 0,
+      );
+      setAllDayScrollbarWidth(
+        allDayGrid
+          ? Math.max(0, allDayGrid.offsetWidth - allDayGrid.clientWidth)
+          : 0,
+      );
+    };
+
+    measureScrollbars();
+
+    const resizeObserver =
+      typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(measureScrollbars)
+        : null;
+
+    if (scrollContainerRef.current) {
+      resizeObserver?.observe(scrollContainerRef.current);
+    }
+    if (allDayContainerRef.current) {
+      resizeObserver?.observe(allDayContainerRef.current);
+    }
+
+    window.addEventListener("resize", measureScrollbars);
+
+    return () => {
+      resizeObserver?.disconnect();
+      window.removeEventListener("resize", measureScrollbars);
+    };
+  }, [allDaySectionHeight, hasAnyAllDay]);
+
+  // Timezone label: prefer the short generic name (e.g. "PT", "ET")
+  // over the offset form ("GMT-7"), and fall back to the IANA id when
+  // the locale data has no friendlier rendering.
+  const { tzShort, tzLong, tzIana } = useMemo(() => {
+    function nameForToken(token: "shortGeneric" | "longGeneric" | "short") {
+      try {
+        return (
+          new Intl.DateTimeFormat("en-US", { timeZoneName: token })
+            .formatToParts(now)
+            .find((p) => p.type === "timeZoneName")?.value ?? ""
+        );
+      } catch {
+        return "";
+      }
+    }
+
+    let iana = "";
+    try {
+      iana = Intl.DateTimeFormat().resolvedOptions().timeZone ?? "";
+    } catch {}
+
+    const longGeneric = nameForToken("longGeneric");
+    let shortGeneric = nameForToken("shortGeneric");
+
+    // shortGeneric falls back to the offset form for zones with no short name
+    // (e.g. "Etc/GMT-7" → "GMT-7"). When that happens, the IANA city is more
+    // useful than the offset.
+    if (!shortGeneric || /^GMT[+-]/.test(shortGeneric)) {
+      const city = iana.split("/").pop()?.replace(/_/g, " ") ?? "";
+      shortGeneric = city || nameForToken("short") || shortGeneric;
+    }
+
+    return {
+      tzShort: shortGeneric,
+      tzLong: longGeneric || iana,
+      tzIana: iana,
+    };
+  }, []);
+
+  // Drag-to-move and drag-to-resize
+  const handleEventTimeChange = useCallback(
+    (eventId: string, newStart: Date, newEnd: Date) => {
+      onEventTimeChange?.(eventId, newStart, newEnd);
+    },
+    [onEventTimeChange],
+  );
+
+  const {
+    startDrag,
+    getDragOverrides,
+    isDragging,
+    dragEventId,
+    shouldSuppressClick,
+    dragMode,
+  } = useEventDrag({
+    hourHeight: HOUR_HEIGHT,
+    startHour: START_HOUR,
+    scrollContainerRef,
+    days,
+    onEventTimeChange: handleEventTimeChange,
+    events,
+  });
+
+  return (
+    <div className="flex h-full flex-col overflow-hidden">
+      {/* Sticky day headers */}
+      <div className="sticky top-0 z-10 border-b border-border bg-card">
+        <div className="flex">
+          {/* Gutter: timezone label */}
+          <div
+            className="flex shrink-0 items-center justify-center border-r border-border"
+            style={{ width: `${GUTTER_WIDTH}px` }}
+          >
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="cursor-default truncate px-1 text-[11px] font-medium text-muted-foreground">
+                  {tzShort}
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <p className="text-xs">{tzLong}</p>
+                {tzIana && tzIana !== tzLong ? (
+                  <p className="text-[10px] text-muted-foreground">{tzIana}</p>
+                ) : null}
+              </TooltipContent>
+            </Tooltip>
+          </div>
+
+          {/* Day columns */}
+          {days.map((day) => (
+            <div
+              key={day.toISOString()}
+              onClick={() => onDateSelect(day)}
+              className={cn(
+                "flex flex-1 cursor-pointer flex-col items-center justify-center gap-0.5 border-r border-border py-1.5 sm:flex-row sm:gap-1.5 sm:py-2.5 last:border-r-0",
+                isToday(day) ? "bg-primary/5" : "hover:bg-accent/40",
+              )}
+            >
+              <span className="text-[10px] font-medium text-muted-foreground sm:text-xs">
+                {isMobile ? format(day, "EEEEE") : format(day, "EEE")}
+              </span>
+              <span
+                className={cn(
+                  "flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold sm:h-7 sm:w-7 sm:text-sm",
+                  isToday(day)
+                    ? "bg-foreground text-background"
+                    : "text-foreground",
+                )}
+              >
+                {format(day, "d")}
+              </span>
+            </div>
+          ))}
+          {timeGridScrollbarWidth > 0 && (
+            <div
+              aria-hidden="true"
+              className="shrink-0"
+              style={{ width: `${timeGridScrollbarWidth}px` }}
+            />
+          )}
+        </div>
+
+        {/* All-day events row */}
+        {hasAnyAllDay && (
+          <div
+            ref={allDayContainerRef}
+            className="relative flex border-t border-border overflow-y-auto"
+            style={{ maxHeight: 88, height: `${allDaySectionHeight}px` }}
+          >
+            {/* Gutter label */}
+            <div
+              className="flex shrink-0 items-start justify-end border-r border-border pr-2 pt-1"
+              style={{ width: `${GUTTER_WIDTH}px` }}
+            >
+              <span className="text-[10px] text-muted-foreground">all day</span>
+            </div>
+
+            {/* All-day columns container (relative, for absolute-positioned spans) */}
+            <div className="relative flex flex-1">
+              {/* Column dividers */}
+              {days.map((day, i) => (
+                <div
+                  key={day.toISOString()}
+                  className={cn(
+                    "flex-1",
+                    i < days.length - 1 && "border-r border-border",
+                  )}
+                />
+              ))}
+
+              {/* Spanning all-day event bars */}
+              {allDaySpans.map(({ event, startCol, endCol }) => {
+                const color = getEventDisplayColor(event, prefs);
+                const rowIdx = allDayRowAssignments.get(event.id) ?? 0;
+                const colCount = days.length;
+                const leftPct = (startCol / colCount) * 100;
+                const widthPct = ((endCol - startCol + 1) / colCount) * 100;
+
+                return (
+                  <EventDetailPopover
+                    key={event.id}
+                    event={event}
+                    onDelete={onDeleteEvent}
+                  >
+                    <button
+                      className="absolute flex items-center gap-1 truncate rounded px-1.5 text-left text-[11px] font-medium text-foreground transition-opacity hover:opacity-80"
+                      style={{
+                        top: `${rowIdx * allDayRowHeight + 4}px`,
+                        left: `${leftPct}%`,
+                        width: `calc(${widthPct}% - 4px)`,
+                        height: `${allDayRowHeight - 4}px`,
+                        backgroundColor: color
+                          ? `${color}30`
+                          : "hsl(var(--primary) / 0.15)",
+                        borderLeft: `3px solid ${color ?? "hsl(var(--primary))"}`,
+                        marginLeft: "2px",
+                      }}
+                    >
+                      {allOtherDeclined(event) && (
+                        <IconAlertTriangleFilled
+                          size={10}
+                          className="shrink-0 text-current opacity-70"
+                        />
+                      )}
+                      <span className="truncate">{event.title}</span>
+                    </button>
+                  </EventDetailPopover>
+                );
+              })}
+            </div>
+            {allDayHeaderSpacerWidth > 0 && (
+              <div
+                aria-hidden="true"
+                className="shrink-0"
+                style={{ width: `${allDayHeaderSpacerWidth}px` }}
+              />
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Scrollable time grid */}
+      <div
+        ref={scrollContainerRef}
+        className={cn("flex-1 overflow-y-auto", isDragging && "select-none")}
+      >
+        <div className="relative flex">
+          {/* Hour gutter */}
+          <div
+            className="shrink-0 border-r border-border"
+            style={{ width: `${GUTTER_WIDTH}px` }}
+          >
+            {hours.map((hour, i) => (
+              <div
+                key={hour.toISOString()}
+                className="relative border-b border-border/50"
+                style={{ height: `${HOUR_HEIGHT}px` }}
+              >
+                {i > 0 && (
+                  <span className="absolute -top-[9px] right-1 text-[10px] font-medium text-muted-foreground sm:right-2 sm:text-[11px]">
+                    {isMobile
+                      ? format(hour, "ha").toLowerCase()
+                      : format(hour, "h a")}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Day columns */}
+          {dayData.map(({ day, events: dayEvents, layout }, dayIndex) => {
+            const isCurrentDay = isToday(day);
+
+            // Collect events that were dragged into this column from another day
+            const draggedInEvents: CalendarEvent[] = [];
+            if (isDragging && dragEventId) {
+              const overrides = getDragOverrides(dragEventId);
+              if (
+                overrides &&
+                overrides.dayIndex === dayIndex &&
+                !dayEvents.find((e) => e.id === dragEventId)
+              ) {
+                const draggedEvent = events.find((e) => e.id === dragEventId);
+                if (draggedEvent) draggedInEvents.push(draggedEvent);
+              }
+            }
+
+            return (
+              <div
+                key={day.toISOString()}
+                className={cn(
+                  "relative flex-1 border-r border-border last:border-r-0",
+                  isCurrentDay && "bg-primary/[0.02]",
+                )}
+                onClick={(e) => {
+                  // Only fire on empty space (not on event buttons or after drags)
+                  if ((e.target as HTMLElement).closest("button")) return;
+                  if (
+                    !onClickTimeSlot ||
+                    isDragging ||
+                    shouldSuppressClick() ||
+                    shouldSuppressAfterPopoverClose()
+                  )
+                    return;
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  const y = e.clientY - rect.top;
+                  const totalMinutes =
+                    Math.floor(((y / HOUR_HEIGHT) * 60) / 15) * 15 +
+                    START_HOUR * 60;
+                  const startH = Math.floor(totalMinutes / 60);
+                  const startM = totalMinutes % 60;
+                  const endMinutes = totalMinutes + 60;
+                  const endH = Math.min(Math.floor(endMinutes / 60), 23);
+                  const endM = endMinutes % 60;
+                  const pad = (n: number) => String(n).padStart(2, "0");
+                  onClickTimeSlot(
+                    day,
+                    `${pad(startH)}:${pad(startM)}`,
+                    `${pad(endH)}:${pad(endM)}`,
+                  );
+                }}
+              >
+                {/* Hour grid lines */}
+                {hours.map((hour) => (
+                  <div
+                    key={hour.toISOString()}
+                    className="border-b border-border/50"
+                    style={{ height: `${HOUR_HEIGHT}px` }}
+                  />
+                ))}
+
+                {/* Current time indicator */}
+                {isCurrentDay && showNowIndicator && (
+                  <div
+                    ref={currentTimeRef}
+                    className="pointer-events-none absolute left-0 right-0 z-20 flex items-center"
+                    style={{ top: `${nowTop}px` }}
+                  >
+                    <div className="-ml-[5px] h-2.5 w-2.5 shrink-0 rounded-full bg-foreground" />
+                    <div className="h-[2px] flex-1 bg-foreground" />
+                  </div>
+                )}
+
+                {/* Skeleton events when loading */}
+                {isLoading &&
+                  WEEK_SKELETONS[dayIndex]?.map(
+                    ([startHour, startMin, duration, widthPct], i) => {
+                      const topPx =
+                        ((startHour - START_HOUR) * 60 + startMin) *
+                        (HOUR_HEIGHT / 60);
+                      const heightPx = Math.max(
+                        (duration / 60) * HOUR_HEIGHT,
+                        20,
+                      );
+                      return (
+                        <div
+                          key={i}
+                          className="absolute animate-pulse rounded-md bg-muted"
+                          style={{
+                            top: `${topPx}px`,
+                            height: `${heightPx}px`,
+                            left: "2px",
+                            width: `calc(${widthPct}% - 4px)`,
+                          }}
+                        />
+                      );
+                    },
+                  )}
+
+                {/* Timed events */}
+                {!isLoading &&
+                  [...dayEvents, ...draggedInEvents].map((event) => {
+                    const li = layout.get(event.id) ?? {
+                      left: 0,
+                      width: 0,
+                      col: 0,
+                      totalCols: 1,
+                    };
+                    const overrides = getDragOverrides(event.id);
+                    const isBeingDragged = dragEventId === event.id;
+
+                    // Hide from original column if dragged to a different day
+                    if (
+                      isBeingDragged &&
+                      overrides &&
+                      overrides.dayIndex !== dayIndex &&
+                      !draggedInEvents.includes(event)
+                    ) {
+                      return null;
+                    }
+
+                    const style = overrides
+                      ? {
+                          top: `${overrides.top}px`,
+                          height: `${overrides.height}px`,
+                        }
+                      : getEventStyle(event);
+                    const color = getEventDisplayColor(event, prefs);
+                    const start = parseISO(event.start);
+                    const end = parseISO(event.end);
+                    const durationMin = overrides
+                      ? (overrides.height / HOUR_HEIGHT) * 60
+                      : differenceInMinutes(end, start);
+                    // Compute display times (use drag overrides if active)
+                    const displayStart = overrides
+                      ? addMinutes(
+                          set(startOfDay(day), {
+                            hours: START_HOUR,
+                            minutes: 0,
+                            seconds: 0,
+                          }),
+                          (overrides.top / HOUR_HEIGHT) * 60,
+                        )
+                      : start;
+                    const displayEnd = overrides
+                      ? addMinutes(displayStart, durationMin)
+                      : end;
+                    const isPast = end < now;
+                    const isDeclined = event.responseStatus === "declined";
+                    const allOthersOut = allOtherDeclined(event);
+                    const canDrag = !!onEventTimeChange;
+
+                    const eventButton = (
+                      <button
+                        onPointerDown={(e) => {
+                          setFocusedEventId(event.id);
+                          setFocusedEvent(event);
+                          if (
+                            canDrag &&
+                            !(e.target as HTMLElement).dataset.resizeHandle
+                          ) {
+                            startDrag(e, event.id, "move", dayIndex);
+                          }
+                        }}
+                        onClick={(e) => {
+                          if (shouldSuppressClick()) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                          }
+                        }}
+                        className={cn(
+                          "absolute overflow-hidden rounded-md px-1.5 py-0.5 text-left text-[11px] flex flex-col hover:brightness-110 hover:shadow-md group",
+                          durationMin <= 30
+                            ? "justify-center"
+                            : "justify-start",
+                          isDeclined && "saturate-[0.3]",
+                          isBeingDragged && isDragging && "shadow-lg z-[100]",
+                          isBeingDragged &&
+                            isDragging &&
+                            "ring-2 ring-primary/40",
+                          canDrag && "cursor-grab",
+                          isBeingDragged && isDragging && "cursor-grabbing",
+                        )}
+                        style={{
+                          ...style,
+                          left: `${li.left}px`,
+                          width: `calc(min(85%, 100% - ${li.left + 2}px))`,
+                          zIndex:
+                            isBeingDragged && isDragging
+                              ? 100
+                              : focusedEventId === event.id
+                                ? 50
+                                : li.col + 1,
+                          backgroundColor: color
+                            ? `color-mix(in srgb, ${color} ${isPast || isDeclined ? 8 : 18}%, hsl(var(--background)))`
+                            : `color-mix(in srgb, hsl(var(--primary)) ${isPast || isDeclined ? 5 : 12}%, hsl(var(--background)))`,
+                          borderLeft: `3px solid ${
+                            isPast || isDeclined
+                              ? `color-mix(in srgb, ${color ?? "hsl(var(--primary))"} 30%, transparent)`
+                              : (color ?? "hsl(var(--primary))")
+                          }`,
+                          opacity:
+                            isBeingDragged && isDragging ? 0.9 : undefined,
+                        }}
+                      >
+                        {durationMin <= 30 ? (
+                          <div className="flex items-baseline gap-1 truncate">
+                            {allOthersOut && (
+                              <IconAlertTriangleFilled
+                                size={10}
+                                className="shrink-0 text-current opacity-70 relative top-[1px]"
+                              />
+                            )}
+                            <span
+                              className={cn(
+                                "truncate leading-tight",
+                                isPast || isDeclined
+                                  ? "text-muted-foreground"
+                                  : "text-foreground",
+                                isDeclined && "line-through",
+                                !isPast && !isDeclined && "font-semibold",
+                              )}
+                            >
+                              {event.title}
+                            </span>
+                            <span
+                              className={cn(
+                                "shrink-0 text-[10px] leading-tight",
+                                isPast || isDeclined
+                                  ? "text-muted-foreground/50"
+                                  : "text-foreground/60",
+                              )}
+                            >
+                              {format(
+                                displayStart,
+                                displayStart.getMinutes() === 0
+                                  ? "h a"
+                                  : "h:mm a",
+                              )}
+                            </span>
+                          </div>
+                        ) : (
+                          <>
+                            <div
+                              className={cn(
+                                "mt-0.5 flex items-center gap-1 truncate leading-tight",
+                                isPast || isDeclined
+                                  ? "text-muted-foreground"
+                                  : "text-foreground",
+                                isDeclined && "line-through",
+                                !isPast && !isDeclined && "font-semibold",
+                              )}
+                            >
+                              {allOthersOut && (
+                                <IconAlertTriangleFilled
+                                  size={10}
+                                  className="shrink-0 text-current opacity-70"
+                                />
+                              )}
+                              <span className="truncate">{event.title}</span>
+                            </div>
+                            <div
+                              className={cn(
+                                "mt-0.5 truncate text-[9px] leading-tight",
+                                isPast || isDeclined
+                                  ? "text-muted-foreground/50"
+                                  : "text-foreground/60",
+                              )}
+                            >
+                              {formatEventTime(displayStart, displayEnd)}
+                            </div>
+                          </>
+                        )}
+                        {/* Top resize handle */}
+                        {canDrag && (
+                          <div
+                            data-resize-handle="true"
+                            onPointerDown={(e) => {
+                              e.stopPropagation();
+                              startDrag(e, event.id, "resize-top", dayIndex);
+                            }}
+                            className="absolute left-0 right-0 top-0 h-2 cursor-n-resize"
+                            style={{ touchAction: "none" }}
+                          />
+                        )}
+                        {/* Bottom resize handle */}
+                        {canDrag && (
+                          <div
+                            data-resize-handle="true"
+                            onPointerDown={(e) => {
+                              e.stopPropagation();
+                              startDrag(e, event.id, "resize", dayIndex);
+                            }}
+                            className="absolute bottom-0 left-0 right-0 h-2 cursor-s-resize"
+                            style={{ touchAction: "none" }}
+                          />
+                        )}
+                      </button>
+                    );
+
+                    // Don't wrap in popover while dragging
+                    if (isBeingDragged && isDragging) {
+                      return (
+                        <div key={event.id} className="contents">
+                          {eventButton}
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <EventDetailPopover
+                        key={event._tempId ?? event.id}
+                        event={event}
+                        onDelete={onDeleteEvent}
+                        defaultOpen={quickEditEventId === event.id}
+                        onTitleSave={onQuickEditSave}
+                        onDismissNew={onQuickEditCancel}
+                      >
+                        {eventButton}
+                      </EventDetailPopover>
+                    );
+                  })}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}

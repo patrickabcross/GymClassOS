@@ -1,0 +1,89 @@
+node_modules
+dist
+.generated
+.superpowers
+docs/superpowers
+.DS_Store
+
+/*.png
+
+# Playwright MCP logs
+.playwright-mcp/
+
+# Screenshot artifacts from design iterations
+packages/docs/*.png
+
+# Copied at publish time via prepack
+packages/core/README.md
+packages/dispatch/README.md
+packages/scheduling/README.md
+packages/pinpoint/README.md
+
+# Internal notes
+RAMBLINGS.md
+FUSION-APPS.md
+node-compile-cache/
+
+# Application state data files (ephemeral, may contain secrets)
+**/application-state/*.json
+
+# SQLite databases (local data, never commit)
+**/data/*.db
+**/data/*.db-journal
+**/data/*.db-wal
+**/data/*.db-shm
+
+# React Router generated types
+.react-router/
+.agent-native/
+
+# Generated at dev/build time
+packages/docs/app/components/searchIndex.ts
+
+# Build output
+build/
+.output/
+.deploy-tmp/
+
+# Ralph Loop runtime state
+ralph-loop.local.md
+.builder/plans/
+
+# Local Netlify folder
+.netlify
+
+# Local Vercel folder
+.vercel
+templates/*/.vercel
+
+# Scaffolded test workspaces (from `agent-native create` smoke tests)
+test-starter/
+test-*-workspace/
+
+# Slides export artifacts (generated PDFs/HTML/PPTX exports)
+templates/slides/data/exports/
+
+# Playwright/vitest test run state
+test-results/
+
+# Wrangler local state
+.wrangler
+
+# Wrangler configs copied at deploy time (from top-level wrangler-*.toml)
+templates/*/wrangler.toml
+wrangler.toml
+.claude/scheduled_tasks.lock
+.claude/worktrees/
+
+# Shell `script` command log artifacts
+db-exec
+
+# Environment files (may contain secrets)
+.env
+.env.local
+.env.*.local
+templates/*/.env
+templates/*/.env.local
+templates/*/.env.*.local
+test-reports/
+*.tsbuildinfo

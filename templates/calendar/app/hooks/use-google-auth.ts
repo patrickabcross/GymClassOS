@@ -1,0 +1,168 @@
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { agentNativePath, oauthRedirectUri } from "@agent-native/core/client";
+import type { GoogleAuthStatus } from "@shared/api";
+import { useEffect } from "react";
+
+function bodyError(
+  body: any,
+  raw: string | undefined,
+  res: Response,
+  fallback: string,
+): Error {
+  const message =
+    (body && (body.message || body.error)) ||
+    (raw && raw.slice(0, 200)) ||
+    res.statusText ||
+    `${fallback} (HTTP ${res.status})`;
+  const error = new Error(message);
+  (error as any).status = res.status;
+  return error;
+}
+
+async function fetchJson<T>(input: string, init?: RequestInit): Promise<T> {
+  let res: Response;
+  try {
+    res = await fetch(input, init);
+  } catch (err) {
+    const cause = err instanceof Error ? err.message : String(err);
+    throw new Error(`Network error: ${cause}`);
+  }
+  // Track read failures separately from "no body" so a transport hiccup on a
+  // 2xx response doesn't silently turn into a `null` success.
+  let raw = "";
+  let readFailed = false;
+  let readError: unknown;
+  try {
+    raw = await res.text();
+  } catch (err) {
+    readFailed = true;
+    readError = err;
+  }
+  let body: any = undefined;
+  let parseFailed = false;
+  if (raw) {
+    try {
+      body = JSON.parse(raw);
+    } catch {
+      // not JSON — leave body undefined
+      parseFailed = true;
+    }
+  }
+  if (!res.ok) {
+    throw bodyError(body, raw, res, "Request failed");
+  }
+  // 2xx but the body couldn't be read (stream interruption, decode failure,
+  // etc.). Surface the failure rather than treating it as "no data".
+  if (readFailed) {
+    const cause =
+      readError instanceof Error ? readError.message : String(readError);
+    const error = new Error(`Unreadable ${res.status} response: ${cause}`);
+    (error as any).status = res.status;
+    throw error;
+  }
+  // 2xx with a non-empty, non-JSON body — almost always a misconfigured proxy
+  // or server returning an HTML page with status 200. Throw so callers (status
+  // checks, auth URL hooks) surface the failure instead of silently treating
+  // the response as "no data" / disconnected.
+  if (parseFailed) {
+    throw bodyError(body, raw, res, "Unexpected non-JSON response");
+  }
+  return (body ?? (null as unknown)) as T;
+}
+
+export function useGoogleAuthStatus() {
+  return useQuery<GoogleAuthStatus>({
+    queryKey: ["google-status"],
+    queryFn: async () => {
+      return fetchJson<GoogleAuthStatus>(
+        agentNativePath("/_agent-native/google/status"),
+      );
+    },
+    staleTime: 30_000,
+  });
+}
+
+export function useGoogleAuthUrl(enabled = false) {
+  const queryClient = useQueryClient();
+  const query = useQuery<{ url: string }>({
+    queryKey: ["google-auth-url"],
+    queryFn: async () => {
+      const redirectUri = oauthRedirectUri("/_agent-native/google/callback");
+      return fetchJson<{ url: string }>(
+        agentNativePath(
+          `/_agent-native/google/auth-url?redirect_uri=${encodeURIComponent(redirectUri)}`,
+        ),
+      );
+    },
+    enabled,
+    retry: false,
+  });
+
+  // Clear cached error when disabled so next enable triggers a fresh fetch
+  useEffect(() => {
+    if (!enabled && query.isError) {
+      queryClient.resetQueries({ queryKey: ["google-auth-url"] });
+    }
+  }, [enabled, query.isError, queryClient]);
+
+  return query;
+}
+
+/** Hook for adding an additional Google account (user is already logged in). */
+export function useGoogleAddAccountUrl(enabled = false) {
+  const queryClient = useQueryClient();
+  const query = useQuery<{ url: string }>({
+    queryKey: ["google-add-account-url"],
+    queryFn: async () => {
+      const redirectUri = oauthRedirectUri("/_agent-native/google/callback");
+      return fetchJson<{ url: string }>(
+        agentNativePath(
+          `/_agent-native/google/add-account/auth-url?redirect_uri=${encodeURIComponent(redirectUri)}`,
+        ),
+      );
+    },
+    enabled,
+    retry: false,
+  });
+
+  useEffect(() => {
+    if (!enabled && query.isError) {
+      queryClient.resetQueries({ queryKey: ["google-add-account-url"] });
+    }
+  }, [enabled, query.isError, queryClient]);
+
+  return query;
+}
+
+export function useDisconnectGoogle() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (email: string) => {
+      return fetchJson<unknown>(
+        agentNativePath("/_agent-native/google/disconnect"),
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email }),
+        },
+      );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["google-status"] });
+    },
+  });
+}
+
+export function useSyncGoogle() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      return fetchJson<unknown>(agentNativePath("/_agent-native/google/sync"), {
+        method: "POST",
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["action", "list-events"] });
+    },
+  });
+}

@@ -1,0 +1,44 @@
+import { defineAction } from "@agent-native/core";
+import { z } from "zod";
+import {
+  getRequestUserEmail,
+  getRequestOrgId,
+  buildDeepLink,
+} from "@agent-native/core/server";
+import { listAnalyses } from "../server/lib/dashboards-store";
+
+export default defineAction({
+  description:
+    "List all saved ad-hoc analyses. Returns their IDs, names, descriptions, and last updated timestamps.",
+  schema: z.object({}),
+  http: { method: "GET" },
+  readOnly: true,
+  publicAgent: { expose: true, readOnly: true, requiresAuth: true },
+  link: () => ({
+    url: buildDeepLink({ app: "analytics", view: "analyses" }),
+    label: "Open analyses in Analytics",
+    view: "analyses",
+  }),
+  run: async () => {
+    const orgId = getRequestOrgId() || null;
+    const email = getRequestUserEmail();
+    if (!email) throw new Error("no authenticated user");
+    const rows = await listAnalyses({ email, orgId });
+    return rows
+      .map((a) => ({
+        id: a.id,
+        name: a.name,
+        description: a.description,
+        dataSources: a.dataSources,
+        createdAt: a.createdAt,
+        updatedAt: a.updatedAt,
+        author: a.author,
+        ownerEmail: a.ownerEmail,
+        visibility: a.visibility,
+      }))
+      .sort(
+        (a, b) =>
+          new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+      );
+  },
+});

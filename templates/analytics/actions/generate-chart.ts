@@ -1,0 +1,313 @@
+import { defineAction } from "@agent-native/core";
+import { z } from "zod";
+import type { ChartJSNodeCanvas as ChartJSNodeCanvasType } from "chartjs-node-canvas";
+import type { ChartConfiguration, ChartType } from "chart.js";
+import { writeFileSync, readFileSync, existsSync, mkdirSync } from "fs";
+import { join } from "path";
+
+function getMediaDir(): string {
+  const base = import.meta.dirname ?? process.cwd?.();
+  if (!base) {
+    throw new Error(
+      "generate-chart: cannot resolve media directory (no dirname or cwd available in this runtime)",
+    );
+  }
+  return join(base, import.meta.dirname ? "../media" : "media");
+}
+
+const THEMES = {
+  dark: {
+    background: "#09090b",
+    gridColor: "#27272a",
+    tickColor: "#a1a1aa",
+    titleColor: "#fafafa",
+    labelColor: "#fafafa",
+  },
+  light: {
+    background: "#ffffff",
+    gridColor: "#d4d4d8",
+    tickColor: "#71717a",
+    titleColor: "#09090b",
+    labelColor: "#09090b",
+  },
+} as const;
+
+const PALETTES = {
+  dark: [
+    "#00B5FF",
+    "#48FFE4",
+    "#22c55e",
+    "#f59e0b",
+    "#0ea5e9",
+    "#ef4444",
+    "#14b8a6",
+    "#f97316",
+  ],
+  light: [
+    "#0284C7",
+    "#0D9488",
+    "#16a34a",
+    "#d97706",
+    "#0369a1",
+    "#dc2626",
+    "#0f766e",
+    "#ea580c",
+  ],
+} as const;
+
+function getTheme(): "dark" | "light" {
+  try {
+    const themeFile = join(getMediaDir(), "theme.json");
+    if (existsSync(themeFile)) {
+      const data = JSON.parse(readFileSync(themeFile, "utf8"));
+      if (data.theme === "light") return "light";
+    }
+  } catch {}
+  return "dark";
+}
+
+function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+interface SeriesData {
+  label: string;
+  data: number[];
+  color?: string;
+}
+
+/**
+ * Returned alongside any validation `error` so the agent gets an unambiguous
+ * recovery path. The previous behavior (a bare error string) led to retry
+ * loops where the agent reformatted JSON until it gave up — and from the
+ * user's chair, the chat said "I'll do something else" and no chart appeared.
+ *
+ * For in-chat data questions the right answer is always the live `/chart`
+ * embed (see AGENTS.md "Inline Charts in Chat"). Only `save-analysis`
+ * artifacts need a static PNG, and those flows have full data in hand
+ * before they call here.
+ */
+const CHART_FALLBACK_HINT =
+  "If you're answering an in-chat data question, do not retry generate-chart. Switch to the live /chart embed described in AGENTS.md ('Inline Charts in Chat') — it accepts a SqlPanel object directly and doesn't require pre-stringified JSON params. Only use generate-chart when you're building a save-analysis artifact.";
+
+export default defineAction({
+  description:
+    "Render a static PNG chart to the media directory **for save-analysis artifacts only**. For an in-chat answer to a data question, do NOT call this — emit a live `/chart` embed instead (see AGENTS.md 'Inline Charts in Chat'). The PNG path exists for analyses that need to render outside this app (exports, archived reports). If validation here fails, switch to the live embed rather than retrying.",
+  schema: z.object({
+    title: z.string().optional().describe("Chart title (required)"),
+    labels: z.string().optional().describe("JSON array of x-axis labels"),
+    data: z
+      .string()
+      .optional()
+      .describe("JSON array of numbers or array of {label,data,color} objects"),
+    type: z
+      .enum(["bar", "line", "area"])
+      .optional()
+      .describe("Chart type: bar, line, or area"),
+    subtitle: z.string().optional().describe("Chart subtitle"),
+    width: z.coerce
+      .number()
+      .optional()
+      .describe("Width in pixels (default 800)"),
+    height: z.coerce
+      .number()
+      .optional()
+      .describe("Height in pixels (default 400)"),
+    theme: z
+      .enum(["dark", "light"])
+      .optional()
+      .describe("Theme: dark or light"),
+    color: z.string().optional().describe("Primary color hex"),
+    stacked: z.coerce.boolean().optional().describe("Stack bars"),
+    filename: z.string().optional().describe("Output filename (without .png)"),
+  }),
+  http: false,
+  run: async (args) => {
+    if (!args.title) {
+      return { error: "--title is required", fallback: CHART_FALLBACK_HINT };
+    }
+    if (!args.labels) {
+      return {
+        error: "--labels is required (JSON array)",
+        fallback: CHART_FALLBACK_HINT,
+      };
+    }
+    if (!args.data) {
+      return {
+        error:
+          "--data is required (JSON array of numbers or array of {label,data,color})",
+        fallback: CHART_FALLBACK_HINT,
+      };
+    }
+
+    const chartType = args.type || "bar";
+    const title = args.title;
+    const subtitle = args.subtitle || "";
+    const width = args.width ?? 800;
+    const height = args.height ?? 400;
+    const themeName = args.theme || getTheme();
+    const theme = THEMES[themeName];
+    const palette = PALETTES[themeName];
+    const primaryColor = args.color || palette[0];
+
+    let labels: string[];
+    try {
+      labels = JSON.parse(args.labels);
+    } catch {
+      return {
+        error: "--labels must be valid JSON array",
+        fallback: CHART_FALLBACK_HINT,
+      };
+    }
+
+    let datasets: SeriesData[];
+    try {
+      const parsed = JSON.parse(args.data);
+      if (
+        Array.isArray(parsed) &&
+        parsed.length > 0 &&
+        typeof parsed[0] === "object" &&
+        "data" in parsed[0]
+      ) {
+        datasets = parsed as SeriesData[];
+      } else {
+        datasets = [
+          { label: title, data: parsed as number[], color: primaryColor },
+        ];
+      }
+    } catch {
+      return {
+        error: "--data must be valid JSON array",
+        fallback: CHART_FALLBACK_HINT,
+      };
+    }
+
+    const isArea = chartType === "area";
+    const isStacked = args.stacked === true;
+    const jsChartType: ChartType = isArea ? "line" : chartType;
+
+    const chartConfig: ChartConfiguration = {
+      type: jsChartType,
+      data: {
+        labels,
+        datasets: datasets.map((ds, i) => {
+          const color = ds.color || palette[i % palette.length];
+          return {
+            label: ds.label,
+            data: ds.data,
+            backgroundColor: isArea ? color + "33" : color,
+            borderColor: jsChartType === "line" ? color : "transparent",
+            borderWidth: jsChartType === "line" ? 2.5 : 0,
+            borderRadius: jsChartType === "bar" ? 3 : 0,
+            ...(isStacked && jsChartType === "bar" ? { stack: "stack1" } : {}),
+            fill: isArea,
+            tension: 0.3,
+            pointRadius: 0,
+            pointHoverRadius: 4,
+          };
+        }),
+      },
+      options: {
+        responsive: false,
+        animation: false as any,
+        layout: { padding: { top: 16, right: 24, bottom: 16, left: 16 } },
+        plugins: {
+          title: {
+            display: true,
+            text: title,
+            color: theme.titleColor,
+            font: { size: 22, weight: "bold" as const },
+            padding: { bottom: subtitle ? 2 : 20 },
+            align: "start" as const,
+          },
+          subtitle: {
+            display: !!subtitle,
+            text: subtitle,
+            color: theme.tickColor,
+            font: { size: 14, weight: "normal" as const },
+            padding: { bottom: 16 },
+            align: "start" as const,
+          },
+          legend: {
+            display: datasets.length > 1,
+            labels: {
+              color: theme.labelColor,
+              boxWidth: 14,
+              padding: 18,
+              font: { size: 13 },
+            },
+          },
+          tooltip: { enabled: false },
+        },
+        scales: {
+          x: {
+            stacked: isStacked,
+            grid: { color: "transparent" },
+            ticks: {
+              color: theme.tickColor,
+              font: { size: 13 },
+              maxRotation: 0,
+              autoSkip: true,
+              maxTicksLimit: 8,
+            },
+            border: { color: theme.gridColor },
+          },
+          y: {
+            stacked: isStacked,
+            grid: { color: theme.gridColor, lineWidth: 0.5 },
+            ticks: {
+              color: theme.tickColor,
+              font: { size: 13 },
+              padding: 10,
+              maxTicksLimit: 5,
+            },
+            border: { display: false },
+            beginAtZero: true,
+          },
+        },
+      },
+      plugins: [
+        {
+          id: "bg",
+          beforeDraw: (chart) => {
+            const ctx = chart.ctx;
+            ctx.save();
+            ctx.fillStyle = theme.background;
+            ctx.roundRect(0, 0, chart.width, chart.height, 8);
+            ctx.fill();
+            ctx.restore();
+          },
+        },
+      ],
+    };
+
+    const mediaDir = getMediaDir();
+    if (!existsSync(mediaDir)) {
+      mkdirSync(mediaDir, { recursive: true });
+    }
+
+    const filename =
+      (args.filename || `${slugify(title)}-${Date.now()}`) + ".png";
+    const filepath = join(mediaDir, filename);
+
+    const { ChartJSNodeCanvas } = await import("chartjs-node-canvas");
+    const canvas: ChartJSNodeCanvasType = new ChartJSNodeCanvas({
+      width,
+      height,
+      backgroundColour: theme.background,
+    });
+    const buffer = await canvas.renderToBuffer(chartConfig);
+    writeFileSync(filepath, buffer);
+
+    const relativePath = `/api/media/${filename}`;
+    const origin = process.env.APP_ORIGIN || "";
+    const cacheBuster = `?v=${Date.now()}`;
+    const url = origin
+      ? `${origin}${relativePath}${cacheBuster}`
+      : `${relativePath}${cacheBuster}`;
+    return { filename, url, width, height };
+  },
+});

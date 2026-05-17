@@ -1,0 +1,59 @@
+/**
+ * Core script: resource-delete
+ *
+ * Delete a resource from the SQL store.
+ *
+ * Usage:
+ *   pnpm action resource-delete --path <path> [--scope personal|shared]
+ */
+
+import { parseArgs, fail } from "../utils.js";
+import { resourceDeleteByPath, SHARED_OWNER } from "../../resources/store.js";
+import { getRequestUserEmail } from "../../server/request-context.js";
+
+export default async function resourceDeleteScript(
+  args: string[],
+): Promise<void> {
+  const parsed = parseArgs(args);
+
+  if (parsed.help === "true") {
+    console.log(`Usage: pnpm action resource-delete --path <path> [options]
+
+Options:
+  --path <path>            Resource path (required)
+  --scope personal|shared  Scope to delete from (default: personal). Workspace resources are managed from Dispatch.
+  --help                   Show this help message`);
+    return;
+  }
+
+  const resourcePath = parsed.path;
+  if (!resourcePath) {
+    fail("--path is required. Example: --path notes/todo.md");
+  }
+
+  const scope = parsed.scope ?? "personal";
+  if (scope === "workspace") {
+    fail(
+      "Workspace resources are managed from Dispatch. Use resource-delete for personal or shared app resources.",
+    );
+  }
+  let owner: string;
+  if (scope === "shared") {
+    owner = SHARED_OWNER;
+  } else {
+    const personalOwner = getRequestUserEmail() ?? process.env.AGENT_USER_EMAIL;
+    if (!personalOwner) {
+      fail(
+        "resource-delete --scope=personal requires an authenticated user (request context or AGENT_USER_EMAIL env var).",
+      );
+    }
+    owner = personalOwner;
+  }
+
+  const deleted = await resourceDeleteByPath(owner, resourcePath);
+  if (deleted) {
+    console.log(`Deleted resource: ${resourcePath}`);
+  } else {
+    console.log(`Resource not found: ${resourcePath}`);
+  }
+}

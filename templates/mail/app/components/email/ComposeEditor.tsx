@@ -1,0 +1,234 @@
+import { useEditor, EditorContent, type Editor } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
+import Placeholder from "@tiptap/extension-placeholder";
+import Link from "@tiptap/extension-link";
+import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
+import { ComposeImageNode } from "./extensions/ComposeImageNode";
+import { common, createLowlight } from "lowlight";
+import { Markdown } from "tiptap-markdown";
+import {
+  useEffect,
+  useRef,
+  useState,
+  useImperativeHandle,
+  forwardRef,
+} from "react";
+import { ComposeSlashMenu } from "./ComposeSlashMenu";
+import { ComposeBubbleToolbar } from "./ComposeBubbleToolbar";
+import { CodeBlockLangPicker } from "./CodeBlockLangPicker";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+
+const lowlight = createLowlight(common);
+
+export interface ComposeEditorHandle {
+  toggleBold: () => void;
+  toggleItalic: () => void;
+  setLink: () => void;
+  isActive: (name: string) => boolean;
+  getEditor: () => Editor | null;
+}
+
+interface ComposeEditorProps {
+  content: string;
+  onChange: (markdown: string) => void;
+  onGenerate: () => void;
+  onSend: () => void;
+  onClose: () => void;
+  onFlush: () => Promise<unknown> | undefined;
+  isGenerating: boolean;
+  sendToAgent: (opts: {
+    message: string;
+    context?: string;
+    submit?: boolean;
+  }) => void;
+}
+
+export const ComposeEditor = forwardRef<
+  ComposeEditorHandle,
+  ComposeEditorProps
+>(function ComposeEditor(
+  {
+    content,
+    onChange,
+    onGenerate,
+    onSend,
+    onClose,
+    onFlush,
+    isGenerating,
+    sendToAgent,
+  },
+  ref,
+) {
+  const isSettingContent = useRef(false);
+  const onChangeRef = useRef(onChange);
+  const onSendRef = useRef(onSend);
+  const onCloseRef = useRef(onClose);
+  onChangeRef.current = onChange;
+  onSendRef.current = onSend;
+  onCloseRef.current = onClose;
+
+  const editor = useEditor({
+    extensions: [
+      (StarterKit as any).configure({
+        heading: { levels: [1, 2, 3] },
+        codeBlock: false,
+        link: false,
+        dropcursor: { color: "hsl(220 10% 40%)", width: 2 },
+      }),
+      CodeBlockLowlight.configure({
+        lowlight,
+        HTMLAttributes: { class: "compose-code-block" },
+      }),
+      ComposeImageNode.configure({
+        allowBase64: true,
+      }),
+      Placeholder.configure({
+        placeholder: "Write your message...",
+        showOnlyWhenEditable: true,
+        showOnlyCurrent: true,
+      }),
+      Link.configure({
+        openOnClick: false,
+        HTMLAttributes: { class: "compose-link" },
+      }),
+      Markdown.configure({
+        html: false,
+        transformPastedText: true,
+        transformCopiedText: true,
+      }),
+    ],
+    content,
+    editorProps: {
+      attributes: {
+        class: "compose-editor",
+      },
+      handleKeyDown: (_view, event) => {
+        if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+          event.preventDefault();
+          event.stopPropagation();
+          onSendRef.current();
+          return true;
+        }
+        if (event.key === "Escape") {
+          event.preventDefault();
+          event.stopPropagation();
+          onCloseRef.current();
+          return true;
+        }
+        return false;
+      },
+    },
+    onUpdate: ({ editor }) => {
+      if (isSettingContent.current) return;
+      try {
+        const md = (editor.storage as any).markdown.getMarkdown();
+        onChangeRef.current(md);
+      } catch {
+        // ignore serialization errors
+      }
+    },
+  });
+
+  // Sync content from outside (when agent updates compose.json)
+  useEffect(() => {
+    if (!editor || editor.isDestroyed) return;
+    const currentMd = (editor.storage as any).markdown.getMarkdown();
+    if (currentMd !== content) {
+      if (editor.isFocused) {
+        return;
+      }
+      isSettingContent.current = true;
+      editor.commands.setContent(content);
+      isSettingContent.current = false;
+    }
+  }, [content, editor]);
+
+  const [showLinkDialog, setShowLinkDialog] = useState(false);
+  const [linkUrl, setLinkUrl] = useState("");
+
+  const applyLink = () => {
+    if (!editor || !linkUrl.trim()) return;
+    editor
+      .chain()
+      .focus()
+      .extendMarkRange("link")
+      .setLink({ href: linkUrl.trim() })
+      .run();
+    setLinkUrl("");
+    setShowLinkDialog(false);
+  };
+
+  useImperativeHandle(ref, () => ({
+    toggleBold: () => {
+      (editor?.chain().focus() as any)?.toggleBold().run();
+    },
+    toggleItalic: () => {
+      (editor?.chain().focus() as any)?.toggleItalic().run();
+    },
+    setLink: () => {
+      if (!editor) return;
+      if (editor.isActive("link")) {
+        editor.chain().focus().unsetLink().run();
+        return;
+      }
+      setLinkUrl("");
+      setShowLinkDialog(true);
+    },
+    isActive: (name: string) => editor?.isActive(name) ?? false,
+    getEditor: () => editor,
+  }));
+
+  if (!editor) return null;
+
+  return (
+    <div className="compose-editor-wrapper" style={{ position: "relative" }}>
+      <ComposeBubbleToolbar
+        editor={editor}
+        onFlush={onFlush}
+        isGenerating={isGenerating}
+        sendToAgent={sendToAgent}
+      />
+      <ComposeSlashMenu editor={editor} onGenerate={onGenerate} />
+      <CodeBlockLangPicker editor={editor} />
+      <EditorContent editor={editor} />
+
+      <Dialog open={showLinkDialog} onOpenChange={setShowLinkDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Insert link</DialogTitle>
+            <DialogDescription>Enter the URL for the link.</DialogDescription>
+          </DialogHeader>
+          <Input
+            autoFocus
+            value={linkUrl}
+            onChange={(e) => setLinkUrl(e.target.value)}
+            placeholder="https://example.com"
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                applyLink();
+              }
+            }}
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowLinkDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={applyLink} disabled={!linkUrl.trim()}>
+              Apply
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+});

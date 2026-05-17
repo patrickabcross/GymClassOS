@@ -1,0 +1,170 @@
+import { useEffect } from "react";
+import { useLocation, useNavigate } from "react-router";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useCalendarContext,
+  type ViewMode,
+} from "@/components/layout/AppLayout";
+import { agentNativePath } from "@agent-native/core/client";
+import type { CalendarEvent } from "@shared/api";
+
+interface NavigationState {
+  view: string;
+  calendarViewMode?: ViewMode;
+  date?: string;
+  eventId?: string;
+  bookingLinkId?: string;
+  extensionId?: string;
+}
+
+export function useNavigationState() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const qc = useQueryClient();
+  const {
+    selectedDate,
+    viewMode,
+    setViewMode,
+    setSelectedDate,
+    setSidebarEvent,
+    sidebarEvent,
+  } = useCalendarContext();
+
+  // Sync current route to application state
+  useEffect(() => {
+    const path = location.pathname;
+    const state: NavigationState = { view: "calendar" };
+
+    if (path === "/" || path === "") {
+      state.view = "calendar";
+    } else if (path.startsWith("/availability")) {
+      state.view = "availability";
+    } else if (path.startsWith("/booking-links")) {
+      state.view = "booking-links";
+      const match = path.match(/\/booking-links\/(.+)/);
+      if (match) state.bookingLinkId = match[1];
+    } else if (path.startsWith("/bookings")) {
+      state.view = "bookings";
+    } else if (path.startsWith("/settings")) {
+      state.view = "settings";
+    } else if (path.startsWith("/extensions")) {
+      state.view = "extensions";
+      const match = path.match(/\/extensions\/([^/?#]+)/);
+      if (match?.[1] && match[1] !== "new") state.extensionId = match[1];
+    }
+
+    // Include the current calendar view mode
+    state.calendarViewMode = viewMode;
+
+    // Include the currently selected date
+    if (selectedDate) {
+      state.date = selectedDate.toISOString().split("T")[0];
+    }
+
+    // Include the selected event if one is open
+    if (sidebarEvent?.id) {
+      state.eventId = sidebarEvent.id;
+    }
+
+    fetch(agentNativePath("/_agent-native/application-state/navigation"), {
+      method: "PUT",
+      keepalive: true,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(state),
+    }).catch(() => {});
+  }, [location.pathname, selectedDate, viewMode, sidebarEvent]);
+
+  // Listen for navigate commands from agent
+  const { data: navCommand } = useQuery({
+    queryKey: ["navigate-command"],
+    queryFn: async () => {
+      const res = await fetch(
+        agentNativePath("/_agent-native/application-state/navigate"),
+      );
+      if (!res.ok) return null;
+      const data = await res.json();
+      if (data) {
+        // Return with a timestamp to ensure uniqueness
+        return { ...data, _ts: Date.now() };
+      }
+      return null;
+    },
+    refetchInterval: 2_000,
+    structuralSharing: false,
+  });
+
+  useEffect(() => {
+    if (!navCommand) return;
+    // Delete the one-shot command AFTER reading it
+    fetch(agentNativePath("/_agent-native/application-state/navigate"), {
+      method: "DELETE",
+      headers: { "X-Agent-Native-CSRF": "1" },
+    }).catch(() => {});
+    const cmd = navCommand as NavigationState;
+    let path = "/";
+
+    if (cmd.view === "availability") {
+      path = "/availability";
+    } else if (cmd.view === "booking-links") {
+      path = "/booking-links";
+      if (cmd.bookingLinkId) path += `/${cmd.bookingLinkId}`;
+    } else if (cmd.view === "bookings") {
+      path = "/bookings";
+    } else if (cmd.view === "settings") {
+      path = "/settings";
+    } else if (cmd.view === "extensions") {
+      path = cmd.extensionId
+        ? `/extensions/${encodeURIComponent(cmd.extensionId)}`
+        : "/extensions";
+    } else {
+      path = "/";
+    }
+
+    // Apply calendar view mode change (day/week/month)
+    if (cmd.calendarViewMode) {
+      setViewMode(cmd.calendarViewMode);
+    }
+
+    // Apply date change
+    if (cmd.date) {
+      // Parse YYYY-MM-DD as local date (not UTC)
+      const [y, m, d] = cmd.date.split("-").map(Number);
+      setSelectedDate(new Date(y, m - 1, d));
+    }
+
+    navigate(path);
+    qc.setQueryData(["navigate-command"], null);
+
+    // A deep link can carry an eventId to focus a specific event. Fetch it
+    // via the read-only get-event action, open it in the sidebar, and move
+    // the calendar to its start date so the user lands on the event.
+    if (cmd.eventId) {
+      const eventId = cmd.eventId;
+      (async () => {
+        try {
+          const res = await fetch(
+            agentNativePath(
+              `/_agent-native/actions/get-event?id=${encodeURIComponent(
+                eventId,
+              )}`,
+            ),
+          );
+          if (!res.ok) return;
+          const evt = (await res.json()) as CalendarEvent & {
+            error?: string;
+          };
+          if (!evt || evt.error || !evt.id) return;
+          if (!cmd.date && typeof evt.start === "string" && evt.start) {
+            const startDate = new Date(evt.start);
+            if (!Number.isNaN(startDate.getTime())) {
+              setSelectedDate(startDate);
+            }
+          }
+          setSidebarEvent(evt);
+        } catch {
+          // Best-effort — a failed focus must not break navigation.
+        }
+      })();
+    }
+  }, [navCommand, navigate, qc, setViewMode, setSelectedDate, setSidebarEvent]);
+}

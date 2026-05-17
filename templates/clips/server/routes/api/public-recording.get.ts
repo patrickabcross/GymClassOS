@@ -1,0 +1,247 @@
+/**
+ * GET /api/public-recording?id=<recordingId>[&password=<pw>]
+ *
+ * Public read endpoint for share/:id and embed/:id pages — lets unauthenticated
+ * viewers fetch a recording's player data without going through the
+ * authenticated `/_agent-native/actions/get-recording-player-data` route.
+ *
+ * Only returns data when:
+ *   - recording.visibility === 'public' (or the signed-in viewer is owner), AND
+ *   - either no password is set, the viewer is owner, or the provided password matches
+ *
+ * For `org` or `private` visibility, returns 401 (viewer must sign in and use
+ * the authenticated player route).
+ */
+
+import {
+  defineEventHandler,
+  getQuery,
+  setResponseHeader,
+  setResponseStatus,
+} from "h3";
+import { asc, eq } from "drizzle-orm";
+import { getSession, signShortLivedToken } from "@agent-native/core/server";
+import { getDb, schema } from "../../db/index.js";
+import { parseSpaceIds } from "../../lib/recordings.js";
+import {
+  normalizeTranscriptSegments,
+  parseTranscriptSegments,
+} from "../../../shared/transcript-segments.js";
+
+function appPath(path: string): string {
+  if (!path.startsWith("/")) return path;
+  const raw = process.env.VITE_APP_BASE_PATH || process.env.APP_BASE_PATH || "";
+  const base = raw.trim().replace(/^\/+/, "").replace(/\/+$/, "");
+  return base ? `/${base}${path}` : path;
+}
+
+export default defineEventHandler(async (event) => {
+  const q = getQuery(event) as { id?: string; password?: string };
+  const recordingId = q.id;
+  const password = typeof q.password === "string" ? q.password : "";
+
+  if (!recordingId) {
+    setResponseStatus(event, 400);
+    return { error: "id is required" };
+  }
+
+  const db = getDb();
+  const [rec] = await db
+    .select()
+    .from(schema.recordings)
+    .where(eq(schema.recordings.id, recordingId))
+    .limit(1);
+
+  if (!rec) {
+    setResponseStatus(event, 404);
+    return { error: "Not found" };
+  }
+
+  const session = await getSession(event).catch(() => null);
+  const viewerIsOwner = Boolean(
+    session?.email && session.email === rec.ownerEmail,
+  );
+
+  if (rec.visibility !== "public" && !viewerIsOwner) {
+    setResponseStatus(event, 404);
+    return { error: "Not found" };
+  }
+
+  // Expiry check
+  if (rec.expiresAt) {
+    const expires = new Date(rec.expiresAt).getTime();
+    if (isFinite(expires) && expires < Date.now()) {
+      setResponseStatus(event, 410);
+      return { error: "Recording has expired", expired: true };
+    }
+  }
+
+  // Password check
+  if (rec.password && !viewerIsOwner) {
+    if (!password || password !== rec.password) {
+      setResponseStatus(event, 401);
+      return { error: "Password required", passwordRequired: true };
+    }
+  }
+
+  const [transcript] = await db
+    .select()
+    .from(schema.recordingTranscripts)
+    .where(eq(schema.recordingTranscripts.recordingId, recordingId))
+    .limit(1);
+
+  const comments = rec.enableComments
+    ? await db
+        .select()
+        .from(schema.recordingComments)
+        .where(eq(schema.recordingComments.recordingId, recordingId))
+        .orderBy(
+          asc(schema.recordingComments.videoTimestampMs),
+          asc(schema.recordingComments.createdAt),
+        )
+    : [];
+
+  const reactions = rec.enableReactions
+    ? await db
+        .select()
+        .from(schema.recordingReactions)
+        .where(eq(schema.recordingReactions.recordingId, recordingId))
+        .orderBy(asc(schema.recordingReactions.createdAt))
+    : [];
+
+  const ctas = await db
+    .select()
+    .from(schema.recordingCtas)
+    .where(eq(schema.recordingCtas.recordingId, recordingId))
+    .orderBy(asc(schema.recordingCtas.createdAt));
+
+  let chapters: { startMs: number; title: string }[] = [];
+  try {
+    const parsed = JSON.parse(rec.chaptersJson ?? "[]");
+    if (Array.isArray(parsed)) {
+      chapters = parsed.filter(
+        (c: any) =>
+          typeof c?.startMs === "number" && typeof c?.title === "string",
+      );
+    }
+  } catch {}
+
+  const transcriptSegments = normalizeTranscriptSegments({
+    segments: parseTranscriptSegments(transcript?.segmentsJson),
+    fullText: transcript?.fullText,
+    durationMs: rec.durationMs,
+  });
+
+  // Normalize the dev-fallback videoUrl:
+  //   1. Rewrite the legacy `/api/uploads/:id/blob` shape to the current
+  //      `/api/video/:id` endpoint so old rows keep playing after the move.
+  //   2. For password-protected recordings, mint a short-lived HMAC token
+  //      bound to this recording id and pass it via `?t=<token>` instead of
+  //      the plaintext password. Sticking the password in the URL leaks it
+  //      into browser history, CDN logs, and the Referer header on outbound
+  //      requests. The downstream `/api/video/:id` route accepts either
+  //      `?t=<token>` (preferred) or `?password=<pw>` (legacy fallback) so
+  //      old share pages keep working during rollout. (audit 11 F-07)
+  //      Real provider URLs (R2/S3/Builder) are left untouched; those are
+  //      already signed.
+  let resolvedVideoUrl = rec.videoUrl ?? null;
+  if (resolvedVideoUrl) {
+    const legacyMatch = resolvedVideoUrl.match(
+      /^\/api\/uploads\/([^/]+)\/blob$/,
+    );
+    if (legacyMatch) {
+      resolvedVideoUrl = `/api/video/${legacyMatch[1]}`;
+    }
+    if (rec.password && resolvedVideoUrl.startsWith("/api/video/")) {
+      const token = signShortLivedToken({ resourceId: recordingId });
+      const sep = resolvedVideoUrl.includes("?") ? "&" : "?";
+      resolvedVideoUrl = `${resolvedVideoUrl}${sep}t=${encodeURIComponent(token)}`;
+    }
+    if (resolvedVideoUrl.startsWith("/")) {
+      resolvedVideoUrl = appPath(resolvedVideoUrl);
+    }
+  }
+
+  // Don't leak the URL (which now carries a short-lived token) into the
+  // Referer of any outbound link the share page renders.
+  setResponseHeader(event, "Referrer-Policy", "no-referrer");
+
+  return {
+    recording: {
+      id: rec.id,
+      title: rec.title,
+      description: rec.description,
+      thumbnailUrl: rec.thumbnailUrl,
+      animatedThumbnailUrl: rec.animatedThumbnailUrl,
+      durationMs: rec.durationMs,
+      editsJson: rec.editsJson,
+      videoUrl: resolvedVideoUrl,
+      videoFormat: rec.videoFormat,
+      width: rec.width,
+      height: rec.height,
+      hasAudio: Boolean(rec.hasAudio),
+      hasCamera: Boolean(rec.hasCamera),
+      status: rec.status,
+      uploadProgress: rec.uploadProgress,
+      failureReason: rec.failureReason,
+      // Don't leak the password to clients; just indicate whether one was set.
+      hasPassword: !!rec.password,
+      expiresAt: rec.expiresAt,
+      enableComments: Boolean(rec.enableComments),
+      enableReactions: Boolean(rec.enableReactions),
+      enableDownloads: Boolean(rec.enableDownloads),
+      defaultSpeed: rec.defaultSpeed,
+      animatedThumbnailEnabled: Boolean(rec.animatedThumbnailEnabled),
+      visibility: rec.visibility,
+      spaceIds: parseSpaceIds(rec.spaceIds),
+      createdAt: rec.createdAt,
+      updatedAt: rec.updatedAt,
+    },
+    transcript: transcript
+      ? {
+          status: transcript.status,
+          language: transcript.language,
+          fullText: transcript.fullText,
+          failureReason: transcript.failureReason,
+          segments: transcriptSegments,
+        }
+      : null,
+    comments: comments.map((c) => ({
+      id: c.id,
+      recordingId: c.recordingId,
+      threadId: c.threadId,
+      parentId: c.parentId,
+      authorEmail: c.authorEmail,
+      authorName: c.authorName,
+      content: c.content,
+      videoTimestampMs: c.videoTimestampMs,
+      emojiReactionsJson: c.emojiReactionsJson,
+      resolved: Boolean(c.resolved),
+      createdAt: c.createdAt,
+      updatedAt: c.updatedAt,
+    })),
+    reactions: reactions.map((r) => ({
+      id: r.id,
+      emoji: r.emoji,
+      videoTimestampMs: r.videoTimestampMs,
+      viewerEmail: r.viewerEmail,
+      viewerName: r.viewerName,
+      createdAt: r.createdAt,
+    })),
+    chapters,
+    ctas: ctas.map((c) => ({
+      id: c.id,
+      label: c.label,
+      url: c.url,
+      color: c.color,
+      placement: c.placement,
+    })),
+    viewer: session?.email
+      ? {
+          canEdit: viewerIsOwner,
+          isOwner: viewerIsOwner,
+          role: viewerIsOwner ? "owner" : "viewer",
+        }
+      : null,
+  };
+});

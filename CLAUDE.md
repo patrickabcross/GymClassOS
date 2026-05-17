@@ -1,3 +1,7 @@
+<!-- GymOS project context. Framework-level agent-native instructions live in AGENTS.md (read both). -->
+
+@AGENTS.md
+
 <!-- GSD:project-start source:PROJECT.md -->
 ## Project
 

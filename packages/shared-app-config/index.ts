@@ -1,0 +1,181 @@
+import {
+  coreTemplates,
+  getTemplate,
+  TEMPLATES,
+  type TemplateMeta,
+} from "./templates";
+export {
+  TEMPLATES,
+  visibleTemplates,
+  coreTemplates,
+  getTemplate,
+  allTemplateNames,
+} from "./templates";
+export type { TemplateMeta } from "./templates";
+
+export interface AppDefinition {
+  id: string;
+  name: string;
+  /** Lucide icon component name */
+  icon: string;
+  description: string;
+  /** Dev server port (used in development mode) */
+  devPort: number;
+  /** Legacy accent color — kept on built-in templates for the docs site; unused in electron/mobile UI. */
+  color?: string;
+  colorRgb?: string;
+  /** Whether this app is a placeholder (no real server yet) */
+  placeholder?: boolean;
+}
+
+/** User-configured app entry (persisted on-device) */
+export interface AppConfig {
+  id: string;
+  name: string;
+  icon: string;
+  description: string;
+  /** The production URL this app is deployed at */
+  url: string;
+  /** Dev server port (for local development) */
+  devPort: number;
+  /** Optional dev server URL override */
+  devUrl?: string;
+  /** Optional shell command to start the dev server */
+  devCommand?: string;
+  /** Legacy accent color — kept on built-in templates for the docs site; unused in electron/mobile UI. */
+  color?: string;
+  colorRgb?: string;
+  /** Whether this is a built-in default app */
+  isBuiltIn: boolean;
+  /** Whether the app is enabled/visible */
+  enabled: boolean;
+  /** Whether to load the dev or production URL. Default: "prod" */
+  mode?: "dev" | "prod";
+}
+
+/** Frame UI port */
+export const FRAME_PORT = 3334;
+
+/** Settings for the local dev frame (persisted by the desktop app) */
+export interface FrameSettings {
+  /** Whether the frame is enabled */
+  enabled: boolean;
+  /** Load frame from localhost (dev) or production URL (prod) */
+  mode: "dev" | "prod";
+  /** Production URL for the frame (if deployed) */
+  prodUrl?: string;
+}
+
+export function templateToAppConfig(
+  template: TemplateMeta,
+  opts: { isBuiltIn?: boolean; enabled?: boolean } = {},
+): AppConfig {
+  return {
+    id: template.name,
+    name: template.label,
+    icon: template.icon,
+    description: template.description ?? template.hint,
+    url: template.prodUrl ?? "",
+    devPort: template.devPort,
+    devUrl: `http://localhost:${template.devPort}`,
+    color: template.color,
+    colorRgb: template.colorRgb,
+    isBuiltIn: opts.isBuiltIn ?? Boolean(template.core),
+    enabled: opts.enabled ?? true,
+    mode: template.defaultMode ?? "prod",
+  };
+}
+
+export const TEMPLATE_APPS: AppConfig[] = TEMPLATES.map((template) =>
+  templateToAppConfig(template),
+);
+
+/**
+ * Default apps derived from the template registry. Only core templates are
+ * included — non-core apps can still be added manually via "Add app".
+ */
+export const DEFAULT_APPS: AppConfig[] = coreTemplates().map((template) =>
+  templateToAppConfig(template, { isBuiltIn: true, enabled: true }),
+);
+
+/**
+ * Convert an AppConfig to AppDefinition (for backward compatibility
+ * with desktop app code that expects the old shape).
+ */
+export function toAppDefinition(config: AppConfig): AppDefinition {
+  return {
+    id: config.id,
+    name: config.name,
+    icon: config.icon,
+    description: config.description,
+    devPort: config.devPort,
+    color: config.color,
+    colorRgb: config.colorRgb,
+  };
+}
+
+/** Generate a unique ID for user-added apps */
+export function generateAppId(): string {
+  return `custom-${Date.now().toString(36)}`;
+}
+
+/** Returns the frame URL for the given app (terminal + iframe) */
+export function getAppUrl(app: AppDefinition | AppConfig): string {
+  return `http://localhost:${FRAME_PORT}?app=${app.id}`;
+}
+
+function runtimeEnvValue(name: string): string | undefined {
+  const viteEnv = (
+    typeof import.meta !== "undefined"
+      ? (
+          import.meta as unknown as {
+            env?: Record<string, string | undefined>;
+          }
+        ).env
+      : undefined
+  )?.[name];
+  if (viteEnv) return viteEnv;
+  const globalProcess = (
+    globalThis as unknown as {
+      process?: { env?: Record<string, string | undefined> };
+    }
+  ).process;
+  return globalProcess?.env?.[name];
+}
+
+export function getTemplateGatewayUrl(): string | null {
+  const value =
+    runtimeEnvValue("VITE_AGENT_NATIVE_TEMPLATE_GATEWAY_URL") ||
+    runtimeEnvValue("AGENT_NATIVE_TEMPLATE_GATEWAY_URL") ||
+    runtimeEnvValue("VITE_WORKSPACE_GATEWAY_URL") ||
+    runtimeEnvValue("WORKSPACE_GATEWAY_URL");
+  if (!value) return null;
+  try {
+    return new URL(value).toString().replace(/\/$/, "");
+  } catch {
+    return null;
+  }
+}
+
+export function getTemplateGatewayAppUrl(appId: string): string | null {
+  const gatewayUrl = getTemplateGatewayUrl();
+  if (!gatewayUrl || !getTemplate(appId)) return null;
+  try {
+    return new URL(`/${appId}`, `${gatewayUrl}/`).toString().replace(/\/$/, "");
+  } catch {
+    return null;
+  }
+}
+
+export function getAppById(
+  id: string,
+  apps: (AppDefinition | AppConfig)[] = DEFAULT_APPS,
+): AppDefinition | AppConfig | undefined {
+  return apps.find((a) => a.id === id);
+}
+
+/**
+ * The original APP_REGISTRY for backward compatibility.
+ * Desktop app code that imports APP_REGISTRY will still work.
+ */
+export const APP_REGISTRY: AppDefinition[] = DEFAULT_APPS.map(toAppDefinition);

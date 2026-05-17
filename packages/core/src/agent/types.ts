@@ -1,0 +1,195 @@
+import type { ReasoningEffort } from "../shared/reasoning-effort.js";
+
+export interface ActionTool {
+  description: string;
+  parameters?: {
+    type: "object";
+    properties: Record<
+      string,
+      {
+        type: string;
+        description?: string;
+        enum?: string[];
+      }
+    >;
+    required?: string[];
+  };
+}
+
+/** @deprecated Use `ActionTool` instead */
+export type ScriptTool = ActionTool;
+
+export interface AgentMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export type AgentChatStructuredContentPart =
+  | { type: "text"; text: string }
+  | {
+      type: "tool-call";
+      id?: string;
+      toolCallId?: string;
+      name?: string;
+      toolName?: string;
+      input?: unknown;
+      args?: unknown;
+    }
+  | {
+      type: "tool-result";
+      toolCallId: string;
+      toolName?: string;
+      content: string;
+      isError?: boolean;
+    };
+
+export interface AgentChatStructuredMessage {
+  role: "user" | "assistant";
+  content: AgentChatStructuredContentPart[];
+}
+
+export interface AgentChatReference {
+  type: "file" | "skill" | "mention" | "agent" | "custom-agent";
+  path: string;
+  name: string;
+  source: string;
+  refType?: string;
+  refId?: string;
+}
+
+export interface MentionProviderItem {
+  id: string;
+  label: string;
+  description?: string;
+  icon?: string;
+  refType: string;
+  refId?: string;
+  refPath?: string;
+}
+
+export interface MentionProvider {
+  label: string;
+  icon?: string;
+  search: (
+    query: string,
+    /** The H3 event for the current request — use to make internal API calls */
+    event?: any,
+  ) => MentionProviderItem[] | Promise<MentionProviderItem[]>;
+}
+
+export interface AgentChatAttachment {
+  type: string;
+  name: string;
+  data?: string;
+  contentType?: string;
+  text?: string;
+}
+
+export interface AgentChatScope {
+  type: string;
+  id: string;
+  label?: string;
+}
+
+export interface AgentChatRequest {
+  message: string;
+  /**
+   * User-visible text to persist in chat history. `message` may be normalized
+   * for the model (for example mention markup or internal continuation text).
+   */
+  displayMessage?: string;
+  history?: AgentMessage[];
+  /**
+   * Provider-neutral transcript used for run recovery. Unlike `history`,
+   * this preserves assistant tool calls and matching tool results so
+   * continuation turns do not re-run completed read-only tools.
+   */
+  structuredHistory?: AgentChatStructuredMessage[];
+  references?: AgentChatReference[];
+  threadId?: string;
+  attachments?: AgentChatAttachment[];
+  /** Internal retry/continuation requests should not create visible user turns. */
+  internalContinuation?: boolean;
+  /** Execution mode for this turn. Plan mode is read-only and proposes before acting. */
+  mode?: "act" | "plan";
+  /** Per-request model override (ephemeral, from the composer model picker). */
+  model?: string;
+  /** Per-request engine override (sent alongside model for cross-provider switches). */
+  engine?: string;
+  /** Per-request reasoning effort override (ephemeral, from the composer picker). */
+  effort?: ReasoningEffort;
+  /** Usage-tracking label for this call (e.g. "chat", "summarize"). Default: "chat". */
+  usageLabel?: string;
+  /** Stable browser tab id so screen/url context and navigation commands are tab-scoped. */
+  browserTabId?: string;
+  /** Resource scope for this chat thread, e.g. the deck currently bound to the tab. */
+  scope?: AgentChatScope | null;
+}
+
+export type AgentChatEvent =
+  | { type: "text"; text: string }
+  | { type: "activity"; label: string; tool?: string }
+  | { type: "tool_start"; tool: string; input: Record<string, string> }
+  | { type: "tool_done"; tool: string; result: string }
+  | {
+      type: "agent_call";
+      agent: string;
+      status: "start" | "done" | "error";
+    }
+  | { type: "agent_call_text"; agent: string; text: string }
+  | {
+      type: "agent_task";
+      taskId: string;
+      threadId: string;
+      description: string;
+      status: "running" | "completed" | "errored";
+    }
+  | {
+      type: "agent_task_update";
+      taskId: string;
+      preview: string;
+      currentStep?: string;
+    }
+  | {
+      type: "agent_task_complete";
+      taskId: string;
+      summary: string;
+    }
+  | { type: "done" }
+  | {
+      type: "error";
+      error: string;
+      /**
+       * Optional machine-readable error code. Builder gateway uses codes
+       * like "credits-limit-monthly" / "unauthorized" / "gateway_not_enabled"
+       * so the chat UI can render a structured CTA (e.g. upgrade button).
+       */
+      errorCode?: string;
+      /** Optional link paired with errorCode — e.g. Builder billing page. */
+      upgradeUrl?: string;
+      /** Optional details for expandable UI/debugging. */
+      details?: string;
+      /** True when the user can reasonably continue/retry from partial work. */
+      recoverable?: boolean;
+    }
+  | { type: "missing_api_key" }
+  | { type: "loop_limit"; maxIterations?: number }
+  | {
+      type: "auto_continue";
+      reason:
+        | "run_timeout"
+        | "loop_limit"
+        | "no_progress"
+        | "stream_ended"
+        | "gateway_timeout"
+        | "network_interrupted";
+      maxIterations?: number;
+    }
+  | { type: "clear" };
+
+export interface RunEvent {
+  seq: number;
+  event: AgentChatEvent;
+}
+
+export type RunStatus = "running" | "completed" | "errored" | "aborted";

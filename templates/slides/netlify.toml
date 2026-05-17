@@ -1,0 +1,16 @@
+[build]
+  ignore = "node ./scripts/netlify-ignore-build.mjs slides"
+  command = "export DATABASE_URL=${NETLIFY_DATABASE_URL:-$DATABASE_URL} && pnpm install && NITRO_PRESET=netlify pnpm --filter slides build"
+  publish = "templates/slides/dist"
+  functions = "templates/slides/.netlify/functions-internal"
+
+[build.environment]
+  NITRO_PRESET = "netlify"
+  NPM_CONFIG_PRODUCTION = "false"
+
+# Slides builds can legitimately need several model/tool iterations. Keep this
+# above templates/slides/server/plugins/agent-chat.ts (runSoftTimeoutMs =
+# 240_000) so the hidden auto-continuation path can hand off before Netlify
+# kills the function.
+[functions."*"]
+  timeout = 300
