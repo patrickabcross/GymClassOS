@@ -1,20 +1,283 @@
-// Food tab placeholder — full content lands in plan D2-05.
-import { View, Text } from "react-native";
+import { useMemo, useState, useCallback } from "react";
+import {
+  View,
+  Text,
+  ScrollView,
+  Pressable,
+  ActivityIndicator,
+  StyleSheet,
+  Modal,
+} from "react-native";
+import { useQuery } from "@tanstack/react-query";
+import { useRouter, useFocusEffect } from "expo-router";
+import { Feather } from "@expo/vector-icons";
+import { apiFetch } from "../../lib/api";
+
+type Entry = {
+  id: string;
+  loggedAt: string;
+  mealType: "breakfast" | "lunch" | "dinner" | "snack";
+  quantityG: number;
+  kcal: number;
+  proteinG: number | null;
+  carbsG: number | null;
+  fatG: number | null;
+  foodName: string | null;
+  foodBrand: string | null;
+};
+
+const MEAL_LABELS: Record<Entry["mealType"], string> = {
+  breakfast: "Breakfast",
+  lunch: "Lunch",
+  dinner: "Dinner",
+  snack: "Snacks",
+};
+const MEAL_ORDER: Entry["mealType"][] = [
+  "breakfast",
+  "lunch",
+  "dinner",
+  "snack",
+];
+
+function todayStr() {
+  return new Date().toISOString().slice(0, 10);
+}
 
 export default function FoodScreen() {
+  const router = useRouter();
+  const [addOpen, setAddOpen] = useState(false);
+  const dateKey = todayStr();
+
+  const entriesQ = useQuery<{ entries: Entry[]; date: string }>({
+    queryKey: ["food-entries", dateKey],
+    queryFn: () => apiFetch(`/api/m/food-entries?date=${dateKey}`),
+  });
+
+  const profileQ = useQuery<any>({
+    queryKey: ["profile"],
+    queryFn: () => apiFetch("/api/m/profile"),
+  });
+
+  useFocusEffect(
+    useCallback(() => {
+      entriesQ.refetch();
+      profileQ.refetch();
+    }, [entriesQ, profileQ]),
+  );
+
+  const grouped = useMemo(() => {
+    const out: Record<Entry["mealType"], Entry[]> = {
+      breakfast: [],
+      lunch: [],
+      dinner: [],
+      snack: [],
+    };
+    for (const e of entriesQ.data?.entries ?? []) {
+      out[e.mealType].push(e);
+    }
+    return out;
+  }, [entriesQ.data]);
+
+  const totals = useMemo(() => {
+    let k = 0,
+      p = 0,
+      c = 0,
+      f = 0;
+    for (const e of entriesQ.data?.entries ?? []) {
+      k += e.kcal ?? 0;
+      p += e.proteinG ?? 0;
+      c += e.carbsG ?? 0;
+      f += e.fatG ?? 0;
+    }
+    return { kcal: k, proteinG: p, carbsG: c, fatG: f };
+  }, [entriesQ.data]);
+
+  const target = profileQ.data?.today ?? {
+    targetKcal: 2100,
+    targetProteinG: 130,
+    targetCarbsG: 250,
+    targetFatG: 60,
+  };
+  const fmt = (n: number) => Math.round(n).toLocaleString("en-GB");
+
+  if (entriesQ.isLoading && !entriesQ.data) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator color="#fff" />
+      </View>
+    );
+  }
+
   return (
-    <View
-      style={{
-        flex: 1,
-        alignItems: "center",
-        justifyContent: "center",
-        backgroundColor: "#111",
-      }}
-    >
-      <Text style={{ color: "#fff", fontSize: 20 }}>Food</Text>
-      <Text style={{ color: "#666", marginTop: 8 }}>
-        Filled out by plan D2-05
-      </Text>
+    <View style={styles.container}>
+      <ScrollView contentContainerStyle={{ padding: 24, paddingBottom: 120 }}>
+        <Text style={styles.heading}>Today</Text>
+        <Text style={styles.kcalTotal}>
+          {fmt(totals.kcal)} / {fmt(target.targetKcal)} kcal
+        </Text>
+        <Text style={styles.macroLine}>
+          P {fmt(totals.proteinG)}g{"  "}C {fmt(totals.carbsG)}g{"  "}F{" "}
+          {fmt(totals.fatG)}g
+        </Text>
+
+        {MEAL_ORDER.map((m) => (
+          <View key={m} style={styles.section}>
+            <Text style={styles.sectionHeader}>{MEAL_LABELS[m]}</Text>
+            {grouped[m].length === 0 ? (
+              <Text style={styles.emptyRow}>Nothing logged</Text>
+            ) : (
+              grouped[m].map((e) => (
+                <View key={e.id} style={styles.row}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.foodName}>
+                      {e.foodName ?? "Unknown"}
+                    </Text>
+                    <Text style={styles.foodMeta}>
+                      {Math.round(e.quantityG)}g · {Math.round(e.kcal)} kcal
+                    </Text>
+                  </View>
+                </View>
+              ))
+            )}
+          </View>
+        ))}
+      </ScrollView>
+
+      <Pressable style={styles.fab} onPress={() => setAddOpen(true)}>
+        <Feather name="plus" size={20} color="#fff" />
+        <Text style={styles.fabText}>Add</Text>
+      </Pressable>
+
+      <Modal
+        visible={addOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setAddOpen(false)}
+      >
+        <Pressable style={styles.backdrop} onPress={() => setAddOpen(false)}>
+          <Pressable style={styles.sheet} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.handle} />
+            <Text style={styles.sheetTitle}>Add food</Text>
+            <Pressable
+              style={styles.addOption}
+              onPress={() => {
+                setAddOpen(false);
+                router.push("/food-add");
+              }}
+            >
+              <Feather name="search" size={20} color="#fff" />
+              <Text style={styles.addOptionText}>Search</Text>
+            </Pressable>
+            <Pressable
+              style={styles.addOption}
+              onPress={() => {
+                setAddOpen(false);
+                router.push("/food-barcode");
+              }}
+            >
+              <Feather name="camera" size={20} color="#fff" />
+              <Text style={styles.addOptionText}>Scan barcode</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: "#111" },
+  center: {
+    flex: 1,
+    backgroundColor: "#111",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  heading: { color: "#fff", fontSize: 32, fontWeight: "700" },
+  kcalTotal: {
+    color: "#fff",
+    fontSize: 24,
+    fontWeight: "600",
+    marginTop: 8,
+    fontVariant: ["tabular-nums"],
+  },
+  macroLine: {
+    color: "#999",
+    fontSize: 14,
+    marginTop: 4,
+    fontVariant: ["tabular-nums"],
+  },
+  section: { marginTop: 24 },
+  sectionHeader: {
+    color: "#999",
+    fontSize: 12,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: 8,
+  },
+  row: {
+    backgroundColor: "#1a1a1a",
+    padding: 12,
+    borderRadius: 10,
+    marginBottom: 6,
+  },
+  foodName: { color: "#fff", fontSize: 15 },
+  foodMeta: { color: "#666", fontSize: 12, marginTop: 2 },
+  emptyRow: { color: "#444", fontSize: 13, paddingHorizontal: 4 },
+  fab: {
+    position: "absolute",
+    bottom: 96,
+    right: 24,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "#3b82f6",
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    borderRadius: 999,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  fabText: { color: "#fff", fontWeight: "700", fontSize: 16 },
+  backdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "flex-end",
+  },
+  sheet: {
+    backgroundColor: "#1a1a1a",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 16,
+    paddingBottom: 32,
+    gap: 12,
+  },
+  handle: {
+    alignSelf: "center",
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "#333",
+    marginBottom: 8,
+  },
+  sheetTitle: {
+    color: "#999",
+    fontSize: 12,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  addOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    backgroundColor: "#252525",
+    padding: 16,
+    borderRadius: 12,
+  },
+  addOptionText: { color: "#fff", fontSize: 16, fontWeight: "600" },
+});
