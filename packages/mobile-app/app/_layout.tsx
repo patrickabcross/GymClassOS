@@ -68,6 +68,22 @@ export default function RootLayout() {
           >
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen name="pick-member" options={{ headerShown: false }} />
+            <Stack.Screen
+              name="food-add"
+              options={{
+                title: "Add food",
+                headerShown: true,
+                presentation: "modal",
+              }}
+            />
+            <Stack.Screen
+              name="food-barcode"
+              options={{
+                title: "Scan barcode",
+                headerShown: true,
+                presentation: "modal",
+              }}
+            />
           </Stack>
         </AuthGate>
       </GestureRoot>
