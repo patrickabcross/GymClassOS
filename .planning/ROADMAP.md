@@ -57,26 +57,37 @@ Post-v1 backlog (HealthKit + native mobile, Coach View with health context, CRM 
 
 ### Phase D2: Member Mobile App + Calorie Counter + Agent (Days 4–7)
 
-**Goal:** Member opens an Expo Go link on their phone, loads the GymOS member app (forked from agent-native's `packages/mobile-app`), logs in, browses + books a class, logs a meal, and chats with the in-app agent.
+**Goal:** Member opens an Expo Go link on their phone, loads the GymOS member app (forked from agent-native's `packages/mobile-app`), logs in (demo-stub picker), browses + books a class, logs a meal via search + barcode, and chats with the in-app agent that can `greet` / `book_class` (with confirmation) / `log_food_nl`. At least one real WhatsApp message round-trip (inbound + outbound) lands in the staff inbox.
 
 > **CORRECTION (2026-05-17 late):** Earlier text in this file said "PWA" for the member surface. Replaced — member surface is native via Expo + RN, forked from upstream `packages/mobile-app`. Demo via Expo Go (no native module compile, no Apple Dev Account this week). Production via EAS Build later. Read "PWA" / "web manifest" / "install-to-home-screen" elsewhere in this file as native Expo Go install for the demo and EAS Build install for production.
 
-**Requirements:** MEMBR-01, MEMBR-02, MEMBR-03, MEMBR-06 (basic manifest), CAL-01, CAL-02, CAL-03, AGENT-01, AGENT-02, AGENT-03, WA-01 (verify inbound), WA-02 (one outbound)
+**Requirements:** MEMBR-01, MEMBR-02, MEMBR-03, CAL-01, CAL-02, CAL-03, AGENT-01, AGENT-02, AGENT-03, WA-01, WA-02, MEMAUTH-01 (stubbed picker)
 
 **Success criteria:**
-1. Customer can open the PWA URL on their iPhone, hit "Share → Add to Home Screen," tap the resulting icon, and see the member home screen
-2. Member can browse the seeded class schedule and book one class; pass balance reflects the debit
-3. Member can search "banana" → find an Open Food Facts result → log it as a snack; daily totals (kcal + macros) update
-4. Member can scan a barcode (using browser camera + ZXing) on a packaged food → see it logged with nutrition
-5. Member can open the agent chat sheet, type "what classes are on tomorrow?" → agent replies with class list (via `view_schedule` tool... or stubbed if time-constrained, via `greet` + manual list)
-6. Member can type "book me into the 7am yoga tomorrow" → agent uses `book_class` tool with confirmation step → booking appears
-7. Member can type "I had a chicken caesar at Pret" → agent uses `log_food_nl` → food entry created
-8. At least one real inbound WhatsApp message from a test phone surfaces in the staff inbox
+1. Customer can open the Expo Go QR on their iPhone and load the GymOS member app (member-picker first launch → 4 tabs after pick)
+2. Member can browse the seeded class schedule and book one class from the mobile Schedule tab; the booking reflects in /gymos staff member-profile
+3. Member can search "banana" → find an Open Food Facts result → log it as a snack from the Food tab; daily totals (kcal + macros) update on Home + Food tabs
+4. Member can scan a barcode (using `expo-camera` built-in scanner) on a packaged food → see it logged with OFF nutrition data
+5. Member can open the agent chat sheet from a persistent FAB on every screen
+6. Member can type "book me into the 7am yoga tomorrow" → agent uses `book_class` tool WITH explicit confirmation turn (D-13) → booking appears in DB
+7. Member can type "I had a chicken caesar at Pret" → agent uses `log_food_nl` → food entry created via OFF top-match
+8. At least one real inbound WhatsApp message from a test phone surfaces in the staff inbox AND one real outbound from staff inbox is delivered to the test phone
+
+**Plans:** 6 plans
+
+- [ ] D2-01-mobile-shell-auth-PLAN.md — Strip upstream tabs, install deps, build 4-tab GymOS shell + member-picker + AsyncStorage + TanStack Query + apiFetch wrapper + requireDemoMember server helper + `/api/m/members/list` + `/api/m/profile`. Includes the @gorhom/bottom-sheet × Expo Go SDK 55 compatibility spike (Pitfall #4). (MEMAUTH-01 stubbed, MEMBR-03 server side)
+- [ ] D2-02-whatsapp-webhook-outbound-PLAN.md — `templates/mail/app/routes/webhooks.whatsapp.tsx` HMAC-verified inbound receiver (ngrok-tunnelled) + augment `gymos.tsx` send action with real Meta Graph API v23 POST. (WA-01, WA-02)
+- [ ] D2-03-member-schedule-booking-PLAN.md — `/api/m/schedule` 7-day window + `/api/m/bookings` POST + mobile Schedule tab with day-grouped cards + optimistic UI booking. (MEMBR-01, MEMBR-02)
+- [ ] D2-04-member-home-tab-PLAN.md — SVG-free KcalRing component + Home tab with greeting / pass-balance pill / next-class card / kcal ring + macros. (MEMBR-03)
+- [ ] D2-05-food-calorie-counter-PLAN.md — OFF search + barcode proxy endpoints + food-entries CRUD + BarcodeScanner component (`expo-camera`) + Food tab + /food-add search screen + /food-barcode scan screen. (CAL-01, CAL-02, CAL-03)
+- [ ] D2-06-agent-chat-sse-tools-PLAN.md — `/api/m/agent/stream` SSE route with Anthropic Sonnet 4.6 + prompt caching + manual 3-tool loop (greet / book_class with confirmation / log_food_nl) + `react-native-sse` consumer + AgentSheet component + persistent FAB. (AGENT-01, AGENT-02, AGENT-03)
 
 **Risks (from PITFALLS.md, demo-relevant subset):**
 - #1 (24h-window violation → Meta suspension) — demo only sends to ONE test number that has just messaged inbound; UI gate is enough for demo (worker-level gate is production work)
 - #19 (`@great-detail/whatsapp` single-maintainer) — mirror at production stage, demo can use npm directly
 - #16 (RR v7 × Vercel middleware edge cases) — flagged; hello-world deploy in D0 is the validation gate
+- D2-RESEARCH #4 (`@gorhom/bottom-sheet` × Expo Go SDK 55 worklets) — Wave 0 spike in D2-01 decides between gorhom and RN `<Modal>` fallback before D2-06 lands
+- D2-RESEARCH #7 (OFF returns null nutriments) — Food tab + barcode screen surface a warning when kcal=0 instead of silently logging junk
 
 **UI hint:** yes
 
@@ -187,4 +198,5 @@ Demo Sprint runs first (D0 → D1 → D2 over 7 days). Production v1 runs after 
 
 *Roadmap created: 2026-05-17*
 *Revised: 2026-05-17 — major restructure (Demo Sprint + Production v1 two-milestone shape; mobile = PWA; Stripe direct; calorie counter in v1)*
+*Revised: 2026-05-19 — D2 plan list registered (6 plans), success criteria realigned to native Expo flow (was inherited PWA wording), MEMBR-06 dropped from D2 (PWA manifest is N/A for native Expo Go; rolled into P1a EAS work)*
 *Out of v1 scope: Native mobile (v1.x), HealthKit, Coach View with health context, CRM campaigns + segments, Knowledge Base, Operational Reporting, bsport-migration productisation, A2A. See REQUIREMENTS.md §Post-v1 Backlog and PLATFORM-VISION.md.*
