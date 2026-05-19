@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@agent-native/core": "workspace:*",
+    "@anthropic-ai/sdk": "^0.97.0",
     "@libsql/client": "^0.15.0",
     "@tabler/icons-react": "^3.40.0",
     "chrono-node": "^2.7.6",
