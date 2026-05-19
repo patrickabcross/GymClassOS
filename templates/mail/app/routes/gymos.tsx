@@ -212,7 +212,7 @@ export async function action({ request }: ActionFunctionArgs) {
     })
     .where(eq(schema.conversations.id, conversationId));
 
-  return redirect(`/gymos?conversation=${conversationId}`);
+  return redirect(`/gymos?conversation=${conversationId}&sent=1`);
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -412,6 +412,14 @@ export default function GymosInbox() {
                   </div>
                 ))}
               </div>
+
+              {params.get("sent") === "1" && (
+                <div className="px-5 py-2 bg-emerald-500/10 border-t border-emerald-500/20 text-[11px] text-emerald-700 dark:text-emerald-300">
+                  Sent (demo) — message persisted to DB. Production sends would
+                  go through pg-boss → worker → Meta API with 24h-window +
+                  opt-in checks.
+                </div>
+              )}
 
               <Form
                 method="post"
