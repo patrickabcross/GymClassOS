@@ -11,7 +11,7 @@
 // (BKG-03/BKG-04) wraps capacity + entitlement + debit in a single transaction
 // with SELECT ... FOR UPDATE on the occurrence row.
 
-import { useLoaderData, Form, useSearchParams } from "react-router";
+import { useLoaderData, Form, redirect, useSearchParams } from "react-router";
 import { eq, asc, sql } from "drizzle-orm";
 import { getDb, schema } from "../../server/db";
 import { Button } from "@/components/ui/button";
@@ -32,10 +32,41 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import type { LoaderFunctionArgs } from "react-router";
+import type { LoaderFunctionArgs, ActionFunctionArgs } from "react-router";
 
 export function meta() {
   return [{ title: "GymOS — Schedule" }];
+}
+
+// ─── Action: insert booking row (demo-grade, no atomicity) ──────────────────
+
+export async function action({ request }: ActionFunctionArgs) {
+  const formData = await request.formData();
+  const occurrenceId = String(formData.get("occurrenceId") ?? "");
+  const memberId = String(formData.get("memberId") ?? "");
+  if (!occurrenceId || !memberId) {
+    return { error: "Missing occurrenceId or memberId" };
+  }
+
+  const db = getDb();
+
+  // Demo grade: simple INSERT. NO atomic capacity check, NO entitlement
+  // resolution, NO pass debit. Production (BKG-03/BKG-04) wraps capacity
+  // check + entitlement + pass debit in a single SQL transaction with
+  // SELECT ... FOR UPDATE on the occurrence row.
+  const bookingId = `bkg_${crypto.randomUUID()}`;
+  const now = new Date().toISOString();
+
+  await db.insert(schema.bookings).values({
+    id: bookingId,
+    occurrenceId,
+    memberId,
+    status: "booked",
+    bookedByUserId: null, // demo: no auth context
+    bookedAt: now,
+  });
+
+  return redirect("/gymos/schedule");
 }
 
 // ─── Loader ──────────────────────────────────────────────────────────────────
