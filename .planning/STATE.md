@@ -1,3 +1,19 @@
+---
+gsd_state_version: 1.0
+milestone: v1.0
+milestone_name: milestone
+status: executing
+stopped_at: D0 complete except Vercel deploy; D1 inbox surface shipped ahead of schedule
+last_updated: "2026-05-19T07:15:54.770Z"
+last_activity: 2026-05-19 -- Phase D1-staff-surfaces-adapted-from-mail-calendar-days-2 execution started
+progress:
+  total_phases: 7
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 20
+---
+
 # Project State
 
 ## Project Reference
@@ -9,14 +25,15 @@ Requirements: `.planning/REQUIREMENTS.md` (130 reqs across 20 categories — see
 
 **Core value:** Coaches and studio managers run their entire day from one inbox-and-schedule surface (WhatsApp + class bookings + member context). Members book, pay, and log activity / nutrition from a native iOS/Android Expo app (forked from agent-native's `packages/mobile-app`) that includes an in-app coaching agent.
 
-**Current focus:** Demo Sprint — wrapping up D0 (Fork + Schema + Deploys). One D1 surface (WhatsApp inbox) already shipped ahead of schedule.
+**Current focus:** Phase D1-staff-surfaces-adapted-from-mail-calendar-days-2 — 4
 
 ## Current Position
 
 Milestone: Demo Sprint (1 of 2) — Week 1 (by ~2026-05-24)
-Phase: D0 wrapping up; D1 partially started (inbox surface done)
-Status: Paused at end of 2026-05-17 session
-Last activity: 2026-05-17 — Built and committed first end-to-end demo surface (`/gymos` WhatsApp inbox with member context panel). 5 commits land all the work.
+Phase: D1-staff-surfaces-adapted-from-mail-calendar-days-2 (4) — EXECUTING
+Plan: 1 of 4
+Status: Executing Phase D1-staff-surfaces-adapted-from-mail-calendar-days-2
+Last activity: 2026-05-19 -- Phase D1-staff-surfaces-adapted-from-mail-calendar-days-2 execution started
 
 Progress: Demo Sprint [██░░░░░░░░] ~20%
 
@@ -43,12 +60,14 @@ Not started — Demo Sprint runs first. See ROADMAP.md for the 4 production phas
 ## Performance Metrics
 
 **Velocity:**
+
 - Total commits this session: 8 (planning + execution mixed)
 - Schema changes: 12 GymOS tables added (composing on top of 32 framework tables = 44 total in Neon)
 - Routes built: 1 demo-quality (`/gymos`)
 - Files added: ~3500 from upstream merge + 1 new GymOS route + 1 auth-bypass edit + schema additions
 
 **Time spent:**
+
 - Scope reconciliation + planning artifact rewrites: ~60% of session
 - Actual code (fork + schema + seed + route): ~40%
 
@@ -74,17 +93,20 @@ None tracked as TODOs; everything is in the roadmap / requirements.
 ### Blockers/Concerns
 
 **Demo Sprint blockers:**
+
 - **Vercel deploy needs interactive `vercel login`** — user is authenticated locally (`vercel whoami` = `patrickalexanderross-3109`), so this just means running `vercel link` + `vercel deploy` from inside `templates/mail/` after setting `NITRO_PRESET=vercel`. See Resume Notes below.
 - **`NITRO_PRESET=vercel` + Mail's `netlify.toml`** — Mail template is preset for Netlify. Need to either set `NITRO_PRESET=vercel` in Vercel project env vars (and possibly add a `vercel.json`), OR deploy to Netlify instead. Decision deferred to next session.
 - **Better-auth Google OAuth not configured** — Mail's auth plugin is `googleOnly: true`. We bypassed by adding `/gymos` to `publicPaths` for the demo. Member-side auth (PWA login) will need either: flip `googleOnly: false` and use email/password, OR add WhatsApp-OTP, OR set up Google OAuth proper. Decision in P1a.
 - **WhatsApp send doesn't actually call Meta** — `/gymos` reply form persists to DB but doesn't call WhatsApp Cloud API. The single `sendMessage()` chokepoint with 24h-window + opt-in gate is Phase P1b work.
 
 **Customer-facing blockers (Phase P0 of Production v1):**
+
 - Customer's Stripe account creation + restricted API key generation (customer task)
 - Customer's Meta Business Account setup + WhatsApp number readiness check (customer task)
 - WhatsApp template approvals (≤48h Meta lead time — submit early in P0)
 
 **General concerns:**
+
 - ODbL attribution for Open Food Facts (`CAL-11`) — need to display attribution in calorie counter UI
 - PWA web push on iOS 16.4+ — N/A now since mobile is native Expo, not PWA
 
@@ -109,28 +131,40 @@ cat .planning/ROADMAP.md           # full demo sprint + production v1 plan
 
 ```bash
 pnpm --filter mail dev             # Vite SSR on :8081 (port 8080 taken on this machine)
+
 # → open http://localhost:8081/gymos
+
 # → click any conversation; member context panel renders on the right
+
 # → typing a reply persists to Neon but doesn't call Meta yet
+
 ```
 
 **Vercel deploy (the unfinished D0.5):**
 
 ```bash
+
 # From templates/mail/:
+
 cd templates/mail
 vercel link                                              # interactive — pick gymos-demo or create
+
 # Set env vars in Vercel dashboard OR via CLI:
+
 vercel env add DATABASE_URL                              # paste pooled Neon URL
 vercel env add BETTER_AUTH_SECRET                        # generate or paste from .env.local
 vercel env add BETTER_AUTH_URL                           # the Vercel preview URL
 vercel env add NITRO_PRESET production                   # set to "vercel"
+
 # Mail template has netlify.toml — may need vercel.json to override.
+
 # Nitro presets: https://nitro.unjs.io/deploy/providers/vercel
+
 vercel deploy --prod
 ```
 
 Likely needs a `vercel.json` at templates/mail/ root:
+
 ```json
 {
   "buildCommand": "cd ../.. && pnpm install && pnpm --filter mail build",
@@ -179,10 +213,13 @@ templates/mail/.env.local                     # gitignored — Neon DSN
 .env.local                                    # gitignored — workspace-level env
 
 CLAUDE.md                          # resolved upstream symlink conflict
+
 + ~3500 files from upstream merge (templates/, packages/, .agents/, etc.)
+
 ```
 
 Memory files updated (in `~/.claude/projects/C--Users-dimet-hustle/memory/`):
+
 - `project_gymos.md` — refreshed (mobile = Expo, RR v7 + Drizzle + Better-auth, Stripe direct)
 - `project_gymos_mobile.md` — reversed twice; final: Expo fork of `packages/mobile-app`
 - `project_gymos_stack.md` — pg-boss, Stripe direct, Expo native mobile
