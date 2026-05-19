@@ -10,10 +10,12 @@
 import { useEffect, useState } from "react";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { View, ActivityIndicator } from "react-native";
+import { View, ActivityIndicator, Pressable, StyleSheet } from "react-native";
+import { Feather } from "@expo/vector-icons";
 import { QueryProvider } from "../lib/query-client";
 import { getCurrentMemberId } from "../lib/current-member";
-import { GestureRoot } from "../lib/bottom-sheet-impl";
+import { GestureRoot, AgentSheetContainer } from "../lib/bottom-sheet-impl";
+import AgentSheet from "../components/AgentSheet";
 
 function AuthGate({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -52,6 +54,59 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+// Persistent FAB + agent bottom-sheet — visible on every screen behind the
+// AuthGate (so it never shows on /pick-member). Tapping the FAB opens the
+// gorhom bottom-sheet (from D2-01 spike) with AgentSheet (from D2-06 Task 2)
+// rendered inside. AGENT-01 (chat sheet) + AGENT-02 (3 tools) + AGENT-03
+// (streaming) are wired through the AgentSheet → streamAgent → SSE path.
+function AgentFabAndSheet() {
+  const segments = useSegments();
+  const [open, setOpen] = useState(false);
+
+  // Hide FAB on the picker screen (no member yet → no agent context).
+  const onPicker = segments[0] === "pick-member";
+  if (onPicker) return null;
+
+  return (
+    <>
+      <View pointerEvents="box-none" style={fabStyles.fabHost}>
+        <Pressable
+          style={fabStyles.fab}
+          onPress={() => setOpen(true)}
+          hitSlop={8}
+        >
+          <Feather name="message-circle" size={24} color="#fff" />
+        </Pressable>
+      </View>
+      <AgentSheetContainer open={open} onClose={() => setOpen(false)}>
+        {open && <AgentSheet onClose={() => setOpen(false)} />}
+      </AgentSheetContainer>
+    </>
+  );
+}
+
+const fabStyles = StyleSheet.create({
+  fabHost: {
+    position: "absolute",
+    right: 18,
+    bottom: 92, // above tab bar (default Expo tab bar ~83 + 9 spacing)
+    zIndex: 100,
+  },
+  fab: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: "#3b82f6",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+});
+
 export default function RootLayout() {
   return (
     <QueryProvider>
@@ -85,6 +140,7 @@ export default function RootLayout() {
               }}
             />
           </Stack>
+          <AgentFabAndSheet />
         </AuthGate>
       </GestureRoot>
     </QueryProvider>
