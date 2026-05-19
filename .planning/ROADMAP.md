@@ -73,11 +73,11 @@ Post-v1 backlog (HealthKit + native mobile, Coach View with health context, CRM 
 7. Member can type "I had a chicken caesar at Pret" → agent uses `log_food_nl` → food entry created via OFF top-match
 8. At least one real inbound WhatsApp message from a test phone surfaces in the staff inbox AND one real outbound from staff inbox is delivered to the test phone
 
-**Plans:** 6 plans
+**Plans:** 3/6 plans executed
 
 - [x] D2-01-mobile-shell-auth-PLAN.md — Strip upstream tabs, install deps, build 4-tab GymOS shell + member-picker + AsyncStorage + TanStack Query + apiFetch wrapper + requireDemoMember server helper + `/api/m/members/list` + `/api/m/profile`. Includes the @gorhom/bottom-sheet × Expo Go SDK 55 compatibility spike (Pitfall #4). (MEMAUTH-01 stubbed, MEMBR-03 server side)
 - [x] D2-02-whatsapp-webhook-outbound-PLAN.md — `templates/mail/app/routes/webhooks.whatsapp.tsx` HMAC-verified inbound receiver (ngrok-tunnelled) + augment `gymos.tsx` send action with real Meta Graph API v23 POST. (WA-01, WA-02)
-- [ ] D2-03-member-schedule-booking-PLAN.md — `/api/m/schedule` 7-day window + `/api/m/bookings` POST + mobile Schedule tab with day-grouped cards + optimistic UI booking. (MEMBR-01, MEMBR-02)
+- [x] D2-03-member-schedule-booking-PLAN.md — `/api/m/schedule` 7-day window + `/api/m/bookings` POST + mobile Schedule tab with day-grouped cards + optimistic UI booking. (MEMBR-01, MEMBR-02)
 - [ ] D2-04-member-home-tab-PLAN.md — SVG-free KcalRing component + Home tab with greeting / pass-balance pill / next-class card / kcal ring + macros. (MEMBR-03)
 - [ ] D2-05-food-calorie-counter-PLAN.md — OFF search + barcode proxy endpoints + food-entries CRUD + BarcodeScanner component (`expo-camera`) + Food tab + /food-add search screen + /food-barcode scan screen. (CAL-01, CAL-02, CAL-03)
 - [ ] D2-06-agent-chat-sse-tools-PLAN.md — `/api/m/agent/stream` SSE route with Anthropic Sonnet 4.6 + prompt caching + manual 3-tool loop (greet / book_class with confirmation / log_food_nl) + `react-native-sse` consumer + AgentSheet component + persistent FAB. (AGENT-01, AGENT-02, AGENT-03)
@@ -185,7 +185,7 @@ Demo Sprint runs first (D0 → D1 → D2 over 7 days). Production v1 runs after 
 | **Demo Sprint** | | | |
 | D0. Fork + Schema + Deploys | 5 | Not started | - |
 | D1. Staff Surfaces Adapted | 12 | Not started | - |
-| D2. Member PWA + Calorie + Agent | 14 | Not started | - |
+| D2. Member PWA + Calorie + Agent | 3/6 | In Progress|  |
 | **Production v1** | | | |
 | P0. Audit & De-Risk | 6 | Not started | - |
 | P1a. Data Foundation, Auth & Deploy | 19 | Not started | - |

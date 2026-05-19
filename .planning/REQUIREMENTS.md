@@ -149,8 +149,8 @@
 
 ### Member PWA — Booking + Profile
 
-- [ ] **MEMBR-01** [D]: Member can browse the upcoming week's class schedule in a mobile-optimised view
-- [ ] **MEMBR-02** [D]: Member can book a class from the PWA
+- [x] **MEMBR-01** [D]: Member can browse the upcoming week's class schedule in a mobile-optimised view
+- [x] **MEMBR-02** [D]: Member can book a class from the PWA
 - [x] **MEMBR-03** [D]: Member can see their current pass balance and upcoming bookings
 - [ ] **MEMBR-04** [P]: Member can cancel a booking from the PWA (respecting the cancellation window)
 - [ ] **MEMBR-05** [P]: Member can view their profile (name, email, phone) and edit name/email
