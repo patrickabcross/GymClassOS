@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed D2-05-food-calorie-counter-PLAN.md
-last_updated: "2026-05-19T15:30:00.000Z"
-last_activity: 2026-05-19
+stopped_at: D2-06 Tasks 1-3 committed (07963917, 2570c8b9, 04aececd); paused at Task 4 human-verify checkpoint — live agent demo pending. Expo Go setup blocked on iOS QR/LAN; plan to retry on desktop tomorrow.
+last_updated: "2026-05-19T20:50:00.000Z"
+last_activity: 2026-05-19 -- Phase D2-06 Tasks 1-3 shipped; paused at Task 4 demo checkpoint
 progress:
   total_phases: 7
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
-  percent: 20
+  percent: 30
 ---
 
 # Project State
@@ -25,15 +25,15 @@ Requirements: `.planning/REQUIREMENTS.md` (130 reqs across 20 categories — see
 
 **Core value:** Coaches and studio managers run their entire day from one inbox-and-schedule surface (WhatsApp + class bookings + member context). Members book, pay, and log activity / nutrition from a native iOS/Android Expo app (forked from agent-native's `packages/mobile-app`) that includes an in-app coaching agent.
 
-**Current focus:** Phase D2 — Member Mobile App + Calorie Counter + Agent
+**Current focus:** Phase D2-06 — agent-chat-sse-tools
 
 ## Current Position
 
 Milestone: Demo Sprint (1 of 2) — Week 1 (by ~2026-05-24)
-Phase: D2 (Member Mobile App + Calorie Counter + Agent) — EXECUTING
-Plan: 6 of 6 (D2-05 complete; D2-06 next)
-Status: Ready to execute D2-06 (agent chat + tools)
-Last activity: 2026-05-19
+Phase: D2-06 (agent-chat-sse-tools) — EXECUTING
+Plan: 1 of 6
+Status: Executing Phase D2-06
+Last activity: 2026-05-19 -- Phase D2-06 execution started
 
 Progress: Demo Sprint [███░░░░░░░] ~30%
 
@@ -53,7 +53,7 @@ Progress: Demo Sprint [███░░░░░░░] ~30%
 | **D1 payments (D1-03)** | ⏸ DEFERRED at Task 1 checkpoint | `/gymos/payments` Stripe Checkout. Awaiting `STRIPE_SECRET_KEY=rk_test_…` in `templates/mail/.env.local` + dev server restart, then resume signal `stripe-ready`. Plan: `.planning/phases/D1-staff-surfaces-adapted-from-mail-calendar-days-2-4/D1-03-payments-stripe-checkout-PLAN.md`. |
 | **D2 member mobile app** | ✓ D2-01 / D2-03 / D2-04 / D2-05 committed | Expo 55 + RN 0.83.9 fork; auth, schedule/booking, Home dashboard, Food tab + scanner all live |
 | **D2 calorie counter** | ✓ D2-05 committed (`1812a43e`, `57ad0abb`, `d9c47592`, `bcbe63e4`) 2026-05-19 | OFF search proxy + OFF barcode proxy + food-entries CRUD; BarcodeScanner component; Food tab + food-add + food-barcode screens. CAL-01/CAL-02/CAL-03 complete; CAL-04/-05/-07/-09/-11 deferred to P2 per SUMMARY |
-| **D2 in-app agent** | Not started — NEXT (D2-06) | 3 tools min: `greet`, `book_class`, `log_food_nl` (must dual-invalidate ['food-entries']+['profile']) |
+| **D2 in-app agent** | Tasks 1-3 ✓ committed (`07963917`, `2570c8b9`, `04aececd`); Task 4 demo PENDING | SSE route + Anthropic 3-tool loop + AgentSheet + FAB shipped and tsc-clean. Task 4 (live human-verify) blocked overnight on Expo Go setup; resume by booting Mail (`pnpm --filter mail dev`) + Expo (`cd packages/mobile-app && pnpm exec expo start --tunnel --port 19000 --clear` with `$env:EXPO_PUBLIC_API_BASE="http://<laptop-LAN-IP>:8081"`) then walking the 5 tests in D2-06-PLAN §how-to-verify. Reply `approved` to the checkpoint when all 5 pass → continuation agent writes SUMMARY.md + roadmap updates. |
 
 ### Production v1 detail
 
