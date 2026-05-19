@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: Completed D1-02-members-directory-PLAN.md (parallel executor)
-last_updated: "2026-05-19T07:24:51.943Z"
+status: paused
+stopped_at: Wave 1 partial — D1-01/02/04 complete; D1-03 deferred at Task 1 checkpoint (awaiting STRIPE_SECRET_KEY)
+last_updated: "2026-05-19T07:30:00.000Z"
 last_activity: 2026-05-19
 progress:
   total_phases: 7
@@ -30,9 +30,9 @@ Requirements: `.planning/REQUIREMENTS.md` (130 reqs across 20 categories — see
 ## Current Position
 
 Milestone: Demo Sprint (1 of 2) — Week 1 (by ~2026-05-24)
-Phase: D1-staff-surfaces-adapted-from-mail-calendar-days-2 (4) — EXECUTING
-Plan: 2 of 4
-Status: Ready to execute
+Phase: D1-staff-surfaces-adapted-from-mail-calendar-days-2 (4) — PAUSED (3 of 4 plans done)
+Plan: 4 of 4 — D1-03 payments deferred at Task 1 (human-action: add STRIPE_SECRET_KEY to templates/mail/.env.local)
+Status: Awaiting user action — resume with `/gsd:execute-phase D1`
 Last activity: 2026-05-19
 
 Progress: Demo Sprint [██░░░░░░░░] ~20%
@@ -48,7 +48,9 @@ Progress: Demo Sprint [██░░░░░░░░] ~20%
 | **D0.5** Vercel deploy | ⏳ PENDING | Needs `vercel login` (interactive — Vercel CLI already installed; user is `patrickalexanderross-3109`); needs `NITRO_PRESET=vercel` env var; Mail template currently configured for Netlify (`netlify.toml`). See "Resume notes" below. |
 | **D1 inbox surface** | ✓ committed `a52af154` | `/gymos` route — list of conversations + selected thread + member context panel (the differentiator); demo-quality (reply persists to DB but stubs Meta call) |
 | **D1 schedule surface** | ✓ committed (`f5cdbdc6` auth, `dd50fe62` loader+grid, `23ee58f2` action) 2026-05-19 | `/gymos/schedule` — week-grid of 7 seeded occurrences, click-card-to-book dialog with member select; demo-grade (no atomic capacity check / no pass debit; flagged for BKG-03/04) |
-| **D1 members directory** | Not started | `/gymos/members` + `/gymos/members/:id` profile |
+| **D1 members directory** | ✓ committed (`74bbe110` directory, `2cf77d50` profile) 2026-05-19 | `/gymos/members` + `/gymos/members/:id` profile — pass balance, bookings timeline, recent food, conversation deep-link |
+| **D1 inbox gap-fill (D1-04)** | ✓ committed (`3eb967f3` top-nav, `dae915e3` send-ack) 2026-05-19 | Top-nav strip linking all four /gymos* surfaces + "Sent (demo)" banner after reply; INBX-01/02/03/06/07 verified |
+| **D1 payments (D1-03)** | ⏸ DEFERRED at Task 1 checkpoint | `/gymos/payments` Stripe Checkout. Awaiting `STRIPE_SECRET_KEY=rk_test_…` in `templates/mail/.env.local` + dev server restart, then resume signal `stripe-ready`. Plan: `.planning/phases/D1-staff-surfaces-adapted-from-mail-calendar-days-2-4/D1-03-payments-stripe-checkout-PLAN.md`. |
 | **D2 member mobile app** | Not started | Fork `packages/mobile-app` (Expo 55 + RN 0.83.9) |
 | **D2 calorie counter** | Not started | Build fresh in mobile-app, OFF + USDA data sources |
 | **D2 in-app agent** | Not started | 3 tools min: `greet`, `book_class`, `log_food_nl` |
