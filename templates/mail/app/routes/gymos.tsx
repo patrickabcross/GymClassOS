@@ -189,30 +189,105 @@ export async function action({ request }: ActionFunctionArgs) {
   const id = `msg_${crypto.randomUUID()}`;
   const now = new Date().toISOString();
 
-  // Demo: insert message with status='sent' immediately. Real path will go
-  // through pg-boss → worker → Meta. We're stubbing Meta for the demo.
+  // Resolve recipient phone via conversation → member
+  // guard:allow-unscoped — demo D-07
+  const conv = await db
+    .select({
+      memberId: schema.conversations.memberId,
+      lastInboundAt: schema.conversations.lastInboundAt,
+    })
+    .from(schema.conversations)
+    .where(eq(schema.conversations.id, conversationId))
+    .limit(1)
+    .then((r) => r[0] ?? null);
+  if (!conv) {
+    return { error: "Conversation not found" };
+  }
+  // guard:allow-unscoped — demo D-07
+  const member = await db
+    .select({ phoneE164: schema.gymMembers.phoneE164 })
+    .from(schema.gymMembers)
+    .where(eq(schema.gymMembers.id, conv.memberId))
+    .limit(1)
+    .then((r) => r[0] ?? null);
+  const toPhone = member?.phoneE164 ?? null;
+
+  // DEMO ONLY: 24h window NOT enforced here (deferred to P1b / WA-05/WA-06).
+  // Demo discipline: send only to a number that just messaged inbound.
+  // UI shows lastInboundAt; operator chooses not to send out-of-window.
+
+  // Try Meta Graph API v23 if configured. Falls back to the stub send when
+  // env vars are missing (so dev environments without WhatsApp config keep
+  // working). On Meta failure: insert row with status='failed' + error.
+  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+  const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
+  let externalId: string | null = null;
+  let sendStatus: "sent" | "failed" = "sent";
+  let sendError: string | null = null;
+
+  if (phoneNumberId && accessToken && toPhone) {
+    try {
+      const metaRes = await fetch(
+        `https://graph.facebook.com/v23.0/${phoneNumberId}/messages`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({
+            messaging_product: "whatsapp",
+            to: toPhone.replace(/^\+/, ""),
+            type: "text",
+            text: { body },
+          }),
+        },
+      );
+      const json = (await metaRes.json()) as any;
+      if (!metaRes.ok) {
+        sendStatus = "failed";
+        sendError = `Meta ${metaRes.status}: ${JSON.stringify(json?.error ?? json)}`;
+        console.error("[whatsapp outbound]", sendError);
+      } else {
+        externalId = json?.messages?.[0]?.id ?? null;
+      }
+    } catch (err: any) {
+      sendStatus = "failed";
+      sendError = `Network: ${err?.message ?? String(err)}`;
+      console.error("[whatsapp outbound]", sendError);
+    }
+  } else {
+    // Demo fallback: env not configured — keep the stub behaviour.
+    console.warn(
+      "[whatsapp outbound] WHATSAPP_ACCESS_TOKEN or WHATSAPP_PHONE_NUMBER_ID not set — stubbing send (status='sent', externalId=null)",
+    );
+  }
+
   await db.insert(schema.messages).values({
     id,
     conversationId,
     direction: "out",
     messageType: "text",
     body,
-    status: "sent",
+    externalId,
+    status: sendStatus,
+    error: sendError,
     createdAt: now,
-    sentAt: now,
+    sentAt: sendStatus === "sent" ? now : null,
   });
 
-  // Update conversation last_outbound + preview + updated_at
   await db
     .update(schema.conversations)
     .set({
-      lastOutboundAt: now,
+      lastOutboundAt:
+        sendStatus === "sent" ? now : (conv.lastInboundAt ?? undefined),
       lastMessagePreview: body,
       updatedAt: now,
     })
     .where(eq(schema.conversations.id, conversationId));
 
-  return redirect(`/gymos?conversation=${conversationId}&sent=1`);
+  const sentParam = sendStatus === "sent" ? "1" : "0";
+  return redirect(`/gymos?conversation=${conversationId}&sent=${sentParam}`);
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
