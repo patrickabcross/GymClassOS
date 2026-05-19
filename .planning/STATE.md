@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: "Awaiting user action — resume with `/gsd:execute-phase D1`"
-stopped_at: Phase D2 context gathered
-last_updated: "2026-05-19T09:13:07.261Z"
+status: executing
+stopped_at: Completed D2-01-mobile-shell-auth-PLAN.md
+last_updated: "2026-05-19T12:42:10.205Z"
 last_activity: 2026-05-19
 progress:
   total_phases: 7
@@ -25,14 +25,14 @@ Requirements: `.planning/REQUIREMENTS.md` (130 reqs across 20 categories — see
 
 **Core value:** Coaches and studio managers run their entire day from one inbox-and-schedule surface (WhatsApp + class bookings + member context). Members book, pay, and log activity / nutrition from a native iOS/Android Expo app (forked from agent-native's `packages/mobile-app`) that includes an in-app coaching agent.
 
-**Current focus:** Phase D1-staff-surfaces-adapted-from-mail-calendar-days-2 — 4
+**Current focus:** Phase D2 — Member Mobile App + Calorie Counter + Agent
 
 ## Current Position
 
 Milestone: Demo Sprint (1 of 2) — Week 1 (by ~2026-05-24)
-Phase: D1-staff-surfaces-adapted-from-mail-calendar-days-2 (4) — PAUSED (3 of 4 plans done)
-Plan: 4 of 4 — D1-03 payments deferred at Task 1 (human-action: add STRIPE_SECRET_KEY to templates/mail/.env.local)
-Status: Awaiting user action — resume with `/gsd:execute-phase D1`
+Phase: D2 (Member Mobile App + Calorie Counter + Agent) — EXECUTING
+Plan: 2 of 6
+Status: Ready to execute
 Last activity: 2026-05-19
 
 Progress: Demo Sprint [██░░░░░░░░] ~20%
@@ -93,6 +93,10 @@ Decisions are logged in `PROJECT.md` Key Decisions table. Recent ones affecting 
 - [Phase D1-staff-surfaces-adapted-from-mail-calendar-days-2-4]: D1-01: Dialog open/close state driven by URL search param `?book=<occurrenceId>` instead of React useState — loader re-runs on param change so booking counts refresh automatically with no client cache to invalidate
 - [Phase D1-staff-surfaces-adapted-from-mail-calendar-days-2-4]: D1-01: Booking action is naive INSERT only — atomic capacity check + entitlement resolution + pass debit explicitly deferred to BKG-03/BKG-04 (production v1, single-txn with SELECT FOR UPDATE on occurrence row)
 - [Phase D1-staff-surfaces-adapted-from-mail-calendar-days-2-4]: D1-01: Schedule day-bucketing uses UTC date for the demo — production must switch to studio IANA TZ (SCH-07) so classes near midnight don't render on the wrong column across a DST boundary
+- [Phase D2-member-mobile-app-calorie-counter-agent-days-4-7]: D2-01: Bottom-sheet impl locked to @gorhom/bottom-sheet 5.2.14 (not RN Modal fallback). Pitfall #4 mitigation (react-native-worklets/plugin) wired in babel.config.js. Single import target packages/mobile-app/lib/bottom-sheet-impl.ts — D2-06 consumes AgentSheetContainer from there with no interpretation needed. One-file swap to RN Modal available if Expo Go runtime fails.
+- [Phase D2-member-mobile-app-calorie-counter-agent-days-4-7]: D2-01: Hardcoded D-10 macro targets (2100/130/250/60) live in the /api/m/profile response under today.target* keys, not in mobile-app code. D2-04 Home tab reads them as plain data; P2/CAL-06 will swap source (Mifflin-St Jeor against profile) without changing the consumer.
+- [Phase D2-member-mobile-app-calorie-counter-agent-days-4-7]: D2-01: DELETE upstream multi-app components (AppCard, AppForm, AppWebView) instead of preserving as reusable primitives — they all transitively imported @agent-native/shared-app-config which is no longer needed; D-02 mandates no backwards-compat stubs. None were imported by any GymOS code.
+- [Phase D2-member-mobile-app-calorie-counter-agent-days-4-7]: D2-01: auth.ts publicPaths extended once for ALL D2 mobile + WA routes (/api/m, /pick-member, /webhooks/whatsapp). D2-02 won't need to touch the same file — avoids parallel-edit merge conflict.
 
 ### Pending Todos
 
@@ -117,12 +121,13 @@ None tracked as TODOs; everything is in the roadmap / requirements.
 
 - ODbL attribution for Open Food Facts (`CAL-11`) — need to display attribution in calorie counter UI
 - PWA web push on iOS 16.4+ — N/A now since mobile is native Expo, not PWA
+- D2-01 Task 5 smoke test deferred — requires Expo Go on a physical phone (not runnable from CLI). User must run the 16-step verification in plan §how-to-verify before downstream D2 plans are fully verified.
 
 ## Session Continuity
 
-Last session: 2026-05-19T09:13:07.235Z
-Stopped at: Phase D2 context gathered
-Resume file: .planning/phases/D2-member-mobile-app-calorie-counter-agent-days-4-7/D2-CONTEXT.md
+Last session: 2026-05-19T12:42:04.809Z
+Stopped at: Completed D2-01-mobile-shell-auth-PLAN.md
+Resume file: None
 
 ### Resume Notes — Next Session Quick-Start
 

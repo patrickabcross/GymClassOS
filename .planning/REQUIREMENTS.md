@@ -76,7 +76,7 @@
 
 ### Member Authentication (PWA)
 
-- [ ] **MEMAUTH-01** [D]: Member can log in to the PWA with email magic-link (demo can stub the email send and show the link in a dev tray)
+- [x] **MEMAUTH-01** [D]: Member can log in to the PWA with email magic-link (demo can stub the email send and show the link in a dev tray)
 - [ ] **MEMAUTH-02** [P]: Magic-link emails sent via WhatsApp template (member-channel-only constraint — no email transactional in v1)
 - [ ] **MEMAUTH-03** [P]: Member session via Better-auth (same auth system as staff, different role)
 - [ ] **MEMAUTH-04** [P]: PWA Web App Manifest + service worker — installable to home screen on iOS/Android; offline shell for already-cached routes
@@ -151,7 +151,7 @@
 
 - [ ] **MEMBR-01** [D]: Member can browse the upcoming week's class schedule in a mobile-optimised view
 - [ ] **MEMBR-02** [D]: Member can book a class from the PWA
-- [ ] **MEMBR-03** [D]: Member can see their current pass balance and upcoming bookings
+- [x] **MEMBR-03** [D]: Member can see their current pass balance and upcoming bookings
 - [ ] **MEMBR-04** [P]: Member can cancel a booking from the PWA (respecting the cancellation window)
 - [ ] **MEMBR-05** [P]: Member can view their profile (name, email, phone) and edit name/email
 - [ ] **MEMBR-06** [P]: PWA shell is installable to home screen on iOS Safari + Android Chrome (Web App Manifest with brand colours + icon)
