@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed D2-04-member-home-tab-PLAN.md
-last_updated: "2026-05-19T13:02:05.402Z"
+stopped_at: Completed D2-05-food-calorie-counter-PLAN.md
+last_updated: "2026-05-19T15:30:00.000Z"
 last_activity: 2026-05-19
 progress:
   total_phases: 7
@@ -31,11 +31,11 @@ Requirements: `.planning/REQUIREMENTS.md` (130 reqs across 20 categories — see
 
 Milestone: Demo Sprint (1 of 2) — Week 1 (by ~2026-05-24)
 Phase: D2 (Member Mobile App + Calorie Counter + Agent) — EXECUTING
-Plan: 5 of 6
-Status: Ready to execute
+Plan: 6 of 6 (D2-05 complete; D2-06 next)
+Status: Ready to execute D2-06 (agent chat + tools)
 Last activity: 2026-05-19
 
-Progress: Demo Sprint [██░░░░░░░░] ~20%
+Progress: Demo Sprint [███░░░░░░░] ~30%
 
 ### Demo Sprint detail
 
@@ -51,9 +51,9 @@ Progress: Demo Sprint [██░░░░░░░░] ~20%
 | **D1 members directory** | ✓ committed (`74bbe110` directory, `2cf77d50` profile) 2026-05-19 | `/gymos/members` + `/gymos/members/:id` profile — pass balance, bookings timeline, recent food, conversation deep-link |
 | **D1 inbox gap-fill (D1-04)** | ✓ committed (`3eb967f3` top-nav, `dae915e3` send-ack) 2026-05-19 | Top-nav strip linking all four /gymos* surfaces + "Sent (demo)" banner after reply; INBX-01/02/03/06/07 verified |
 | **D1 payments (D1-03)** | ⏸ DEFERRED at Task 1 checkpoint | `/gymos/payments` Stripe Checkout. Awaiting `STRIPE_SECRET_KEY=rk_test_…` in `templates/mail/.env.local` + dev server restart, then resume signal `stripe-ready`. Plan: `.planning/phases/D1-staff-surfaces-adapted-from-mail-calendar-days-2-4/D1-03-payments-stripe-checkout-PLAN.md`. |
-| **D2 member mobile app** | Not started | Fork `packages/mobile-app` (Expo 55 + RN 0.83.9) |
-| **D2 calorie counter** | Not started | Build fresh in mobile-app, OFF + USDA data sources |
-| **D2 in-app agent** | Not started | 3 tools min: `greet`, `book_class`, `log_food_nl` |
+| **D2 member mobile app** | ✓ D2-01 / D2-03 / D2-04 / D2-05 committed | Expo 55 + RN 0.83.9 fork; auth, schedule/booking, Home dashboard, Food tab + scanner all live |
+| **D2 calorie counter** | ✓ D2-05 committed (`1812a43e`, `57ad0abb`, `d9c47592`, `bcbe63e4`) 2026-05-19 | OFF search proxy + OFF barcode proxy + food-entries CRUD; BarcodeScanner component; Food tab + food-add + food-barcode screens. CAL-01/CAL-02/CAL-03 complete; CAL-04/-05/-07/-09/-11 deferred to P2 per SUMMARY |
+| **D2 in-app agent** | Not started — NEXT (D2-06) | 3 tools min: `greet`, `book_class`, `log_food_nl` (must dual-invalidate ['food-entries']+['profile']) |
 
 ### Production v1 detail
 
@@ -106,6 +106,11 @@ Decisions are logged in `PROJECT.md` Key Decisions table. Recent ones affecting 
 - [Phase D2-member-mobile-app-calorie-counter-agent-days-4-7]: D2-04: Pure-RN KcalRing (no react-native-svg dep) — half-disc clipping + transform rotate per half; 1deg resolution acceptable for demo. Reanimated/SVG arc swap available in P2 if smoother animation needed.
 - [Phase D2-member-mobile-app-calorie-counter-agent-days-4-7]: D2-04: useFocusEffect(refetch) pattern for cross-tab data freshness — Expo Router primitive; necessary complement to qc.invalidateQueries since the Home tab isn't always mounted. Pattern reusable for any tab consuming server data mutated elsewhere.
 - [Phase D2-member-mobile-app-calorie-counter-agent-days-4-7]: D2-04: Macro line spacing preserved via explicit {"  "} JSX double-space literals — JSX collapses whitespace between expressions; prettier respects the explicit string literal. Documented as a reusable pattern for any future multi-space-formatted display.
+- [Phase D2-member-mobile-app-calorie-counter-agent-days-4-7]: D2-05: Server-side OFF proxy with ODbL UA `GymOS-Demo/0.1 (https://gymos.local; demo@gymos.local)` — three benefits: UA is server-controlled, future cache table (CAL-09) drops in without mobile change, single requireDemoMember gate. Pattern reusable for any future external nutrition data source (USDA CAL-05).
+- [Phase D2-member-mobile-app-calorie-counter-agent-days-4-7]: D2-05: 5-state lookup machine for barcode flow (scanning/loading/found/notfound/error) — CAL-02 critical-path requires the "OFF doesn't have this product" branch with a "Scan again" button. Pure-RN scanner overlay (no SVG) consistent with D2-04 KcalRing policy.
+- [Phase D2-member-mobile-app-calorie-counter-agent-days-4-7]: D2-05: hasNutritionData flag at API boundary — when OFF has a product but no kcal data (~5-10% of UK products), UI shows amber warning instead of silently logging 0 kcal. Pitfall #7 mitigation visible in API contract, not buried in UI.
+- [Phase D2-member-mobile-app-calorie-counter-agent-days-4-7]: D2-05: Dual cache invalidation contract for any food-logging surface — every mutation MUST fire `qc.invalidateQueries({queryKey:['food-entries']})` AND `qc.invalidateQueries({queryKey:['profile']})` so Food tab and Home tab both refresh on next focus. Agent tool log_food_nl (D2-06) must honour this same pattern.
+- [Phase D2-member-mobile-app-calorie-counter-agent-days-4-7]: D2-05: Barcode flow logs at hardcoded 100g default; search flow lets user pick quantity. Asymmetry justified: scanning a packaged product is a wow-moment demo flow where 100g default keeps friction low. CAL-04 adds quantity adjustment to barcode flow in P2.
 
 ### Pending Todos
 
@@ -134,8 +139,8 @@ None tracked as TODOs; everything is in the roadmap / requirements.
 
 ## Session Continuity
 
-Last session: 2026-05-19T13:02:05.395Z
-Stopped at: Completed D2-04-member-home-tab-PLAN.md
+Last session: 2026-05-19T15:30:00.000Z
+Stopped at: Completed D2-05-food-calorie-counter-PLAN.md (resumed mid-Task-1 after crash; Tasks 2-4 + SUMMARY landed in resume session)
 Resume file: None
 
 ### Resume Notes — Next Session Quick-Start
