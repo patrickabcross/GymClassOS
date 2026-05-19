@@ -56,8 +56,8 @@
 
 ### WhatsApp Integration (Meta direct)
 
-- [ ] **WA-01** [D]: Demo can receive at least one inbound WhatsApp message from a real phone and surface it in the inbox UI (HMAC verified, message + conversation persisted)
-- [ ] **WA-02** [D]: Demo can send at least one outbound WhatsApp message from the inbox UI (in-window free-text to a member who recently messaged in)
+- [x] **WA-01** [D]: Demo can receive at least one inbound WhatsApp message from a real phone and surface it in the inbox UI (HMAC verified, message + conversation persisted)
+- [x] **WA-02** [D]: Demo can send at least one outbound WhatsApp message from the inbox UI (in-window free-text to a member who recently messaged in)
 - [ ] **WA-03** [P]: Inbound webhook materialises `conversations` + `messages` from Meta payloads; dedup on `(provider_event_type, external_id)`
 - [ ] **WA-04** [P]: Message status webhooks (`sent`/`delivered`/`read`/`failed`) update `messages.status` via ordinal-guarded UPDATE (never downgrades)
 - [ ] **WA-05** [P]: Single `sendMessage()` chokepoint in the worker is the only path to Meta's send API — `staff-web` enqueues, never calls Meta directly

@@ -76,7 +76,7 @@ Post-v1 backlog (HealthKit + native mobile, Coach View with health context, CRM 
 **Plans:** 6 plans
 
 - [x] D2-01-mobile-shell-auth-PLAN.md — Strip upstream tabs, install deps, build 4-tab GymOS shell + member-picker + AsyncStorage + TanStack Query + apiFetch wrapper + requireDemoMember server helper + `/api/m/members/list` + `/api/m/profile`. Includes the @gorhom/bottom-sheet × Expo Go SDK 55 compatibility spike (Pitfall #4). (MEMAUTH-01 stubbed, MEMBR-03 server side)
-- [ ] D2-02-whatsapp-webhook-outbound-PLAN.md — `templates/mail/app/routes/webhooks.whatsapp.tsx` HMAC-verified inbound receiver (ngrok-tunnelled) + augment `gymos.tsx` send action with real Meta Graph API v23 POST. (WA-01, WA-02)
+- [x] D2-02-whatsapp-webhook-outbound-PLAN.md — `templates/mail/app/routes/webhooks.whatsapp.tsx` HMAC-verified inbound receiver (ngrok-tunnelled) + augment `gymos.tsx` send action with real Meta Graph API v23 POST. (WA-01, WA-02)
 - [ ] D2-03-member-schedule-booking-PLAN.md — `/api/m/schedule` 7-day window + `/api/m/bookings` POST + mobile Schedule tab with day-grouped cards + optimistic UI booking. (MEMBR-01, MEMBR-02)
 - [ ] D2-04-member-home-tab-PLAN.md — SVG-free KcalRing component + Home tab with greeting / pass-balance pill / next-class card / kcal ring + macros. (MEMBR-03)
 - [ ] D2-05-food-calorie-counter-PLAN.md — OFF search + barcode proxy endpoints + food-entries CRUD + BarcodeScanner component (`expo-camera`) + Food tab + /food-add search screen + /food-barcode scan screen. (CAL-01, CAL-02, CAL-03)
