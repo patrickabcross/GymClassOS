@@ -60,5 +60,13 @@ export default createAuthPlugin({
     "/gymos/schedule",
     "/gymos/members",
     "/gymos/payments",
+    // D2-01: mobile-app server routes. /api/m is a prefix match covering
+    // /api/m/members/list, /api/m/profile, /api/m/schedule, /api/m/bookings,
+    // /api/m/food-entries, /api/m/foods/*, /api/m/agent, etc. Each route
+    // gates itself via requireDemoMember (DEMO_MODE + X-Demo-Member-Id).
+    "/api/m",
+    "/pick-member",
+    // D2-02: WhatsApp webhook receiver (HMAC-verified inside the handler).
+    "/webhooks/whatsapp",
   ],
 });

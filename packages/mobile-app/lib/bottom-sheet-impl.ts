@@ -25,11 +25,10 @@ import BottomSheet, { BottomSheetView } from "@gorhom/bottom-sheet";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 export function GestureRoot({ children }: { children: React.ReactNode }) {
-  return React.createElement(
-    GestureHandlerRootView,
-    { style: { flex: 1 } },
+  return React.createElement(GestureHandlerRootView, {
+    style: { flex: 1 },
     children,
-  );
+  });
 }
 
 export type AgentSheetContainerProps = {
@@ -48,19 +47,19 @@ export function AgentSheetContainer({
     if (open) ref.current?.expand();
     else ref.current?.close();
   }, [open]);
-  return React.createElement(
-    BottomSheet,
-    {
-      ref,
-      index: open ? 0 : -1,
-      snapPoints: ["66%"],
-      enablePanDownToClose: true,
-      onClose,
-      backgroundStyle: { backgroundColor: "#1a1a1a" },
-      handleIndicatorStyle: { backgroundColor: "#333" },
-    },
-    React.createElement(BottomSheetView, { style: { flex: 1 } }, children),
-  );
+  return React.createElement(BottomSheet, {
+    ref,
+    index: open ? 0 : -1,
+    snapPoints: ["66%"],
+    enablePanDownToClose: true,
+    onClose,
+    backgroundStyle: { backgroundColor: "#1a1a1a" },
+    handleIndicatorStyle: { backgroundColor: "#333" },
+    children: React.createElement(BottomSheetView, {
+      style: { flex: 1 },
+      children,
+    }),
+  });
 }
 
 export const BOTTOM_SHEET_IMPL: "gorhom" | "rn-modal" = "gorhom";
