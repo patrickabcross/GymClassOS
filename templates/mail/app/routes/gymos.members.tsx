@@ -16,24 +16,37 @@ export function meta() {
 export async function loader({ request }: LoaderFunctionArgs) {
   const db = getDb();
 
-  // All members, alphabetised by first name
-  const members = await db
-    .select()
-    .from(schema.gymMembers)
-    .orderBy(asc(schema.gymMembers.firstName));
-
-  // Pass balance per member = SUM(passes.granted) - SUM(pass_debits.amount)
-  // Two grouped queries instead of a single big join — keeps the SQL legible
-  // and avoids fan-out double-counting if a member has multiple passes with
-  // multiple debits each.
-  const passTotals = await db
+  // All members joined to their passes (left so members without passes still
+  // appear). Then SUM(passes.granted) gives the granted total per member in
+  // one query. We deliberately do NOT chain a second leftJoin to passDebits
+  // here — that fan-outs the rows (one row per (pass, debit) combo) which
+  // would double-count granted. Debits are aggregated separately below and
+  // subtracted in application code.
+  const memberPassRows = await db
     .select({
-      memberId: schema.passes.memberId,
+      id: schema.gymMembers.id,
+      firstName: schema.gymMembers.firstName,
+      lastName: schema.gymMembers.lastName,
+      email: schema.gymMembers.email,
+      phoneE164: schema.gymMembers.phoneE164,
+      goal: schema.gymMembers.goal,
+      activityLevel: schema.gymMembers.activityLevel,
       granted: sql<number>`COALESCE(SUM(${schema.passes.granted}), 0)`,
     })
-    .from(schema.passes)
-    .groupBy(schema.passes.memberId);
+    .from(schema.gymMembers)
+    .leftJoin(schema.passes, eq(schema.passes.memberId, schema.gymMembers.id))
+    .groupBy(
+      schema.gymMembers.id,
+      schema.gymMembers.firstName,
+      schema.gymMembers.lastName,
+      schema.gymMembers.email,
+      schema.gymMembers.phoneE164,
+      schema.gymMembers.goal,
+      schema.gymMembers.activityLevel,
+    )
+    .orderBy(asc(schema.gymMembers.firstName));
 
+  // Debits per member — joined back through passes to get the member_id.
   const debitTotals = await db
     .select({
       memberId: schema.passes.memberId,
@@ -43,14 +56,24 @@ export async function loader({ request }: LoaderFunctionArgs) {
     .leftJoin(schema.passes, eq(schema.passDebits.passId, schema.passes.id))
     .groupBy(schema.passes.memberId);
 
-  const balances: Record<string, number> = {};
-  for (const r of passTotals) {
-    if (r.memberId) balances[r.memberId] = Number(r.granted);
-  }
+  const debitsByMember: Record<string, number> = {};
   for (const r of debitTotals) {
-    if (r.memberId) {
-      balances[r.memberId] = (balances[r.memberId] ?? 0) - Number(r.debited);
-    }
+    if (r.memberId) debitsByMember[r.memberId] = Number(r.debited);
+  }
+
+  const members = memberPassRows.map((m) => ({
+    id: m.id,
+    firstName: m.firstName,
+    lastName: m.lastName,
+    email: m.email,
+    phoneE164: m.phoneE164,
+    goal: m.goal,
+    activityLevel: m.activityLevel,
+  }));
+
+  const balances: Record<string, number> = {};
+  for (const m of memberPassRows) {
+    balances[m.id] = Number(m.granted) - (debitsByMember[m.id] ?? 0);
   }
 
   return { members, balances };
