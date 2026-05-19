@@ -57,5 +57,8 @@ export default createAuthPlugin({
     // without a Google sign-in. Production v1 wires Better-auth with magic-link
     // (member side) + admin/coach roles (staff side).
     "/gymos",
+    "/gymos/schedule",
+    "/gymos/members",
+    "/gymos/payments",
   ],
 });
