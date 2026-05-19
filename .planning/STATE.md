@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed D1-04-inbox-gap-fill-PLAN.md (parallel wave)
-last_updated: "2026-05-19T07:23:39.866Z"
+stopped_at: Completed D1-02-members-directory-PLAN.md (parallel executor)
+last_updated: "2026-05-19T07:24:51.943Z"
 last_activity: 2026-05-19
 progress:
   total_phases: 7
@@ -86,6 +86,8 @@ Decisions are logged in `PROJECT.md` Key Decisions table. Recent ones affecting 
 - **2026-05-17 (late) — Member surface = Expo fork of `packages/mobile-app`** (NOT web PWA as decided earlier same day). Discovered upstream has a full Expo 55 + Expo Router + RN 0.83.9 mobile app — that's the fork target. Reverses the mid-session PWA-only decision.
 - **2026-05-17 (executing D0) — Demo-time fork-boundary loosened:** For demo speed, we edit inside `templates/mail/` directly instead of copy-out to `apps/staff-web/features/`. Post-demo refactor (P0 audit task) will move to the proper fork-boundary layout.
 - [Phase D1-staff-surfaces-adapted-from-mail-calendar-days-2-4]: D1-04: Top-nav lives inline in gymos.tsx for now (sibling routes being built in parallel by other agents); lift to shared layout post-wave. Send-ack via redirect ?sent=1 (server-driven, survives full SSR nav). INBX-07 fork-boundary relocation deferred to P0 audit.
+- [Phase D1-staff-surfaces-adapted-from-mail-calendar-days-2-4]: Pass-balance everywhere = grant SUM minus debit SUM; do them as two separate aggregations, never as a chained leftJoin through pass_debits (fan-out double-counts granted)
+- [Phase D1-staff-surfaces-adapted-from-mail-calendar-days-2-4]: Cross-surface deep-links between GymOS staff routes use search params (?conversation=<id>), reusing existing inbox loader logic — no router config changes needed
 
 ### Pending Todos
 
@@ -113,8 +115,8 @@ None tracked as TODOs; everything is in the roadmap / requirements.
 
 ## Session Continuity
 
-Last session: 2026-05-19T07:23:39.857Z
-Stopped at: Completed D1-04-inbox-gap-fill-PLAN.md (parallel wave)
+Last session: 2026-05-19T07:24:40.330Z
+Stopped at: Completed D1-02-members-directory-PLAN.md (parallel executor)
 Resume file: None
 
 ### Resume Notes — Next Session Quick-Start

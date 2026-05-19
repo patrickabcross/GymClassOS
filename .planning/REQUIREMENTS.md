@@ -106,8 +106,8 @@
 
 ### Staff Web App — Members (CRM)
 
-- [ ] **MEM-01** [D]: Coach can view member directory (demo: 5-10 seeded members visible)
-- [ ] **MEM-02** [D]: Coach can view member profile with: bookings timeline, pass balance, recent food entries (when calorie counter is in)
+- [x] **MEM-01** [D]: Coach can view member directory (demo: 5-10 seeded members visible)
+- [x] **MEM-02** [D]: Coach can view member profile with: bookings timeline, pass balance, recent food entries (when calorie counter is in)
 - [ ] **MEM-03** [P]: Paginated, searchable by name + phone + email
 - [ ] **MEM-04** [P]: Full timeline view: bookings, passes, payments, conversations, food log summary
 - [ ] **MEM-05** [P]: Coach can edit member's name, email, tags, and notes
