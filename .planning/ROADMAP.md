@@ -50,7 +50,7 @@ Post-v1 backlog (HealthKit + native mobile, Coach View with health context, CRM 
 
 **Plans:** 4 plans
 
-- [x] D1-01-schedule-surface-PLAN.md — Build /gymos/schedule week-grid + book-from-occurrence dialog (SCH-01, BKG-01)
+- [x] D1-01-schedule-surface-PLAN.md — Build /gymos/schedule week-grid + book-from-occurrence dialog (SCH-01, BKG-01) — completed 2026-05-19 (commits f5cdbdc6, dd50fe62, 23ee58f2)
 - [ ] D1-02-members-directory-PLAN.md — Build /gymos/members + /gymos/members/:id profile with bookings + pass balance (MEM-01, MEM-02)
 - [ ] D1-03-payments-stripe-checkout-PLAN.md — Build /gymos/payments with Stripe test-mode Checkout + pass grant (PAY-01, STR-01, STR-02)
 - [x] D1-04-inbox-gap-fill-PLAN.md — Add top-nav strip + send acknowledgement + INBX-* audit comments (INBX-01, INBX-02, INBX-03, INBX-06 thin, INBX-07)

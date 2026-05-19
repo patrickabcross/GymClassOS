@@ -47,7 +47,7 @@ Progress: Demo Sprint [██░░░░░░░░] ~20%
 | **D0.4** Schema + seed | ✓ committed (schema) | 12 GymOS tables created in Neon via `mcp__Neon__run_sql_transaction`; seeded 5 members / 5 conversations / 12 messages / 3 class defs / 7 occurrences / 5 passes / 5 food items / 5 food entries |
 | **D0.5** Vercel deploy | ⏳ PENDING | Needs `vercel login` (interactive — Vercel CLI already installed; user is `patrickalexanderross-3109`); needs `NITRO_PRESET=vercel` env var; Mail template currently configured for Netlify (`netlify.toml`). See "Resume notes" below. |
 | **D1 inbox surface** | ✓ committed `a52af154` | `/gymos` route — list of conversations + selected thread + member context panel (the differentiator); demo-quality (reply persists to DB but stubs Meta call) |
-| **D1 schedule surface** | Not started | `/gymos/schedule` weekly calendar from 7 seeded occurrences |
+| **D1 schedule surface** | ✓ committed (`f5cdbdc6` auth, `dd50fe62` loader+grid, `23ee58f2` action) 2026-05-19 | `/gymos/schedule` — week-grid of 7 seeded occurrences, click-card-to-book dialog with member select; demo-grade (no atomic capacity check / no pass debit; flagged for BKG-03/04) |
 | **D1 members directory** | Not started | `/gymos/members` + `/gymos/members/:id` profile |
 | **D2 member mobile app** | Not started | Fork `packages/mobile-app` (Expo 55 + RN 0.83.9) |
 | **D2 calorie counter** | Not started | Build fresh in mobile-app, OFF + USDA data sources |
