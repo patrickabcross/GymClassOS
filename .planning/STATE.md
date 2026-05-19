@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: paused
-stopped_at: Wave 1 partial — D1-01/02/04 complete; D1-03 deferred at Task 1 checkpoint (awaiting STRIPE_SECRET_KEY)
-last_updated: "2026-05-19T07:30:00.000Z"
+status: "Awaiting user action — resume with `/gsd:execute-phase D1`"
+stopped_at: Phase D2 context gathered
+last_updated: "2026-05-19T09:13:07.261Z"
 last_activity: 2026-05-19
 progress:
   total_phases: 7
@@ -120,9 +120,9 @@ None tracked as TODOs; everything is in the roadmap / requirements.
 
 ## Session Continuity
 
-Last session: 2026-05-19T07:24:40.330Z
-Stopped at: Completed D1-02-members-directory-PLAN.md (parallel executor)
-Resume file: None
+Last session: 2026-05-19T09:13:07.235Z
+Stopped at: Phase D2 context gathered
+Resume file: .planning/phases/D2-member-mobile-app-calorie-counter-agent-days-4-7/D2-CONTEXT.md
 
 ### Resume Notes — Next Session Quick-Start
 
