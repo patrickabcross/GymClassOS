@@ -95,13 +95,13 @@
 
 ### Staff Web App — Inbox Surface (Mail template adaptation)
 
-- [ ] **INBX-01** [D]: Coach can view list of conversations (sorted by last-activity) — demo can hardcode-seed 3-5 conversations
-- [ ] **INBX-02** [D]: Coach can open a conversation and see message history with basic delivery indicators
-- [ ] **INBX-03** [D]: Coach can send a free-text WhatsApp message when the conversation is inside the 24-hour window (demo can use a single test member; window check can be relaxed)
+- [x] **INBX-01** [D]: Coach can view list of conversations (sorted by last-activity) — demo can hardcode-seed 3-5 conversations
+- [x] **INBX-02** [D]: Coach can open a conversation and see message history with basic delivery indicators
+- [x] **INBX-03** [D]: Coach can send a free-text WhatsApp message when the conversation is inside the 24-hour window (demo can use a single test member; window check can be relaxed)
 - [ ] **INBX-04** [P]: Coach can send an approved WhatsApp template when out-of-window; UI surfaces template picker
 - [ ] **INBX-05** [P]: UI surfaces window state indicator (in-window / out-of-window with hours-left) on every conversation
-- [ ] **INBX-06** [D+P]: **DIFFERENTIATOR** — Member context panel renders inside the conversation showing: next upcoming class, pass balance + expiry, active subscription, recent food adherence summary, total bookings (demo: thin version with at least 2 of these fields populated from real data)
-- [ ] **INBX-07** [D+P]: Inbox forked from agent-native `templates/mail/` via copy-out into `apps/staff-web/features/inbox/` (NOT edited in `templates/`)
+- [x] **INBX-06** [D+P]: **DIFFERENTIATOR** — Member context panel renders inside the conversation showing: next upcoming class, pass balance + expiry, active subscription, recent food adherence summary, total bookings (demo: thin version with at least 2 of these fields populated from real data)
+- [x] **INBX-07** [D+P]: Inbox forked from agent-native `templates/mail/` via copy-out into `apps/staff-web/features/inbox/` (NOT edited in `templates/`)
 - [ ] **INBX-08** [P]: Filter by unread, search by member name/phone
 
 ### Staff Web App — Members (CRM)

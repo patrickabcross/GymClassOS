@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: D0 complete except Vercel deploy; D1 inbox surface shipped ahead of schedule
-last_updated: "2026-05-19T07:15:54.770Z"
-last_activity: 2026-05-19 -- Phase D1-staff-surfaces-adapted-from-mail-calendar-days-2 execution started
+stopped_at: Completed D1-04-inbox-gap-fill-PLAN.md (parallel wave)
+last_updated: "2026-05-19T07:23:39.866Z"
+last_activity: 2026-05-19
 progress:
   total_phases: 7
   completed_phases: 0
@@ -31,9 +31,9 @@ Requirements: `.planning/REQUIREMENTS.md` (130 reqs across 20 categories — see
 
 Milestone: Demo Sprint (1 of 2) — Week 1 (by ~2026-05-24)
 Phase: D1-staff-surfaces-adapted-from-mail-calendar-days-2 (4) — EXECUTING
-Plan: 1 of 4
-Status: Executing Phase D1-staff-surfaces-adapted-from-mail-calendar-days-2
-Last activity: 2026-05-19 -- Phase D1-staff-surfaces-adapted-from-mail-calendar-days-2 execution started
+Plan: 2 of 4
+Status: Ready to execute
+Last activity: 2026-05-19
 
 Progress: Demo Sprint [██░░░░░░░░] ~20%
 
@@ -85,6 +85,7 @@ Decisions are logged in `PROJECT.md` Key Decisions table. Recent ones affecting 
 - **2026-05-17 (mid-session) — Calorie counter built fresh (NOT fork OpenNutriTracker):** OpenNutriTracker is Flutter + GPL v3 — incompatible.
 - **2026-05-17 (late) — Member surface = Expo fork of `packages/mobile-app`** (NOT web PWA as decided earlier same day). Discovered upstream has a full Expo 55 + Expo Router + RN 0.83.9 mobile app — that's the fork target. Reverses the mid-session PWA-only decision.
 - **2026-05-17 (executing D0) — Demo-time fork-boundary loosened:** For demo speed, we edit inside `templates/mail/` directly instead of copy-out to `apps/staff-web/features/`. Post-demo refactor (P0 audit task) will move to the proper fork-boundary layout.
+- [Phase D1-staff-surfaces-adapted-from-mail-calendar-days-2-4]: D1-04: Top-nav lives inline in gymos.tsx for now (sibling routes being built in parallel by other agents); lift to shared layout post-wave. Send-ack via redirect ?sent=1 (server-driven, survives full SSR nav). INBX-07 fork-boundary relocation deferred to P0 audit.
 
 ### Pending Todos
 
@@ -112,9 +113,9 @@ None tracked as TODOs; everything is in the roadmap / requirements.
 
 ## Session Continuity
 
-Last session: 2026-05-17 (single very long session — multiple major scope pivots + actual fork + schema + seed + first demo route)
-Stopped at: D0 complete except Vercel deploy; D1 inbox surface shipped ahead of schedule
-Resume file: None — STATE.md + git log is sufficient
+Last session: 2026-05-19T07:23:39.857Z
+Stopped at: Completed D1-04-inbox-gap-fill-PLAN.md (parallel wave)
+Resume file: None
 
 ### Resume Notes — Next Session Quick-Start
 
