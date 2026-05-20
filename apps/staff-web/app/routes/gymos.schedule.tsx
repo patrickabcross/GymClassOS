@@ -185,7 +185,7 @@ export default function GymosSchedule() {
   const occFull = occ ? occBookedCount >= occ.capacity : false;
 
   return (
-    <div className="flex h-screen w-screen flex-col bg-background text-foreground">
+    <div className="flex min-h-full w-full flex-col bg-background text-foreground">
       {/* ─── Header ───────────────────────────────────────────────────── */}
       <header className="border-b border-border/50 bg-card/30 px-5 py-3">
         <div className="flex items-center justify-between">

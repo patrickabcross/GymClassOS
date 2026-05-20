@@ -92,7 +92,7 @@ export default function GymosMembers() {
   const data = useLoaderData<typeof loader>();
 
   return (
-    <div className="min-h-screen w-full bg-background text-foreground">
+    <div className="min-h-full w-full bg-background text-foreground">
       <div className="mx-auto max-w-[1024px] px-6 py-8">
         {/* Header */}
         <header className="mb-6 flex items-center justify-between">
