@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: P1b-02 complete; schema migration applied to gymos-demo Neon; 6 new tables + pgcrypto + 2 UNIQUE indexes + window-state VIEW live; ready for Wave 2 sibling (P1b-03 packages/queue + packages/whatsapp) and Wave 3 (P1b-04 edge-webhooks)
-last_updated: "2026-05-20T16:22:50.810Z"
+stopped_at: "P1b-03 complete; @gymos/whatsapp + @gymos/queue workspace packages published with HIGH #6 discriminated InboundWhatsAppPayload union and D-11 guard. Ready for Wave 3 (Plan 04 edge-webhooks Fly receiver consuming both packages)."
+last_updated: "2026-05-20T16:25:25.991Z"
 last_activity: 2026-05-20
 progress:
   total_phases: 7
@@ -31,7 +31,7 @@ Requirements: `.planning/REQUIREMENTS.md` (130 reqs across 20 categories — see
 
 Milestone: Demo Sprint (1 of 2) — Week 1 (by ~2026-05-24)
 Phase: P1b (Webhook + Worker Spine (Stripe + WhatsApp)) — EXECUTING
-Plan: 2 of 9
+Plan: 3 of 9
 Status: Ready to execute
 Last activity: 2026-05-20
 
@@ -116,6 +116,9 @@ Decisions are logged in `PROJECT.md` Key Decisions table. Recent ones affecting 
 - [Phase P1b-webhook-worker-spine-stripe-whatsapp-2-weeks]: P1b-01: Added "/" (exact-match) to apps/staff-web/server/plugins/auth.ts publicPaths so the root _index.tsx redirect to /gymos bypasses upstream Mail's Google sign-in interstitial. matchesPathList() treats "/" as exact-only — no prefix-match risk. Plan 08 (Stripe key rotation UI at /gymos/settings/integrations) will extend this list further.
 - [Phase P1b-webhook-worker-spine-stripe-whatsapp-2-weeks]: P1b-02: P1b additive migration shipped to gymos-demo Neon — 6 new tables (whatsapp_opt_in, whatsapp_templates, stripe_customers, stripe_subscriptions, payments, secrets) + pgcrypto extension + composite UNIQUE(provider, external_id) on webhook_events + partial UNIQUE on messages.external_id WHERE NOT NULL + whatsapp_window_state VIEW. All 9 verification queries pass.
 - [Phase P1b-webhook-worker-spine-stripe-whatsapp-2-weeks]: P1b-02: drizzle-kit migrate hung due to D0.4 MCP-applied baseline; applied 0001 directly via @neondatabase/serverless (statement-by-statement split on --> statement-breakpoint), then seeded drizzle.__drizzle_migrations with SHA-256 hashes of both 0000 + 0001 so future migrate calls are no-ops. Pattern reusable for any future Neon migration where the tracking table is out-of-sync.
+- [Phase P1b]: P1b-03: Used named import { PgBoss } from pg-boss (v12 dropped default export); used Client from @great-detail/whatsapp v9 (not SDK); pg-boss v12 ConstructorOptions no longer accepts retentionDays/archiveCompletedAfterSeconds/deleteAfterDays — moved to per-queue retentionSeconds/deleteAfterSeconds in publish.ts. Pinned versions: pg-boss@12.18.2, @great-detail/whatsapp@9.0.0.
+- [Phase P1b]: P1b-03: Guard script guard-no-whatsapp-in-staff-web.mjs uses Node-native recursive readdirSync walk instead of execSync grep — Windows-friendly, no platform-shell coupling. Wired into root pnpm guards chain.
+- [Phase P1b]: P1b-03: HIGH #6 contract upgrade — InboundWhatsAppPayload now z.discriminatedUnion('kind', [message, status]) with explicit per-variant fields (statusFor/newStatus/timestamp/errorCode?). Receiver (Plan 04) constructs from structured Meta webhook fields; worker (Plan 05) reads typed fields directly — no synthetic-string concat across the receiver↔worker boundary.
 
 ### Pending Todos
 
@@ -144,8 +147,8 @@ None tracked as TODOs; everything is in the roadmap / requirements.
 
 ## Session Continuity
 
-Last session: 2026-05-20T16:22:50.803Z
-Stopped at: P1b-02 complete; schema migration applied to gymos-demo Neon; 6 new tables + pgcrypto + 2 UNIQUE indexes + window-state VIEW live; ready for Wave 2 sibling (P1b-03 packages/queue + packages/whatsapp) and Wave 3 (P1b-04 edge-webhooks)
+Last session: 2026-05-20T16:25:25.984Z
+Stopped at: P1b-03 complete; @gymos/whatsapp + @gymos/queue workspace packages published with HIGH #6 discriminated InboundWhatsAppPayload union and D-11 guard. Ready for Wave 3 (Plan 04 edge-webhooks Fly receiver consuming both packages).
 Resume file: None
 
 ### Resume Notes — Next Session Quick-Start

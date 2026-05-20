@@ -64,7 +64,7 @@
 - [x] **WA-06** [P]: `sendMessage()` enforces the 24-hour window at call time by reading `conversations.last_inbound_at` from the DB (authoritative — UI hints are not trusted); sends outside the window MUST be approved templates or are rejected with a typed error
 - [x] **WA-07** [P]: `whatsapp_opt_in` table tracks per-member opt-in evidence; `sendMessage()` refuses to send if no opt-in is recorded
 - [x] **WA-08** [P]: WhatsApp template send path uses the approved template list from `whatsapp_templates` (synced daily by a worker housekeeping job)
-- [ ] **WA-09** [P]: WhatsApp client wrapped in a thin adapter (`packages/whatsapp/`) so swapping `@great-detail/whatsapp` for hand-rolled Graph API calls is a one-file change
+- [x] **WA-09** [P]: WhatsApp client wrapped in a thin adapter (`packages/whatsapp/`) so swapping `@great-detail/whatsapp` for hand-rolled Graph API calls is a one-file change
 
 ### Staff Authentication
 
