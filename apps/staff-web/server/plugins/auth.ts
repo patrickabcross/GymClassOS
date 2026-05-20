@@ -56,6 +56,12 @@ export default createAuthPlugin({
     // GymOS Demo Sprint — bypass auth on demo routes so we can show the inbox
     // without a Google sign-in. Production v1 wires Better-auth with magic-link
     // (member side) + admin/coach roles (staff side).
+    //
+    // "/" exact-matches the root so the _index.tsx redirect (/ → /gymos)
+    // fires without the upstream Mail Google-sign-in page intercepting first.
+    // matchesPathList() in @agent-native/core/server treats "/" as exact-only
+    // (it won't prefix-match every path) so this is safe.
+    "/",
     "/gymos",
     "/gymos/schedule",
     "/gymos/members",
