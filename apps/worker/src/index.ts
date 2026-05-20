@@ -1,30 +1,56 @@
-// PLACEHOLDER — Plan P1b-05 replaces this with the real pg-boss worker
-// loop (inbound-whatsapp, stripe-event, class-reminder consumers). For
-// now we expose /healthz on port 3002 so Fly's worker-process health
-// check (MEDIUM #10 in P1b-04 fly.toml) reports passing immediately,
-// allowing fly deploy to validate the two-process topology end-to-end
-// before Plan 05 ships the real consumers.
+// Worker entrypoint — replaces the Plan P1b-04 placeholder stub.
 //
-// Contract preserved across the replacement:
-//  - Binds to env.PORT (default 3002)
-//  - GET /healthz returns 200 + JSON { ok: true, version, app: "worker" }
+// Responsibilities:
+//   1. Validate env (DATABASE_URL_UNPOOLED + secrets — PITFALL #1)
+//   2. Boot pg-boss (auto-creates pgboss.* schema on first boss.start())
+//   3. Register all queue subscribers (inbound-whatsapp now; outbound-whatsapp
+//      from Plan 06 and stripe-event from Plan 07 register one boss.work()
+//      each below before start())
+//   4. Bind /healthz on PORT 3002 (MEDIUM #10 — Fly's worker process check
+//      from apps/edge-webhooks/fly.toml probes this endpoint). The endpoint
+//      contract is preserved across the stub→real swap so the live check
+//      stays passing during deploy.
 
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
+import { getBoss } from "./boss.js";
+import { getEnv } from "./lib/env.js";
+import { getLogger } from "./lib/logger.js";
+import { registerInboundWhatsAppWorker } from "./queues/inbound-whatsapp.js";
 
-const app = new Hono();
-app.get("/healthz", (c) =>
-  c.json({
-    ok: true,
-    version: process.env.GIT_SHA ?? "stub",
-    app: "worker",
-    note: "placeholder — see Plan P1b-05 for real worker impl",
-  }),
-);
+async function main() {
+  const env = getEnv();
+  const log = getLogger();
+  log.info({ version: env.GIT_SHA }, "[worker] booting");
 
-const port = Number(process.env.PORT ?? 3002);
-serve({ fetch: app.fetch, port }, (info) => {
-  console.log(
-    `[worker] placeholder healthz listening on :${info.port} — see Plan P1b-05`,
+  const boss = getBoss();
+  boss.on("error", (err) => log.error({ err }, "[pgboss] error"));
+
+  await boss.start();
+  log.info("[pgboss] started — schema migration auto-applied");
+
+  // Queue registrations — one boss.work() per line. Plan 06 + Plan 07 add
+  // outbound-whatsapp + stripe-event registrations alongside this one before
+  // the admin server starts.
+  await registerInboundWhatsAppWorker(boss);
+  log.info("[worker] inbound-whatsapp queue registered");
+
+  // Tiny admin/healthz HTTP for Fly health checks (MEDIUM #10).
+  // MUST listen on PORT 3002 — fly.toml [[services]] for the worker
+  // process targets internal_port=3002 and probes /healthz. Plan 04's
+  // stub bound the same endpoint; we replace the stub here but keep
+  // the contract identical so the live check stays passing.
+  const admin = new Hono();
+  admin.get("/healthz", (c) =>
+    c.json({ ok: true, version: env.GIT_SHA, app: "worker" }),
   );
+
+  serve({ fetch: admin.fetch, port: env.PORT }, (info) => {
+    log.info({ port: info.port }, "[worker] admin healthz listening");
+  });
+}
+
+main().catch((err) => {
+  console.error("[worker] fatal", err);
+  process.exit(1);
 });

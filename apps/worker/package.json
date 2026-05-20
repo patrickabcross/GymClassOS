@@ -11,11 +11,25 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@gymos/queue": "workspace:*",
+    "@gymos/whatsapp": "workspace:*",
     "@hono/node-server": "^1.13.0",
-    "hono": "^4.6.0"
+    "@neondatabase/serverless": "^1.1.0",
+    "date-fns": "^4.1.0",
+    "drizzle-orm": "^0.45.2",
+    "hono": "^4.6.0",
+    "nanoid": "^5.1.0",
+    "pg": "^8.13.0",
+    "pg-boss": "^12.18.0",
+    "pino": "^9.5.0",
+    "stripe": "^19.0.0",
+    "ws": "^8.18.0",
+    "zod": "^4.0.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "@types/pg": "^8.11.0",
+    "@types/ws": "^8.5.0",
     "tsx": "catalog:",
     "typescript": "catalog:",
     "vitest": "^2.0.0"
