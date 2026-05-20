@@ -1,20 +1,26 @@
-// GymOS WhatsApp Inbox — Demo Sprint D1.
-// Self-contained route that bypasses Mail's email-specific layout to render
-// our conversations + messages + member context panel.
+// GymOS WhatsApp Inbox — P1b (post-spine).
 //
-// Lives at /gymos (?conversation=conv_01 to select). Standalone for the demo;
-// will be refactored into apps/staff-web/features/inbox/ post-demo per the
-// agent-native fork boundary (PROJECT.md).
+// P1b-08 refactor (2026-05-20): Send action no longer calls Meta directly.
+// Outbound flow is now:
+//   1. action() inserts messages row with status='queued' (D-18 optimistic)
+//   2. enqueueOutboundWhatsApp({messageId, memberId, payload}) hands the job
+//      to pg-boss
+//   3. worker's outbound-whatsapp queue handler runs sendMessage() chokepoint
+//      (24h-window + opt-in + template-approved gates) and POSTs to Meta v23
+//   4. inbound webhook updates messages.status as Meta delivers
 //
-// Requirements covered (Demo Sprint D1):
-// - INBX-01 conversation list sorted by last-activity (left rail)
-// - INBX-02 open thread + message history with status text (centre)
-// - INBX-03 send free-text within 24h window (demo: persists to DB, no Meta send)
-// - INBX-06 member context panel — pass balance, next class, lifetime bookings,
-//   today's nutrition, goal (right rail) — DIFFERENTIATOR
-// - INBX-07 demo interpretation: top-nav strip ties inbox + schedule + members
-//   + payments into one cohesive staff surface (production fork-boundary
-//   relocation to apps/staff-web/features/inbox/ deferred per STATE.md)
+// D-19 defence-in-depth: this UI pre-gates Send when the loader knows the
+// member is out-of-window or has no opt-in, but the worker re-checks at send
+// time — UI cache can be stale.
+//
+// D-20 badge UX: every conversation row + the thread header show window-state.
+// LOW #12: badges use Tabler IconPointFilled (NOT the bullet character),
+// resolving AGENTS.md "no emojis as icons" ambiguity.
+//
+// Requirements covered:
+// - WA-05: single sendMessage chokepoint — staff-web NEVER calls Meta
+// - WA-07: opt-in gate surfaced in UI (worker still enforces)
+// - INBX-01..03, INBX-06, INBX-07 (carried from D1)
 
 import {
   useSearchParams,
@@ -24,8 +30,11 @@ import {
   Link,
 } from "react-router";
 import { useState } from "react";
-import { eq, desc, sql } from "drizzle-orm";
+import { eq, desc, sql, inArray } from "drizzle-orm";
+import { nanoid } from "nanoid";
+import { IconPointFilled } from "@tabler/icons-react";
 import { getDb, schema } from "../../server/db";
+import { enqueueOutboundWhatsApp } from "@/lib/queue-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -64,6 +73,60 @@ export async function loader({ request }: LoaderFunctionArgs) {
       eq(schema.conversations.memberId, schema.gymMembers.id),
     )
     .orderBy(desc(schema.conversations.updatedAt));
+
+  // ─── Window state + opt-in fan-out (P1b-08 / D-19 / D-20) ──────────────
+  //
+  // whatsapp_window_state is a Drizzle-managed VIEW (Plan 02) — not exported
+  // as a Drizzle table, so we query via raw SQL. D-15 chose VIEW over a
+  // materialised mirror so the value is always fresh against
+  // conversations.last_inbound_at.
+
+  const conversationIds = conversationsRows.map((c) => c.id);
+  const memberIds = conversationsRows
+    .map((c) => c.memberId)
+    .filter((m): m is string => Boolean(m));
+
+  const windowMap: Record<
+    string,
+    { inWindow: boolean; hoursLeft: number | null }
+  > = {};
+  if (conversationIds.length > 0) {
+    // guard:allow-unscoped — coach inbox shows all conversations in the studio
+    //
+    // staff-web's `db` proxy is typed as LibSQLDatabase (framework default) but
+    // resolves to a Neon/Postgres driver at runtime via DATABASE_URL. Postgres
+    // Drizzle exposes .execute(); the cast keeps TS happy without changing the
+    // runtime behaviour. whatsapp_window_state is a VIEW (Plan 02) — not a
+    // Drizzle table export, so we query it via raw SQL.
+    const windowRows = await (db as any).execute(sql`
+      SELECT conversation_id, in_window, hours_left
+      FROM whatsapp_window_state
+      WHERE conversation_id IN (${sql.join(
+        conversationIds.map((id) => sql`${id}`),
+        sql`, `,
+      )})
+    `);
+    const rows =
+      (windowRows as any)?.rows ?? (windowRows as any as any[]) ?? [];
+    for (const r of rows) {
+      windowMap[r.conversation_id as string] = {
+        inWindow: Boolean(r.in_window),
+        hoursLeft: r.hours_left !== null ? Number(r.hours_left) : null,
+      };
+    }
+  }
+
+  const optInSet = new Set<string>();
+  if (memberIds.length > 0) {
+    // guard:allow-unscoped — coach inbox shows all conversations in the studio
+    const optInRows = await db
+      .select({ memberId: schema.whatsappOptIn.memberId })
+      .from(schema.whatsappOptIn)
+      .where(inArray(schema.whatsappOptIn.memberId, memberIds));
+    for (const r of optInRows) optInSet.add(r.memberId);
+  }
+  const optInByMemberId: Record<string, boolean> = {};
+  for (const id of memberIds) optInByMemberId[id] = optInSet.has(id);
 
   let selectedConversation = null;
   let selectedMessages: any[] = [];
@@ -172,10 +235,17 @@ export async function loader({ request }: LoaderFunctionArgs) {
     selectedMember,
     memberStats,
     upcomingBooking,
+    windowStateByConvId: windowMap,
+    optInByMemberId,
   };
 }
 
-// ─── Action: send outbound message ───────────────────────────────────────────
+// ─── Action: enqueue outbound message (P1b-08) ───────────────────────────────
+//
+// D-18 optimistic insert: messages row written with status='queued' BEFORE
+// the enqueue call. The UI re-fetches via redirect and the queued bubble
+// renders immediately. Worker flips status to 'sent' (+ external_id) or
+// 'failed' (+ error_code) as it processes.
 
 export async function action({ request }: ActionFunctionArgs) {
   const formData = await request.formData();
@@ -184,109 +254,57 @@ export async function action({ request }: ActionFunctionArgs) {
   if (!conversationId || !body) {
     return { error: "Missing conversation or body" };
   }
-  const db = getDb();
-  const id = `msg_${crypto.randomUUID()}`;
-  const now = new Date().toISOString();
 
-  // Resolve recipient phone via conversation → member
-  // guard:allow-unscoped — demo D-07
+  const db = getDb();
+
+  // guard:allow-unscoped — P1b spine; full coach role check ships in P1a/AUTH-04
   const conv = await db
     .select({
+      id: schema.conversations.id,
       memberId: schema.conversations.memberId,
-      lastInboundAt: schema.conversations.lastInboundAt,
     })
     .from(schema.conversations)
     .where(eq(schema.conversations.id, conversationId))
     .limit(1)
     .then((r) => r[0] ?? null);
   if (!conv) {
-    return { error: "Conversation not found" };
-  }
-  // guard:allow-unscoped — demo D-07
-  const member = await db
-    .select({ phoneE164: schema.gymMembers.phoneE164 })
-    .from(schema.gymMembers)
-    .where(eq(schema.gymMembers.id, conv.memberId))
-    .limit(1)
-    .then((r) => r[0] ?? null);
-  const toPhone = member?.phoneE164 ?? null;
-
-  // DEMO ONLY: 24h window NOT enforced here (deferred to P1b / WA-05/WA-06).
-  // Demo discipline: send only to a number that just messaged inbound.
-  // UI shows lastInboundAt; operator chooses not to send out-of-window.
-
-  // Try Meta Graph API v23 if configured. Falls back to the stub send when
-  // env vars are missing (so dev environments without WhatsApp config keep
-  // working). On Meta failure: insert row with status='failed' + error.
-  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
-  const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
-  let externalId: string | null = null;
-  let sendStatus: "sent" | "failed" = "sent";
-  let sendError: string | null = null;
-
-  if (phoneNumberId && accessToken && toPhone) {
-    try {
-      const metaRes = await fetch(
-        `https://graph.facebook.com/v23.0/${phoneNumberId}/messages`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${accessToken}`,
-          },
-          body: JSON.stringify({
-            messaging_product: "whatsapp",
-            to: toPhone.replace(/^\+/, ""),
-            type: "text",
-            text: { body },
-          }),
-        },
-      );
-      const json = (await metaRes.json()) as any;
-      if (!metaRes.ok) {
-        sendStatus = "failed";
-        sendError = `Meta ${metaRes.status}: ${JSON.stringify(json?.error ?? json)}`;
-        console.error("[whatsapp outbound]", sendError);
-      } else {
-        externalId = json?.messages?.[0]?.id ?? null;
-      }
-    } catch (err: any) {
-      sendStatus = "failed";
-      sendError = `Network: ${err?.message ?? String(err)}`;
-      console.error("[whatsapp outbound]", sendError);
-    }
-  } else {
-    // Demo fallback: env not configured — keep the stub behaviour.
-    console.warn(
-      "[whatsapp outbound] WHATSAPP_ACCESS_TOKEN or WHATSAPP_PHONE_NUMBER_ID not set — stubbing send (status='sent', externalId=null)",
-    );
+    throw new Response("Conversation not found", { status: 404 });
   }
 
+  // D-18: OPTIMISTIC insert with status='queued'. The bubble renders on the
+  // next render pass; the worker will flip to 'sent' / 'failed' as it picks
+  // up the job.
+  const messageId = `msg_${nanoid()}`;
+  const nowIso = new Date().toISOString();
   await db.insert(schema.messages).values({
-    id,
+    id: messageId,
     conversationId,
     direction: "out",
     messageType: "text",
     body,
-    externalId,
-    status: sendStatus,
-    error: sendError,
-    createdAt: now,
-    sentAt: sendStatus === "sent" ? now : null,
+    status: "queued",
+    createdAt: nowIso,
   });
 
+  // Update conversation preview so the inbox list reflects the latest send
+  // without waiting for worker completion.
   await db
     .update(schema.conversations)
     .set({
-      lastOutboundAt:
-        sendStatus === "sent" ? now : (conv.lastInboundAt ?? undefined),
       lastMessagePreview: body,
-      updatedAt: now,
+      updatedAt: nowIso,
     })
     .where(eq(schema.conversations.id, conversationId));
 
-  const sentParam = sendStatus === "sent" ? "1" : "0";
-  return redirect(`/gymos?conversation=${conversationId}&sent=${sentParam}`);
+  // Hand the job to pg-boss (-> worker -> sendMessage chokepoint -> Meta v23).
+  // No direct Meta Graph API call here per D-11 / WA-05.
+  await enqueueOutboundWhatsApp({
+    messageId,
+    memberId: conv.memberId,
+    payload: { type: "text", body },
+  });
+
+  return redirect(`/gymos?conversation=${conversationId}&sent=1`);
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -302,26 +320,25 @@ function relativeTime(iso: string | null) {
   return `${Math.floor(diff / 86400)}d`;
 }
 
-function windowState(lastInbound: string | null) {
-  if (!lastInbound) return { ok: false, label: "No inbound yet" };
-  const since = (Date.now() - new Date(lastInbound).getTime()) / 1000 / 3600;
-  if (since > 24) {
-    return {
-      ok: false,
-      label: `Out of window (${Math.floor(since)}h ago) — template only`,
-    };
-  }
-  const remaining = 24 - since;
-  return {
-    ok: true,
-    label: `In window — ${remaining.toFixed(1)}h left`,
-  };
+// D-19 failed-bubble copy. Worker writes typed codes (NO_OPT_IN,
+// WINDOW_EXPIRED, TEMPLATE_NOT_APPROVED) into messages.error_code. We map
+// to friendly copy on render; unknown codes fall back to the raw value so
+// triage isn't silently swallowed.
+function failedCopy(errorCode: string | null | undefined): string {
+  const err = errorCode ?? "";
+  if (err.includes("WINDOW_EXPIRED") || err.includes("WindowExpiredError"))
+    return "Couldn't send — outside 24-hour window. Use a template.";
+  if (err.includes("NO_OPT_IN") || err.includes("NoOptInError"))
+    return "Couldn't send — member hasn't opted in to WhatsApp messages.";
+  if (
+    err.includes("TEMPLATE_NOT_APPROVED") ||
+    err.includes("TemplateNotApprovedError")
+  )
+    return "Couldn't send — template isn't approved yet.";
+  return err ? `Couldn't send — ${err}` : "Couldn't send.";
 }
 
 // ─── Route ───────────────────────────────────────────────────────────────────
-//
-// The shared top-nav lives in the parent gymos.tsx layout; this route just
-// renders the 3-column inbox content inside the layout's <Outlet />.
 
 export default function GymosInbox() {
   const data = useLoaderData<typeof loader>();
@@ -329,9 +346,13 @@ export default function GymosInbox() {
   const selectedId = params.get("conversation");
   const [reply, setReply] = useState("");
 
-  const ws = data.selectedConversation
-    ? windowState(data.selectedConversation.lastInboundAt)
+  const selectedWs = data.selectedConversation
+    ? data.windowStateByConvId[data.selectedConversation.id]
     : null;
+  const selectedHasOptIn = data.selectedConversation
+    ? Boolean(data.optInByMemberId[data.selectedConversation.memberId])
+    : false;
+  const canSendText = Boolean(selectedWs?.inWindow) && selectedHasOptIn;
 
   return (
     <div className="flex h-full w-full overflow-hidden">
@@ -353,6 +374,9 @@ export default function GymosInbox() {
             const isSelected = c.id === selectedId;
             const name =
               `${c.firstName ?? ""} ${c.lastName ?? ""}`.trim() || "Unknown";
+            const ws = data.windowStateByConvId[c.id];
+            const inWindow = Boolean(ws?.inWindow);
+            const hoursLeft = ws?.hoursLeft ?? null;
             return (
               <Link
                 key={c.id}
@@ -381,6 +405,31 @@ export default function GymosInbox() {
                 <p className="text-[12px] text-muted-foreground line-clamp-2">
                   {c.lastMessagePreview ?? "No messages yet"}
                 </p>
+                {/* D-20 window-state badge (LOW #12: Tabler IconPointFilled, not the bullet char) */}
+                <span className="mt-1 inline-flex items-center gap-1 text-[10px]">
+                  {inWindow ? (
+                    <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+                      <IconPointFilled
+                        size={8}
+                        className="text-emerald-500"
+                        aria-hidden
+                      />
+                      in window
+                      {hoursLeft !== null
+                        ? ` · ${Math.floor(hoursLeft)}h left`
+                        : ""}
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 text-muted-foreground">
+                      <IconPointFilled
+                        size={8}
+                        className="text-zinc-400"
+                        aria-hidden
+                      />
+                      out of window — template only
+                    </span>
+                  )}
+                </span>
               </Link>
             );
           })}
@@ -405,18 +454,31 @@ export default function GymosInbox() {
                   {data.selectedMember?.phoneE164}
                 </p>
               </div>
-              {ws && (
-                <span
-                  className={cn(
-                    "text-[10px] font-medium px-2 py-1 rounded",
-                    ws.ok
-                      ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
-                      : "bg-amber-500/15 text-amber-700 dark:text-amber-300",
-                  )}
-                >
-                  {ws.label}
-                </span>
-              )}
+              {/* D-20 thread-header window-state badge (LOW #12: IconPointFilled) */}
+              {selectedWs ? (
+                selectedWs.inWindow ? (
+                  <span className="inline-flex items-center gap-1.5 text-[11px] font-medium px-2 py-1 rounded bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
+                    <IconPointFilled
+                      size={10}
+                      className="text-emerald-500"
+                      aria-hidden
+                    />
+                    in window
+                    {selectedWs.hoursLeft !== null
+                      ? ` · ${Math.floor(selectedWs.hoursLeft)}h left`
+                      : ""}
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 text-[11px] font-medium px-2 py-1 rounded bg-zinc-500/15 text-zinc-700 dark:text-zinc-300">
+                    <IconPointFilled
+                      size={10}
+                      className="text-zinc-400"
+                      aria-hidden
+                    />
+                    out of window — template only
+                  </span>
+                )
+              ) : null}
             </header>
 
             <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
@@ -432,7 +494,9 @@ export default function GymosInbox() {
                     className={cn(
                       "rounded-2xl px-3.5 py-2 text-[13px] leading-relaxed",
                       m.direction === "out"
-                        ? "bg-primary text-primary-foreground"
+                        ? m.status === "failed"
+                          ? "bg-red-500/10 text-red-900 dark:text-red-200 border border-red-500/30"
+                          : "bg-primary text-primary-foreground"
                         : "bg-muted/70",
                     )}
                   >
@@ -442,17 +506,15 @@ export default function GymosInbox() {
                     {relativeTime(m.createdAt)}
                     {m.direction === "out" && ` · ${m.status}`}
                   </span>
+                  {/* D-19 failed-bubble error copy */}
+                  {m.direction === "out" && m.status === "failed" && (
+                    <p className="text-[11px] text-red-600 dark:text-red-400 mt-1 px-1">
+                      {failedCopy(m.errorCode)}
+                    </p>
+                  )}
                 </div>
               ))}
             </div>
-
-            {params.get("sent") === "1" && (
-              <div className="px-5 py-2 bg-emerald-500/10 border-t border-emerald-500/20 text-[11px] text-emerald-700 dark:text-emerald-300">
-                Sent (demo) — message persisted to DB. Production sends would go
-                through pg-boss → worker → Meta API with 24h-window + opt-in
-                checks.
-              </div>
-            )}
 
             <Form
               method="post"
@@ -469,21 +531,23 @@ export default function GymosInbox() {
                   value={reply}
                   onChange={(e) => setReply(e.target.value)}
                   placeholder={
-                    ws?.ok
-                      ? "Type a reply..."
-                      : "Out of 24h window — template send required (not in demo)"
+                    !selectedHasOptIn
+                      ? "Member hasn't opted in to WhatsApp messages"
+                      : !selectedWs?.inWindow
+                        ? "Out of 24h window — use a template (P2)"
+                        : "Type a reply..."
                   }
-                  disabled={!ws?.ok}
+                  disabled={!canSendText}
                   className="text-[13px]"
                 />
-                <Button type="submit" disabled={!ws?.ok || !reply.trim()}>
+                <Button type="submit" disabled={!canSendText || !reply.trim()}>
                   Send
                 </Button>
               </div>
               <p className="text-[10px] text-muted-foreground mt-1.5">
-                Demo: messages persist to DB but don't actually call Meta.
-                Production sends go through pg-boss → worker → Meta API with
-                opt-in + window enforcement at the sender layer.
+                Sends route through pg-boss → worker → Meta v23. The worker
+                re-checks opt-in + 24h-window at the chokepoint (defence in
+                depth — UI cache can be stale).
               </p>
             </Form>
           </>
