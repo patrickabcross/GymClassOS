@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: "Completed P1b-04-edge-webhooks-fly-receiver-PLAN.md — apps/edge-webhooks/ Hono receiver compiled + tested (15 tests pass); fly.toml + Dockerfile + worker stub ready for fly deploy to iad (Task 4 checkpoint:human-verify auto-approved). 6 deviations auto-fixed (cross-app schema import → local mirror; Stripe dahlia literal → cast; pg-core receivedAt default; Vitest vi.hoisted; worker tsconfig types:[node]; tsconfig exclude tests from dist). Ready for Plan P1b-05 (worker — replaces apps/worker/src/index.ts with real pg-boss consumer)."
-last_updated: "2026-05-20T16:48:16.455Z"
+stopped_at: "Completed P1b-05-worker-inbound-whatsapp-PLAN.md — apps/worker/ replaces Plan 04 stub with real pg-boss subscriber loop. inbound-whatsapp queue handler dispatches on typed payload.kind (HIGH #6 — message vs status), materialises conversations + messages with race-safe onConflictDoNothing on partial-UNIQUE external_id (HIGH #4), and ordinal-guards status transitions with updated_at = NOW() (PITFALL #11 + Blocker #2). 12 unit tests pass (7 messageStatus + 5 conversations). 1 deviation auto-fixed (pg-boss v12 teamSize/teamConcurrency → batchSize/localConcurrency). Ready for Plan P1b-06 (sendMessage chokepoint — imports errors.ts; registers outbound-whatsapp boss.work next to inbound)."
+last_updated: "2026-05-20T17:02:26.832Z"
 last_activity: 2026-05-20
 progress:
   total_phases: 7
@@ -31,7 +31,7 @@ Requirements: `.planning/REQUIREMENTS.md` (130 reqs across 20 categories — see
 
 Milestone: Demo Sprint (1 of 2) — Week 1 (by ~2026-05-24)
 Phase: P1b (Webhook + Worker Spine (Stripe + WhatsApp)) — EXECUTING
-Plan: 4 of 9
+Plan: 5 of 9
 Status: Ready to execute
 Last activity: 2026-05-20
 
@@ -123,6 +123,9 @@ Decisions are logged in `PROJECT.md` Key Decisions table. Recent ones affecting 
 - [Phase P1b-webhook-worker-spine-stripe-whatsapp-2-weeks]: P1b-04: Stripe apiVersion pinned to '2026-04-22.dahlia' via 'as Stripe.LatestApiVersion' cast. SDK 19.3.1 literal-types LatestApiVersion as '2025-10-29.clover'; cast keeps runtime pin (PITFALL #3) without delaying P1b on SDK bump. Drop cast when SDK ships dahlia literal.
 - [Phase P1b-webhook-worker-spine-stripe-whatsapp-2-weeks]: P1b-04: Worker /healthz stub (apps/worker/src/index.ts) created in Plan 04 NOT deferred to Plan 05. Required so fly.toml worker http_check (MEDIUM #10) passes on first deploy and two-process topology can be verified end-to-end. Plan 05 overwrites src/index.ts with real pg-boss consumer while preserving /healthz contract on port 3002.
 - [Phase P1b-webhook-worker-spine-stripe-whatsapp-2-weeks]: P1b-04: Vitest mock factories use vi.hoisted(() => ({...})) for shared mock fns referenced inside vi.mock(). Plain const + vi.fn() fails with TDZ ReferenceError because vi.mock() is hoisted above all imports. Documented Vitest pattern.
+- [Phase P1b-webhook-worker-spine-stripe-whatsapp-2-weeks]: P1b-05: pg-boss v12 dropped v11's teamSize/teamConcurrency from WorkOptions — mapped to batchSize: 5 (jobs/poll) + localConcurrency: 5 (in-process workers). D-14 concurrency=5 semantic preserved. Plan 06/07 must use same v12 names.
+- [Phase P1b-webhook-worker-spine-stripe-whatsapp-2-weeks]: P1b-05: Local Drizzle pg-core mirror in apps/worker/src/lib/db.ts (NOT cross-app schema import from apps/staff-web) — same pattern Plan 04 used; sidesteps dialect-typing-as-sqlite friction. Plan 09 extracts packages/db/.
+- [Phase P1b-webhook-worker-spine-stripe-whatsapp-2-weeks]: P1b-05: registerInboundWhatsAppWorker shipped as stub at Task 1 commit + real impl at Task 2 (instead of plan's 'comment out the import' trick). Keeps every commit independently compilable. Plan 06/07 should follow the same pattern when adding outbound-whatsapp + stripe-event workers.
 
 ### Pending Todos
 
@@ -151,8 +154,8 @@ None tracked as TODOs; everything is in the roadmap / requirements.
 
 ## Session Continuity
 
-Last session: 2026-05-20T16:48:16.447Z
-Stopped at: Completed P1b-04-edge-webhooks-fly-receiver-PLAN.md — apps/edge-webhooks/ Hono receiver compiled + tested (15 tests pass); fly.toml + Dockerfile + worker stub ready for fly deploy to iad (Task 4 checkpoint:human-verify auto-approved). 6 deviations auto-fixed (cross-app schema import → local mirror; Stripe dahlia literal → cast; pg-core receivedAt default; Vitest vi.hoisted; worker tsconfig types:[node]; tsconfig exclude tests from dist). Ready for Plan P1b-05 (worker — replaces apps/worker/src/index.ts with real pg-boss consumer).
+Last session: 2026-05-20T17:02:26.823Z
+Stopped at: Completed P1b-05-worker-inbound-whatsapp-PLAN.md — apps/worker/ replaces Plan 04 stub with real pg-boss subscriber loop. inbound-whatsapp queue handler dispatches on typed payload.kind (HIGH #6 — message vs status), materialises conversations + messages with race-safe onConflictDoNothing on partial-UNIQUE external_id (HIGH #4), and ordinal-guards status transitions with updated_at = NOW() (PITFALL #11 + Blocker #2). 12 unit tests pass (7 messageStatus + 5 conversations). 1 deviation auto-fixed (pg-boss v12 teamSize/teamConcurrency → batchSize/localConcurrency). Ready for Plan P1b-06 (sendMessage chokepoint — imports errors.ts; registers outbound-whatsapp boss.work next to inbound).
 Resume file: None
 
 ### Resume Notes — Next Session Quick-Start
