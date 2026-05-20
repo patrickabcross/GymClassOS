@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: "Completed P1b-05-worker-inbound-whatsapp-PLAN.md — apps/worker/ replaces Plan 04 stub with real pg-boss subscriber loop. inbound-whatsapp queue handler dispatches on typed payload.kind (HIGH #6 — message vs status), materialises conversations + messages with race-safe onConflictDoNothing on partial-UNIQUE external_id (HIGH #4), and ordinal-guards status transitions with updated_at = NOW() (PITFALL #11 + Blocker #2). 12 unit tests pass (7 messageStatus + 5 conversations). 1 deviation auto-fixed (pg-boss v12 teamSize/teamConcurrency → batchSize/localConcurrency). Ready for Plan P1b-06 (sendMessage chokepoint — imports errors.ts; registers outbound-whatsapp boss.work next to inbound)."
-last_updated: "2026-05-20T17:02:26.832Z"
+stopped_at: "Completed P1b-06-worker-sendmessage-chokepoint-PLAN.md — sendMessage chokepoint (D-10, WA-05) is the single call site of @gymos/whatsapp in the worker. Composes 3 gates in order (opt-in WA-07 → 24h-window WA-06 → template-approved WA-08) BEFORE any Meta API call. outbound-whatsapp pg-boss queue registered at concurrency=1 (D-14, v12 names batchSize=1+localConcurrency=1). 18 new unit tests (7 windowGate + 2 optInGate + 2 templateGate + 9 sendMessage); 32/32 worker suite green. 4 deviations auto-fixed (pg-boss v12 names, language type fix, schema mirror extension, mock pattern correction). Ready for Plan P1b-07 (stripe-event reducer — same pattern: register another boss.work() in worker index, mirror stripe_customers/stripe_subscriptions/payments in apps/worker/src/lib/db.ts)."
+last_updated: "2026-05-20T17:15:07.690Z"
 last_activity: 2026-05-20
 progress:
   total_phases: 7
@@ -31,7 +31,7 @@ Requirements: `.planning/REQUIREMENTS.md` (130 reqs across 20 categories — see
 
 Milestone: Demo Sprint (1 of 2) — Week 1 (by ~2026-05-24)
 Phase: P1b (Webhook + Worker Spine (Stripe + WhatsApp)) — EXECUTING
-Plan: 5 of 9
+Plan: 6 of 9
 Status: Ready to execute
 Last activity: 2026-05-20
 
@@ -126,6 +126,10 @@ Decisions are logged in `PROJECT.md` Key Decisions table. Recent ones affecting 
 - [Phase P1b-webhook-worker-spine-stripe-whatsapp-2-weeks]: P1b-05: pg-boss v12 dropped v11's teamSize/teamConcurrency from WorkOptions — mapped to batchSize: 5 (jobs/poll) + localConcurrency: 5 (in-process workers). D-14 concurrency=5 semantic preserved. Plan 06/07 must use same v12 names.
 - [Phase P1b-webhook-worker-spine-stripe-whatsapp-2-weeks]: P1b-05: Local Drizzle pg-core mirror in apps/worker/src/lib/db.ts (NOT cross-app schema import from apps/staff-web) — same pattern Plan 04 used; sidesteps dialect-typing-as-sqlite friction. Plan 09 extracts packages/db/.
 - [Phase P1b-webhook-worker-spine-stripe-whatsapp-2-weeks]: P1b-05: registerInboundWhatsAppWorker shipped as stub at Task 1 commit + real impl at Task 2 (instead of plan's 'comment out the import' trick). Keeps every commit independently compilable. Plan 06/07 should follow the same pattern when adding outbound-whatsapp + stripe-event workers.
+- [Phase P1b-webhook-worker-spine-stripe-whatsapp-2-weeks]: P1b-06: sendMessage chokepoint (apps/worker/src/domain/sendMessage.ts) is the SINGLE call site of @gymos/whatsapp in the worker. Composes 3 gates in order: opt-in → window → template-approved. Throws typed errors (NoOptInError, WindowExpiredError, TemplateNotApprovedError) BEFORE any Meta API call (verified by tests counting fetch mock calls = 0).
+- [Phase P1b-webhook-worker-spine-stripe-whatsapp-2-weeks]: P1b-06: Status state machine split between sendMessage (post-Meta-call: 4xx terminal sets status='failed', returns externalId=''; 5xx re-throws for pg-boss retry; 2xx sets status='sent'+external_id) and outbound-whatsapp queue handler (pre-Meta-call gate refusals: catches typed errors, writes status='failed' with the typed .code, returns normally to mark job complete).
+- [Phase P1b-webhook-worker-spine-stripe-whatsapp-2-weeks]: P1b-06: Drizzle mock pattern in vitest — Drizzle's query builder is a thenable, so awaiting calls .then(resolve) directly with the rows array. Mock the terminal chain method (.limit(1) or .where()) with mockResolvedValueOnce(rows) instead of mocking .then. Pattern reusable for Plan 07 (stripe-event) + any future worker test.
+- [Phase P1b-webhook-worker-spine-stripe-whatsapp-2-weeks]: P1b-06: For staff-web (Plan 08) — failed-bubble copy can map directly off messages.error_code values. Stable typed codes: NO_OPT_IN, WINDOW_EXPIRED, TEMPLATE_NOT_APPROVED. Pre-flight UX hints (read whatsapp_opt_in + conversations.last_inbound_at) MAY disable Send / nudge to template, but MUST NOT bypass the worker chokepoint — D-19 defence in depth: UI cache can be stale.
 
 ### Pending Todos
 
@@ -154,8 +158,8 @@ None tracked as TODOs; everything is in the roadmap / requirements.
 
 ## Session Continuity
 
-Last session: 2026-05-20T17:02:26.823Z
-Stopped at: Completed P1b-05-worker-inbound-whatsapp-PLAN.md — apps/worker/ replaces Plan 04 stub with real pg-boss subscriber loop. inbound-whatsapp queue handler dispatches on typed payload.kind (HIGH #6 — message vs status), materialises conversations + messages with race-safe onConflictDoNothing on partial-UNIQUE external_id (HIGH #4), and ordinal-guards status transitions with updated_at = NOW() (PITFALL #11 + Blocker #2). 12 unit tests pass (7 messageStatus + 5 conversations). 1 deviation auto-fixed (pg-boss v12 teamSize/teamConcurrency → batchSize/localConcurrency). Ready for Plan P1b-06 (sendMessage chokepoint — imports errors.ts; registers outbound-whatsapp boss.work next to inbound).
+Last session: 2026-05-20T17:15:07.682Z
+Stopped at: Completed P1b-06-worker-sendmessage-chokepoint-PLAN.md — sendMessage chokepoint (D-10, WA-05) is the single call site of @gymos/whatsapp in the worker. Composes 3 gates in order (opt-in WA-07 → 24h-window WA-06 → template-approved WA-08) BEFORE any Meta API call. outbound-whatsapp pg-boss queue registered at concurrency=1 (D-14, v12 names batchSize=1+localConcurrency=1). 18 new unit tests (7 windowGate + 2 optInGate + 2 templateGate + 9 sendMessage); 32/32 worker suite green. 4 deviations auto-fixed (pg-boss v12 names, language type fix, schema mirror extension, mock pattern correction). Ready for Plan P1b-07 (stripe-event reducer — same pattern: register another boss.work() in worker index, mirror stripe_customers/stripe_subscriptions/payments in apps/worker/src/lib/db.ts).
 Resume file: None
 
 ### Resume Notes — Next Session Quick-Start

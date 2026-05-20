@@ -60,7 +60,7 @@
 - [x] **WA-02** [D]: Demo can send at least one outbound WhatsApp message from the inbox UI (in-window free-text to a member who recently messaged in)
 - [x] **WA-03** [P]: Inbound webhook materialises `conversations` + `messages` from Meta payloads; dedup on `(provider_event_type, external_id)`
 - [x] **WA-04** [P]: Message status webhooks (`sent`/`delivered`/`read`/`failed`) update `messages.status` via ordinal-guarded UPDATE (never downgrades)
-- [ ] **WA-05** [P]: Single `sendMessage()` chokepoint in the worker is the only path to Meta's send API — `staff-web` enqueues, never calls Meta directly
+- [x] **WA-05** [P]: Single `sendMessage()` chokepoint in the worker is the only path to Meta's send API — `staff-web` enqueues, never calls Meta directly
 - [x] **WA-06** [P]: `sendMessage()` enforces the 24-hour window at call time by reading `conversations.last_inbound_at` from the DB (authoritative — UI hints are not trusted); sends outside the window MUST be approved templates or are rejected with a typed error
 - [x] **WA-07** [P]: `whatsapp_opt_in` table tracks per-member opt-in evidence; `sendMessage()` refuses to send if no opt-in is recorded
 - [x] **WA-08** [P]: WhatsApp template send path uses the approved template list from `whatsapp_templates` (synced daily by a worker housekeeping job)
