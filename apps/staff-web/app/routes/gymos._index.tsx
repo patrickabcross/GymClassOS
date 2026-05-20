@@ -354,9 +354,10 @@ export default function GymosInbox() {
             const name =
               `${c.firstName ?? ""} ${c.lastName ?? ""}`.trim() || "Unknown";
             return (
-              <a
+              <Link
                 key={c.id}
-                href={`/gymos?conversation=${c.id}`}
+                to={`/gymos?conversation=${c.id}`}
+                preventScrollReset
                 className={cn(
                   "block px-4 py-3 border-b border-border/30 hover:bg-accent/40 transition",
                   isSelected && "bg-accent/60",
@@ -380,7 +381,7 @@ export default function GymosInbox() {
                 <p className="text-[12px] text-muted-foreground line-clamp-2">
                   {c.lastMessagePreview ?? "No messages yet"}
                 </p>
-              </a>
+              </Link>
             );
           })}
         </div>

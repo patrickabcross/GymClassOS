@@ -21,7 +21,7 @@ export default function GymosLayout() {
   return (
     <div className="flex flex-col h-screen w-screen bg-background text-foreground">
       <GymosTopNav />
-      <div className="flex-1 min-h-0 overflow-y-auto">
+      <div className="flex-1 min-h-0 overflow-hidden">
         <Outlet />
       </div>
     </div>

@@ -18,7 +18,7 @@ export function meta() {
 
 export default function GymosPayments() {
   return (
-    <div className="min-h-full w-full bg-background text-foreground">
+    <div className="h-full w-full overflow-y-auto bg-background text-foreground">
       <div className="mx-auto max-w-[720px] px-6 py-12">
         <header className="mb-6">
           <div className="flex items-center gap-3">

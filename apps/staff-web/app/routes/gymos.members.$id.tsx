@@ -152,7 +152,7 @@ export default function GymosMemberProfile() {
   );
 
   return (
-    <div className="min-h-full w-full bg-background text-foreground">
+    <div className="h-full w-full overflow-y-auto bg-background text-foreground">
       <div className="mx-auto max-w-[960px] px-6 py-8 space-y-6">
         {/* ─── Header ─────────────────────────────────────────────────── */}
         <div>
