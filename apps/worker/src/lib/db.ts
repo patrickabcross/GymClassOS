@@ -63,6 +63,35 @@ export const conversations = pgTable("conversations", {
     .default(sql`now()`),
 });
 
+// WA-07: WhatsApp opt-in evidence (added Plan 06 — sendMessage gate read).
+export const whatsappOptIn = pgTable("whatsapp_opt_in", {
+  memberId: text("member_id").primaryKey(),
+  optedInAt: text("opted_in_at")
+    .notNull()
+    .default(sql`now()`),
+  evidenceMessageId: text("evidence_message_id"),
+  evidencePayload: text("evidence_payload"),
+  source: text("source", {
+    enum: ["inbound_reply", "manual_admin", "import"],
+  }).notNull(),
+});
+
+// WA-08: WhatsApp templates synced from Meta (added Plan 06 — sendMessage gate read).
+export const whatsappTemplates = pgTable("whatsapp_templates", {
+  name: text("name").primaryKey(),
+  status: text("status", {
+    enum: ["pending", "approved", "rejected", "paused", "disabled"],
+  }).notNull(),
+  category: text("category", {
+    enum: ["utility", "marketing", "authentication"],
+  }),
+  language: text("language").notNull().default("en_US"),
+  componentsJson: text("components_json").notNull(),
+  lastSyncedAt: text("last_synced_at")
+    .notNull()
+    .default(sql`now()`),
+});
+
 export const messages = pgTable(
   "messages",
   {
@@ -110,6 +139,8 @@ export const schema = {
   gymMembers,
   conversations,
   messages,
+  whatsappOptIn,
+  whatsappTemplates,
 };
 
 let _db: ReturnType<typeof drizzle> | undefined;
