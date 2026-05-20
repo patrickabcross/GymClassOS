@@ -158,7 +158,7 @@ The production milestone is structured as 4 phases (preserving the prior coarse-
 - [x] P1b-05-worker-inbound-whatsapp-PLAN.md — apps/worker bootstrap + inbound-whatsapp queue handler (concurrency=5); upsertConversationAndMessage + ordinal-guarded status updates (WEB-04/05, WA-03/04)
 - [x] P1b-06-worker-sendmessage-chokepoint-PLAN.md — Three gates (opt-in, window, template-approved) + sendMessage chokepoint + outbound-whatsapp queue (concurrency=1); typed errors NoOptInError/WindowExpiredError/TemplateNotApprovedError (WA-05/06/07/08/09)
 - [x] P1b-07-worker-stripe-reducers-PLAN.md — 6 Stripe reducers (checkout.session.completed, invoice.paid/payment_failed, subscription.updated/deleted, charge.refunded) + single TX + apiVersion pin '2026-04-22.dahlia' + pgcrypto-encrypted secrets storage + rotation-capable getStripeSecretKey (WEB-06, STR-03..07)
-- [ ] P1b-08-staffweb-outbound-rotation-PLAN.md — /gymos Send action refactored to enqueue (no direct Meta) + loader exposes whatsapp_window_state + opt-in; UI badges + Send gate + D-19 failed-bubble copy; /gymos/settings/integrations Stripe key rotation (WA-05/08)
+- [x] P1b-08-staffweb-outbound-rotation-PLAN.md — /gymos Send action refactored to enqueue (no direct Meta) + loader exposes whatsapp_window_state + opt-in; UI badges + Send gate + D-19 failed-bubble copy; /gymos/settings/integrations Stripe key rotation (WA-05/08)
 - [ ] P1b-09-validation-cutover-PLAN.md — WA-08 daily template-sync cron via pg-boss schedule + integration tests for the 4 D-23 scenarios + Meta/Stripe URL flip + DELETE templates/mail/webhooks.whatsapp.tsx (D-05 last task) (WA-08)
 
 ### Phase P2: Staff + Member Product Surfaces (~3–4 weeks)
