@@ -19,6 +19,7 @@ import { getLogger } from "./lib/logger.js";
 import { registerInboundWhatsAppWorker } from "./queues/inbound-whatsapp.js";
 import { registerOutboundWhatsAppWorker } from "./queues/outbound-whatsapp.js";
 import { registerStripeEventWorker } from "./queues/stripe-event.js";
+import { registerHousekeeping } from "./queues/housekeeping.js";
 
 async function main() {
   const env = getEnv();
@@ -42,6 +43,11 @@ async function main() {
 
   await registerStripeEventWorker(boss);
   log.info("[worker] stripe-event queue registered");
+
+  // WA-08: daily template-sync cron via pg-boss schedule (Plan P1b-09).
+  // Registered last so the schedule has all worker queues consuming first.
+  await registerHousekeeping(boss);
+  log.info("[worker] housekeeping (templates-sync) registered");
 
   // Tiny admin/healthz HTTP for Fly health checks (MEDIUM #10).
   // MUST listen on PORT 3002 — fly.toml [[services]] for the worker

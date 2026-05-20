@@ -14,6 +14,12 @@ const EnvSchema = z.object({
   WHATSAPP_ACCESS_TOKEN: z.string().min(8),
   WHATSAPP_PHONE_NUMBER_ID: z.string().min(4),
 
+  // WA-08 (Plan 09 housekeeping cron — daily template sync from Meta).
+  // Optional: when absent, the templates-sync handler logs a warning and
+  // returns; worker still boots. Plan 09 docs how to set this in the
+  // post-cutover RUNBOOK.
+  WHATSAPP_BUSINESS_ACCOUNT_ID: z.string().min(4).optional(),
+
   // Stripe (Plan 07 reducers)
   STRIPE_SECRET_KEY: z
     .string()
