@@ -18,6 +18,7 @@ import { getEnv } from "./lib/env.js";
 import { getLogger } from "./lib/logger.js";
 import { registerInboundWhatsAppWorker } from "./queues/inbound-whatsapp.js";
 import { registerOutboundWhatsAppWorker } from "./queues/outbound-whatsapp.js";
+import { registerStripeEventWorker } from "./queues/stripe-event.js";
 
 async function main() {
   const env = getEnv();
@@ -38,6 +39,9 @@ async function main() {
 
   await registerOutboundWhatsAppWorker(boss);
   log.info("[worker] outbound-whatsapp queue registered");
+
+  await registerStripeEventWorker(boss);
+  log.info("[worker] stripe-event queue registered");
 
   // Tiny admin/healthz HTTP for Fly health checks (MEDIUM #10).
   // MUST listen on PORT 3002 — fly.toml [[services]] for the worker
