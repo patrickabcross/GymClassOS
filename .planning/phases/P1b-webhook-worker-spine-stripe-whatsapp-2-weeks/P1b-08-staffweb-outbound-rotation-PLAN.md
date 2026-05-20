@@ -20,14 +20,15 @@ must_haves:
     - "Inbox loader reads whatsapp_opt_in per member → exposes optInState={hasOptIn} to client"
     - "Send button disabled when payload.type='text' AND !inWindow (UI pre-gate per D-19)"
     - "Conversation list AND thread header show window-state badge: in-window with hours-left OR out-of-window grey badge (D-20)"
+    - "Window-state badges use the Tabler IconPointFilled icon (NOT the U+25CF bullet character ●) — LOW #12 fix; resolves AGENTS.md no-emojis-as-icons ambiguity. Same pattern used in /gymos/settings/integrations for the current-key status indicator."
     - "Failed messages display error_code-derived friendly copy (D-19): WindowExpiredError, NoOptInError, TemplateNotApproved"
     - "/gymos/settings/integrations route accepts new Stripe restricted key, validates via stripe.accounts.retrieve(), encrypts + writes to secrets table via worker's writeSecret pattern"
     - "Stripe key rotation does NOT cause downtime — old key remains active until new key succeeds + write completes (atomic UPSERT)"
   artifacts:
     - path: "apps/staff-web/app/routes/gymos.tsx"
-      provides: "Updated inbox route — Send action enqueues instead of direct Meta call; loader exposes window/opt-in state; UI shows badges + failed-bubble error copy"
+      provides: "Updated inbox route — Send action enqueues instead of direct Meta call; loader exposes window/opt-in state; UI shows IconPointFilled-based badges + failed-bubble error copy"
     - path: "apps/staff-web/app/routes/gymos.settings.integrations.tsx"
-      provides: "NEW route — Stripe key rotation form + validate-and-encrypt + audit message"
+      provides: "NEW route — Stripe key rotation form + validate-and-encrypt + audit message; uses IconPointFilled for current-key status (LOW #12)"
     - path: "apps/staff-web/app/lib/queue-client.ts"
       provides: "Re-export of @gymos/queue publishers + Drizzle write helper for messages.status='queued' insert"
       exports: ["enqueueOutboundWhatsApp", "insertQueuedOutboundMessage"]
@@ -40,6 +41,10 @@ must_haves:
       to: "whatsapp_window_state VIEW"
       via: "SELECT in_window, hours_left FROM whatsapp_window_state WHERE conversation_id = ..."
       pattern: "whatsapp_window_state"
+    - from: "apps/staff-web/app/routes/gymos.tsx JSX badges"
+      to: "@tabler/icons-react IconPointFilled"
+      via: "import { IconPointFilled } from '@tabler/icons-react' + <IconPointFilled size={8} className=... /> (LOW #12 — resolves ● glyph ambiguity)"
+      pattern: "IconPointFilled"
     - from: "apps/staff-web/app/routes/gymos.settings.integrations.tsx action()"
       to: "writeSecret pattern (raw SQL INSERT/UPDATE secrets with pgp_sym_encrypt)"
       via: "Drizzle db.execute(sql`INSERT INTO secrets ... pgp_sym_encrypt(...) ON CONFLICT (name) DO UPDATE`)"
@@ -47,7 +52,7 @@ must_haves:
 ---
 
 <objective>
-Wire staff-web (Vercel) into the P1b spine: (a) the inbox /gymos Send action stops calling Meta directly and instead inserts a queued messages row + enqueues via @gymos/queue; the loader exposes per-conversation window-state + opt-in-state; the UI gates Send button + shows badges + renders failed-bubble error copy (D-18, D-19, D-20); (b) a new /gymos/settings/integrations route lets an admin paste a new Stripe restricted key, validates it via stripe.accounts.retrieve(), and stores it pgcrypto-encrypted in `secrets` table — rotation without downtime (success criterion #6).
+Wire staff-web (Vercel) into the P1b spine: (a) the inbox /gymos Send action stops calling Meta directly and instead inserts a queued messages row + enqueues via @gymos/queue; the loader exposes per-conversation window-state + opt-in-state; the UI gates Send button + shows badges (using Tabler IconPointFilled, not the ● glyph — LOW #12) + renders failed-bubble error copy (D-18, D-19, D-20); (b) a new /gymos/settings/integrations route lets an admin paste a new Stripe restricted key, validates it via stripe.accounts.retrieve(), and stores it pgcrypto-encrypted in `secrets` table — rotation without downtime (success criterion #6).
 
 Purpose: WA-05 (single sendMessage chokepoint — staff-web NEVER calls Meta), WA-08 (template send via approved list — UI surfaces this; full picker is P2/INBX-04), plus P1b success criterion #6 (Stripe restricted key validity check + rotate without downtime).
 Output: Coach hits Send → queued message renders optimistically → worker processes → status updates flow back. Admin hits /gymos/settings/integrations → paste key → validate → store encrypted.
@@ -77,6 +82,11 @@ secrets table: { name PK, ciphertext, updated_at, last_used_at }
 <!-- From Plan 03 -->
 @gymos/queue exports: enqueueOutboundWhatsApp({ messageId, memberId, payload })
 
+<!-- Tabler icon — LOW #12: use this instead of the ● U+25CF bullet glyph -->
+import { IconPointFilled } from "@tabler/icons-react";
+// In-window:    <IconPointFilled size={8} className="text-emerald-500 inline" />
+// Out-of-window: <IconPointFilled size={8} className="text-zinc-400 inline" />
+
 <!-- Current gymos.tsx action signature (Plan 01 copy of demo) -->
 export async function action({ request }: ActionFunctionArgs) {
   const fd = await request.formData();
@@ -91,15 +101,15 @@ NoOptInError: "Couldn't send — member hasn't opted in to WhatsApp messages."
 TemplateNotApproved: "Couldn't send — template '{name}' isn't approved yet."
 
 <!-- D-20 window-state badge copy -->
-In-window: "in window · {hoursLeft}h left" (green)
-Out-of-window: "out of window — template only" (grey)
+In-window: IconPointFilled (emerald-500) + "in window · {hoursLeft}h left"
+Out-of-window: IconPointFilled (zinc-400) + "out of window — template only"
 </interfaces>
 </context>
 
 <tasks>
 
 <task type="auto">
-  <name>Task 1: Refactor gymos.tsx Send action to enqueue (D-18) + add window/opt-in state to loader (D-19)</name>
+  <name>Task 1: Refactor gymos.tsx Send action to enqueue (D-18) + add window/opt-in state to loader (D-19) + use IconPointFilled badges (LOW #12)</name>
   <files>apps/staff-web/app/routes/gymos.tsx, apps/staff-web/app/lib/queue-client.ts</files>
   <read_first>
     - apps/staff-web/app/routes/gymos.tsx (full file — current loader + action; ~600 lines)
@@ -108,7 +118,7 @@ Out-of-window: "out of window — template only" (grey)
     - .planning/phases/P1b-webhook-worker-spine-stripe-whatsapp-2-weeks/P1b-CONTEXT.md (D-18 optimistic insert, D-19 defence-in-depth, D-20 badge copy)
     - .planning/phases/P1b-webhook-worker-spine-stripe-whatsapp-2-weeks/P1b-RESEARCH.md §"Staff-web action call site" lines 580-625
     - CLAUDE.md (Optimistic UI default — no spinner-after-click; insert+enqueue then redirect)
-    - AGENTS.md (no-emojis-as-icons — use Tabler Icons for any new indicator; the green/grey dot text-only is fine per CONTEXT specifics §emoji exceptions for status indicators)
+    - AGENTS.md "Tabler Icons" rule — use IconPointFilled, NOT the U+25CF bullet character (LOW #12). The bullet glyph sits in the ambiguous zone between Unicode shapes and emoji icons; the project's icon rule resolves the ambiguity by mandating Tabler.
   </read_first>
   <action>
     Concrete steps:
@@ -131,6 +141,8 @@ Out-of-window: "out of window — template only" (grey)
        // Add imports at top:
        import { nanoid } from "nanoid";
        import { enqueueOutboundWhatsApp } from "~/lib/queue-client";
+       // LOW #12 fix: replace the ● bullet with the Tabler icon
+       import { IconPointFilled } from "@tabler/icons-react";
 
        // Replace the action body:
        export async function action({ request }: ActionFunctionArgs) {
@@ -225,26 +237,28 @@ Out-of-window: "out of window — template only" (grey)
 
     4. Edit the JSX. Locate the conversation list (probably renders `{data.conversations.map((c) => ...)}` or similar):
 
-       a. Add a window-state badge to each conversation list row. After the conversation name / last_message_preview, render:
+       a. Add a window-state badge to each conversation list row using the Tabler IconPointFilled (LOW #12 — NOT the ● U+25CF bullet character). After the conversation name / last_message_preview, render:
        ```tsx
-       <span className="text-[10px] text-muted-foreground">
+       <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
          {data.windowStateByConvId[c.id]?.inWindow ? (
-           <span className="text-emerald-600">
-             ● in window
+           <span className="inline-flex items-center gap-1 text-emerald-600">
+             <IconPointFilled size={8} className="text-emerald-500" aria-hidden />
+             in window
              {data.windowStateByConvId[c.id]?.hoursLeft !== null
                ? ` · ${Math.floor(data.windowStateByConvId[c.id]!.hoursLeft!)}h left`
                : ""}
            </span>
          ) : (
-           <span className="text-muted-foreground">
-             ● out of window — template only
+           <span className="inline-flex items-center gap-1 text-muted-foreground">
+             <IconPointFilled size={8} className="text-zinc-400" aria-hidden />
+             out of window — template only
            </span>
          )}
        </span>
        ```
-       NOTE: per AGENTS.md "no-emojis-as-icons" rule — the bullet character `●` (U+25CF) is a Unicode geometric shape, NOT an emoji icon. It IS allowed per CONTEXT.md "emoji exceptions for status indicators" interpretation. If the project enforces stricter, swap for a Tabler `IconPointFilled` from @tabler/icons-react.
+       LOW #12 NOTE: explicitly use `<IconPointFilled />` from `@tabler/icons-react` (already a Plan-01 dep — agent-native templates import Tabler everywhere). Do NOT use the `●` (U+25CF) bullet character — it sits in the ambiguous zone between Unicode geometric shapes and emoji icons, and AGENTS.md "Tabler Icons" rule mandates Tabler for all UI-chosen indicators.
 
-       b. Locate the thread-header area (around line 480 in original demo). Add the same badge prominently.
+       b. Locate the thread-header area (around line 480 in original demo). Add the same IconPointFilled-prefixed badge prominently.
 
        c. Locate the Send button + Input (around lines 509-524). Update:
        ```tsx
@@ -295,7 +309,7 @@ Out-of-window: "out of window — template only" (grey)
 
     6. Run `pnpm install` if @gymos/queue dep was just added (Plan 03 already added it).
     7. Run `pnpm --filter @gymos/staff-web exec tsc --noEmit` — exits 0.
-    8. Boot locally: `pnpm --filter @gymos/staff-web dev`. Open /gymos. Click conversation. Verify window-state badge renders. Verify Send button is disabled when out-of-window. Click Send when in-window — message appears with status='queued', the form clears, the redirect renders the new message.
+    8. Boot locally: `pnpm --filter @gymos/staff-web dev`. Open /gymos. Click conversation. Verify window-state badge renders WITH the Tabler IconPointFilled dot (NOT the ● bullet). Verify Send button is disabled when out-of-window. Click Send when in-window — message appears with status='queued', the form clears, the redirect renders the new message.
     9. Run `npx prettier --write apps/staff-web/app/routes/gymos.tsx apps/staff-web/app/lib/queue-client.ts`.
   </action>
   <verify>
@@ -313,14 +327,17 @@ Out-of-window: "out of window — template only" (grey)
     - `apps/staff-web/app/routes/gymos.tsx` contains string `WINDOW_EXPIRED` (failed-bubble error matching)
     - `apps/staff-web/app/routes/gymos.tsx` contains string `NO_OPT_IN`
     - `apps/staff-web/app/routes/gymos.tsx` contains string `outside 24-hour window` (D-19 copy)
+    - `apps/staff-web/app/routes/gymos.tsx` contains string `IconPointFilled` (LOW #12 — Tabler icon import + usage)
+    - `apps/staff-web/app/routes/gymos.tsx` contains string `from "@tabler/icons-react"` (LOW #12 — explicit Tabler import)
+    - `apps/staff-web/app/routes/gymos.tsx` does NOT contain the bare character `●` (U+25CF) — LOW #12. Verify with: `grep -P "\\xe2\\x97\\x8f" apps/staff-web/app/routes/gymos.tsx` (UTF-8 bytes for ●) returns nothing. Equivalent ASCII-only check: file does not contain the literal three-byte sequence `0xE2 0x97 0x8F`.
     - `apps/staff-web/app/lib/queue-client.ts` EXISTS and exports enqueueOutboundWhatsApp
     - `pnpm --filter @gymos/staff-web exec tsc --noEmit` exits 0
   </acceptance_criteria>
-  <done>Inbox /gymos enqueues via @gymos/queue; UI shows window-state badges + disables Send appropriately; failed messages render friendly D-19 error copy.</done>
+  <done>Inbox /gymos enqueues via @gymos/queue; UI shows window-state badges with Tabler IconPointFilled (LOW #12); disables Send appropriately; failed messages render friendly D-19 error copy.</done>
 </task>
 
 <task type="auto">
-  <name>Task 2: Create /gymos/settings/integrations route — Stripe restricted-key rotation flow (success criterion #6)</name>
+  <name>Task 2: Create /gymos/settings/integrations route — Stripe restricted-key rotation flow (success criterion #6) with IconPointFilled status (LOW #12)</name>
   <files>apps/staff-web/app/routes/gymos.settings.integrations.tsx, apps/staff-web/server/plugins/auth.ts</files>
   <read_first>
     - apps/staff-web/server/plugins/auth.ts (publicPaths — add /gymos/settings/integrations OR rely on existing /gymos prefix match if such match exists)
@@ -330,24 +347,26 @@ Out-of-window: "out of window — template only" (grey)
     - apps/staff-web/server/db/schema.ts (secrets table from Plan 02)
     - .planning/phases/P1b-webhook-worker-spine-stripe-whatsapp-2-weeks/P1b-RESEARCH.md §"Open Questions #5" (Stripe scope assertions)
     - CLAUDE.md (no-unscoped-queries — secrets table is studio-global, requires guard:allow-unscoped comment)
-    - AGENTS.md (Optimistic UI default — but rotation is destructive, OK to show a spinner)
+    - AGENTS.md (Tabler Icons rule — use IconPointFilled for current-key status indicator, LOW #12)
   </read_first>
   <action>
     Concrete steps:
 
     1. Update `apps/staff-web/server/plugins/auth.ts` publicPaths to include the new settings route IF needed. Actually `/gymos` prefix already matches `/gymos/settings/integrations` (RR v7 publicPaths are typically prefix matches via the `createAuthPlugin` source — verify by reading the auth plugin source if uncertain). If not a prefix match, add `"/gymos/settings/integrations"` to the list.
 
-    2. Create `apps/staff-web/app/routes/gymos.settings.integrations.tsx`:
+    2. Create `apps/staff-web/app/routes/gymos.settings.integrations.tsx` — LOW #12: current-key status uses IconPointFilled, NOT the ● bullet:
 
        ```tsx
        import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
        import { Form, useActionData, useLoaderData, useNavigation } from "react-router";
        import { sql } from "drizzle-orm";
        import Stripe from "stripe";
+       import { IconPointFilled } from "@tabler/icons-react";
        import { getDb, schema } from "../../server/db";
 
        // STR-01: pgcrypto-encrypted Stripe restricted key storage + rotation flow.
        // Success criterion #6: admin can rotate without downtime.
+       // LOW #12: status indicator uses Tabler IconPointFilled (NOT ● U+25CF bullet).
 
        export async function loader(_: LoaderFunctionArgs) {
          const db = getDb();
@@ -458,17 +477,30 @@ Out-of-window: "out of window — template only" (grey)
 
              <div className="rounded-lg border border-border/50 p-4 mb-6 bg-card/30">
                <div className="text-xs text-muted-foreground mb-1">Current key</div>
-               <div className="text-sm">
+               <div className="text-sm inline-flex items-center gap-2">
                  {data.keyPresent ? (
                    <>
-                     <span className="text-emerald-600 font-medium">●</span> set —
-                     updated {data.updatedAt}
-                     {data.lastUsedAt && ` · last used ${data.lastUsedAt}`}
+                     <IconPointFilled
+                       size={10}
+                       className="text-emerald-500"
+                       aria-hidden
+                     />
+                     <span className="font-medium">set</span>
+                     <span className="text-muted-foreground">
+                       — updated {data.updatedAt}
+                       {data.lastUsedAt && ` · last used ${data.lastUsedAt}`}
+                     </span>
                    </>
                  ) : (
                    <>
-                     <span className="text-muted-foreground">●</span> not set
-                     (worker falls back to env <code>STRIPE_SECRET_KEY</code>)
+                     <IconPointFilled
+                       size={10}
+                       className="text-zinc-400"
+                       aria-hidden
+                     />
+                     <span className="text-muted-foreground">
+                       not set (worker falls back to env <code>STRIPE_SECRET_KEY</code>)
+                     </span>
                    </>
                  )}
                </div>
@@ -517,12 +549,12 @@ Out-of-window: "out of window — template only" (grey)
     3. Verify the route is accessible:
        - `pnpm --filter @gymos/staff-web dev`
        - Open http://localhost:8081/gymos/settings/integrations
-       - The page should render (auth bypass via /gymos publicPath prefix).
+       - The page should render (auth bypass via /gymos publicPath prefix). Status indicator should show the Tabler dot icon (NOT the ● bullet).
 
     4. Smoke test:
        - Paste a known-bad key like `rk_test_invalid` → expect "Stripe rejected the key" error.
        - Paste a real test key from Stripe Dashboard → expect "Key rotated successfully."
-       - Reload — "Current key" section shows `set — updated <timestamp>`.
+       - Reload — "Current key" section shows `set — updated <timestamp>` with the green Tabler dot.
 
     5. Verify DB row:
        ```sql
@@ -544,16 +576,19 @@ Out-of-window: "out of window — template only" (grey)
     - File contains string `"2026-04-22.dahlia"` (apiVersion pin — PITFALL #3)
     - File contains string `// guard:allow-unscoped` (secrets table access)
     - File contains string `PGCRYPTO_MASTER_KEY` (env read for master key)
+    - File contains string `IconPointFilled` (LOW #12 — Tabler icon used for status indicator)
+    - File contains string `from "@tabler/icons-react"` (LOW #12 — explicit Tabler import)
+    - File does NOT contain the bare character `●` (U+25CF) — LOW #12. Verify with: `grep -P "\\xe2\\x97\\x8f" apps/staff-web/app/routes/gymos.settings.integrations.tsx` returns nothing.
     - File renders BOTH loader data (current key status) AND action result (rotation success/failure)
     - `pnpm --filter @gymos/staff-web exec tsc --noEmit` exits 0
   </acceptance_criteria>
-  <done>/gymos/settings/integrations route lets admin paste new Stripe restricted key, validates via accounts.retrieve(), stores pgcrypto-encrypted. Old key stays active until next worker read.</done>
+  <done>/gymos/settings/integrations route lets admin paste new Stripe restricted key, validates via accounts.retrieve(), stores pgcrypto-encrypted. Old key stays active until next worker read. Current-key status indicator uses Tabler IconPointFilled (LOW #12).</done>
 </task>
 
 <task type="checkpoint:human-verify" gate="blocking">
   <name>Task 3: End-to-end staff-web → Fly → worker → Meta send flow + Stripe rotation</name>
   <what-built>
-    Staff-web Send action now enqueues instead of calling Meta directly. Inbox UI exposes window-state + opt-in state via badges + Send-button gates. Failed messages render D-19 error copy. Stripe key rotation route exists at /gymos/settings/integrations.
+    Staff-web Send action now enqueues instead of calling Meta directly. Inbox UI exposes window-state + opt-in state via badges (with Tabler IconPointFilled dots per LOW #12) + Send-button gates. Failed messages render D-19 error copy. Stripe key rotation route exists at /gymos/settings/integrations with the same icon treatment for the current-key status.
   </what-built>
   <files>(human verification — no specific file write; see &lt;how-to-verify&gt; below)</files>
   <action>
@@ -577,7 +612,7 @@ Out-of-window: "out of window — template only" (grey)
           ON CONFLICT (member_id) DO NOTHING;
           UPDATE conversations SET last_inbound_at = NOW() WHERE member_id = '<seeded-member-id>';
           ```
-       b. Open /gymos in browser, click the conversation. Verify the window-state badge shows "in window · ~24h left".
+       b. Open /gymos in browser, click the conversation. Verify the window-state badge shows the GREEN Tabler dot + "in window · ~24h left" (LOW #12 — green IconPointFilled, NOT the ● bullet character).
        c. Type "Test outbound from P1b-08" and click Send.
        d. Expected: message appears in thread with status='queued' (clock icon or "queued" suffix).
        e. Within ~5s, refresh page (TanStack focus refetch). Expected: message status flips to 'sent' (and shortly 'delivered' / 'read' if real WhatsApp number receives).
@@ -594,7 +629,7 @@ Out-of-window: "out of window — template only" (grey)
           UPDATE conversations SET last_inbound_at = NOW() - INTERVAL '25 hours'
           WHERE member_id = '<seeded-member-id>';
           ```
-       b. Reload /gymos. Window-state badge should show "out of window — template only".
+       b. Reload /gymos. Window-state badge should show the GREY Tabler dot + "out of window — template only".
        c. Send button should be disabled. Input placeholder should say "Out of 24h window — use a template (P2)".
        d. (Optional) If you bypass the UI gate via direct enqueue, the worker should mark the message status='failed' with error_code='WINDOW_EXPIRED'.
 
@@ -616,10 +651,10 @@ Out-of-window: "out of window — template only" (grey)
        b. Reload /gymos and open the conversation. Verify the two failed messages render with the respective D-19 copy.
 
     6. **Stripe rotation flow** (success criterion #6):
-       a. Open /gymos/settings/integrations.
+       a. Open /gymos/settings/integrations. Verify the "Current key" line uses a Tabler dot icon (LOW #12), NOT the ● bullet character.
        b. Paste an invalid key like `rk_test_invalid_1234` → expect "Stripe rejected" error.
        c. Paste a valid test restricted key from your Stripe Dashboard → expect "Key rotated successfully."
-       d. Reload — verify "Current key: set — updated <recent timestamp>".
+       d. Reload — verify "Current key: set — updated <recent timestamp>" with green Tabler dot.
        e. Verify in Neon:
           ```sql
           SELECT name, updated_at, length(ciphertext) FROM secrets;
@@ -632,12 +667,13 @@ Out-of-window: "out of window — template only" (grey)
   <resume-signal>Type "approved" if all 5 end-to-end scenarios work as expected.</resume-signal>
   <acceptance_criteria>
     - User confirms in-window outbound flow: queued → sent + external_id populated
-    - User confirms out-of-window UI disables Send + shows "template only" badge
+    - User confirms out-of-window UI disables Send + shows "template only" badge (with grey Tabler dot)
     - User confirms no-opt-in UI disables Send + shows opt-in placeholder
     - User confirms failed-bubble D-19 error copy renders
     - User confirms Stripe rotation: validate → store encrypted → worker reads new key
+    - User confirms window-state badges and the current-key indicator use the Tabler IconPointFilled dot (NOT the ● bullet character) — LOW #12
   </acceptance_criteria>
-  <done>Staff-web fully integrated with the worker spine. Defence-in-depth (UI pre-gate + worker enforce) confirmed. Stripe rotation works without downtime.</done>
+  <done>Staff-web fully integrated with the worker spine. Defence-in-depth (UI pre-gate + worker enforce) confirmed. Stripe rotation works without downtime. UI indicators use Tabler IconPointFilled per LOW #12.</done>
 </task>
 
 </tasks>
@@ -647,6 +683,8 @@ Out-of-window: "out of window — template only" (grey)
 - gymos.tsx does NOT contain direct Meta API calls (grep returns no `graph.facebook.com`)
 - gymos.tsx contains enqueueOutboundWhatsApp + status='queued' insert
 - gymos.tsx loader queries whatsapp_window_state VIEW + whatsapp_opt_in table
+- gymos.tsx AND gymos.settings.integrations.tsx import IconPointFilled from @tabler/icons-react (LOW #12)
+- Neither file contains the bare ● (U+25CF) character — LOW #12
 - Send button disabled when out-of-window or no-opt-in (UI pre-gate per D-19)
 - /gymos/settings/integrations rotation flow validates + encrypts + stores in secrets table
 - Failed messages render D-19 friendly copy
@@ -655,10 +693,11 @@ Out-of-window: "out of window — template only" (grey)
 <success_criteria>
 1. Coach Send action no longer calls Meta directly (WA-05)
 2. Optimistic insert + enqueue pattern (D-18) — queued messages render immediately
-3. UI shows window-state badges + opt-in state + Send-button gate (D-19, D-20)
+3. UI shows window-state badges + opt-in state + Send-button gate (D-19, D-20) using Tabler IconPointFilled (LOW #12)
 4. Failed messages display friendly error copy keyed on error_code (D-19)
 5. Stripe restricted key rotation works without downtime (success criterion #6)
 6. Defence-in-depth confirmed: UI pre-gates + worker re-checks at send time
+7. No ● (U+25CF) bullet glyphs in any new staff-web UI — Tabler IconPointFilled is the sole status-dot pattern (LOW #12)
 </success_criteria>
 
 <output>
@@ -666,6 +705,7 @@ After completion, create `.planning/phases/P1b-webhook-worker-spine-stripe-whats
 - One end-to-end outbound trace (messages row: queued → sent + external_id) from UI click to worker completion
 - Confirmation of UI pre-gates working (Send disabled out-of-window + no-opt-in)
 - Confirmation of D-19 error copy in failed-message bubbles
+- Confirmation that all status dots use Tabler IconPointFilled (LOW #12)
 - Stripe rotation success — secrets row length + worker successfully decrypted
 - Notes for Plan 09 about validation test fixtures (saved WA inbound payload, saved Stripe trigger events)
 </output>

@@ -27,37 +27,49 @@ must_haves:
   truths:
     - "apps/edge-webhooks runs on Fly.io region iad (NOT lhr per research finding — overrides CONTEXT D-02; rationale: Neon is us-east-1, lhr→Neon costs ~80ms RTT per query)"
     - "min_machines_running = 1, auto_stop_machines = false (PITFALL #8 — Vercel cold-start storms forbidden)"
-    - "POST /webhooks/whatsapp reads raw body via c.req.text() BEFORE any JSON parse (PITFALL #9)"
+    - "POST /webhooks/whatsapp reads raw body via c.req.text() BEFORE any JSON parse AND BEFORE crypto.createHmac (PITFALL #9 — verified by line-order grep)"
     - "POST /webhooks/whatsapp verifies HMAC via @gymos/whatsapp verifySignature with timingSafeEqual"
+    - "POST /webhooks/stripe reads raw body via c.req.text() BEFORE stripe.webhooks.constructEvent (PITFALL #9 — verified by line-order grep)"
     - "POST /webhooks/stripe verifies via stripe.webhooks.constructEvent() with apiVersion '2026-04-22.dahlia' pinned"
     - "Inserts to webhook_events use ON CONFLICT (provider, external_id) DO NOTHING — idempotent across Stripe + Meta retries"
+    - "WhatsApp status webhooks publish structured InboundWhatsAppPayload (kind='status', statusFor, newStatus, timestamp, errorCode?) — no synthetic externalId concat (HIGH #6)"
+    - "WhatsApp inbound message webhooks publish structured InboundWhatsAppPayload (kind='message', externalId, from, messageType, body?, timestamp)"
     - "Enqueues to pg-boss via @gymos/queue publishers; returns 200 in <100ms (NO business logic in receiver)"
     - "GET /webhooks/whatsapp returns hub.challenge string when hub.mode=subscribe AND token matches WHATSAPP_VERIFY_TOKEN"
     - "GET /healthz returns 200 OK + JSON {ok:true, version:<git_sha>}"
     - "Tampered body to /webhooks/stripe returns 400 BEFORE any DB write or enqueue (success criterion #5)"
+    - "fly.toml exposes BOTH the web process (port 3001, /healthz) AND the worker process (port 3002, /healthz) so Fly can detect a silently-hung worker (MEDIUM #10)"
   artifacts:
     - path: "apps/edge-webhooks/src/routes/stripe.ts"
-      provides: "Stripe webhook endpoint — constructEvent verify + idempotent insert + enqueue"
+      provides: "Stripe webhook endpoint — raw-body-first + constructEvent verify + idempotent insert + enqueue"
       contains: "stripe.webhooks.constructEvent"
     - path: "apps/edge-webhooks/src/routes/whatsapp.ts"
-      provides: "WhatsApp webhook endpoint — GET verify-token + POST raw-body HMAC + idempotent insert + enqueue"
+      provides: "WhatsApp webhook endpoint — GET verify-token + POST raw-body HMAC + idempotent insert + structured-payload enqueue (HIGH #6)"
       contains: "await c.req.text()"
     - path: "apps/edge-webhooks/src/lib/idempotency.ts"
       provides: "insertWebhookEvent helper — ON CONFLICT (provider, external_id) DO NOTHING + returns boolean (newly-inserted)"
       contains: "onConflictDoNothing"
     - path: "apps/edge-webhooks/fly.toml"
-      provides: "Fly deploy config — region iad, min_machines_running=1, auto_stop_machines=false, two-process block (web + worker)"
+      provides: "Fly deploy config — region iad, min_machines_running=1, auto_stop_machines=false, two-process block (web + worker), worker health check on port 3002 (MEDIUM #10)"
       contains: "auto_stop_machines = false"
     - path: "apps/edge-webhooks/Dockerfile"
       provides: "Multi-stage Docker build for Node 22 + pnpm workspace + both apps (edge-webhooks + worker)"
   key_links:
     - from: "apps/edge-webhooks/src/routes/whatsapp.ts"
       to: "@gymos/whatsapp verifySignature"
-      via: "import + call with raw body + sigHeader + WHATSAPP_APP_SECRET"
+      via: "import + call with raw body + sigHeader + WHATSAPP_APP_SECRET — raw body read BEFORE this call"
       pattern: "verifySignature\\("
+    - from: "apps/edge-webhooks/src/routes/whatsapp.ts inbound message handler"
+      to: "@gymos/queue enqueueInboundWhatsApp"
+      via: "structured payload { kind: 'message', externalId, from, messageType, body?, timestamp }"
+      pattern: "kind:\\s*\"message\""
+    - from: "apps/edge-webhooks/src/routes/whatsapp.ts status handler"
+      to: "@gymos/queue enqueueInboundWhatsApp"
+      via: "structured payload { kind: 'status', statusFor, newStatus, timestamp, errorCode? } — no synthetic concat (HIGH #6)"
+      pattern: "kind:\\s*\"status\""
     - from: "apps/edge-webhooks/src/routes/stripe.ts"
       to: "stripe.webhooks.constructEvent"
-      via: "Stripe SDK with pinned apiVersion"
+      via: "Stripe SDK with pinned apiVersion — raw body read BEFORE this call"
       pattern: "constructEvent"
     - from: "apps/edge-webhooks/src/lib/idempotency.ts"
       to: "webhook_events table (provider, external_id) UNIQUE index"
@@ -67,10 +79,14 @@ must_haves:
       to: "@gymos/queue publishers"
       via: "enqueueInboundWhatsApp / enqueueStripeEvent calls AFTER successful insert"
       pattern: "enqueue(InboundWhatsApp|StripeEvent)"
+    - from: "apps/edge-webhooks/fly.toml worker process"
+      to: "worker /healthz on internal_port 3002"
+      via: "[[services]] block with processes=[\"worker\"] + http_checks to /healthz (MEDIUM #10)"
+      pattern: "internal_port\\s*=\\s*3002"
 ---
 
 <objective>
-Stand up `apps/edge-webhooks/` — the Hono receiver that lives on Fly.io with `min_machines = 1`. It is the only ingress for Meta (WhatsApp) and Stripe webhooks. Its job: verify signatures against raw bytes BEFORE any JSON parsing (PITFALL #9), persist to `webhook_events` with `ON CONFLICT DO NOTHING` (idempotency), enqueue via pg-boss for worker processing, return 200 inside the platform-required ack window. ZERO business logic. ZERO outbound HTTP calls (except Stripe's signature verify which is local). Deployed to Fly region `iad` (NOT `lhr` per research finding — overrides CONTEXT D-02 because Neon is us-east-1; revisit at P0 cutover).
+Stand up `apps/edge-webhooks/` — the Hono receiver that lives on Fly.io with `min_machines = 1`. It is the only ingress for Meta (WhatsApp) and Stripe webhooks. Its job: verify signatures against raw bytes BEFORE any JSON parsing or HMAC call (PITFALL #9), persist to `webhook_events` with `ON CONFLICT DO NOTHING` (idempotency), enqueue via pg-boss using structured per-variant InboundWhatsAppPayload (HIGH #6 — no synthetic-string concat between receiver↔worker), return 200 inside the platform-required ack window. ZERO business logic. ZERO outbound HTTP calls (except Stripe's signature verify which is local). Deployed to Fly region `iad` (NOT `lhr` per research finding — overrides CONTEXT D-02 because Neon is us-east-1; revisit at P0 cutover). The fly.toml also exposes worker /healthz on port 3002 so Fly detects a silently-hung worker machine (MEDIUM #10).
 
 Purpose: WEB-01 (always-on Fly app), WEB-02 (raw-body HMAC before parse), WEB-03 (idempotent insert + enqueue + 200 <100ms).
 Output: Working Fly app at `https://gymos-edge-webhooks.fly.dev/` (or chosen name) ready for Plan 09 to flip Meta URL.
@@ -88,23 +104,31 @@ Output: Working Fly app at `https://gymos-edge-webhooks.fly.dev/` (or chosen nam
 @CLAUDE.md
 @AGENTS.md
 @packages/queue/src/publish.ts
+@packages/queue/src/types.ts
 @packages/whatsapp/src/verify-signature.ts
 @apps/staff-web/server/db/schema.ts
 
 <interfaces>
-<!-- packages/queue/ enqueueInboundWhatsApp and enqueueStripeEvent are imported from @gymos/queue -->
+<!-- packages/queue/ enqueueInboundWhatsApp accepts a discriminated union per HIGH #6 -->
 <!-- packages/whatsapp/ verifySignature is imported from @gymos/whatsapp (allowed — edge-webhooks IS the worker tier for verify purposes; rule D-11 forbids staff-web import only) -->
 <!-- apps/staff-web/server/db/schema.ts is imported via workspace ref. webhookEvents columns: id PK, provider, eventType, externalId, payloadRaw, receivedAt, processedAt, error -->
 
 Stripe SDK constructor:
 new Stripe(secretKey, { apiVersion: "2026-04-22.dahlia" })
 
-Stripe webhook signature verify:
-const event = stripe.webhooks.constructEvent(rawBody, sigHeader, webhookSecret);
+Stripe webhook signature verify (raw body MUST be read BEFORE this call):
+const raw = await c.req.text();   // <-- MUST come BEFORE the next line
+const event = stripe.webhooks.constructEvent(raw, sigHeader, webhookSecret);
 // Throws on invalid sig — must be try/catch wrapped, return 400 on throw
 
-Hono raw body access:
-const raw = await c.req.text();   // MUST come before any c.req.json()
+Hono raw body access (raw body MUST be read BEFORE any crypto.createHmac or constructEvent call):
+const raw = await c.req.text();   // MUST come before any c.req.json() or HMAC compute
+
+Inbound WhatsApp payload variants (from @gymos/queue InboundWhatsAppPayload):
+// Inbound user message:
+{ kind: "message", externalId: <wamid>, from: <e164-no-plus>, messageType: <type>, body?: <text>, timestamp?: <unix> }
+// Outbound message status update from Meta:
+{ kind: "status", statusFor: <wamid-of-outbound>, newStatus: "sent"|"delivered"|"read"|"failed", timestamp: <unix>, errorCode?: <code> }
 </interfaces>
 </context>
 
@@ -119,7 +143,7 @@ const raw = await c.req.text();   // MUST come before any c.req.json()
     - .planning/phases/P1b-webhook-worker-spine-stripe-whatsapp-2-weeks/P1b-RESEARCH.md §"Pattern 1: Webhook Receiver → Idempotency Table → Worker Queue" lines 302-441
     - .planning/phases/P1b-webhook-worker-spine-stripe-whatsapp-2-weeks/P1b-RESEARCH.md §"Open Questions #3" (edge-webhooks uses pooled, worker uses unpooled)
     - apps/staff-web/server/db/schema.ts (webhookEvents shape — needed for Drizzle import)
-    - packages/queue/src/index.ts (publisher imports)
+    - packages/queue/src/index.ts (publisher imports + InboundWhatsAppPayload variants)
     - CLAUDE.md (TypeScript everywhere, prettier, Node 22+)
   </read_first>
   <behavior>
@@ -437,7 +461,7 @@ const raw = await c.req.text();   // MUST come before any c.req.json()
 </task>
 
 <task type="auto" tdd="true">
-  <name>Task 2: Implement Hono routes — WhatsApp (GET verify + POST inbound/status) + Stripe (POST) + /healthz</name>
+  <name>Task 2: Implement Hono routes — WhatsApp (GET verify + POST inbound/status with structured payloads) + Stripe (POST) + /healthz</name>
   <files>apps/edge-webhooks/src/server.ts, apps/edge-webhooks/src/index.ts, apps/edge-webhooks/src/routes/whatsapp.ts, apps/edge-webhooks/src/routes/stripe.ts, apps/edge-webhooks/src/routes/whatsapp.test.ts, apps/edge-webhooks/src/routes/stripe.test.ts</files>
   <read_first>
     - templates/mail/app/routes/webhooks.whatsapp.tsx (full file — port the patterns verbatim, change from RR-v7 action() to Hono c.req.text())
@@ -445,33 +469,35 @@ const raw = await c.req.text();   // MUST come before any c.req.json()
     - .planning/phases/P1b-webhook-worker-spine-stripe-whatsapp-2-weeks/P1b-RESEARCH.md Pitfall #9 (raw body before parse)
     - .planning/phases/P1b-webhook-worker-spine-stripe-whatsapp-2-weeks/P1b-CONTEXT.md (D-03 endpoints, D-04 parallel-run cutover)
     - packages/whatsapp/src/verify-signature.ts (the verify function)
-    - packages/queue/src/publish.ts (the publisher signatures)
+    - packages/queue/src/publish.ts AND packages/queue/src/types.ts (the InboundWhatsAppPayload variants — HIGH #6)
     - apps/edge-webhooks/src/lib/idempotency.ts (insertWebhookEvent from Task 1)
   </read_first>
   <behavior>
     - GET /webhooks/whatsapp returns hub.challenge text on subscribe+token match (200); returns 403 on mismatch
     - POST /webhooks/whatsapp:
-      * Reads `await c.req.text()` BEFORE any JSON parse
+      * Reads `await c.req.text()` BEFORE any JSON parse AND BEFORE any HMAC compute (PITFALL #9 — line-order grep enforces this)
       * Calls verifySignature(raw, sigHeader, env.WHATSAPP_APP_SECRET) — returns 401 on false
       * Parses JSON only after verify
-      * For each msg in payload.entry[].changes[].value.messages: inserts webhook_events with externalId=msg.id, eventType="messages.inbound" — enqueueInboundWhatsApp({ externalId, isStatus: false })
-      * For each status in payload.entry[].changes[].value.statuses: inserts with externalId=`wamid_status_${status.id}_${status.timestamp}`, eventType="messages.status" — enqueueInboundWhatsApp({ externalId, isStatus: true })
+      * For each msg in payload.entry[].changes[].value.messages: inserts webhook_events with externalId=msg.id, eventType="messages.inbound" — enqueues a STRUCTURED message payload (HIGH #6):
+          enqueueInboundWhatsApp({ kind: "message", externalId: msg.id, from: msg.from, messageType: msg.type, body: msg.text?.body, timestamp: msg.timestamp })
+      * For each status in payload.entry[].changes[].value.statuses: inserts with externalId=`wamid_status_${status.id}_${status.timestamp}_${status.status}` (idempotency key still uses the concat, since webhook_events.external_id is the dedup column — that's OK; the issue HIGH #6 addresses is the receiver↔worker enqueue payload, not the webhook_events row). Then enqueues a STRUCTURED status payload (HIGH #6):
+          enqueueInboundWhatsApp({ kind: "status", statusFor: status.id, newStatus: status.status, timestamp: status.timestamp, errorCode: status.errors?.[0]?.code != null ? String(status.errors[0].code) : undefined })
       * Only enqueues if insertWebhookEvent returns inserted=true
       * Returns 200 OK in <100ms
     - POST /webhooks/stripe:
-      * Reads `await c.req.text()` BEFORE any JSON parse
+      * Reads `await c.req.text()` BEFORE any JSON parse AND BEFORE stripe.webhooks.constructEvent (PITFALL #9)
       * Calls stripe.webhooks.constructEvent(raw, sigHeader, env.STRIPE_WEBHOOK_SECRET) — try/catch; returns 400 on throw
       * Inserts webhook_events with provider="stripe", externalId=event.id, eventType=event.type, payloadRaw=raw
       * Only enqueues if insertWebhookEvent returns inserted=true — enqueueStripeEvent({ eventId: event.id })
       * Returns 200 OK
     - GET /healthz returns 200 + JSON { ok: true, version: env.GIT_SHA, app: "edge-webhooks" }
     - server.ts mounts routes at /webhooks/* + /healthz; listens on env.PORT (default 3001)
-    - Tests: tampered Stripe body → 400 (BEFORE any DB call); valid Stripe sig → 200; invalid WA HMAC → 401; valid WA inbound → 200 + enqueue called
+    - Tests: tampered Stripe body → 400 (BEFORE any DB call); valid Stripe sig → 200; invalid WA HMAC → 401; valid WA inbound → 200 + enqueue called with structured `{ kind: "message", ... }` payload; valid WA status → 200 + enqueue called with structured `{ kind: "status", ... }` payload
   </behavior>
   <action>
     Concrete steps:
 
-    1. Create `apps/edge-webhooks/src/routes/whatsapp.ts`:
+    1. Create `apps/edge-webhooks/src/routes/whatsapp.ts` — HIGH #6: publish structured per-variant payloads:
        ```ts
        import { Hono } from "hono";
        import { verifySignature } from "@gymos/whatsapp";
@@ -497,11 +523,11 @@ const raw = await c.req.text();   // MUST come before any c.req.json()
        whatsappRoutes.post("/whatsapp", async (c) => {
          const env = getEnv();
 
-         // 1. RAW BODY FIRST (PITFALL #9 — never c.req.json() before this)
+         // 1. RAW BODY FIRST (PITFALL #9 — never c.req.json() and never crypto.createHmac before this line)
          const raw = await c.req.text();
          const sigHeader = c.req.header("x-hub-signature-256") ?? "";
 
-         // 2. Verify HMAC using @gymos/whatsapp adapter
+         // 2. Verify HMAC using @gymos/whatsapp adapter (uses crypto.createHmac internally — AFTER raw body read)
          if (!verifySignature(raw, sigHeader, env.WHATSAPP_APP_SECRET)) {
            return c.text("Bad signature", 401);
          }
@@ -516,6 +542,7 @@ const raw = await c.req.text();   // MUST come before any c.req.json()
 
          // 4. Persist + enqueue each item (idempotent on (provider, external_id))
          //    Receiver does NO business logic — worker handles materialisation.
+         //    HIGH #6: enqueue STRUCTURED payloads (kind: 'message' | 'status').
          const entries: any[] = (payload as any)?.entry ?? [];
          for (const entry of entries) {
            const changes: any[] = entry?.changes ?? [];
@@ -531,21 +558,41 @@ const raw = await c.req.text();   // MUST come before any c.req.json()
                  payloadRaw: raw,
                });
                if (result.inserted) {
-                 await enqueueInboundWhatsApp({ externalId, isStatus: false });
+                 // HIGH #6: structured message payload — worker reads fields directly
+                 await enqueueInboundWhatsApp({
+                   kind: "message",
+                   externalId,
+                   from: String(msg.from ?? ""),
+                   messageType: String(msg.type ?? "text"),
+                   body: msg.text?.body != null ? String(msg.text.body) : undefined,
+                   timestamp: msg.timestamp != null ? String(msg.timestamp) : undefined,
+                 });
                }
              }
-             // Status updates (WA-04) — different externalId namespace so status
-             // for same wamid as inbound isn't deduped against the inbound row
+             // Status updates (WA-04) — HIGH #6: structured payload, NO synthetic externalId concat for the enqueue payload
+             // (webhook_events.external_id still uses a derived dedup key so the same status doesn't replay)
              for (const status of value?.statuses ?? []) {
-               const externalId = `wamid_status_${status.id}_${status.timestamp ?? ""}_${status.status ?? ""}`;
+               // Dedup key for webhook_events — composite to keep status rows distinct from inbound rows
+               const dedupKey = `wamid_status_${status.id}_${status.timestamp ?? ""}_${status.status ?? ""}`;
                const result = await insertWebhookEvent({
                  provider: "whatsapp",
                  eventType: "messages.status",
-                 externalId,
+                 externalId: dedupKey,
                  payloadRaw: raw,
                });
                if (result.inserted) {
-                 await enqueueInboundWhatsApp({ externalId, isStatus: true });
+                 const errorCode =
+                   status.errors?.[0]?.code != null
+                     ? String(status.errors[0].code)
+                     : undefined;
+                 // HIGH #6: structured status payload — explicit fields the worker reads directly
+                 await enqueueInboundWhatsApp({
+                   kind: "status",
+                   statusFor: String(status.id),
+                   newStatus: status.status as "sent" | "delivered" | "read" | "failed",
+                   timestamp: String(status.timestamp ?? ""),
+                   errorCode,
+                 });
                }
              }
            }
@@ -571,7 +618,7 @@ const raw = await c.req.text();   // MUST come before any c.req.json()
          const sigHeader = c.req.header("stripe-signature");
          if (!sigHeader) return c.text("Missing stripe-signature", 400);
 
-         // 1. RAW BODY FIRST (PITFALL #9)
+         // 1. RAW BODY FIRST (PITFALL #9) — MUST come BEFORE constructEvent below
          const raw = await c.req.text();
 
          // 2. constructEvent verifies HMAC + parses atomically. Throws on tamper.
@@ -743,7 +790,7 @@ const raw = await c.req.text();   // MUST come before any c.req.json()
        });
        ```
 
-    6. Create `apps/edge-webhooks/src/routes/whatsapp.test.ts`:
+    6. Create `apps/edge-webhooks/src/routes/whatsapp.test.ts` — HIGH #6: assert enqueue called with structured payload:
        ```ts
        import { describe, it, expect, vi, beforeEach } from "vitest";
        import crypto from "node:crypto";
@@ -805,7 +852,7 @@ const raw = await c.req.text();   // MUST come before any c.req.json()
            expect(insertWebhookEvent).not.toHaveBeenCalled();
          });
 
-         it("enqueues inbound message on valid HMAC", async () => {
+         it("enqueues STRUCTURED message payload on valid inbound (HIGH #6)", async () => {
            insertWebhookEvent.mockResolvedValue({ inserted: true, eventKey: "whatsapp:wamid_abc" });
            const body = JSON.stringify({
              entry: [
@@ -813,7 +860,7 @@ const raw = await c.req.text();   // MUST come before any c.req.json()
                  changes: [
                    {
                      value: {
-                       messages: [{ id: "wamid_abc", from: "447700900000", type: "text", text: { body: "hi" } }],
+                       messages: [{ id: "wamid_abc", from: "447700900000", type: "text", text: { body: "hi" }, timestamp: "1700000000" }],
                      },
                    },
                  ],
@@ -828,7 +875,92 @@ const raw = await c.req.text();   // MUST come before any c.req.json()
              body,
            });
            expect(res.status).toBe(200);
-           expect(enqueueInboundWhatsApp).toHaveBeenCalledWith({ externalId: "wamid_abc", isStatus: false });
+           expect(enqueueInboundWhatsApp).toHaveBeenCalledWith({
+             kind: "message",
+             externalId: "wamid_abc",
+             from: "447700900000",
+             messageType: "text",
+             body: "hi",
+             timestamp: "1700000000",
+           });
+         });
+
+         it("enqueues STRUCTURED status payload on valid status webhook (HIGH #6)", async () => {
+           insertWebhookEvent.mockResolvedValue({ inserted: true, eventKey: "whatsapp:wamid_status_..." });
+           const body = JSON.stringify({
+             entry: [
+               {
+                 changes: [
+                   {
+                     value: {
+                       statuses: [
+                         {
+                           id: "wamid_outbound_XYZ",
+                           status: "delivered",
+                           timestamp: "1700000001",
+                           recipient_id: "447700900000",
+                         },
+                       ],
+                     },
+                   },
+                 ],
+               },
+             ],
+           });
+           const sig = validSig(body, "demo_secret");
+           const app = buildApp();
+           const res = await app.request("/webhooks/whatsapp", {
+             method: "POST",
+             headers: { "x-hub-signature-256": sig },
+             body,
+           });
+           expect(res.status).toBe(200);
+           expect(enqueueInboundWhatsApp).toHaveBeenCalledWith({
+             kind: "status",
+             statusFor: "wamid_outbound_XYZ",
+             newStatus: "delivered",
+             timestamp: "1700000001",
+             errorCode: undefined,
+           });
+         });
+
+         it("propagates errorCode for failed status (HIGH #6)", async () => {
+           insertWebhookEvent.mockResolvedValue({ inserted: true, eventKey: "whatsapp:wamid_status_failed" });
+           const body = JSON.stringify({
+             entry: [
+               {
+                 changes: [
+                   {
+                     value: {
+                       statuses: [
+                         {
+                           id: "wamid_outbound_FAIL",
+                           status: "failed",
+                           timestamp: "1700000002",
+                           errors: [{ code: 131047, title: "Re-engagement message" }],
+                         },
+                       ],
+                     },
+                   },
+                 ],
+               },
+             ],
+           });
+           const sig = validSig(body, "demo_secret");
+           const app = buildApp();
+           const res = await app.request("/webhooks/whatsapp", {
+             method: "POST",
+             headers: { "x-hub-signature-256": sig },
+             body,
+           });
+           expect(res.status).toBe(200);
+           expect(enqueueInboundWhatsApp).toHaveBeenCalledWith({
+             kind: "status",
+             statusFor: "wamid_outbound_FAIL",
+             newStatus: "failed",
+             timestamp: "1700000002",
+             errorCode: "131047",
+           });
          });
 
          it("skips enqueue on duplicate (idempotency)", async () => {
@@ -854,24 +986,29 @@ const raw = await c.req.text();   // MUST come before any c.req.json()
     9. Run `npx prettier --write apps/edge-webhooks/src/**/*.ts`.
   </action>
   <verify>
-    <automated>pnpm --filter @gymos/edge-webhooks test 2>&amp;1 | tail -30</automated>
+    <automated>pnpm --filter @gymos/edge-webhooks test 2>&amp;1 | tail -40</automated>
   </verify>
   <acceptance_criteria>
     - `apps/edge-webhooks/src/routes/whatsapp.ts` contains string `await c.req.text()` (raw body discipline per PITFALL #9)
     - `apps/edge-webhooks/src/routes/whatsapp.ts` contains string `verifySignature(raw, sigHeader, env.WHATSAPP_APP_SECRET)` (HMAC verify)
+    - **Line-order check (MEDIUM #8):** In `apps/edge-webhooks/src/routes/whatsapp.ts`, the line containing `await c.req.text()` MUST appear BEFORE any line containing `verifySignature(` or `crypto.createHmac`. Verify with: `grep -n "await c.req.text()" apps/edge-webhooks/src/routes/whatsapp.ts` (capture line number A) AND `grep -n "verifySignature(" apps/edge-webhooks/src/routes/whatsapp.ts` (capture line number B). Acceptance: A < B (raw body read precedes HMAC verify).
+    - `apps/edge-webhooks/src/routes/whatsapp.ts` contains string `kind: "message"` AND `kind: "status"` (HIGH #6 — structured per-variant payloads)
+    - `apps/edge-webhooks/src/routes/whatsapp.ts` contains string `statusFor: String(status.id)` (HIGH #6 — explicit field, NOT a synthetic concat for the enqueue payload)
+    - `apps/edge-webhooks/src/routes/whatsapp.ts` contains string `newStatus: status.status` (HIGH #6 — explicit field)
     - `apps/edge-webhooks/src/routes/whatsapp.ts` contains string `enqueueInboundWhatsApp` (publisher call)
     - `apps/edge-webhooks/src/routes/stripe.ts` contains string `stripe.webhooks.constructEvent` OR `getStripe().webhooks.constructEvent` (constructEvent pattern)
+    - **Line-order check (MEDIUM #8):** In `apps/edge-webhooks/src/routes/stripe.ts`, the line containing `await c.req.text()` MUST appear BEFORE any line containing `constructEvent`. Verify with: `grep -n "await c.req.text()" apps/edge-webhooks/src/routes/stripe.ts` (line A) AND `grep -n "constructEvent" apps/edge-webhooks/src/routes/stripe.ts` (line B). Acceptance: A < B.
     - `apps/edge-webhooks/src/routes/stripe.ts` contains string `enqueueStripeEvent` (publisher call)
     - `apps/edge-webhooks/src/routes/stripe.ts` returns 400 on constructEvent throw BEFORE calling insertWebhookEvent (verified by test "returns 400 for tampered body (BEFORE any DB write)")
     - `apps/edge-webhooks/src/server.ts` contains string `/healthz`
-    - All tests pass — `pnpm --filter @gymos/edge-webhooks test` exits 0 (minimum 8 test cases: 2 healthz + 4 stripe + 4 whatsapp)
+    - All tests pass — `pnpm --filter @gymos/edge-webhooks test` exits 0 (minimum 9 test cases: 2 healthz/stripe healthz + 4 stripe + 5 whatsapp including the two HIGH #6 structured-payload assertions)
     - `pnpm --filter @gymos/edge-webhooks typecheck` exits 0
   </acceptance_criteria>
-  <done>Hono app receives both webhook types with proper raw-body-first HMAC discipline; idempotent inserts; enqueues only on inserted=true; tests cover the 6 invariants from must_haves.</done>
+  <done>Hono app receives both webhook types with proper raw-body-first HMAC discipline (line-order enforced); idempotent inserts; enqueues structured per-variant InboundWhatsAppPayload (HIGH #6); tests cover the invariants from must_haves.</done>
 </task>
 
 <task type="auto">
-  <name>Task 3: Author fly.toml + Dockerfile for two-process Fly app (web + worker placeholder)</name>
+  <name>Task 3: Author fly.toml + Dockerfile for two-process Fly app (web + worker) with worker health check (MEDIUM #10)</name>
   <files>apps/edge-webhooks/fly.toml, Dockerfile, .dockerignore</files>
   <read_first>
     - .planning/phases/P1b-webhook-worker-spine-stripe-whatsapp-2-weeks/P1b-CONTEXT.md (D-01 two-process model)
@@ -879,13 +1016,13 @@ const raw = await c.req.text();   // MUST come before any c.req.json()
     - .planning/phases/P1b-webhook-worker-spine-stripe-whatsapp-2-weeks/P1b-RESEARCH.md §"Dockerfile (shared, repo root)" lines 1412-1439
     - .planning/phases/P1b-webhook-worker-spine-stripe-whatsapp-2-weeks/P1b-RESEARCH.md Pitfall #2 (Fly region — choose iad NOT lhr)
     - .planning/phases/P1b-webhook-worker-spine-stripe-whatsapp-2-weeks/P1b-RESEARCH.md Pitfall #8 (Vercel cold-start storms — auto_stop_machines=false)
-    - apps/edge-webhooks/src/index.ts (worker entry will exist in Plan 05 — placeholder for now)
+    - apps/edge-webhooks/src/index.ts (worker entry will exist in Plan 05 — placeholder for now; worker exposes /healthz on port 3002 per Plan 05)
     - CLAUDE.md (no-emojis-as-icons doesn't apply to ops config)
   </read_first>
   <action>
     Concrete steps:
 
-    1. Create `apps/edge-webhooks/fly.toml` with two-process [processes] block, region iad, min_machines_running=1, auto_stop_machines=false:
+    1. Create `apps/edge-webhooks/fly.toml` with two-process [processes] block, region iad, min_machines_running=1, auto_stop_machines=false, AND a worker-process health check on port 3002 (MEDIUM #10):
        ```toml
        # GymOS edge-webhooks + worker — single Fly app, two processes (D-01).
        #
@@ -910,7 +1047,7 @@ const raw = await c.req.text();   // MUST come before any c.req.json()
        web = "node apps/edge-webhooks/dist/index.js"
        worker = "node apps/worker/dist/index.js"
 
-       # HTTP service — ONLY for web process (worker has no port)
+       # ===== Web process (port 3001) =====
        [[services]]
        protocol = "tcp"
        internal_port = 3001
@@ -930,6 +1067,28 @@ const raw = await c.req.text();   // MUST come before any c.req.json()
          hard_limit = 200
          soft_limit = 100
 
+       # ===== Worker process (port 3002) — MEDIUM #10 =====
+       # Worker exposes /healthz on internal_port 3002 (see Plan 05 index.ts).
+       # Without this block, a silently-hung worker (event loop blocked, deadlocked
+       # query, etc.) would never be detected — Fly would keep it running forever.
+       # This block is NOT publicly routed (no [[services.ports]]); it only exists
+       # so Fly's internal health checker can probe the worker machine.
+       [[services]]
+       protocol = "tcp"
+       internal_port = 3002
+       processes = ["worker"]
+       auto_stop_machines = false
+       auto_start_machines = true
+       min_machines_running = 1
+
+         [[services.http_checks]]
+         interval = "30s"
+         timeout = "5s"
+         grace_period = "20s"
+         method = "GET"
+         path = "/healthz"
+         protocol = "http"
+
        # Per-process VM sizing
        [[vm]]
        size = "shared-cpu-1x"
@@ -941,7 +1100,7 @@ const raw = await c.req.text();   // MUST come before any c.req.json()
        memory = "512mb"
        processes = ["worker"]
 
-       # CRITICAL: always-on machine policy (PITFALL #8 + WEB-01)
+       # CRITICAL: always-on machine policy for the web process (PITFALL #8 + WEB-01)
        [http_service]
        internal_port = 3001
        force_https = true
@@ -1029,12 +1188,22 @@ const raw = await c.req.text();   // MUST come before any c.req.json()
 
     6. Run `pnpm --filter @gymos/edge-webhooks build` locally to verify TS compiles cleanly. Should emit to `apps/edge-webhooks/dist/`.
 
-    7. Worker placeholder: Plan 05 creates apps/worker/. To keep Dockerfile honest in the meantime, create a stub `apps/worker/package.json` + `apps/worker/src/index.ts` with `console.log("worker not yet implemented — Plan 05")` so the Dockerfile COPY+build steps don't fail. Plan 05 will replace these files.
+    7. Worker placeholder: Plan 05 creates apps/worker/. To keep Dockerfile honest in the meantime, create a stub `apps/worker/package.json` + `apps/worker/src/index.ts` with a tiny Hono HTTP server exposing `/healthz` on port 3002 so the fly.toml worker health check passes even before Plan 05 lands. Plan 05 will replace these files.
 
-       Files to create as stubs:
-       - apps/worker/package.json: name=@gymos/worker, scripts.build=tsc, peer Node 22
-       - apps/worker/tsconfig.json: same shape as edge-webhooks/tsconfig.json
-       - apps/worker/src/index.ts: `console.log("[worker] placeholder — see Plan P1b-05"); setInterval(() => {}, 60000);`
+       Stub `apps/worker/src/index.ts`:
+       ```ts
+       import { serve } from "@hono/node-server";
+       import { Hono } from "hono";
+
+       const app = new Hono();
+       app.get("/healthz", (c) => c.json({ ok: true, version: process.env.GIT_SHA ?? "stub", app: "worker", note: "placeholder — see Plan P1b-05" }));
+
+       const port = Number(process.env.PORT ?? 3002);
+       serve({ fetch: app.fetch, port }, (info) => {
+         console.log(`[worker] placeholder healthz listening on :${info.port} — see Plan P1b-05`);
+       });
+       ```
+       This ensures `services.http_checks` for the worker process succeeds even before Plan 05 ships the real worker. Plan 05 overwrites this file with the real boss.start() + queue handlers + same /healthz endpoint.
 
     8. Run `pnpm --filter @gymos/worker build` to confirm Dockerfile-build path works.
 
@@ -1048,20 +1217,23 @@ const raw = await c.req.text();   // MUST come before any c.req.json()
     - `apps/edge-webhooks/fly.toml` contains string `auto_stop_machines = false` (PITFALL #8)
     - `apps/edge-webhooks/fly.toml` contains string `min_machines_running = 1` (WEB-01)
     - `apps/edge-webhooks/fly.toml` contains string `[processes]` AND `web =` AND `worker =`
+    - `apps/edge-webhooks/fly.toml` contains string `internal_port = 3002` AND `processes = ["worker"]` (MEDIUM #10 — worker exposes a health-checkable endpoint)
+    - `apps/edge-webhooks/fly.toml` contains string `http_checks` near the worker `[[services]]` block (MEDIUM #10 — Fly probes worker /healthz)
+    - `apps/edge-webhooks/fly.toml` contains string `path = "/healthz"` at least TWICE (one for web check, one for worker check)
     - Root-level `Dockerfile` EXISTS AND contains string `FROM node:22-alpine` (Node 22 for @great-detail/whatsapp v9)
     - `Dockerfile` contains string `corepack enable` (pnpm via corepack)
     - `Dockerfile` contains string `pnpm install --frozen-lockfile`
     - `pnpm --filter @gymos/edge-webhooks build` exits 0 AND emits `apps/edge-webhooks/dist/index.js`
     - `pnpm --filter @gymos/worker build` exits 0 (stub builds — Plan 05 fills it in)
-    - `apps/worker/src/index.ts` EXISTS as placeholder with comment referencing Plan P1b-05
+    - `apps/worker/src/index.ts` EXISTS as placeholder that listens on PORT 3002 and exposes /healthz (stub for MEDIUM #10 — Plan 05 overwrites with full impl)
   </acceptance_criteria>
-  <done>fly.toml + Dockerfile ready for `fly deploy`. Build chain produces dist/ for both apps.</done>
+  <done>fly.toml + Dockerfile ready for `fly deploy`. Build chain produces dist/ for both apps. Worker process has a Fly health check on port 3002 (MEDIUM #10).</done>
 </task>
 
 <task type="checkpoint:human-verify" gate="blocking">
-  <name>Task 4: Deploy to Fly + smoke-test signatures, idempotency, healthz</name>
+  <name>Task 4: Deploy to Fly + smoke-test signatures, idempotency, healthz (web + worker)</name>
   <what-built>
-    apps/edge-webhooks/ Hono receiver compiled and ready to deploy to Fly.io region `iad`. Stripe + WhatsApp + healthz endpoints implemented with raw-body HMAC discipline + ON CONFLICT DO NOTHING idempotency + pg-boss enqueue. NOT yet wired to live Meta or Stripe — just a standalone receiver that's verifiable via curl + Stripe CLI.
+    apps/edge-webhooks/ Hono receiver compiled and ready to deploy to Fly.io region `iad`. Stripe + WhatsApp + healthz endpoints implemented with raw-body HMAC discipline + ON CONFLICT DO NOTHING idempotency + pg-boss enqueue (structured per-variant InboundWhatsAppPayload per HIGH #6). Worker process exposes /healthz on port 3002 (MEDIUM #10). NOT yet wired to live Meta or Stripe — just a standalone receiver that's verifiable via curl + Stripe CLI.
   </what-built>
   <files>(human verification — no specific file write; see &lt;how-to-verify&gt; below)</files>
   <action>
@@ -1099,9 +1271,16 @@ const raw = await c.req.text();   // MUST come before any c.req.json()
        ```pwsh
        fly deploy -a gymos-edge-webhooks --remote-only
        ```
-       Expected: build completes in ~3-5 min; machine starts in iad.
+       Expected: build completes in ~3-5 min; both machines start in iad (web + worker).
 
-    5. Smoke tests against `https://gymos-edge-webhooks.fly.dev`:
+    5. Verify BOTH processes are healthy via Fly UI / CLI:
+       ```pwsh
+       fly status -a gymos-edge-webhooks
+       fly checks list -a gymos-edge-webhooks
+       ```
+       Expected: 2 machines (one per process); BOTH show "passing" health checks. If the worker check is "critical" or "warning", the worker /healthz on port 3002 isn't responding — investigate (likely the stub didn't bind to PORT 3002 correctly).
+
+    6. Smoke tests against `https://gymos-edge-webhooks.fly.dev`:
 
        a. **Healthz**:
        ```pwsh
@@ -1159,40 +1338,44 @@ const raw = await c.req.text();   // MUST come before any c.req.json()
        ```
        Expected: 1 row with `state='created'` (or `'completed'` if worker is running — but worker isn't yet, so expect 'created' or 'active').
 
-    6. Confirm latency budget: `time curl https://gymos-edge-webhooks.fly.dev/healthz` — expect < 500ms total round-trip from your local machine. Webhook POST cold-path expect < 1s; warm path < 200ms.
+    7. Confirm latency budget: `time curl https://gymos-edge-webhooks.fly.dev/healthz` — expect < 500ms total round-trip from your local machine. Webhook POST cold-path expect < 1s; warm path < 200ms.
 
-    Report any failures. Type "approved" only if all 7 smoke tests pass.
+    Report any failures. Type "approved" only if all 7 smoke tests pass AND both fly checks (web + worker) report passing.
   </how-to-verify>
-  <resume-signal>Type "approved" if all smoke tests pass. Otherwise paste the failing curl output + which step.</resume-signal>
+  <resume-signal>Type "approved" if all smoke tests pass AND both fly checks (web + worker) report passing. Otherwise paste the failing curl/fly checks output + which step.</resume-signal>
   <acceptance_criteria>
     - User confirms `fly deploy` succeeded
+    - User confirms `fly checks list` shows BOTH web AND worker passing (MEDIUM #10)
     - User confirms /healthz returns expected JSON
     - User confirms WA verify-token handshake works
     - User confirms tampered Stripe body returns 400 (success criterion #5)
     - User confirms valid Stripe event creates webhook_events row + pgboss.job row
     - User confirms Stripe replay returns 200 dedup without creating new webhook_events row (success criterion #1 foundation — full replay-twice test in Plan 09)
   </acceptance_criteria>
-  <done>apps/edge-webhooks/ is live on Fly at https://gymos-edge-webhooks.fly.dev/ with verified raw-body HMAC + idempotency + enqueue. Ready for Plans 05-07 to attach workers.</done>
+  <done>apps/edge-webhooks/ is live on Fly at https://gymos-edge-webhooks.fly.dev/ with verified raw-body HMAC + idempotency + structured-payload enqueue (HIGH #6) + worker health check (MEDIUM #10). Ready for Plans 05-07 to attach workers.</done>
 </task>
 
 </tasks>
 
 <verification>
-- `pnpm --filter @gymos/edge-webhooks test` exits 0 (≥8 tests)
+- `pnpm --filter @gymos/edge-webhooks test` exits 0 (≥9 tests)
 - `pnpm --filter @gymos/edge-webhooks build` produces dist/
-- Fly deploy succeeds; /healthz returns 200
+- Fly deploy succeeds; /healthz returns 200; both web AND worker fly checks pass
 - Tampered body returns 400 BEFORE DB write (verified in test + smoke test)
 - Stripe replay returns 200 without inserting duplicate
 - pgboss.job rows appear after enqueue
+- WhatsApp status enqueue payload is structured (HIGH #6) — no synthetic `wamid_status_*` concat in the enqueue arg
+- Line-order discipline: `await c.req.text()` appears BEFORE `verifySignature(`/`constructEvent` in both route files (MEDIUM #8)
 </verification>
 
 <success_criteria>
 1. apps/edge-webhooks/ deployed to Fly region iad with min_machines=1 + auto_stop=false (PITFALL #8)
-2. Raw-body-first HMAC verification on both endpoints (PITFALL #9)
+2. Raw-body-first HMAC verification on both endpoints, enforced by line-order grep (PITFALL #9 + MEDIUM #8)
 3. ON CONFLICT (provider, external_id) DO NOTHING idempotency (WEB-03)
 4. Stripe apiVersion pinned to '2026-04-22.dahlia' (PITFALL #3)
-5. Two-process fly.toml provisioned (D-01) — web active, worker placeholder ready for Plan 05
+5. Two-process fly.toml provisioned (D-01) — web active, worker placeholder ready for Plan 05, worker has its own /healthz fly check on port 3002 (MEDIUM #10)
 6. All env vars Zod-validated at boot (fail-fast)
+7. WhatsApp inbound + status webhook enqueues use structured InboundWhatsAppPayload variants (HIGH #6)
 </success_criteria>
 
 <output>
@@ -1200,7 +1383,9 @@ After completion, create `.planning/phases/P1b-webhook-worker-spine-stripe-whats
 - Fly app name + URL
 - Region chosen (iad — note the override of CONTEXT D-02 lhr based on RESEARCH finding)
 - Test count + smoke-test results
+- `fly checks list` output showing BOTH web + worker passing (MEDIUM #10)
 - pgboss.job table sample showing enqueued jobs
+- Confirmation that status webhook enqueues used structured `{ kind: "status", statusFor, newStatus, ... }` (HIGH #6)
 - Any deviations (e.g. if Fly CLI auth was already configured, if Dockerfile needed adjustment)
-- Notes for Plan 05 (worker) about how to read pgboss.job rows + where to set DATABASE_URL_UNPOOLED
+- Notes for Plan 05 (worker) about how to read pgboss.job rows + where to set DATABASE_URL_UNPOOLED + that the stub /healthz on port 3002 must be preserved (replaced by the real impl, but same endpoint contract)
 </output>

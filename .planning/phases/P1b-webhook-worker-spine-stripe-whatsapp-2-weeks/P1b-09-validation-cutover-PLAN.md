@@ -19,6 +19,7 @@ requirements: [WA-08]
 must_haves:
   truths:
     - "Integration tests cover all 4 P1b success-criteria scenarios D-23 (Stripe replay-twice → 1 payments row + 1 pass; WA replay → 1 messages row; sendMessage WindowExpired → 0 fetches; tampered Stripe body → 400 before DB write)"
+    - "Integration tests are LOCAL-FIRST: a developer can run them without secrets and Vitest's it.skipIf will gracefully skip the network-bound cases. In CI (process.env.CI === 'true'), the same suite FAILS LOUDLY if required secrets are absent — no silent-pass via skip (MEDIUM #9)."
     - "Daily housekeeping cron via pg-boss schedule fetches whatsapp_templates from Meta + upserts status (WA-08)"
     - "After Meta URL flip is verified, templates/mail/app/routes/webhooks.whatsapp.tsx is DELETED (D-05) — the very last task"
     - "templates/mail/server/plugins/auth.ts publicPaths reverted (no /webhooks/whatsapp entry — templates/mail is upstream-clean)"
@@ -26,7 +27,7 @@ must_haves:
     - "Stripe Dashboard webhook endpoint points at https://gymos-edge-webhooks.fly.dev/webhooks/stripe with 6 event types enabled"
   artifacts:
     - path: "tests/integration/p1b-success-criteria.test.ts"
-      provides: "Vitest integration suite covering 4 P1b success criteria"
+      provides: "Vitest integration suite covering 4 P1b success criteria. Includes a CI-mode pre-flight check that fails loudly if required secrets are absent (MEDIUM #9)."
       contains: "describe(\"P1b Success Criteria\""
     - path: "apps/worker/src/queues/housekeeping.ts"
       provides: "pg-boss schedule registration for daily template sync (WA-08)"
@@ -43,6 +44,10 @@ must_haves:
       to: "pg-boss boss.schedule"
       via: "boss.schedule('templates-sync', '0 3 * * *', {}) — daily 3am UTC cron"
       pattern: "boss\\.schedule.*templates-sync"
+    - from: "tests/integration/p1b-success-criteria.test.ts CI mode"
+      to: "process.env.CI === 'true' precondition"
+      via: "Top-level expect() that fails loudly when CI=true but secrets are missing (MEDIUM #9 — no silent-pass via skipIf)"
+      pattern: "process\\.env\\.CI"
     - from: "tests/integration/p1b-success-criteria.test.ts replay-twice block"
       to: "Stripe trigger → edge-webhooks → webhook_events → worker → payments + passes"
       via: "1 SQL count assertion before, 2 events posted, 1 count assertion after — must equal 1"
@@ -54,7 +59,7 @@ must_haves:
 ---
 
 <objective>
-Close out P1b: (a) WA-08 daily template-sync housekeeping cron via pg-boss schedule; (b) integration tests for the 4 P1b success-criteria scenarios from D-23 (Stripe replay-twice → exactly 1 row, WA replay → exactly 1 row, sendMessage outside window → 0 Meta fetches, tampered body → 400 before any DB write); (c) the cutover — flip Meta Business Manager webhook URL from ngrok → Fly, flip Stripe Dashboard webhook URL to Fly, register the 6 Stripe event types, then DELETE the demo's `templates/mail/app/routes/webhooks.whatsapp.tsx` as the very last task (D-05).
+Close out P1b: (a) WA-08 daily template-sync housekeeping cron via pg-boss schedule; (b) integration tests for the 4 P1b success-criteria scenarios from D-23 (Stripe replay-twice → exactly 1 row, WA replay → exactly 1 row, sendMessage outside window → 0 Meta fetches, tampered body → 400 before any DB write). The integration tests are LOCAL-FIRST (a developer iterating without secrets sees graceful skips via Vitest's `it.skipIf`) but CI-STRICT (in CI, the same suite FAILS LOUDLY if required secrets are missing — no vacuous PASS, MEDIUM #9). (c) the cutover — flip Meta Business Manager webhook URL from ngrok → Fly, flip Stripe Dashboard webhook URL to Fly, register the 6 Stripe event types, then DELETE the demo's `templates/mail/app/routes/webhooks.whatsapp.tsx` as the very last task (D-05).
 
 Purpose: WA-08 sync mechanism + final P1b verification + cutover.
 Output: P1b is shipped. Production webhook spine is the source of truth. templates/mail/ is upstream-clean.
@@ -87,6 +92,15 @@ Returns: { data: [{ name, language, status, category, components }], paging }
 
 <!-- WHATSAPP_BUSINESS_ACCOUNT_ID env var -->
 New env var required for syncTemplates — add to apps/worker env schema
+
+<!-- CI mode invariant (MEDIUM #9) -->
+process.env.CI === "true"   // GitHub Actions sets this automatically
+// When CI is true, the integration test suite REQUIRES:
+//   - WHATSAPP_APP_SECRET
+//   - STRIPE_WEBHOOK_SECRET
+// Missing either of these in CI → the suite throws BEFORE any it() runs → CI build fails.
+// Locally (CI unset or "false"), the suite uses it.skipIf to skip network-bound tests
+// when secrets are missing — developers can run `pnpm test` without secrets.
 </interfaces>
 </context>
 
@@ -318,7 +332,7 @@ New env var required for syncTemplates — add to apps/worker env schema
 </task>
 
 <task type="auto">
-  <name>Task 2: Author integration test suite for 4 P1b success-criteria scenarios (D-23)</name>
+  <name>Task 2: Author integration test suite for 4 P1b success-criteria scenarios (D-23) — local-first, CI-strict (MEDIUM #9)</name>
   <files>tests/integration/p1b-success-criteria.test.ts, tests/fixtures/stripe/checkout-session-completed.json, tests/fixtures/whatsapp/inbound-text.json, vitest.config.ts</files>
   <read_first>
     - .planning/phases/P1b-webhook-worker-spine-stripe-whatsapp-2-weeks/P1b-CONTEXT.md (D-23 validation bar — 4 integration scenarios + unit tests)
@@ -329,6 +343,11 @@ New env var required for syncTemplates — add to apps/worker env schema
     - .planning/phases/P1b-webhook-worker-spine-stripe-whatsapp-2-weeks/P1b-RESEARCH.md §"Validation depth" + §"Test infra"
     - CLAUDE.md (Test strategy — Vitest for non-UI, Playwright for UI/E2E)
   </read_first>
+  <behavior>
+    - Test suite must be LOCAL-FIRST: developers iterate without secrets; `it.skipIf(!secret)` gracefully skips the network-bound cases. Running `pnpm test` locally on a dev machine without WHATSAPP_APP_SECRET / STRIPE_WEBHOOK_SECRET set still exits 0.
+    - Test suite must be CI-STRICT (MEDIUM #9): when process.env.CI === "true", the suite asserts at the TOP (before any it() runs) that both secrets are present. Missing → throws → CI build fails immediately with a clear message. No vacuous PASS via universal skip.
+    - Document this local-vs-CI behavior in a comment block at the top of the test file.
+  </behavior>
   <action>
     Concrete steps:
 
@@ -399,7 +418,7 @@ New env var required for syncTemplates — add to apps/worker env schema
        });
        ```
 
-    4. Create `tests/integration/p1b-success-criteria.test.ts`:
+    4. Create `tests/integration/p1b-success-criteria.test.ts` — MEDIUM #9: local-first + CI-strict precondition:
        ```ts
        /**
         * P1b Success Criteria — integration suite (D-23).
@@ -416,13 +435,23 @@ New env var required for syncTemplates — add to apps/worker env schema
         * Test #3 and #4 are unit-level in Plan 06; this file adds the integration
         * layer ensuring the queue + DB roundtrip composes correctly.
         *
-        * Requires:
-        *   - Fly app deployed (gymos-edge-webhooks.fly.dev)
-        *   - Neon test branch (branch off gymos-demo named 'test')
-        *   - DATABASE_URL_TEST + STRIPE_WEBHOOK_SECRET_TEST in test env
-        *   - Stripe CLI installed locally
+        * LOCAL vs CI behavior (MEDIUM #9):
+        * - LOCAL (no CI env var, or CI != "true"): missing secrets cause the
+        *   network-bound `it()` cases to be skipped via Vitest's `it.skipIf`.
+        *   This lets a developer run `pnpm test` without configuring secrets.
+        * - CI (process.env.CI === "true"): the suite asserts at the TOP that the
+        *   required secrets are present. Missing → throws → CI build fails with a
+        *   clear message. NO vacuous PASS via universal skip.
+        *
+        * Required local env to actually exercise the network tests:
+        *   - FLY_EDGE_URL (default: https://gymos-edge-webhooks.fly.dev)
+        *   - WHATSAPP_APP_SECRET (same value as Fly secret)
+        *   - STRIPE_WEBHOOK_SECRET (same value as Fly secret)
+        *
+        * Required in CI: WHATSAPP_APP_SECRET, STRIPE_WEBHOOK_SECRET — both must
+        * be configured as GitHub Actions secrets and surfaced to the test runner.
         */
-       import { describe, it, expect, beforeEach, afterAll } from "vitest";
+       import { describe, it, expect, beforeAll } from "vitest";
        import crypto from "node:crypto";
        import fixtureWaInbound from "../fixtures/whatsapp/inbound-text.json" with { type: "json" };
        import fixtureStripeCheckout from "../fixtures/stripe/checkout-session-completed.json" with { type: "json" };
@@ -430,6 +459,27 @@ New env var required for syncTemplates — add to apps/worker env schema
        const FLY_URL = process.env.FLY_EDGE_URL ?? "https://gymos-edge-webhooks.fly.dev";
        const WA_APP_SECRET = process.env.WHATSAPP_APP_SECRET ?? "";
        const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET ?? "";
+       const IS_CI = process.env.CI === "true";
+
+       /**
+        * MEDIUM #9 — CI-strict precondition.
+        *
+        * Runs before any it() block. In CI, missing secrets fail loudly so a build
+        * never silently PASSes via universal skipIf. Locally, this block runs but
+        * the assertions only fire when CI is true.
+        */
+       beforeAll(() => {
+         if (IS_CI) {
+           expect(
+             WA_APP_SECRET,
+             "MEDIUM #9: CI requires WHATSAPP_APP_SECRET — set it as a GitHub Actions secret. The integration suite must NOT pass silently via skip in CI.",
+           ).toBeTruthy();
+           expect(
+             STRIPE_WEBHOOK_SECRET,
+             "MEDIUM #9: CI requires STRIPE_WEBHOOK_SECRET — set it as a GitHub Actions secret. The integration suite must NOT pass silently via skip in CI.",
+           ).toBeTruthy();
+         }
+       });
 
        function waSig(body: string): string {
          return (
@@ -448,7 +498,7 @@ New env var required for syncTemplates — add to apps/worker env schema
        }
 
        describe("P1b Success Criteria", () => {
-         it.skipIf(!WA_APP_SECRET)("#5: tampered Stripe body returns 400 BEFORE DB write", async () => {
+         it.skipIf(!STRIPE_WEBHOOK_SECRET)("#5: tampered Stripe body returns 400 BEFORE DB write", async () => {
            // Use deliberately bad signature — Stripe constructEvent throws
            const res = await fetch(`${FLY_URL}/webhooks/stripe`, {
              method: "POST",
@@ -532,9 +582,42 @@ New env var required for syncTemplates — add to apps/worker env schema
        });
        ```
 
-    5. Run `pnpm exec vitest run tests/integration/p1b-success-criteria.test.ts` locally — tests should pass (with `it.skipIf` skipping the ones requiring live secrets unless env is configured).
+    5. Run `pnpm exec vitest run tests/integration/p1b-success-criteria.test.ts` locally — tests should pass (with `it.skipIf` skipping the ones requiring live secrets unless env is configured). Specifically:
+       - Without CI=true and without secrets: 1 documentation test passes + 4 skipped → suite exits 0.
+       - With CI=true and without secrets: beforeAll throws → suite exits 1 (CI fails).
+       - With CI=true AND secrets configured: 1 doc test + 4 network tests run → suite exits according to actual results.
 
-    6. Run `npx prettier --write tests/integration/**/*.ts tests/fixtures/**/*.json vitest.config.ts`.
+       Manual verification of MEDIUM #9 behavior:
+       ```pwsh
+       # Local (no CI, no secrets) — should PASS with skips
+       Remove-Item Env:CI -ErrorAction SilentlyContinue
+       Remove-Item Env:WHATSAPP_APP_SECRET -ErrorAction SilentlyContinue
+       Remove-Item Env:STRIPE_WEBHOOK_SECRET -ErrorAction SilentlyContinue
+       pnpm exec vitest run tests/integration/p1b-success-criteria.test.ts
+       # Expected: exit 0, 1 test passing, 4 skipped
+
+       # CI simulation (CI=true, no secrets) — should FAIL LOUDLY (MEDIUM #9)
+       $env:CI = "true"
+       pnpm exec vitest run tests/integration/p1b-success-criteria.test.ts
+       # Expected: exit non-zero, beforeAll throws with "CI requires WHATSAPP_APP_SECRET" message
+       Remove-Item Env:CI
+       ```
+
+    6. Document the CI requirement in the project's CI config (typically `.github/workflows/*.yml`). Add a comment to the test job referencing MEDIUM #9 and listing required secrets:
+       ```yaml
+       # .github/workflows/test.yml (or wherever the integration suite runs in CI)
+       jobs:
+         integration:
+           env:
+             # MEDIUM #9: P1b integration suite requires these secrets in CI.
+             # Without them, the suite throws at beforeAll() instead of skipping silently.
+             # See tests/integration/p1b-success-criteria.test.ts for rationale.
+             WHATSAPP_APP_SECRET: ${{ secrets.WHATSAPP_APP_SECRET }}
+             STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+       ```
+       (If no CI workflow file exists yet for this repo, create a stub and note the requirement in P1b-09-SUMMARY.md so the user can wire it during their next CI setup.)
+
+    7. Run `npx prettier --write tests/integration/**/*.ts tests/fixtures/**/*.json vitest.config.ts`.
   </action>
   <verify>
     <automated>pnpm exec vitest run tests/integration/p1b-success-criteria.test.ts 2>&amp;1 | tail -20</automated>
@@ -544,17 +627,22 @@ New env var required for syncTemplates — add to apps/worker env schema
     - File contains string `tampered Stripe body returns 400` (success criterion #5)
     - File contains string `replay produces exactly 1` OR `replay-twice produces 1` (success criteria #1 + #2)
     - File contains `crypto.createHmac` (signature generation for tests)
-    - File contains `it.skipIf` (allow tests to skip when secrets absent)
+    - File contains `it.skipIf` (allow tests to skip when secrets absent — local-first)
+    - File contains `process.env.CI === "true"` (CI-mode detection — MEDIUM #9)
+    - File contains `beforeAll` block that asserts WHATSAPP_APP_SECRET AND STRIPE_WEBHOOK_SECRET are present when CI=true (MEDIUM #9)
+    - File contains the comment string `MEDIUM #9` AND `must NOT pass silently via skip in CI` (rationale documented inline)
+    - File contains a block comment documenting LOCAL vs CI behavior (developer-facing rationale)
     - Fixture files exist: `tests/fixtures/stripe/checkout-session-completed.json`, `tests/fixtures/whatsapp/inbound-text.json`
-    - `pnpm exec vitest run tests/integration/p1b-success-criteria.test.ts` runs cleanly (passes OR skips with no errors)
+    - Local run without CI / without secrets: `pnpm exec vitest run tests/integration/p1b-success-criteria.test.ts` exits 0 (passes with skips — verified manually in step 5)
+    - CI-mode simulation without secrets: setting `$env:CI = "true"` and re-running the suite makes it exit non-zero (MEDIUM #9 — verified manually in step 5)
   </acceptance_criteria>
-  <done>Integration test suite covers the 4 D-23 scenarios at the receiver layer. Unit-level #3 + #4 are pointed at the existing Plan 06 sendMessage tests.</done>
+  <done>Integration test suite covers the 4 D-23 scenarios at the receiver layer. Local-first (gracefully skips without secrets). CI-strict (fails loudly when secrets are missing in CI — MEDIUM #9). Unit-level #3 + #4 are pointed at the existing Plan 06 sendMessage tests.</done>
 </task>
 
 <task type="checkpoint:human-verify" gate="blocking">
   <name>Task 3: Cutover — flip Meta + Stripe webhook URLs to Fly, run full replay-twice validation</name>
   <what-built>
-    All P1b infrastructure deployed. Integration tests authored. Daily template-sync scheduled. Ready to flip Meta Business Manager + Stripe Dashboard webhook URLs from current (ngrok / unconfigured) to Fly production receiver.
+    All P1b infrastructure deployed. Integration tests authored (local-first + CI-strict per MEDIUM #9). Daily template-sync scheduled. Ready to flip Meta Business Manager + Stripe Dashboard webhook URLs from current (ngrok / unconfigured) to Fly production receiver.
   </what-built>
   <files>(human verification — no specific file write; see &lt;how-to-verify&gt; below)</files>
   <action>
@@ -660,7 +748,8 @@ New env var required for syncTemplates — add to apps/worker env schema
 
 <verification>
 - `pnpm --filter @gymos/worker test syncTemplates` passes
-- `pnpm exec vitest run tests/integration/p1b-success-criteria.test.ts` runs cleanly
+- `pnpm exec vitest run tests/integration/p1b-success-criteria.test.ts` runs cleanly (LOCAL-MODE: passes with skips when secrets absent)
+- Same suite with CI=true env var exits NON-ZERO when secrets absent (MEDIUM #9 — verified by manual two-mode run)
 - pg-boss templates-sync schedule registered (verify `SELECT * FROM pgboss.schedule WHERE name='templates-sync'`)
 - Meta Business Manager webhook URL = Fly URL (user-verified)
 - Stripe Dashboard webhook endpoint registered with 6 events (user-verified)
@@ -672,7 +761,7 @@ New env var required for syncTemplates — add to apps/worker env schema
 
 <success_criteria>
 1. WA-08 daily template-sync cron registered and works
-2. Integration tests cover all 4 D-23 scenarios
+2. Integration tests cover all 4 D-23 scenarios with local-first + CI-strict mode discipline (MEDIUM #9)
 3. Meta + Stripe webhook URLs flipped to Fly
 4. Replay-twice test produces exactly 1 row (success criterion #1)
 5. Demo receiver in templates/mail/ deleted (D-05) — templates/mail is upstream-clean
@@ -685,6 +774,8 @@ After completion, create `.planning/phases/P1b-webhook-worker-spine-stripe-whats
 - Replay-twice SQL counts (before/after)
 - Templates synced count from first run
 - Deleted file confirmation
+- MEDIUM #9 verification: paste the two manual runs (local with skips, CI=true throws) showing both modes work as designed
+- Note about CI workflow secret requirements (link to .github/workflows/*.yml if it exists, or flag for user to wire when CI is set up)
 - Notes for the P1b phase SUMMARY about what changed in production state (Meta webhook URL, Stripe webhook endpoint, ngrok decommissioned)
 - Open Questions remaining (Fly region revisit at P0; packages/db extraction if needed; pg-boss to pg-boss-on-Postgres migration validated)
 </output>

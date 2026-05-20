@@ -23,7 +23,8 @@ must_haves:
   truths:
     - "packages/queue/ exports typed publishers enqueueOutboundWhatsApp, enqueueInboundWhatsApp, enqueueStripeEvent, enqueueClassReminder (last stubbed for P2/NOTIF-01)"
     - "packages/queue/ uses pg-boss against DATABASE_URL_UNPOOLED (throws at construction if env var includes -pooler)"
-    - "Each publisher applies pg-boss singletonKey per D-13: outbound-whatsapp:msg_<id>, stripe-event:stripe_<eventId>, inbound-whatsapp:wamid_<externalId>"
+    - "InboundWhatsAppPayload is a Zod discriminated union with kind='message' | kind='status' — status payloads carry explicit fields (statusFor, newStatus, timestamp, errorCode?) so the worker reads them directly without parsing a synthetic concat string (HIGH #6)"
+    - "Each publisher applies pg-boss singletonKey per D-13: outbound-whatsapp:msg_<id>, stripe-event:stripe_<eventId>, inbound-whatsapp:msg_<externalId> for messages OR inbound-whatsapp:status_<statusFor>_<newStatus>_<timestamp> for statuses (status singletonKey must be derived from the structured fields, not a synthetic externalId)"
     - "packages/whatsapp/ exports sendText, sendTemplate, verifySignature — transport only, no gate logic"
     - "packages/whatsapp/ default impl uses @great-detail/whatsapp v9; verifySignature uses crypto.timingSafeEqual (preserved from demo pattern)"
     - "apps/staff-web/package.json MUST NOT depend on @gymos/whatsapp (compile-time enforced — D-11)"
@@ -32,7 +33,7 @@ must_haves:
       provides: "Typed publisher functions consumed by apps/staff-web (Vercel) AND apps/edge-webhooks (Fly)"
       exports: ["enqueueOutboundWhatsApp", "enqueueInboundWhatsApp", "enqueueStripeEvent", "enqueueClassReminder"]
     - path: "packages/queue/src/types.ts"
-      provides: "Zod-validated payload schemas — single source of truth for queue contracts"
+      provides: "Zod-validated payload schemas — single source of truth for queue contracts. InboundWhatsAppPayload is a discriminated union (kind: 'message' | 'status') with explicit fields per variant (HIGH #6)"
       exports: ["OutboundWhatsAppPayload", "InboundWhatsAppPayload", "StripeEventPayload"]
     - path: "packages/queue/src/boss.ts"
       provides: "getBoss(env) PgBoss singleton with UNPOOLED connection guard"
@@ -51,6 +52,10 @@ must_haves:
       to: "pg-boss boss.send with singletonKey"
       via: "singletonKey: `outbound-whatsapp:${data.messageId}`"
       pattern: "singletonKey.*outbound-whatsapp"
+    - from: "packages/queue/src/types.ts InboundWhatsAppPayload"
+      to: "discriminatedUnion on `kind` field"
+      via: "z.discriminatedUnion('kind', [messageVariant, statusVariant]) — structured fields per variant"
+      pattern: "discriminatedUnion.*kind"
     - from: "packages/whatsapp/src/verify-signature.ts"
       to: "crypto.timingSafeEqual"
       via: "constant-time HMAC comparison (preserved from templates/mail/app/routes/webhooks.whatsapp.tsx demo)"
@@ -59,6 +64,8 @@ must_haves:
 
 <objective>
 Stand up two new workspace packages: `packages/queue/` (typed pg-boss publishers consumed by both apps/staff-web AND apps/edge-webhooks) and `packages/whatsapp/` (thin transport adapter wrapping `@great-detail/whatsapp` v9 — the one and only path to Meta's send API per D-09, D-11). These packages are pure libraries — no apps consume them yet in this plan (Plans 04/05/06 do). Goal is to have stable contracts published as workspace packages so the next wave of plans builds against typed interfaces, not strings.
+
+InboundWhatsAppPayload is a discriminated union with two variants (HIGH #6 fix): `{ kind: "message", externalId, from, messageType, body?, timestamp }` for inbound user-sent messages, and `{ kind: "status", statusFor, newStatus, timestamp, errorCode? }` for Meta-sent delivery/read/failed status updates. This replaces the previous fragile synthetic-string `wamid_status_<id>_<timestamp>_<status>` externalId reconstruction between receiver (Plan 04) and worker (Plan 05) — those two boundaries now share an explicit typed schema.
 
 Purpose: D-09 (transport-only adapter, swap to hand-rolled is one-file change per PITFALL #19), D-11 (worker is the only caller of packages/whatsapp/), D-12 (shared typed publisher imported by Vercel + Fly), D-13 (singletonKey discipline per queue).
 Output: Two workspace packages exporting tested, type-safe interfaces. apps/staff-web does NOT depend on packages/whatsapp.
@@ -89,10 +96,8 @@ export async function enqueueOutboundWhatsApp(args: {
     | { type: "template"; name: string; vars: Record<string, string>; language?: string };
 }): Promise<string | null>;   // pg-boss job ID or null on duplicate singletonKey
 
-export async function enqueueInboundWhatsApp(args: {
-  externalId: string;       // wamid
-  isStatus: boolean;        // true for status webhooks, false for inbound messages
-}): Promise<string | null>;
+// HIGH #6: structured discriminated union — no synthetic string concat between receiver↔worker
+export async function enqueueInboundWhatsApp(args: InboundWhatsAppPayload): Promise<string | null>;
 
 export async function enqueueStripeEvent(args: {
   eventId: string;          // Stripe event.id 'evt_xxx'
@@ -108,7 +113,27 @@ export function getBoss(env?: { DATABASE_URL_UNPOOLED: string }): PgBoss;
 
 // types.ts exports (Zod schemas):
 export const OutboundWhatsAppPayload = z.object({...});
-export const InboundWhatsAppPayload = z.object({...});
+
+// HIGH #6 — discriminated union, NOT a flat { externalId, isStatus } object
+export const InboundWhatsAppPayload = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("message"),
+    externalId: z.string().min(1),           // wamid of the inbound message
+    from: z.string().min(7),                 // sender phone E.164 without +
+    messageType: z.string().min(1),          // "text" | "image" | ...
+    body: z.string().optional(),             // text only
+    timestamp: z.string().optional(),        // Meta unix timestamp string
+  }),
+  z.object({
+    kind: z.literal("status"),
+    statusFor: z.string().min(1),            // wamid of the outbound message being updated
+    newStatus: z.enum(["sent", "delivered", "read", "failed"]),
+    timestamp: z.string().min(1),            // Meta unix timestamp string
+    errorCode: z.string().optional(),        // Meta error code on "failed"
+  }),
+]);
+export type InboundWhatsAppPayload = z.infer<typeof InboundWhatsAppPayload>;
+
 export const StripeEventPayload = z.object({...});
 
 <!-- packages/whatsapp/ public API -->
@@ -383,7 +408,7 @@ export function verifySignature(rawBody: string, sigHeader: string, appSecret: s
 </task>
 
 <task type="auto" tdd="true">
-  <name>Task 2: Create packages/queue/ typed pg-boss publisher (D-12, D-13)</name>
+  <name>Task 2: Create packages/queue/ typed pg-boss publisher (D-12, D-13) with discriminated InboundWhatsAppPayload (HIGH #6)</name>
   <files>packages/queue/package.json, packages/queue/tsconfig.json, packages/queue/src/index.ts, packages/queue/src/boss.ts, packages/queue/src/publish.ts, packages/queue/src/types.ts, packages/queue/src/boss.test.ts, packages/queue/src/publish.test.ts</files>
   <read_first>
     - .planning/phases/P1b-webhook-worker-spine-stripe-whatsapp-2-weeks/P1b-CONTEXT.md (D-12 publisher names, D-13 singletonKey convention)
@@ -399,10 +424,12 @@ export function verifySignature(rawBody: string, sigHeader: string, appSecret: s
     - getBoss() returns same instance on subsequent calls (singleton)
     - enqueueOutboundWhatsApp validates payload via Zod, calls boss.send with singletonKey 'outbound-whatsapp:msg_<messageId>'
     - enqueueStripeEvent uses singletonKey 'stripe-event:stripe_<eventId>'
-    - enqueueInboundWhatsApp uses singletonKey 'inbound-whatsapp:wamid_<externalId>'
+    - enqueueInboundWhatsApp accepts a discriminated union (HIGH #6):
+        * `kind: "message"` variant — singletonKey = `inbound-whatsapp:msg_${data.externalId}` (wamid of inbound)
+        * `kind: "status"` variant — singletonKey = `inbound-whatsapp:status_${data.statusFor}_${data.newStatus}_${data.timestamp}` (no synthetic concat — fields are explicit)
     - enqueueClassReminder is stubbed for P2 — function signature exists but throws Error("not implemented in P1b — see P2/NOTIF-01")
     - Zod validation rejects invalid payloads at the publisher (compile-time + runtime safety)
-    - Tests: getBoss throws on -pooler URL; payload Zod schemas reject malformed input; singletonKey strings match D-13 convention
+    - Tests: getBoss throws on -pooler URL; payload Zod schemas reject malformed input; both InboundWhatsAppPayload variants round-trip through .safeParse; singletonKey strings match D-13 convention
   </behavior>
   <action>
     Concrete steps:
@@ -445,7 +472,7 @@ export function verifySignature(rawBody: string, sigHeader: string, appSecret: s
 
     2. Create `packages/queue/tsconfig.json` (same shape as packages/whatsapp/tsconfig.json).
 
-    3. Create `packages/queue/src/types.ts`:
+    3. Create `packages/queue/src/types.ts` — HIGH #6: InboundWhatsAppPayload is a discriminated union, NOT a flat object:
        ```ts
        import { z } from "zod";
 
@@ -471,10 +498,35 @@ export function verifySignature(rawBody: string, sigHeader: string, appSecret: s
        });
        export type OutboundWhatsAppPayload = z.infer<typeof OutboundWhatsAppPayload>;
 
-       export const InboundWhatsAppPayload = z.object({
-         externalId: z.string().min(1),
-         isStatus: z.boolean(),
+       /**
+        * Inbound WhatsApp payload — HIGH #6 fix.
+        *
+        * Two variants. Both arrive from the Fly receiver (Plan 04) and are
+        * processed by the worker (Plan 05). The receiver MUST construct the
+        * payload from structured Meta webhook fields; the worker MUST read
+        * structured fields directly. Do NOT reconstruct synthetic strings.
+        */
+       export const InboundWhatsAppMessagePayload = z.object({
+         kind: z.literal("message"),
+         externalId: z.string().min(1),        // wamid of inbound
+         from: z.string().min(7),              // E.164 sender without +
+         messageType: z.string().min(1),        // "text" | "image" | "audio" | ...
+         body: z.string().optional(),           // text body if type="text"
+         timestamp: z.string().optional(),      // Meta unix timestamp string
        });
+
+       export const InboundWhatsAppStatusPayload = z.object({
+         kind: z.literal("status"),
+         statusFor: z.string().min(1),         // wamid of the OUTBOUND message this status updates
+         newStatus: z.enum(["sent", "delivered", "read", "failed"]),
+         timestamp: z.string().min(1),         // Meta unix timestamp string
+         errorCode: z.string().optional(),     // Meta error code on "failed"
+       });
+
+       export const InboundWhatsAppPayload = z.discriminatedUnion("kind", [
+         InboundWhatsAppMessagePayload,
+         InboundWhatsAppStatusPayload,
+       ]);
        export type InboundWhatsAppPayload = z.infer<typeof InboundWhatsAppPayload>;
 
        export const StripeEventPayload = z.object({
@@ -537,7 +589,7 @@ export function verifySignature(rawBody: string, sigHeader: string, appSecret: s
        }
        ```
 
-    5. Create `packages/queue/src/publish.ts`:
+    5. Create `packages/queue/src/publish.ts` — HIGH #6: derive singletonKey from the variant's structured fields:
        ```ts
        import { getBoss } from "./boss.js";
        import {
@@ -566,16 +618,28 @@ export function verifySignature(rawBody: string, sigHeader: string, appSecret: s
        }
 
        /**
-        * Enqueue an inbound WhatsApp processing job. Singleton-keyed by wamid
-        * external_id so duplicate Meta deliveries are deduped.
+        * Enqueue an inbound WhatsApp processing job.
+        *
+        * HIGH #6 fix: payload is a discriminated union (`kind: "message" | "status"`).
+        * singletonKey is derived from the variant's structured fields — no synthetic
+        * `wamid_status_<id>_<ts>_<status>` concat strings. The receiver constructs
+        * the payload from typed Meta webhook fields and the worker reads them
+        * directly (statusFor, newStatus, timestamp).
         */
        export async function enqueueInboundWhatsApp(
          args: InboundWhatsAppPayload,
        ): Promise<string | null> {
          const data = InboundWhatsAppPayload.parse(args);
          const boss = getBoss();
+
+         // Per-variant singletonKey — see D-13 convention
+         const singletonKey =
+           data.kind === "message"
+             ? `${QUEUE_NAMES.INBOUND_WHATSAPP}:msg_${data.externalId}`
+             : `${QUEUE_NAMES.INBOUND_WHATSAPP}:status_${data.statusFor}_${data.newStatus}_${data.timestamp}`;
+
          return boss.send(QUEUE_NAMES.INBOUND_WHATSAPP, data, {
-           singletonKey: `${QUEUE_NAMES.INBOUND_WHATSAPP}:wamid_${data.externalId}`,
+           singletonKey,
            retryLimit: 5,
            retryBackoff: true,
          });
@@ -624,6 +688,8 @@ export function verifySignature(rawBody: string, sigHeader: string, appSecret: s
          QUEUE_NAMES,
          OutboundWhatsAppPayload,
          InboundWhatsAppPayload,
+         InboundWhatsAppMessagePayload,
+         InboundWhatsAppStatusPayload,
          StripeEventPayload,
          ClassReminderPayload,
        } from "./types.js";
@@ -714,12 +780,45 @@ export function verifySignature(rawBody: string, sigHeader: string, appSecret: s
            expect(result.success).toBe(true);
          });
 
-         it("InboundWhatsAppPayload requires externalId and isStatus", () => {
+         it("InboundWhatsAppPayload accepts message variant", () => {
            const result = InboundWhatsAppPayload.safeParse({
-             externalId: "wamid_ABC",
-             isStatus: false,
+             kind: "message",
+             externalId: "wamid.ABC",
+             from: "447700900000",
+             messageType: "text",
+             body: "hi",
+             timestamp: "1700000000",
            });
            expect(result.success).toBe(true);
+         });
+
+         it("InboundWhatsAppPayload accepts status variant with explicit fields (HIGH #6)", () => {
+           const result = InboundWhatsAppPayload.safeParse({
+             kind: "status",
+             statusFor: "wamid.XYZ",
+             newStatus: "delivered",
+             timestamp: "1700000000",
+             errorCode: undefined,
+           });
+           expect(result.success).toBe(true);
+         });
+
+         it("InboundWhatsAppPayload status variant rejects unknown newStatus", () => {
+           const result = InboundWhatsAppPayload.safeParse({
+             kind: "status",
+             statusFor: "wamid.XYZ",
+             newStatus: "exploded",
+             timestamp: "1700000000",
+           });
+           expect(result.success).toBe(false);
+         });
+
+         it("InboundWhatsAppPayload rejects payloads without kind discriminator", () => {
+           const result = InboundWhatsAppPayload.safeParse({
+             externalId: "wamid.OLD",
+             isStatus: false,
+           });
+           expect(result.success).toBe(false);
          });
        });
 
@@ -744,14 +843,19 @@ export function verifySignature(rawBody: string, sigHeader: string, appSecret: s
     - `packages/queue/package.json` exists AND contains `"name": "@gymos/queue"` AND `"pg-boss": "^12"` (or `^12.18`)
     - `packages/queue/src/boss.ts` contains string `DATABASE_URL_UNPOOLED` (env var name per PITFALL #1)
     - `packages/queue/src/boss.ts` contains string `if (url.includes("-pooler"))` (the guard)
+    - `packages/queue/src/types.ts` contains string `z.discriminatedUnion("kind"` (HIGH #6 — InboundWhatsAppPayload is a typed discriminated union)
+    - `packages/queue/src/types.ts` contains string `kind: z.literal("message")` AND `kind: z.literal("status")`
+    - `packages/queue/src/types.ts` contains string `statusFor: z.string()` (explicit field — no synthetic concat)
+    - `packages/queue/src/types.ts` contains string `newStatus: z.enum(["sent", "delivered", "read", "failed"])`
     - `packages/queue/src/publish.ts` contains string `outbound-whatsapp:${data.messageId}` (singletonKey per D-13)
     - `packages/queue/src/publish.ts` contains string `stripe-event:stripe_${data.eventId}` (singletonKey per D-13)
-    - `packages/queue/src/publish.ts` contains string `inbound-whatsapp:wamid_${data.externalId}` (singletonKey per D-13)
+    - `packages/queue/src/publish.ts` contains string `inbound-whatsapp:msg_${data.externalId}` (message-variant singletonKey)
+    - `packages/queue/src/publish.ts` contains string `inbound-whatsapp:status_${data.statusFor}_${data.newStatus}_${data.timestamp}` (status-variant singletonKey — derived from structured fields, not synthetic concat)
     - `packages/queue/src/publish.ts` contains string `enqueueClassReminder` AND `throw new Error.*stubbed` (P2 stub per D-12)
-    - `pnpm --filter @gymos/queue test` exits 0 with all 9 tests passing (3 boss + 6 payload schemas + 1 QUEUE_NAMES = 9 minimum; actual count depends on counted suite shape)
+    - `pnpm --filter @gymos/queue test` exits 0 with all tests passing (3 boss + 9 schema/queue-names = at least 12)
     - `pnpm --filter @gymos/queue typecheck` exits 0
   </acceptance_criteria>
-  <done>packages/queue/ exports typed publishers + boss singleton with UNPOOLED guard. Tests pass.</done>
+  <done>packages/queue/ exports typed publishers + boss singleton with UNPOOLED guard. InboundWhatsAppPayload is a discriminated union with structured per-variant fields (HIGH #6). Tests pass.</done>
 </task>
 
 <task type="auto">
@@ -864,7 +968,8 @@ export function verifySignature(rawBody: string, sigHeader: string, appSecret: s
 - `pnpm run guard:no-whatsapp-in-staff-web` exits 0
 - `packages/whatsapp/src/verify-signature.ts` preserves the demo's crypto.timingSafeEqual pattern
 - `packages/queue/src/boss.ts` throws on -pooler URLs
-- All publishers use D-13 singletonKey convention
+- `packages/queue/src/types.ts` defines InboundWhatsAppPayload as a discriminated union with kind='message' | kind='status' variants (HIGH #6)
+- All publishers use D-13 singletonKey convention; status singletonKey uses structured fields not synthetic concat
 </verification>
 
 <success_criteria>
@@ -872,13 +977,15 @@ export function verifySignature(rawBody: string, sigHeader: string, appSecret: s
 2. Worker-only consumption of @gymos/whatsapp enforced by guard script (D-11)
 3. pg-boss connection guard prevents accidental use of pooled Neon endpoint (PITFALL #1)
 4. Typed payload schemas (Zod) provide compile-time + runtime safety for queue contracts
-5. enqueueClassReminder stub keeps file structure stable for P2 NOTIF-01 work
+5. InboundWhatsAppPayload is a typed discriminated union — receiver↔worker boundary no longer relies on synthetic string concat (HIGH #6)
+6. enqueueClassReminder stub keeps file structure stable for P2 NOTIF-01 work
 </success_criteria>
 
 <output>
 After completion, create `.planning/phases/P1b-webhook-worker-spine-stripe-whatsapp-2-weeks/P1b-03-SUMMARY.md` recording:
 - Final test count + pass status per package
 - Confirmation that @gymos/whatsapp is NOT in apps/staff-web/package.json
+- Confirmation that InboundWhatsAppPayload is a discriminated union (HIGH #6 fix)
 - Exact pg-boss version pinned (verify `npm view pg-boss version` matches what was installed)
 - Notes for Plan 04 (edge-webhooks) and Plan 06 (worker sendMessage) on how to import these packages
 </output>
