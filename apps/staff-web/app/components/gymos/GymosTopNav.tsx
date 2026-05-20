@@ -11,6 +11,7 @@
 // without an <Outlet />, latent since D1).
 
 import { Link, useLocation } from "react-router";
+import { IconSettings } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
 
 export function GymosTopNav() {
@@ -27,6 +28,8 @@ export function GymosTopNav() {
   const isSchedule = path.startsWith("/gymos/schedule");
   const isMembers = path.startsWith("/gymos/members");
   const isPayments = path.startsWith("/gymos/payments");
+  // P1b-08: Settings → Integrations (Stripe key rotation).
+  const isSettings = path.startsWith("/gymos/settings");
   return (
     <nav className="flex items-center gap-1 px-4 h-11 border-b border-border/50 bg-card/40 shrink-0">
       <span className="text-[12px] font-semibold mr-3">GymOS</span>
@@ -42,9 +45,17 @@ export function GymosTopNav() {
       <Link to="/gymos/payments" className={tabClass(isPayments)}>
         Payments
       </Link>
-      <span className="ml-auto text-[10px] text-muted-foreground">
-        Demo Sprint D1
-      </span>
+      <Link
+        to="/gymos/settings/integrations"
+        className={cn(
+          tabClass(isSettings),
+          "ml-auto inline-flex items-center gap-1",
+        )}
+        aria-label="Settings"
+      >
+        <IconSettings size={14} aria-hidden />
+        Settings
+      </Link>
     </nav>
   );
 }

@@ -186,6 +186,9 @@ importers:
       recharts:
         specifier: ^3.8.1
         version: 3.8.1(@types/react@19.2.14)(react-dom@19.2.6(react@19.2.6))(react-is@19.2.4)(react@19.2.6)(redux@5.0.1)
+      stripe:
+        specifier: ^19.0.0
+        version: 19.3.1(@types/node@24.12.2)
       zod:
         specifier: ^4.3.6
         version: 4.4.3
@@ -35429,6 +35432,12 @@ snapshots:
       qs: 6.15.0
     optionalDependencies:
       '@types/node': 22.19.17
+
+  stripe@19.3.1(@types/node@24.12.2):
+    dependencies:
+      qs: 6.15.0
+    optionalDependencies:
+      '@types/node': 24.12.2
 
   strnum@2.2.2:
     optional: true

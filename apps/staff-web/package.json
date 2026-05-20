@@ -38,6 +38,7 @@
     "nanoid": "^5.1.9",
     "react-day-picker": "^9.14.0",
     "recharts": "^3.8.1",
+    "stripe": "^19.0.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
