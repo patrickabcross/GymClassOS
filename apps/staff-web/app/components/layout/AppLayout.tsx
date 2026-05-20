@@ -138,11 +138,11 @@ export function AppLayout({ children }: AppLayoutProps) {
     <AgentSidebar
       position="right"
       defaultOpen={!isMobile}
-      emptyStateText="Ask me anything about your emails"
+      emptyStateText="Ask me anything about your gym"
       suggestions={[
-        "Summarize my unread emails",
-        "What needs my reply today?",
-        "Build me a custom widget for my inbox",
+        "Provide renewal numbers",
+        "Which classes haven't been filled in the last week?",
+        "Which customers should I reach out to?",
       ]}
     >
       {content}
