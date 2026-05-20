@@ -1,0 +1,597 @@
+import {
+  useState,
+  useRef,
+  useMemo,
+  useEffect,
+  forwardRef,
+  useImperativeHandle,
+} from "react";
+import {
+  IconSend,
+  IconBold,
+  IconItalic,
+  IconLink,
+  IconPaperclip,
+  IconLoader2,
+  IconDots,
+  IconX,
+  IconTrash,
+  IconExternalLink,
+} from "@tabler/icons-react";
+import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  useSendEmail,
+  useAddOptimisticReply,
+  useSettings,
+} from "@/hooks/use-emails";
+import { useAliases } from "@/hooks/use-aliases";
+import { expandAliasTokens } from "@/lib/alias-utils";
+import { appApiPath } from "@/lib/api-path";
+import { useAgentChatGenerating } from "@agent-native/core";
+import { toast } from "sonner";
+import type { ComposeState, EmailMessage } from "@shared/types";
+import { RecipientInput } from "./RecipientInput";
+import { ComposeEditor, type ComposeEditorHandle } from "./ComposeEditor";
+import { openFilePicker, uploadFiles } from "@/lib/upload";
+import { canUseAgentGenerate } from "@/lib/agent-generate";
+import { AttachmentStrip } from "./AttachmentStrip";
+
+function splitQuotedContent(body: string): [string, string] {
+  const replyMatch = body.match(/\n*— On .+? wrote:\n/);
+  const fwdMatch = body.match(/\n*— Forwarded message —\n/);
+  const match = replyMatch || fwdMatch;
+  if (!match || match.index === undefined) return [body, ""];
+  return [body.slice(0, match.index), body.slice(match.index)];
+}
+
+export interface InlineReplyHandle {
+  focusEditor: () => void;
+}
+
+interface InlineReplyComposerProps {
+  draft: ComposeState;
+  messages: EmailMessage[];
+  onUpdate: (id: string, partial: Partial<ComposeState>) => void;
+  onDiscard: (id: string) => void;
+  onClose: (id: string) => void;
+  onPopOut: (id: string) => void;
+  onFlush: (id: string) => Promise<unknown> | undefined;
+  onReopen: (state: Omit<ComposeState, "id">) => void;
+}
+
+export const InlineReplyComposer = forwardRef<
+  InlineReplyHandle,
+  InlineReplyComposerProps
+>(function InlineReplyComposer(
+  {
+    draft,
+    messages,
+    onUpdate,
+    onDiscard,
+    onClose,
+    onPopOut,
+    onFlush,
+    onReopen,
+  },
+  ref,
+) {
+  const [showQuoted, setShowQuoted] = useState(false);
+  const [generateOpen, setGenerateOpen] = useState(false);
+  const [generatePrompt, setGeneratePrompt] = useState("");
+  const [isGenerating, sendToAgent] = useAgentChatGenerating();
+  const sendEmail = useSendEmail();
+  const addOptimisticReply = useAddOptimisticReply();
+  const { data: settings } = useSettings();
+  const { data: aliases = [] } = useAliases();
+  const editorRef = useRef<ComposeEditorHandle>(null);
+  const composerRef = useRef<HTMLDivElement>(null);
+  const sendingRef = useRef(false);
+
+  useImperativeHandle(ref, () => ({
+    focusEditor: () => {
+      editorRef.current?.getEditor()?.commands.focus();
+    },
+  }));
+
+  // Auto-focus editor and scroll into view on mount
+  useEffect(() => {
+    setTimeout(() => {
+      editorRef.current?.getEditor()?.commands.focus();
+      composerRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+      });
+    }, 100);
+  }, []);
+
+  // Resolve recipient display names from thread messages
+  const recipientDisplay = useMemo(() => {
+    const emails = draft.to
+      .split(",")
+      .map((e) => e.trim())
+      .filter(Boolean);
+    return emails
+      .map((email) => {
+        const lower = email.toLowerCase();
+        // Check senders
+        const senderMsg = messages.find(
+          (m) => m.from.email.toLowerCase() === lower,
+        );
+        if (
+          senderMsg?.from.name &&
+          senderMsg.from.name !== senderMsg.from.email
+        )
+          return senderMsg.from.name;
+        // Check recipients
+        for (const m of messages) {
+          const r = [...m.to, ...(m.cc || [])].find(
+            (r) => r.email.toLowerCase() === lower,
+          );
+          if (r?.name && r.name !== r.email) return r.name;
+        }
+        return email;
+      })
+      .join(", ");
+  }, [draft.to, messages]);
+
+  // Split quoted content
+  const [editableContent, quotedContent] = useMemo(
+    () => splitQuotedContent(draft.body),
+    [draft.body],
+  );
+  const quotedRef = useRef(quotedContent);
+  quotedRef.current = quotedContent;
+  const hasQuote = quotedContent.length > 0;
+
+  const handleSend = async () => {
+    if (sendingRef.current) return;
+    if (!draft.to.trim()) {
+      toast.error("Please add at least one recipient");
+      return;
+    }
+    sendingRef.current = true;
+
+    const draftSnapshot = { ...draft };
+    const { savedDraftId } = draft;
+
+    onDiscard(draft.id);
+
+    if (savedDraftId) {
+      fetch(appApiPath(`/api/emails/draft/${savedDraftId}`), {
+        method: "DELETE",
+      });
+    }
+
+    // Show optimistic reply in the thread immediately
+    const undoOptimistic = addOptimisticReply({
+      to: expandAliasTokens(draftSnapshot.to, aliases),
+      cc: expandAliasTokens(draftSnapshot.cc ?? "", aliases) || undefined,
+      subject: draftSnapshot.subject,
+      body: draftSnapshot.body,
+      replyToId: draftSnapshot.replyToId,
+      replyToThreadId: draftSnapshot.replyToThreadId,
+      accountEmail: draftSnapshot.accountEmail,
+      attachments: draftSnapshot.attachments,
+    });
+
+    let cancelled = false;
+
+    const handleUndo = () => {
+      if (cancelled) return;
+      cancelled = true;
+      sendingRef.current = false;
+      clearTimeout(sendTimer);
+      clearTimeout(transitionTimer);
+      toast.dismiss(toastId);
+      undoOptimistic?.();
+      const { id: _id, ...reopenData } = draftSnapshot;
+      onReopen(reopenData);
+    };
+
+    const toastId = toast("Sending...", {
+      action: { label: "UNDO", onClick: handleUndo },
+      duration: Infinity,
+    });
+
+    const transitionTimer = setTimeout(() => {
+      if (cancelled) return;
+      toast("Message sent.", {
+        id: toastId,
+        action: { label: "UNDO", onClick: handleUndo },
+        duration: Infinity,
+      });
+    }, 1500);
+
+    const sendTimer = setTimeout(() => {
+      if (cancelled) return;
+      toast.dismiss(toastId);
+      sendEmail.mutate(
+        {
+          to: expandAliasTokens(draftSnapshot.to, aliases),
+          cc: expandAliasTokens(draftSnapshot.cc ?? "", aliases) || undefined,
+          bcc: expandAliasTokens(draftSnapshot.bcc ?? "", aliases) || undefined,
+          subject: draftSnapshot.subject,
+          body: draftSnapshot.body,
+          replyToId: draftSnapshot.replyToId,
+          replyToThreadId: draftSnapshot.replyToThreadId,
+          accountEmail: draftSnapshot.accountEmail,
+          attachments: draftSnapshot.attachments,
+        },
+        {
+          onError: () => {
+            toast.error("Failed to send email");
+            const { id: _id, ...reopenData } = draftSnapshot;
+            onReopen(reopenData);
+          },
+          onSettled: () => {
+            sendingRef.current = false;
+          },
+        },
+      );
+    }, 5000);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (!composerRef.current?.contains(e.target as Node)) return;
+    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+      e.preventDefault();
+      e.stopPropagation();
+      handleSend();
+    }
+    if (e.key === "Escape") {
+      e.preventDefault();
+      e.stopPropagation();
+      onClose(draft.id);
+    }
+  };
+
+  const handleGenerate = async () => {
+    if (!generatePrompt.trim()) return;
+    if (!(await canUseAgentGenerate())) {
+      toast.error(
+        "Connect Builder or another AI engine before using Generate.",
+      );
+      window.dispatchEvent(new CustomEvent("agent-panel:open"));
+      return;
+    }
+    await onFlush(draft.id);
+    const context = [
+      draft.to && `To: ${draft.to}`,
+      draft.cc && `Cc: ${draft.cc}`,
+      draft.subject && `Subject: ${draft.subject}`,
+      settings?.writingStyle?.trim() &&
+        `User writing style:\n${settings.writingStyle.trim()}`,
+      settings?.signature?.trim()
+        ? `Configured signature:\n${settings.signature.trim()}`
+        : "Configured signature: (none)",
+      draft.body && `Current draft:\n${draft.body}`,
+    ]
+      .filter(Boolean)
+      .join("\n");
+    sendToAgent({
+      message: generatePrompt.trim(),
+      context: `The user is composing an email reply. The current draft is saved in application-state/compose-${draft.id}.json.\n\nIMPORTANT: Update this EXISTING file (compose-${draft.id}.json) — do NOT create a new compose file. Read it first, then write back to the same file with your changes.\n\nDrafting rules:\n- Use the configured signature exactly when one is present, and do not duplicate it if it is already in the draft.\n- If no configured signature is present, do not invent or derive a sign-off from the user's name or email address.\n- Use Markdown only. Keep the copy natural, specific, and free of generic AI email filler unless the user asks for a formal template.\n\n${context || "(empty draft)"}`,
+      submit: true,
+    });
+    setGeneratePrompt("");
+    setGenerateOpen(false);
+  };
+
+  const handleAttachFiles = async (files: File[]) => {
+    if (files.length === 0) return;
+    try {
+      const attachments = await uploadFiles(files);
+      const existing = draft.attachments ?? [];
+      onUpdate(draft.id, { attachments: [...existing, ...attachments] });
+    } catch {
+      toast.error("Failed to attach file");
+    }
+  };
+
+  const handleAttach = async () => {
+    const file = await openFilePicker("*/*");
+    if (!file) return;
+    await handleAttachFiles([file]);
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    if (!Array.from(e.dataTransfer.types).includes("Files")) return;
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = "copy";
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    const files = Array.from(e.dataTransfer.files ?? []);
+    if (files.length === 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    void handleAttachFiles(files);
+  };
+
+  const handleRemoveAttachment = (attachmentId: string) => {
+    const existing = draft.attachments ?? [];
+    onUpdate(draft.id, {
+      attachments: existing.filter((a) => a.id !== attachmentId),
+    });
+  };
+
+  return (
+    <div
+      ref={composerRef}
+      className="rounded-lg bg-card dark:bg-[hsl(220,5%,10%)] overflow-hidden"
+      onKeyDown={handleKeyDown}
+      onDragOverCapture={handleDragOver}
+      onDropCapture={handleDrop}
+    >
+      {/* Header */}
+      {draft.mode === "forward" ? (
+        <>
+          <div className="flex items-center justify-between px-4 pt-3 pb-1">
+            <span className="text-[13px] font-semibold text-green-400">
+              Forward
+            </span>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => onPopOut(draft.id)}
+                  className="flex h-9 w-9 sm:h-6 sm:w-6 items-center justify-center rounded text-muted-foreground/40 hover:text-foreground transition-colors"
+                >
+                  <IconExternalLink className="h-3.5 w-3.5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>Pop out to compose window</TooltipContent>
+            </Tooltip>
+          </div>
+          <div className="flex items-center border-b border-border/30 px-4 pb-2">
+            <span className="w-8 shrink-0 text-xs font-medium text-muted-foreground">
+              To
+            </span>
+            <RecipientInput
+              value={draft.to}
+              onChange={(val) => onUpdate(draft.id, { to: val })}
+              autoFocus
+            />
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="flex items-center justify-between px-4 pt-3 pb-1">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span className="text-[13px] font-semibold text-green-400">
+                Reply
+              </span>
+              <span className="text-[13px] text-muted-foreground/70 truncate">
+                to {recipientDisplay}
+              </span>
+            </div>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => onPopOut(draft.id)}
+                  className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground/40 hover:text-foreground transition-colors shrink-0"
+                >
+                  <IconExternalLink className="h-3.5 w-3.5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>Pop out to compose window</TooltipContent>
+            </Tooltip>
+          </div>
+          <div className="flex items-center border-b border-border/30 px-4 pb-2">
+            <span className="w-8 shrink-0 text-xs font-medium text-muted-foreground">
+              To
+            </span>
+            <RecipientInput
+              value={draft.to}
+              onChange={(val) => onUpdate(draft.id, { to: val })}
+            />
+          </div>
+        </>
+      )}
+
+      {/* Body */}
+      <div
+        className="px-4 pb-2 min-h-[80px] cursor-text"
+        onClick={(e) => {
+          if (e.target === e.currentTarget) {
+            editorRef.current?.getEditor()?.commands.focus("end");
+          }
+        }}
+      >
+        <ComposeEditor
+          ref={editorRef}
+          content={hasQuote ? editableContent : draft.body}
+          onChange={(md) => {
+            if (hasQuote) {
+              onUpdate(draft.id, { body: md + quotedRef.current });
+            } else {
+              onUpdate(draft.id, { body: md });
+            }
+          }}
+          onGenerate={() => setGenerateOpen(true)}
+          onSend={handleSend}
+          onClose={() => onClose(draft.id)}
+          onFlush={() => onFlush(draft.id)}
+          isGenerating={isGenerating}
+          sendToAgent={sendToAgent}
+        />
+        {hasQuote && (
+          <>
+            <button
+              type="button"
+              aria-label={showQuoted ? "Hide quoted text" : "Show quoted text"}
+              onClick={() => setShowQuoted(!showQuoted)}
+              className="mt-1 inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground/50 transition-colors hover:bg-accent hover:text-muted-foreground"
+            >
+              <IconDots className="h-4 w-4" />
+            </button>
+            {showQuoted && (
+              <pre className="mt-2 whitespace-pre-wrap text-[13px] text-muted-foreground/60 font-sans leading-relaxed">
+                {quotedContent.trim()}
+              </pre>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Attachments */}
+      {draft.attachments && draft.attachments.length > 0 && (
+        <AttachmentStrip
+          attachments={draft.attachments}
+          onRemove={handleRemoveAttachment}
+        />
+      )}
+
+      {/* Toolbar */}
+      <div className="flex shrink-0 items-center justify-between border-t border-border/30 px-3 py-2">
+        <div className="flex items-center gap-0.5">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={() => editorRef.current?.toggleBold()}
+              >
+                <IconBold className="h-3.5 w-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Bold</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={() => editorRef.current?.toggleItalic()}
+              >
+                <IconItalic className="h-3.5 w-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Italic</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={() => editorRef.current?.setLink()}
+              >
+                <IconLink className="h-3.5 w-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Insert link</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={() => void handleAttach()}
+              >
+                <IconPaperclip className="h-3.5 w-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Attach file</TooltipContent>
+          </Tooltip>
+
+          <div className="mx-1 h-4 w-px bg-border" />
+
+          {isGenerating ? (
+            <div className="flex items-center gap-1.5 px-2 text-xs text-muted-foreground">
+              <IconLoader2 className="h-3.5 w-3.5 animate-spin" />
+              <span>Generating…</span>
+            </div>
+          ) : (
+            <Popover open={generateOpen} onOpenChange={setGenerateOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 gap-1.5 px-2 text-xs"
+                >
+                  Generate
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent side="top" align="start" className="w-80 p-3">
+                <div className="flex flex-col gap-2">
+                  <label className="text-xs font-medium text-muted-foreground">
+                    What should the agent write?
+                  </label>
+                  <textarea
+                    value={generatePrompt}
+                    onChange={(e) => setGeneratePrompt(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        handleGenerate();
+                      }
+                      if (e.key === "Escape") {
+                        e.stopPropagation();
+                        setGenerateOpen(false);
+                      }
+                    }}
+                    placeholder="e.g. Write a polite follow-up..."
+                    className="min-h-[60px] w-full resize-none rounded-md border bg-transparent px-3 py-2 text-sm outline-none placeholder:text-muted-foreground focus:ring-1 focus:ring-ring"
+                    autoFocus
+                  />
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] text-muted-foreground">
+                      <kbd className="kbd-hint">↵</kbd> to submit
+                    </span>
+                    <Button
+                      size="sm"
+                      onClick={handleGenerate}
+                      disabled={!generatePrompt.trim()}
+                      className="h-7 gap-1.5 px-3 text-xs"
+                    >
+                      Generate
+                    </Button>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                onClick={() => onDiscard(draft.id)}
+              >
+                <IconTrash className="h-3.5 w-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Discard draft</TooltipContent>
+          </Tooltip>
+          <Button
+            size="sm"
+            onClick={handleSend}
+            disabled={sendEmail.isPending || !draft.to.trim()}
+            className="gap-1.5"
+          >
+            <IconSend className="h-3.5 w-3.5" />
+            Send
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+});

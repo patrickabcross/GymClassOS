@@ -2,6 +2,7 @@ packages:
   - packages/*
   - templates/*
   - templates/*/desktop
+  - apps/*
 
 catalog:
   "@tabler/icons-react": ^3.41.1
