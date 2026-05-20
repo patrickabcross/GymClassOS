@@ -1,0 +1,29 @@
+{
+  "object": "whatsapp_business_account",
+  "entry": [
+    {
+      "id": "12345_waba",
+      "changes": [
+        {
+          "value": {
+            "messaging_product": "whatsapp",
+            "metadata": {
+              "display_phone_number": "+447700900000",
+              "phone_number_id": "12345"
+            },
+            "messages": [
+              {
+                "from": "447700900001",
+                "id": "wamid.P1B_FIXTURE_TEST_001",
+                "timestamp": "1700000000",
+                "type": "text",
+                "text": { "body": "test inbound from P1b-09 fixture" }
+              }
+            ]
+          },
+          "field": "messages"
+        }
+      ]
+    }
+  ]
+}
