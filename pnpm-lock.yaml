@@ -95,6 +95,9 @@ importers:
       '@anthropic-ai/sdk':
         specifier: '>=0.90.0'
         version: 0.97.0(zod@4.4.3)
+      '@gymos/queue':
+        specifier: workspace:*
+        version: link:../../packages/queue
       '@libsql/client':
         specifier: ^0.15.0
         version: 0.15.15

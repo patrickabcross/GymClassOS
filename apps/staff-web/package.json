@@ -16,9 +16,16 @@
     "db:push": "drizzle-kit push",
     "db:generate": "drizzle-kit generate"
   },
+  "gymos": {
+    "forbiddenDependencies": [
+      "@gymos/whatsapp"
+    ],
+    "forbiddenReason": "D-11 (P1b-CONTEXT): staff-web never calls Meta directly. Outbound WhatsApp sends go through @gymos/queue -> worker -> @gymos/whatsapp. If a future change adds @gymos/whatsapp here, the worker chokepoint is bypassed and 24h-window + opt-in gates are no longer enforced."
+  },
   "dependencies": {
     "@agent-native/core": "workspace:*",
     "@anthropic-ai/sdk": "^0.97.0",
+    "@gymos/queue": "workspace:*",
     "@libsql/client": "^0.15.0",
     "@tabler/icons-react": "^3.40.0",
     "chrono-node": "^2.7.6",
