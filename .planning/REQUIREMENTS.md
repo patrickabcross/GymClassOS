@@ -38,20 +38,20 @@
 
 - [ ] **WEB-01** [P]: `apps/edge-webhooks` deployed to Fly.io as Hono app with `min_machines = 1` (always-on)
 - [ ] **WEB-02** [P]: Webhook receiver verifies HMAC against raw body BEFORE any JSON parsing (Stripe + WhatsApp)
-- [ ] **WEB-03** [P]: Webhook receiver inserts into `webhook_events` with `ON CONFLICT DO NOTHING`, enqueues via pg-boss, returns 200 in <100ms — does NO business logic
+- [x] **WEB-03** [P]: Webhook receiver inserts into `webhook_events` with `ON CONFLICT DO NOTHING`, enqueues via pg-boss, returns 200 in <100ms — does NO business logic
 - [ ] **WEB-04** [P]: `apps/worker` deployed to Fly.io (sibling process to edge-webhooks) running pg-boss subscribers against the same Neon Postgres instance (NO Redis)
-- [ ] **WEB-05** [P]: Worker job processing is idempotent — re-running with the same `external_id` produces the same DB state, never duplicates writes
+- [x] **WEB-05** [P]: Worker job processing is idempotent — re-running with the same `external_id` produces the same DB state, never duplicates writes
 - [ ] **WEB-06** [P]: Stripe webhook handler wraps `webhook_events` insert + business work in a single DB transaction; refetches event from Stripe API rather than trusting payload; `apiVersion` explicitly pinned in Stripe SDK init
 
 ### Stripe Integration (direct restricted-API-key, NOT Connect)
 
 - [ ] **STR-01** [D+P]: Per-studio Stripe restricted key stored encrypted (pgcrypto). Demo: one studio, hardcoded; Production: rotated + audited. Studio creates their own Stripe account and generates the key with permissions: Products/Prices, Customers, Subscriptions, PaymentIntents, SetupIntents, Charges (read), Refunds, Webhooks (read)
 - [ ] **STR-02** [D]: Demo can generate at least one Stripe Checkout link for a pass purchase, complete it in test mode, and reflect the resulting pass grant in the member profile
-- [ ] **STR-03** [P]: `checkout.session.completed` handler creates/updates `payments` row + grants pass if line item is a pack (atomic transaction with `webhook_events` insert)
-- [ ] **STR-04** [P]: `invoice.paid` and `invoice.payment_failed` handlers reconcile `stripe_subscriptions` state + write to `payments`
-- [ ] **STR-05** [P]: `customer.subscription.updated` and `customer.subscription.deleted` handlers reconcile membership status
-- [ ] **STR-06** [P]: `charge.refunded` handler reverses pass grant on refund
-- [ ] **STR-07** [P]: All Stripe handlers idempotent (verified by replaying the same event twice in tests — no duplicate `payments` or pass-balance changes)
+- [x] **STR-03** [P]: `checkout.session.completed` handler creates/updates `payments` row + grants pass if line item is a pack (atomic transaction with `webhook_events` insert)
+- [x] **STR-04** [P]: `invoice.paid` and `invoice.payment_failed` handlers reconcile `stripe_subscriptions` state + write to `payments`
+- [x] **STR-05** [P]: `customer.subscription.updated` and `customer.subscription.deleted` handlers reconcile membership status
+- [x] **STR-06** [P]: `charge.refunded` handler reverses pass grant on refund
+- [x] **STR-07** [P]: All Stripe handlers idempotent (verified by replaying the same event twice in tests — no duplicate `payments` or pass-balance changes)
 - [ ] **STR-08** [D+P]: No card data ever stored — only Stripe tokenised IDs in DB
 
 ### WhatsApp Integration (Meta direct)
@@ -59,11 +59,11 @@
 - [x] **WA-01** [D]: Demo can receive at least one inbound WhatsApp message from a real phone and surface it in the inbox UI (HMAC verified, message + conversation persisted)
 - [x] **WA-02** [D]: Demo can send at least one outbound WhatsApp message from the inbox UI (in-window free-text to a member who recently messaged in)
 - [ ] **WA-03** [P]: Inbound webhook materialises `conversations` + `messages` from Meta payloads; dedup on `(provider_event_type, external_id)`
-- [ ] **WA-04** [P]: Message status webhooks (`sent`/`delivered`/`read`/`failed`) update `messages.status` via ordinal-guarded UPDATE (never downgrades)
+- [x] **WA-04** [P]: Message status webhooks (`sent`/`delivered`/`read`/`failed`) update `messages.status` via ordinal-guarded UPDATE (never downgrades)
 - [ ] **WA-05** [P]: Single `sendMessage()` chokepoint in the worker is the only path to Meta's send API — `staff-web` enqueues, never calls Meta directly
-- [ ] **WA-06** [P]: `sendMessage()` enforces the 24-hour window at call time by reading `conversations.last_inbound_at` from the DB (authoritative — UI hints are not trusted); sends outside the window MUST be approved templates or are rejected with a typed error
-- [ ] **WA-07** [P]: `whatsapp_opt_in` table tracks per-member opt-in evidence; `sendMessage()` refuses to send if no opt-in is recorded
-- [ ] **WA-08** [P]: WhatsApp template send path uses the approved template list from `whatsapp_templates` (synced daily by a worker housekeeping job)
+- [x] **WA-06** [P]: `sendMessage()` enforces the 24-hour window at call time by reading `conversations.last_inbound_at` from the DB (authoritative — UI hints are not trusted); sends outside the window MUST be approved templates or are rejected with a typed error
+- [x] **WA-07** [P]: `whatsapp_opt_in` table tracks per-member opt-in evidence; `sendMessage()` refuses to send if no opt-in is recorded
+- [x] **WA-08** [P]: WhatsApp template send path uses the approved template list from `whatsapp_templates` (synced daily by a worker housekeeping job)
 - [ ] **WA-09** [P]: WhatsApp client wrapped in a thin adapter (`packages/whatsapp/`) so swapping `@great-detail/whatsapp` for hand-rolled Graph API calls is a one-file change
 
 ### Staff Authentication

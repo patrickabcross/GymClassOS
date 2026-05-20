@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: "P1b-01 complete; apps/staff-web/ ported + boots; ready for Wave 2 (P1b-02 schema migration + P1b-03 packages)"
-last_updated: "2026-05-20T14:00:00.000Z"
-last_activity: 2026-05-20 -- P1b-01 monorepo refactor complete (1 of 9 P1b plans)
+stopped_at: P1b-02 complete; schema migration applied to gymos-demo Neon; 6 new tables + pgcrypto + 2 UNIQUE indexes + window-state VIEW live; ready for Wave 2 sibling (P1b-03 packages/queue + packages/whatsapp) and Wave 3 (P1b-04 edge-webhooks)
+last_updated: "2026-05-20T16:22:50.810Z"
+last_activity: 2026-05-20
 progress:
   total_phases: 7
   completed_phases: 0
-  total_plans: 9
-  completed_plans: 1
-  percent: 32
+  total_plans: 0
+  completed_plans: 0
+  percent: 30
 ---
 
 # Project State
@@ -30,10 +30,10 @@ Requirements: `.planning/REQUIREMENTS.md` (130 reqs across 20 categories — see
 ## Current Position
 
 Milestone: Demo Sprint (1 of 2) — Week 1 (by ~2026-05-24)
-Phase: P1b (Webhook + Worker Spine (Stripe + WhatsApp)) — EXECUTING (1 of 9 plans complete)
-Plan: 2 of 9 (next: P1b-02-schema-migration-additive)
-Status: Executing Phase P1b
-Last activity: 2026-05-20 -- P1b-01 monorepo refactor complete (apps/staff-web/ ported)
+Phase: P1b (Webhook + Worker Spine (Stripe + WhatsApp)) — EXECUTING
+Plan: 2 of 9
+Status: Ready to execute
+Last activity: 2026-05-20
 
 Progress: Demo Sprint [███░░░░░░░] ~30%
 
@@ -114,6 +114,8 @@ Decisions are logged in `PROJECT.md` Key Decisions table. Recent ones affecting 
 - [Phase P1b-webhook-worker-spine-stripe-whatsapp-2-weeks]: P1b-01: All GymOS staff code moved from templates/mail/ to apps/staff-web/ (236 files, 53,672 LOC); templates/mail/ restored upstream-clean; pnpm-workspace.yaml extended with apps/* glob; Drizzle baseline regenerated for Postgres dialect. Plan 02 onwards extend apps/staff-web/server/db/schema.ts (never templates/mail/).
 - [Phase P1b-webhook-worker-spine-stripe-whatsapp-2-weeks]: P1b-01: Deviation from D-05 cutover order — templates/mail/webhooks.whatsapp.tsx deleted in Task 2 (not deferred to Plan 09) because its imports referenced removed GymOS schema. Cutover semantics preserved because identical file lives at apps/staff-web/app/routes/webhooks.whatsapp.tsx; Plan 09's "delete the demo webhook" now refers to the apps/staff-web copy.
 - [Phase P1b-webhook-worker-spine-stripe-whatsapp-2-weeks]: P1b-01: Added "/" (exact-match) to apps/staff-web/server/plugins/auth.ts publicPaths so the root _index.tsx redirect to /gymos bypasses upstream Mail's Google sign-in interstitial. matchesPathList() treats "/" as exact-only — no prefix-match risk. Plan 08 (Stripe key rotation UI at /gymos/settings/integrations) will extend this list further.
+- [Phase P1b-webhook-worker-spine-stripe-whatsapp-2-weeks]: P1b-02: P1b additive migration shipped to gymos-demo Neon — 6 new tables (whatsapp_opt_in, whatsapp_templates, stripe_customers, stripe_subscriptions, payments, secrets) + pgcrypto extension + composite UNIQUE(provider, external_id) on webhook_events + partial UNIQUE on messages.external_id WHERE NOT NULL + whatsapp_window_state VIEW. All 9 verification queries pass.
+- [Phase P1b-webhook-worker-spine-stripe-whatsapp-2-weeks]: P1b-02: drizzle-kit migrate hung due to D0.4 MCP-applied baseline; applied 0001 directly via @neondatabase/serverless (statement-by-statement split on --> statement-breakpoint), then seeded drizzle.__drizzle_migrations with SHA-256 hashes of both 0000 + 0001 so future migrate calls are no-ops. Pattern reusable for any future Neon migration where the tracking table is out-of-sync.
 
 ### Pending Todos
 
@@ -142,9 +144,9 @@ None tracked as TODOs; everything is in the roadmap / requirements.
 
 ## Session Continuity
 
-Last session: 2026-05-20T14:00:00.000Z
-Stopped at: P1b-01 complete; apps/staff-web/ ported + boots; ready for Wave 2 (P1b-02 schema migration + P1b-03 packages)
-Resume file: .planning/phases/P1b-webhook-worker-spine-stripe-whatsapp-2-weeks/P1b-02-schema-migration-additive-PLAN.md
+Last session: 2026-05-20T16:22:50.803Z
+Stopped at: P1b-02 complete; schema migration applied to gymos-demo Neon; 6 new tables + pgcrypto + 2 UNIQUE indexes + window-state VIEW live; ready for Wave 2 sibling (P1b-03 packages/queue + packages/whatsapp) and Wave 3 (P1b-04 edge-webhooks)
+Resume file: None
 
 ### Resume Notes — Next Session Quick-Start
 
