@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: "Completed P1b-06-worker-sendmessage-chokepoint-PLAN.md — sendMessage chokepoint (D-10, WA-05) is the single call site of @gymos/whatsapp in the worker. Composes 3 gates in order (opt-in WA-07 → 24h-window WA-06 → template-approved WA-08) BEFORE any Meta API call. outbound-whatsapp pg-boss queue registered at concurrency=1 (D-14, v12 names batchSize=1+localConcurrency=1). 18 new unit tests (7 windowGate + 2 optInGate + 2 templateGate + 9 sendMessage); 32/32 worker suite green. 4 deviations auto-fixed (pg-boss v12 names, language type fix, schema mirror extension, mock pattern correction). Ready for Plan P1b-07 (stripe-event reducer — same pattern: register another boss.work() in worker index, mirror stripe_customers/stripe_subscriptions/payments in apps/worker/src/lib/db.ts)."
-last_updated: "2026-05-20T17:15:07.690Z"
+stopped_at: "Completed P1b-07-worker-stripe-reducers-PLAN.md — 6 Stripe webhook reducers shipped in apps/worker/src/domain/stripeReducers/ (checkout.session.completed, invoice.paid, invoice.payment_failed, customer.subscription.updated/deleted, charge.refunded). Each runs in single Drizzle transaction with processed_at UPDATE (WEB-06). Every reducer except subscription-deleted refetches from Stripe (PITFALL #4 — subscription-deleted is documented exception since resource is gone). Deterministic-key idempotency throughout. pg-boss v12 stripe-event queue at concurrency=3 (batchSize:3 + localConcurrency:3). pgcrypto writeSecret/readSecret in apps/worker/src/lib/secrets.ts enables Plan 08 rotation flow without worker restart. apps/worker/src/index.ts now registers all 3 queues (inbound + outbound + stripe-event). 49/49 worker tests green. Ready for Plan P1b-08 (staff-web /gymos/settings/integrations Stripe key rotation UI — just calls writeSecret('stripe_restricted_key', plaintext, db))."
+last_updated: "2026-05-20T17:28:26.997Z"
 last_activity: 2026-05-20
 progress:
   total_phases: 7
@@ -31,7 +31,7 @@ Requirements: `.planning/REQUIREMENTS.md` (130 reqs across 20 categories — see
 
 Milestone: Demo Sprint (1 of 2) — Week 1 (by ~2026-05-24)
 Phase: P1b (Webhook + Worker Spine (Stripe + WhatsApp)) — EXECUTING
-Plan: 6 of 9
+Plan: 7 of 9
 Status: Ready to execute
 Last activity: 2026-05-20
 
@@ -130,6 +130,7 @@ Decisions are logged in `PROJECT.md` Key Decisions table. Recent ones affecting 
 - [Phase P1b-webhook-worker-spine-stripe-whatsapp-2-weeks]: P1b-06: Status state machine split between sendMessage (post-Meta-call: 4xx terminal sets status='failed', returns externalId=''; 5xx re-throws for pg-boss retry; 2xx sets status='sent'+external_id) and outbound-whatsapp queue handler (pre-Meta-call gate refusals: catches typed errors, writes status='failed' with the typed .code, returns normally to mark job complete).
 - [Phase P1b-webhook-worker-spine-stripe-whatsapp-2-weeks]: P1b-06: Drizzle mock pattern in vitest — Drizzle's query builder is a thenable, so awaiting calls .then(resolve) directly with the rows array. Mock the terminal chain method (.limit(1) or .where()) with mockResolvedValueOnce(rows) instead of mocking .then. Pattern reusable for Plan 07 (stripe-event) + any future worker test.
 - [Phase P1b-webhook-worker-spine-stripe-whatsapp-2-weeks]: P1b-06: For staff-web (Plan 08) — failed-bubble copy can map directly off messages.error_code values. Stable typed codes: NO_OPT_IN, WINDOW_EXPIRED, TEMPLATE_NOT_APPROVED. Pre-flight UX hints (read whatsapp_opt_in + conversations.last_inbound_at) MAY disable Send / nudge to template, but MUST NOT bypass the worker chokepoint — D-19 defence in depth: UI cache can be stale.
+- [Phase P1b-webhook-worker-spine-stripe-whatsapp-2-weeks]: P1b-07: stripe-event pg-boss queue handler runs reducer + webhook_events.processed_at UPDATE in single Drizzle transaction (WEB-06). 6 reducers (checkout.session.completed, invoice.paid, invoice.payment_failed, customer.subscription.{updated,deleted}, charge.refunded) — every reducer EXCEPT subscription-deleted refetches via stripe.X.retrieve (PITFALL #4); subscription-deleted is documented exception (resource gone, refetch 404s). Deterministic-key idempotency: pay_<piId>, pass_<piId>_<liId>, pdebit_refund_<chgId>_<passId> + ON CONFLICT DO NOTHING/UPDATE. Concurrency=3 via pg-boss v12 names (batchSize:3 + localConcurrency:3). pgcrypto-backed writeSecret/readSecret enables Plan 08 rotation without worker restart. Stripe SDK 19.3.1 Invoice retrieve cast to any for legacy subscription/payment_intent top-level fields (dahlia API returns them at top level via expand; SDK types lag). 49/49 worker tests green.
 
 ### Pending Todos
 
@@ -158,8 +159,8 @@ None tracked as TODOs; everything is in the roadmap / requirements.
 
 ## Session Continuity
 
-Last session: 2026-05-20T17:15:07.682Z
-Stopped at: Completed P1b-06-worker-sendmessage-chokepoint-PLAN.md — sendMessage chokepoint (D-10, WA-05) is the single call site of @gymos/whatsapp in the worker. Composes 3 gates in order (opt-in WA-07 → 24h-window WA-06 → template-approved WA-08) BEFORE any Meta API call. outbound-whatsapp pg-boss queue registered at concurrency=1 (D-14, v12 names batchSize=1+localConcurrency=1). 18 new unit tests (7 windowGate + 2 optInGate + 2 templateGate + 9 sendMessage); 32/32 worker suite green. 4 deviations auto-fixed (pg-boss v12 names, language type fix, schema mirror extension, mock pattern correction). Ready for Plan P1b-07 (stripe-event reducer — same pattern: register another boss.work() in worker index, mirror stripe_customers/stripe_subscriptions/payments in apps/worker/src/lib/db.ts).
+Last session: 2026-05-20T17:28:26.989Z
+Stopped at: Completed P1b-07-worker-stripe-reducers-PLAN.md — 6 Stripe webhook reducers shipped in apps/worker/src/domain/stripeReducers/ (checkout.session.completed, invoice.paid, invoice.payment_failed, customer.subscription.updated/deleted, charge.refunded). Each runs in single Drizzle transaction with processed_at UPDATE (WEB-06). Every reducer except subscription-deleted refetches from Stripe (PITFALL #4 — subscription-deleted is documented exception since resource is gone). Deterministic-key idempotency throughout. pg-boss v12 stripe-event queue at concurrency=3 (batchSize:3 + localConcurrency:3). pgcrypto writeSecret/readSecret in apps/worker/src/lib/secrets.ts enables Plan 08 rotation flow without worker restart. apps/worker/src/index.ts now registers all 3 queues (inbound + outbound + stripe-event). 49/49 worker tests green. Ready for Plan P1b-08 (staff-web /gymos/settings/integrations Stripe key rotation UI — just calls writeSecret('stripe_restricted_key', plaintext, db)).
 Resume file: None
 
 ### Resume Notes — Next Session Quick-Start

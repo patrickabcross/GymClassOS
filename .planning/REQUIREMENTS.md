@@ -41,7 +41,7 @@
 - [x] **WEB-03** [P]: Webhook receiver inserts into `webhook_events` with `ON CONFLICT DO NOTHING`, enqueues via pg-boss, returns 200 in <100ms — does NO business logic
 - [x] **WEB-04** [P]: `apps/worker` deployed to Fly.io (sibling process to edge-webhooks) running pg-boss subscribers against the same Neon Postgres instance (NO Redis)
 - [x] **WEB-05** [P]: Worker job processing is idempotent — re-running with the same `external_id` produces the same DB state, never duplicates writes
-- [ ] **WEB-06** [P]: Stripe webhook handler wraps `webhook_events` insert + business work in a single DB transaction; refetches event from Stripe API rather than trusting payload; `apiVersion` explicitly pinned in Stripe SDK init
+- [x] **WEB-06** [P]: Stripe webhook handler wraps `webhook_events` insert + business work in a single DB transaction; refetches event from Stripe API rather than trusting payload; `apiVersion` explicitly pinned in Stripe SDK init
 
 ### Stripe Integration (direct restricted-API-key, NOT Connect)
 
