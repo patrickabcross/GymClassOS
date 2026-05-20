@@ -1,0 +1,36 @@
+{
+  "name": "@gymos/edge-webhooks",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@agent-native/core": "workspace:*",
+    "@gymos/queue": "workspace:*",
+    "@gymos/whatsapp": "workspace:*",
+    "@hono/node-server": "^1.13.0",
+    "@neondatabase/serverless": "^1.1.0",
+    "drizzle-orm": "^0.45.2",
+    "hono": "^4.6.0",
+    "pino": "^9.5.0",
+    "stripe": "^19.0.0",
+    "ws": "^8.18.0",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/ws": "^8.5.0",
+    "tsx": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "^2.0.0"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
