@@ -12,10 +12,7 @@
     "rootDir": "./src",
     "declaration": false,
     "sourceMap": true,
-    "paths": {
-      "@staff-web-schema/*": ["../staff-web/server/db/*"]
-    }
+    "types": ["node"]
   },
-  "include": ["src/**/*"],
-  "exclude": ["src/**/*.test.ts"]
+  "include": ["src/**/*"]
 }

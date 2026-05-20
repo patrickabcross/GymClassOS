@@ -1,0 +1,94 @@
+# GymOS edge-webhooks + worker — single Fly app, two processes (D-01).
+#
+# CRITICAL: region = "iad" (Virginia) NOT "lhr" (London) per P1b RESEARCH finding.
+# Neon project gymos-demo lives in us-east-1; lhr⇄us-east-1 RTT is ~75-90ms which
+# blows the webhook hot path budget. Revisit at P0 cutover if customer-facing
+# latency becomes the priority (option: migrate Neon to eu-west-1 + Fly to lhr).
+app = "gymos-edge-webhooks"
+primary_region = "iad"
+
+[build]
+dockerfile = "../../Dockerfile"
+
+[env]
+NODE_ENV = "production"
+PORT = "3001"
+
+# Two processes — same image, different entrypoints.
+# The worker process is wired up in Plan P1b-05; this file references it now
+# so we don't have to re-deploy after Plan 05 lands.
+[processes]
+web = "node apps/edge-webhooks/dist/index.js"
+worker = "node apps/worker/dist/index.js"
+
+# ===== Web process (port 3001) =====
+[[services]]
+protocol = "tcp"
+internal_port = 3001
+processes = ["web"]
+
+  [[services.ports]]
+  port = 443
+  handlers = ["tls", "http"]
+
+  [[services.ports]]
+  port = 80
+  handlers = ["http"]
+  force_https = true
+
+  [services.concurrency]
+  type = "requests"
+  hard_limit = 200
+  soft_limit = 100
+
+# ===== Worker process (port 3002) — MEDIUM #10 =====
+# Worker exposes /healthz on internal_port 3002 (see Plan 05 index.ts).
+# Without this block, a silently-hung worker (event loop blocked, deadlocked
+# query, etc.) would never be detected — Fly would keep it running forever.
+# This block is NOT publicly routed (no [[services.ports]]); it only exists
+# so Fly's internal health checker can probe the worker machine.
+[[services]]
+protocol = "tcp"
+internal_port = 3002
+processes = ["worker"]
+auto_stop_machines = false
+auto_start_machines = true
+min_machines_running = 1
+
+  [[services.http_checks]]
+  interval = "30s"
+  timeout = "5s"
+  grace_period = "20s"
+  method = "GET"
+  path = "/healthz"
+  protocol = "http"
+
+# Per-process VM sizing
+[[vm]]
+size = "shared-cpu-1x"
+memory = "512mb"
+processes = ["web"]
+
+[[vm]]
+size = "shared-cpu-1x"
+memory = "512mb"
+processes = ["worker"]
+
+# CRITICAL: always-on machine policy for the web process (PITFALL #8 + WEB-01).
+# auto_stop_machines = false forbids Fly from scaling-to-zero, which would
+# reintroduce the Vercel-cold-start-storm class of bug for Meta/Stripe webhooks.
+[http_service]
+internal_port = 3001
+force_https = true
+auto_stop_machines = false
+auto_start_machines = true
+min_machines_running = 1
+processes = ["web"]
+
+  [[http_service.checks]]
+  grace_period = "10s"
+  interval = "30s"
+  method = "GET"
+  path = "/healthz"
+  protocol = "http"
+  timeout = "5s"
