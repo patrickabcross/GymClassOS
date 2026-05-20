@@ -92,6 +92,97 @@ export const whatsappTemplates = pgTable("whatsapp_templates", {
     .default(sql`now()`),
 });
 
+// P1b-07: Stripe mirror tables — extended in this plan so the worker
+// can write stripe_customers / stripe_subscriptions / payments and read
+// secrets without depending on apps/staff-web schema (carries the same
+// dialect-typing-as-sqlite friction documented in P1b-04). Plan 09 will
+// extract packages/db/ to eliminate this duplication.
+export const stripeCustomers = pgTable("stripe_customers", {
+  stripeCustomerId: text("stripe_customer_id").primaryKey(),
+  memberId: text("member_id"),
+  rawJson: text("raw_json").notNull(),
+  updatedAt: text("updated_at")
+    .notNull()
+    .default(sql`now()`),
+});
+
+export const stripeSubscriptions = pgTable("stripe_subscriptions", {
+  stripeSubscriptionId: text("stripe_subscription_id").primaryKey(),
+  memberId: text("member_id").notNull(),
+  status: text("status", {
+    enum: [
+      "active",
+      "past_due",
+      "canceled",
+      "incomplete",
+      "incomplete_expired",
+      "trialing",
+      "unpaid",
+      "paused",
+    ],
+  }).notNull(),
+  planId: text("plan_id"),
+  currentPeriodEnd: text("current_period_end"),
+  rawJson: text("raw_json").notNull(),
+  updatedAt: text("updated_at")
+    .notNull()
+    .default(sql`now()`),
+});
+
+export const payments = pgTable("payments", {
+  id: text("id").primaryKey(),
+  memberId: text("member_id"),
+  stripePaymentIntentId: text("stripe_payment_intent_id").notNull().unique(),
+  amountMinorUnits: integer("amount_minor_units").notNull(),
+  currency: text("currency").notNull(),
+  status: text("status", {
+    enum: ["succeeded", "failed", "refunded", "pending"],
+  }).notNull(),
+  rawJson: text("raw_json").notNull(),
+  occurredAt: text("occurred_at").notNull(),
+});
+
+// STR-06 / D1-02 ledger pattern: pass_debits is append-only; refund inserts
+// a NEGATIVE row keyed on a deterministic ID so replays are no-ops.
+export const passes = pgTable("passes", {
+  id: text("id").primaryKey(),
+  memberId: text("member_id").notNull(),
+  granted: integer("granted").notNull(),
+  source: text("source", {
+    enum: ["purchase", "subscription", "manual", "promo", "refund"],
+  }).notNull(),
+  stripeChargeId: text("stripe_charge_id"),
+  stripeSubscriptionId: text("stripe_subscription_id"),
+  productName: text("product_name"),
+  expiresAt: text("expires_at"),
+  createdAt: text("created_at")
+    .notNull()
+    .default(sql`now()`),
+});
+
+export const passDebits = pgTable("pass_debits", {
+  id: text("id").primaryKey(),
+  passId: text("pass_id").notNull(),
+  bookingId: text("booking_id"),
+  amount: integer("amount").notNull(),
+  reason: text("reason"),
+  createdAt: text("created_at")
+    .notNull()
+    .default(sql`now()`),
+});
+
+// STR-01: encrypted secret storage. Worker reads via pgp_sym_decrypt at SQL
+// time (see apps/worker/src/lib/secrets.ts). pgcrypto extension enabled in
+// the P1b-02 migration.
+export const secrets = pgTable("secrets", {
+  name: text("name").primaryKey(),
+  ciphertext: text("ciphertext").notNull(),
+  updatedAt: text("updated_at")
+    .notNull()
+    .default(sql`now()`),
+  lastUsedAt: text("last_used_at"),
+});
+
 export const messages = pgTable(
   "messages",
   {
@@ -141,6 +232,12 @@ export const schema = {
   messages,
   whatsappOptIn,
   whatsappTemplates,
+  stripeCustomers,
+  stripeSubscriptions,
+  payments,
+  passes,
+  passDebits,
+  secrets,
 };
 
 let _db: ReturnType<typeof drizzle> | undefined;
