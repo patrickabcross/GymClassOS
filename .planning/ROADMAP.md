@@ -151,7 +151,7 @@ The production milestone is structured as 4 phases (preserving the prior coarse-
 
 **Plans:** 9 plans
 
-- [ ] P1b-01-monorepo-refactor-staff-web-PLAN.md — Move templates/mail/ → apps/staff-web/; templates/mail/ back to upstream-clean; regenerate Drizzle migration for PG dialect (no requirement IDs — pure refactor)
+- [x] P1b-01-monorepo-refactor-staff-web-PLAN.md — Move templates/mail/ → apps/staff-web/; templates/mail/ back to upstream-clean; regenerate Drizzle migration for PG dialect (no requirement IDs — pure refactor) — completed 2026-05-20 (commits `1b601f3c`, `7efcbf9a`, `a126010a`, `b8cb721a`, `51e67e67`; SUMMARY in `P1b-01-monorepo-refactor-staff-web-SUMMARY.md`)
 - [ ] P1b-02-schema-migration-additive-PLAN.md — Single additive Drizzle migration: whatsapp_opt_in, whatsapp_templates, stripe_customers, stripe_subscriptions, payments, secrets (pgcrypto); whatsapp_window_state VIEW; extend webhook_events with (provider, external_id) UNIQUE + backfill; extend messages with delivered_at/read_at/error_code (WEB-03/05, WA-04/06/07/08, STR-03..07)
 - [ ] P1b-03-packages-queue-whatsapp-PLAN.md — packages/queue (typed pg-boss publishers + UNPOOLED guard) + packages/whatsapp (thin transport adapter); D-11 compile-time guard that apps/staff-web cannot import @gymos/whatsapp (WA-09)
 - [ ] P1b-04-edge-webhooks-fly-receiver-PLAN.md — apps/edge-webhooks Hono receiver on Fly region iad (research override of CONTEXT D-02 lhr); two-process fly.toml; raw-body HMAC + idempotent insert + enqueue (WEB-01/02/03)
@@ -201,7 +201,7 @@ Demo Sprint runs first (D0 → D1 → D2 over 7 days). Production v1 runs after 
 | **Production v1** | | | |
 | P0. Audit & De-Risk | 6 | Not started | - |
 | P1a. Data Foundation, Auth & Deploy | 19 | Not started | - |
-| P1b. Webhook + Worker Spine | 18 | Planned (9 plans) | - |
+| P1b. Webhook + Worker Spine | 18 | In Progress (1/9 plans) | P1b-01 (2026-05-20) |
 | P2. Staff + Member Product Surfaces | 50+ | Not started | - |
 
 **Coverage:** 130 v1 requirements mapped across two milestones (31 demo + 99 production).

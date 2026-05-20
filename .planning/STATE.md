@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase P1b context gathered
-last_updated: "2026-05-20T11:17:49.877Z"
-last_activity: 2026-05-19 -- Phase D2-06 execution started
+stopped_at: "P1b-01 complete; apps/staff-web/ ported + boots; ready for Wave 2 (P1b-02 schema migration + P1b-03 packages)"
+last_updated: "2026-05-20T14:00:00.000Z"
+last_activity: 2026-05-20 -- P1b-01 monorepo refactor complete (1 of 9 P1b plans)
 progress:
   total_phases: 7
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 30
+  total_plans: 9
+  completed_plans: 1
+  percent: 32
 ---
 
 # Project State
@@ -25,15 +25,15 @@ Requirements: `.planning/REQUIREMENTS.md` (130 reqs across 20 categories — see
 
 **Core value:** Coaches and studio managers run their entire day from one inbox-and-schedule surface (WhatsApp + class bookings + member context). Members book, pay, and log activity / nutrition from a native iOS/Android Expo app (forked from agent-native's `packages/mobile-app`) that includes an in-app coaching agent.
 
-**Current focus:** Phase D2-06 — agent-chat-sse-tools
+**Current focus:** Phase P1b — Webhook + Worker Spine (Stripe + WhatsApp)
 
 ## Current Position
 
 Milestone: Demo Sprint (1 of 2) — Week 1 (by ~2026-05-24)
-Phase: D2-06 (agent-chat-sse-tools) — EXECUTING
-Plan: 1 of 6
-Status: Executing Phase D2-06
-Last activity: 2026-05-19 -- Phase D2-06 execution started
+Phase: P1b (Webhook + Worker Spine (Stripe + WhatsApp)) — EXECUTING (1 of 9 plans complete)
+Plan: 2 of 9 (next: P1b-02-schema-migration-additive)
+Status: Executing Phase P1b
+Last activity: 2026-05-20 -- P1b-01 monorepo refactor complete (apps/staff-web/ ported)
 
 Progress: Demo Sprint [███░░░░░░░] ~30%
 
@@ -111,6 +111,9 @@ Decisions are logged in `PROJECT.md` Key Decisions table. Recent ones affecting 
 - [Phase D2-member-mobile-app-calorie-counter-agent-days-4-7]: D2-05: hasNutritionData flag at API boundary — when OFF has a product but no kcal data (~5-10% of UK products), UI shows amber warning instead of silently logging 0 kcal. Pitfall #7 mitigation visible in API contract, not buried in UI.
 - [Phase D2-member-mobile-app-calorie-counter-agent-days-4-7]: D2-05: Dual cache invalidation contract for any food-logging surface — every mutation MUST fire `qc.invalidateQueries({queryKey:['food-entries']})` AND `qc.invalidateQueries({queryKey:['profile']})` so Food tab and Home tab both refresh on next focus. Agent tool log_food_nl (D2-06) must honour this same pattern.
 - [Phase D2-member-mobile-app-calorie-counter-agent-days-4-7]: D2-05: Barcode flow logs at hardcoded 100g default; search flow lets user pick quantity. Asymmetry justified: scanning a packaged product is a wow-moment demo flow where 100g default keeps friction low. CAL-04 adds quantity adjustment to barcode flow in P2.
+- [Phase P1b-webhook-worker-spine-stripe-whatsapp-2-weeks]: P1b-01: All GymOS staff code moved from templates/mail/ to apps/staff-web/ (236 files, 53,672 LOC); templates/mail/ restored upstream-clean; pnpm-workspace.yaml extended with apps/* glob; Drizzle baseline regenerated for Postgres dialect. Plan 02 onwards extend apps/staff-web/server/db/schema.ts (never templates/mail/).
+- [Phase P1b-webhook-worker-spine-stripe-whatsapp-2-weeks]: P1b-01: Deviation from D-05 cutover order — templates/mail/webhooks.whatsapp.tsx deleted in Task 2 (not deferred to Plan 09) because its imports referenced removed GymOS schema. Cutover semantics preserved because identical file lives at apps/staff-web/app/routes/webhooks.whatsapp.tsx; Plan 09's "delete the demo webhook" now refers to the apps/staff-web copy.
+- [Phase P1b-webhook-worker-spine-stripe-whatsapp-2-weeks]: P1b-01: Added "/" (exact-match) to apps/staff-web/server/plugins/auth.ts publicPaths so the root _index.tsx redirect to /gymos bypasses upstream Mail's Google sign-in interstitial. matchesPathList() treats "/" as exact-only — no prefix-match risk. Plan 08 (Stripe key rotation UI at /gymos/settings/integrations) will extend this list further.
 
 ### Pending Todos
 
@@ -139,9 +142,9 @@ None tracked as TODOs; everything is in the roadmap / requirements.
 
 ## Session Continuity
 
-Last session: 2026-05-20T11:17:49.868Z
-Stopped at: Phase P1b context gathered
-Resume file: .planning/phases/P1b-webhook-worker-spine-stripe-whatsapp-2-weeks/P1b-CONTEXT.md
+Last session: 2026-05-20T14:00:00.000Z
+Stopped at: P1b-01 complete; apps/staff-web/ ported + boots; ready for Wave 2 (P1b-02 schema migration + P1b-03 packages)
+Resume file: .planning/phases/P1b-webhook-worker-spine-stripe-whatsapp-2-weeks/P1b-02-schema-migration-additive-PLAN.md
 
 ### Resume Notes — Next Session Quick-Start
 
