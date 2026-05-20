@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: "P1b-03 complete; @gymos/whatsapp + @gymos/queue workspace packages published with HIGH #6 discriminated InboundWhatsAppPayload union and D-11 guard. Ready for Wave 3 (Plan 04 edge-webhooks Fly receiver consuming both packages)."
-last_updated: "2026-05-20T16:25:25.991Z"
+stopped_at: "Completed P1b-04-edge-webhooks-fly-receiver-PLAN.md — apps/edge-webhooks/ Hono receiver compiled + tested (15 tests pass); fly.toml + Dockerfile + worker stub ready for fly deploy to iad (Task 4 checkpoint:human-verify auto-approved). 6 deviations auto-fixed (cross-app schema import → local mirror; Stripe dahlia literal → cast; pg-core receivedAt default; Vitest vi.hoisted; worker tsconfig types:[node]; tsconfig exclude tests from dist). Ready for Plan P1b-05 (worker — replaces apps/worker/src/index.ts with real pg-boss consumer)."
+last_updated: "2026-05-20T16:48:16.455Z"
 last_activity: 2026-05-20
 progress:
   total_phases: 7
@@ -31,7 +31,7 @@ Requirements: `.planning/REQUIREMENTS.md` (130 reqs across 20 categories — see
 
 Milestone: Demo Sprint (1 of 2) — Week 1 (by ~2026-05-24)
 Phase: P1b (Webhook + Worker Spine (Stripe + WhatsApp)) — EXECUTING
-Plan: 3 of 9
+Plan: 4 of 9
 Status: Ready to execute
 Last activity: 2026-05-20
 
@@ -119,6 +119,10 @@ Decisions are logged in `PROJECT.md` Key Decisions table. Recent ones affecting 
 - [Phase P1b]: P1b-03: Used named import { PgBoss } from pg-boss (v12 dropped default export); used Client from @great-detail/whatsapp v9 (not SDK); pg-boss v12 ConstructorOptions no longer accepts retentionDays/archiveCompletedAfterSeconds/deleteAfterDays — moved to per-queue retentionSeconds/deleteAfterSeconds in publish.ts. Pinned versions: pg-boss@12.18.2, @great-detail/whatsapp@9.0.0.
 - [Phase P1b]: P1b-03: Guard script guard-no-whatsapp-in-staff-web.mjs uses Node-native recursive readdirSync walk instead of execSync grep — Windows-friendly, no platform-shell coupling. Wired into root pnpm guards chain.
 - [Phase P1b]: P1b-03: HIGH #6 contract upgrade — InboundWhatsAppPayload now z.discriminatedUnion('kind', [message, status]) with explicit per-variant fields (statusFor/newStatus/timestamp/errorCode?). Receiver (Plan 04) constructs from structured Meta webhook fields; worker (Plan 05) reads typed fields directly — no synthetic-string concat across the receiver↔worker boundary.
+- [Phase P1b-webhook-worker-spine-stripe-whatsapp-2-weeks]: P1b-04: Local pg-core webhook_events mirror in apps/edge-webhooks/src/lib/db.ts (NOT cross-app schema import). Avoids tsconfig rootDir error + dialect-typing-as-sqlite friction from @agent-native/core/db/schema helpers; Plan 09 extracts packages/db/ to eliminate duplication.
+- [Phase P1b-webhook-worker-spine-stripe-whatsapp-2-weeks]: P1b-04: Stripe apiVersion pinned to '2026-04-22.dahlia' via 'as Stripe.LatestApiVersion' cast. SDK 19.3.1 literal-types LatestApiVersion as '2025-10-29.clover'; cast keeps runtime pin (PITFALL #3) without delaying P1b on SDK bump. Drop cast when SDK ships dahlia literal.
+- [Phase P1b-webhook-worker-spine-stripe-whatsapp-2-weeks]: P1b-04: Worker /healthz stub (apps/worker/src/index.ts) created in Plan 04 NOT deferred to Plan 05. Required so fly.toml worker http_check (MEDIUM #10) passes on first deploy and two-process topology can be verified end-to-end. Plan 05 overwrites src/index.ts with real pg-boss consumer while preserving /healthz contract on port 3002.
+- [Phase P1b-webhook-worker-spine-stripe-whatsapp-2-weeks]: P1b-04: Vitest mock factories use vi.hoisted(() => ({...})) for shared mock fns referenced inside vi.mock(). Plain const + vi.fn() fails with TDZ ReferenceError because vi.mock() is hoisted above all imports. Documented Vitest pattern.
 
 ### Pending Todos
 
@@ -147,8 +151,8 @@ None tracked as TODOs; everything is in the roadmap / requirements.
 
 ## Session Continuity
 
-Last session: 2026-05-20T16:25:25.984Z
-Stopped at: P1b-03 complete; @gymos/whatsapp + @gymos/queue workspace packages published with HIGH #6 discriminated InboundWhatsAppPayload union and D-11 guard. Ready for Wave 3 (Plan 04 edge-webhooks Fly receiver consuming both packages).
+Last session: 2026-05-20T16:48:16.447Z
+Stopped at: Completed P1b-04-edge-webhooks-fly-receiver-PLAN.md — apps/edge-webhooks/ Hono receiver compiled + tested (15 tests pass); fly.toml + Dockerfile + worker stub ready for fly deploy to iad (Task 4 checkpoint:human-verify auto-approved). 6 deviations auto-fixed (cross-app schema import → local mirror; Stripe dahlia literal → cast; pg-core receivedAt default; Vitest vi.hoisted; worker tsconfig types:[node]; tsconfig exclude tests from dist). Ready for Plan P1b-05 (worker — replaces apps/worker/src/index.ts with real pg-boss consumer).
 Resume file: None
 
 ### Resume Notes — Next Session Quick-Start

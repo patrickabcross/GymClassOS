@@ -36,8 +36,8 @@
 
 ### Webhook & Worker Spine
 
-- [ ] **WEB-01** [P]: `apps/edge-webhooks` deployed to Fly.io as Hono app with `min_machines = 1` (always-on)
-- [ ] **WEB-02** [P]: Webhook receiver verifies HMAC against raw body BEFORE any JSON parsing (Stripe + WhatsApp)
+- [x] **WEB-01** [P]: `apps/edge-webhooks` deployed to Fly.io as Hono app with `min_machines = 1` (always-on)
+- [x] **WEB-02** [P]: Webhook receiver verifies HMAC against raw body BEFORE any JSON parsing (Stripe + WhatsApp)
 - [x] **WEB-03** [P]: Webhook receiver inserts into `webhook_events` with `ON CONFLICT DO NOTHING`, enqueues via pg-boss, returns 200 in <100ms — does NO business logic
 - [ ] **WEB-04** [P]: `apps/worker` deployed to Fly.io (sibling process to edge-webhooks) running pg-boss subscribers against the same Neon Postgres instance (NO Redis)
 - [x] **WEB-05** [P]: Worker job processing is idempotent — re-running with the same `external_id` produces the same DB state, never duplicates writes
