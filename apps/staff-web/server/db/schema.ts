@@ -1,10 +1,4 @@
-import {
-  table,
-  text,
-  integer,
-  real,
-  now,
-} from "@agent-native/core/db/schema";
+import { table, text, integer, real, now } from "@agent-native/core/db/schema";
 
 // ---------------------------------------------------------------------------
 // Mail template's original tables — kept for upstream-merge compatibility.
@@ -174,6 +168,9 @@ export const messages = table("messages", {
     .notNull()
     .default("queued"),
   error: text("error"),
+  // P1b: typed error code for sendMessage failures (e.g. "OUT_OF_WINDOW",
+  // "TEMPLATE_NOT_APPROVED"). The freeform `error` column stays for messages.
+  errorCode: text("error_code"),
   requestedByUserId: text("requested_by_user_id"), // staff user who triggered the send
   agentInitiated: integer("agent_initiated", { mode: "boolean" })
     .notNull()
@@ -182,6 +179,9 @@ export const messages = table("messages", {
   sentAt: text("sent_at"),
   deliveredAt: text("delivered_at"),
   readAt: text("read_at"),
+  // P1b: Plan 05's applyOrdinalStatusUpdate sets updatedAt = NOW() on each
+  // rank-superseding status change. Nullable until first status update lands.
+  updatedAt: text("updated_at"),
 });
 
 // Class scheduling — definitions (the recurring template) + occurrences (a specific class instance)
@@ -313,14 +313,102 @@ export const agentSessions = table("agent_sessions", {
   updatedAt: text("updated_at").notNull().default(now()),
 });
 
-// Webhook events — idempotency table. Production: PK is (provider, external_id).
-// Demo: simple text PK; we'll harden in P1b.
+// Webhook events — idempotency table. Production: composite UNIQUE on
+// (provider, external_id). P1b extends with `external_id` + a UNIQUE INDEX
+// added in migration 0001 (after a one-shot backfill from the existing `id`
+// column). The legacy text PK `id` stays for backwards-compat / existing rows.
 export const webhookEvents = table("webhook_events", {
   id: text("id").primaryKey(), // e.g. "stripe:evt_..." or "whatsapp:wamid..."
   provider: text("provider", { enum: ["stripe", "whatsapp"] }).notNull(),
   eventType: text("event_type").notNull(),
+  externalId: text("external_id"), // P1b — backfilled from id, then UNIQUE(provider, external_id) via migration 0001
   payloadRaw: text("payload_raw").notNull(),
   receivedAt: text("received_at").notNull().default(now()),
   processedAt: text("processed_at"),
   error: text("error"),
+});
+
+// ---------------------------------------------------------------------------
+// P1b additions (2026-05-20) — Webhook + Worker Spine (Stripe + WhatsApp).
+// All strictly additive per CLAUDE.md no-breaking-DB-changes guard.
+// ---------------------------------------------------------------------------
+
+// WA-07: WhatsApp opt-in evidence. Sender layer refuses any outbound to a
+// member without a row in this table.
+export const whatsappOptIn = table("whatsapp_opt_in", {
+  memberId: text("member_id").primaryKey(), // FK gym_members.id
+  optedInAt: text("opted_in_at").notNull().default(now()),
+  evidenceMessageId: text("evidence_message_id"), // FK messages.id (inbound that triggered opt-in)
+  evidencePayload: text("evidence_payload"), // JSON of the inbound msg
+  source: text("source", {
+    enum: ["inbound_reply", "manual_admin", "import"],
+  }).notNull(),
+});
+
+// WA-08: WhatsApp templates synced from Meta daily. Sender layer gates
+// out-of-window sends on status='approved'.
+export const whatsappTemplates = table("whatsapp_templates", {
+  name: text("name").primaryKey(),
+  status: text("status", {
+    enum: ["pending", "approved", "rejected", "paused", "disabled"],
+  }).notNull(),
+  category: text("category", {
+    enum: ["utility", "marketing", "authentication"],
+  }),
+  language: text("language").notNull().default("en_US"),
+  componentsJson: text("components_json").notNull(), // raw Meta API response
+  lastSyncedAt: text("last_synced_at").notNull().default(now()),
+});
+
+// STR-01 mirror: Stripe customers reflected locally for fast lookup.
+export const stripeCustomers = table("stripe_customers", {
+  stripeCustomerId: text("stripe_customer_id").primaryKey(),
+  memberId: text("member_id"), // nullable until matched to a gym_member
+  rawJson: text("raw_json").notNull(),
+  updatedAt: text("updated_at").notNull().default(now()),
+});
+
+// STR-04 / STR-05 mirror: subscriptions reflected for entitlement decisions.
+export const stripeSubscriptions = table("stripe_subscriptions", {
+  stripeSubscriptionId: text("stripe_subscription_id").primaryKey(),
+  memberId: text("member_id").notNull(),
+  status: text("status", {
+    enum: [
+      "active",
+      "past_due",
+      "canceled",
+      "incomplete",
+      "incomplete_expired",
+      "trialing",
+      "unpaid",
+      "paused",
+    ],
+  }).notNull(),
+  planId: text("plan_id"),
+  currentPeriodEnd: text("current_period_end"),
+  rawJson: text("raw_json").notNull(),
+  updatedAt: text("updated_at").notNull().default(now()),
+});
+
+// STR-03: payments table — one row per Stripe payment_intent we observe.
+export const payments = table("payments", {
+  id: text("id").primaryKey(), // `pay_<paymentIntentId>`
+  memberId: text("member_id"),
+  stripePaymentIntentId: text("stripe_payment_intent_id").notNull().unique(),
+  amountMinorUnits: integer("amount_minor_units").notNull(),
+  currency: text("currency").notNull(),
+  status: text("status", {
+    enum: ["succeeded", "failed", "refunded", "pending"],
+  }).notNull(),
+  rawJson: text("raw_json").notNull(),
+  occurredAt: text("occurred_at").notNull(),
+});
+
+// STR-01: encrypted secret storage. Values are pgp_sym_encrypt(plain, master_key)
+// — pgcrypto is enabled in migration 0001. Reads use pgp_sym_decrypt at SQL time.
+export const secrets = table("secrets", {
+  name: text("name").primaryKey(), // e.g. "stripe_restricted_key"
+  ciphertext: text("ciphertext").notNull(), // pgp_sym_encrypt(value, master_key)
+  updatedAt: text("updated_at").notNull().default(now()),
+  lastUsedAt: text("last_used_at"),
 });
