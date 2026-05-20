@@ -17,6 +17,7 @@ import { getBoss } from "./boss.js";
 import { getEnv } from "./lib/env.js";
 import { getLogger } from "./lib/logger.js";
 import { registerInboundWhatsAppWorker } from "./queues/inbound-whatsapp.js";
+import { registerOutboundWhatsAppWorker } from "./queues/outbound-whatsapp.js";
 
 async function main() {
   const env = getEnv();
@@ -34,6 +35,9 @@ async function main() {
   // the admin server starts.
   await registerInboundWhatsAppWorker(boss);
   log.info("[worker] inbound-whatsapp queue registered");
+
+  await registerOutboundWhatsAppWorker(boss);
+  log.info("[worker] outbound-whatsapp queue registered");
 
   // Tiny admin/healthz HTTP for Fly health checks (MEDIUM #10).
   // MUST listen on PORT 3002 — fly.toml [[services]] for the worker
