@@ -43,11 +43,8 @@ vi.mock("../lib/db.js", () => ({
 }));
 
 const { sendMessage } = await import("./sendMessage.js");
-const {
-  NoOptInError,
-  WindowExpiredError,
-  TemplateNotApprovedError,
-} = await import("../lib/errors.js");
+const { NoOptInError, WindowExpiredError, TemplateNotApprovedError } =
+  await import("../lib/errors.js");
 
 describe("sendMessage chokepoint (D-10)", () => {
   beforeEach(() => {
@@ -120,7 +117,7 @@ describe("sendMessage chokepoint (D-10)", () => {
       to: "447700900000",
       name: "class_reminder",
       vars: { 1: "Yoga" },
-      language: undefined,
+      language: "en_US",
     });
     // isInWindow should NOT have been consulted (template path)
     expect(isInWindow).not.toHaveBeenCalled();
@@ -168,9 +165,7 @@ describe("sendMessage chokepoint (D-10)", () => {
     // Two updates: messages.status='sent' + conversations.last_outbound_at
     const setArgs = updateChain.set.mock.calls.map((c) => c[0]);
     expect(
-      setArgs.some(
-        (s) => s.status === "sent" && s.externalId === "wamid_OK",
-      ),
+      setArgs.some((s) => s.status === "sent" && s.externalId === "wamid_OK"),
     ).toBe(true);
   });
 
