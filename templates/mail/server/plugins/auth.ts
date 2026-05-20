@@ -50,23 +50,5 @@ export default createAuthPlugin({
   // GMAIL_PUSH_AUDIENCE is configured.
   // Cloud Scheduler POSTs to /api/gmail/watch/renew every 6h for watch
   // lifecycle; same OIDC-verification pattern.
-  publicPaths: [
-    "/api/gmail/push",
-    "/api/gmail/watch/renew",
-    // GymOS Demo Sprint — bypass auth on demo routes so we can show the inbox
-    // without a Google sign-in. Production v1 wires Better-auth with magic-link
-    // (member side) + admin/coach roles (staff side).
-    "/gymos",
-    "/gymos/schedule",
-    "/gymos/members",
-    "/gymos/payments",
-    // D2-01: mobile-app server routes. /api/m is a prefix match covering
-    // /api/m/members/list, /api/m/profile, /api/m/schedule, /api/m/bookings,
-    // /api/m/food-entries, /api/m/foods/*, /api/m/agent, etc. Each route
-    // gates itself via requireDemoMember (DEMO_MODE + X-Demo-Member-Id).
-    "/api/m",
-    "/pick-member",
-    // D2-02: WhatsApp webhook receiver (HMAC-verified inside the handler).
-    "/webhooks/whatsapp",
-  ],
+  publicPaths: ["/api/gmail/push", "/api/gmail/watch/renew"],
 });

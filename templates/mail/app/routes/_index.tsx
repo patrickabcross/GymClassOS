@@ -3,24 +3,29 @@ import { Spinner } from "@/components/ui/spinner";
 
 export function meta() {
   return [
-    { title: "GymOS" },
+    { title: "Agent-Native Mail" },
     {
       name: "description",
       content:
-        "GymOS — boutique fitness studio operating system. WhatsApp inbox, class schedule, and member context in one surface.",
+        "Your AI agent reads, drafts, and organizes email alongside you.",
     },
   ];
 }
 
-// Demo-time root redirect: land staff straight in the GymOS WhatsApp inbox.
-// Both server loader and client loader so the navigation completes before
-// hydration. Post-demo (P0 audit) this file moves to apps/staff-web/.
+/**
+ * Run the redirect on both the server and the client. Doing it client-only
+ * via `clientLoader` previously caused React Router to occasionally log
+ * `No routes matched location "/inbox"` because the navigation fired during
+ * hydration, before the route tree was fully attached. A `loader` runs as
+ * part of the server response and the navigation completes before the app
+ * hydrates. The app opens to the Important triage tab by default.
+ */
 export function loader() {
-  throw redirect("/gymos");
+  throw redirect("/inbox?label=important");
 }
 
 export function clientLoader() {
-  throw redirect("/gymos");
+  throw redirect("/inbox?label=important");
 }
 
 export function HydrateFallback() {
