@@ -1,6 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "echo '>>> CWD:'; pwd; echo '>>> NITRO_PRESET:'$NITRO_PRESET; echo '>>> agent-native bin:'; ls -la node_modules/.bin/agent-native* 2>&1 | head -3; echo '>>> Running agent-native build...'; ./node_modules/.bin/agent-native build; echo '>>> build exit:'$?; echo '>>> .vercel/output structure:'; find .vercel/output -maxdepth 3 2>&1 | head -50",
+  "buildCommand": "bash scripts/vercel-build.sh",
   "installCommand": "pnpm install --frozen-lockfile",
   "framework": null
 }
