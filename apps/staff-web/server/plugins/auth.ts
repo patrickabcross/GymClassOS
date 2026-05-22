@@ -21,20 +21,6 @@ export default createAuthPlugin({
     ],
   },
   publicPaths: [
-    // Demo: /gymos* surfaces are public so the deployed URL can be shared
-    // without a sign-in. Better-auth's Google adapter init triggers a
-    // class-extends ESM bundling bug under Nitro presets (vercel + netlify
-    // both reproduce); making routes public lets visitors browse the demo
-    // without exercising that code path. Re-gate behind sign-in once the
-    // upstream bundling bug is resolved.
-    //
-    // "/" exact-matches the root so the _index.tsx redirect (/ → /gymos)
-    // fires without the sign-in page intercepting first.
-    "/",
-    "/gymos",
-    "/gymos/schedule",
-    "/gymos/members",
-    "/gymos/payments",
     // Mobile-app server routes — each gates itself via requireDemoMember
     // (DEMO_MODE + X-Demo-Member-Id). Prefix match covers
     // /api/m/members/list, /api/m/profile, /api/m/schedule, /api/m/bookings,
