@@ -1,6 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "pnpm run build",
-  "installCommand": "cd ../.. && pnpm install --frozen-lockfile",
+  "buildCommand": "echo CWD=$(pwd) && echo BUILD_SCRIPT=$(node -e \"console.log(require('./package.json').name + ':' + require('./package.json').scripts.build)\") && pnpm exec react-router build && node ./node_modules/@agent-native/core/dist/deploy/build.js",
+  "installCommand": "pnpm install --frozen-lockfile",
   "framework": null
 }
