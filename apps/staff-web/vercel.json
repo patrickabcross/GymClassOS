@@ -1,0 +1,6 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "cd ../.. && NITRO_PRESET=vercel pnpm --filter @gymos/staff-web build",
+  "installCommand": "cd ../.. && pnpm install --frozen-lockfile",
+  "framework": null
+}
