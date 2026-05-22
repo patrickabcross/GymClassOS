@@ -1,4 +1,4 @@
-// GymOS Member Profile — Demo Sprint D1. Per-member detail: pass balance, bookings, recent food, deep-link to WhatsApp conversation.
+// GymClassOS Member Profile — Demo Sprint D1. Per-member detail: pass balance, bookings, recent food, deep-link to WhatsApp conversation.
 //
 // URL: /gymos/members/:id (dollar-prefix file convention = dynamic segment,
 // matches the existing $view.$threadId.tsx route in this directory).
@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
 import type { LoaderFunctionArgs } from "react-router";
 
 export function meta() {
-  return [{ title: "GymOS — Member Profile" }];
+  return [{ title: "GymClassOS — Member Profile" }];
 }
 
 // ─── Loader ──────────────────────────────────────────────────────────────────

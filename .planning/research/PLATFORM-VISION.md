@@ -1,6 +1,6 @@
 # Platform Vision — Reference Document
 
-> **Status:** Reference / inspiration only. This document was provided 2026-05-17 as a forward-looking vision. Many of its specific architectural choices (Next.js+Prisma, Redis, tenant_id+RLS, Twilio multi-channel, Hetzner self-hosting, per-tenant Apple Dev Account / Fastlane / Expo native) were reconciled against the current GymOS constraints (agent-native lock-in, solo-dev / 2-month timeline, signed customer's realities) and explicitly rejected. The decisions log at the bottom of this file records what was kept vs reframed.
+> **Status:** Reference / inspiration only. This document was provided 2026-05-17 as a forward-looking vision. Many of its specific architectural choices (Next.js+Prisma, Redis, tenant_id+RLS, Twilio multi-channel, Hetzner self-hosting, per-tenant Apple Dev Account / Fastlane / Expo native) were reconciled against the current GymClassOS constraints (agent-native lock-in, solo-dev / 2-month timeline, signed customer's realities) and explicitly rejected. The decisions log at the bottom of this file records what was kept vs reframed.
 >
 > Read this for **product/feature inspiration** (coach view, segments, bsport migration, member context surfacing), not as the architecture of record. The architecture of record is PROJECT.md + STACK.md + ARCHITECTURE.md + ROADMAP.md.
 
@@ -818,9 +818,9 @@ Pre-launch: bsport migration playbook execution for the alpha tenant. App Store 
 
 ## Reconciliation Log (2026-05-17)
 
-How this document was reconciled with current GymOS constraints. **Final decisions live in PROJECT.md / STACK.md / ARCHITECTURE.md / ROADMAP.md — those are authoritative, not this file.**
+How this document was reconciled with current GymClassOS constraints. **Final decisions live in PROJECT.md / STACK.md / ARCHITECTURE.md / ROADMAP.md — those are authoritative, not this file.**
 
-| Topic | This doc says | GymOS decision | Reason |
+| Topic | This doc says | GymClassOS decision | Reason |
 |---|---|---|---|
 | Framework | Next.js + Prisma + NextAuth | React Router v7 + Drizzle + Better-auth + H3 | agent-native is RR v7 — verified by direct repo inspection; this doc was mistaken about agent-native's stack |
 | Tenancy | Single Postgres + `tenant_id` + RLS | Per-customer deploy, NO `tenant_id` anywhere | Eliminates entire tenant-scoping bug class; matches WhatsApp/Stripe-per-account model; right for solo-dev + 1-30 studios |

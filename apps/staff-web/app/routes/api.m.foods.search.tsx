@@ -4,7 +4,7 @@
 import { requireDemoMember } from "../../server/lib/demo-member";
 import type { LoaderFunctionArgs } from "react-router";
 
-const UA = "GymOS-Demo/0.1 (https://gymos.local; demo@gymos.local)";
+const UA = "GymClassOS-Demo/0.1 (https://gymos.local; demo@gymos.local)";
 
 export async function loader({ request }: LoaderFunctionArgs) {
   await requireDemoMember(request);

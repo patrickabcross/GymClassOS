@@ -586,7 +586,7 @@ End-to-end WhatsApp demo path: ngrok tunnel + Meta webhook registration + one re
 
 8. **WA-02 — Outbound test:**
    - Open `http://localhost:8081/gymos` → click the conversation with the test phone
-   - Type a short message (e.g. "Hi from GymOS demo") and press Send
+   - Type a short message (e.g. "Hi from GymClassOS demo") and press Send
    - Expected: the message appears in the staff inbox UI; `?sent=1` banner shows (existing UI); the test phone receives the WhatsApp message within ~5 seconds
    - Verify in Neon: `SELECT id, direction, status, external_id, error FROM messages WHERE direction='out' ORDER BY created_at DESC LIMIT 1;` — status='sent', external_id starts with `wamid.`, error IS NULL
 
@@ -631,7 +631,7 @@ pnpm --filter mail exec tsc --noEmit
 - [ ] Real outbound captures `wamid` into `messages.externalId`
 - [ ] Env-not-set path falls back to existing stub with console.warn
 - [ ] Failed Meta call inserts row with `status='failed'` + `error` populated, redirect with `?sent=0`
-- [ ] All 12 GymOS-relevant schema tables touched correctly (no `studio_id` introduced — single-tenant invariant preserved)
+- [ ] All 12 GymClassOS-relevant schema tables touched correctly (no `studio_id` introduced — single-tenant invariant preserved)
 - [ ] Live demo: real inbound visible in `/gymos`, real outbound delivered to test phone
 </success_criteria>
 

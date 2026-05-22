@@ -1,10 +1,10 @@
-# GymOS
+# GymClassOS
 
 > **NOTE (2026-05-17, late):** Earlier in this session I claimed agent-native templates were all web (React Router v7) and the member surface should be a PWA. That was wrong — `packages/mobile-app` exists in agent-native upstream as a full Expo 55 + Expo Router + React Native 0.83.9 app (iOS/Android/web). Decision REVERSED: member surface is now `packages/mobile-app` forked & extended. Demo via Expo Go on customer's phone. Production via EAS Build under customer's Apple Dev Account. PWA references throughout this file should be read as "Expo native app" — surgically corrected in the key places below; if you find a stale "PWA" reference, the native decision wins.
 
 ## What This Is
 
-GymOS is a boutique fitness studio management platform — staff back-office web app and a native member-facing mobile app (React Native via Expo), with direct integrations to WhatsApp Business API and Stripe — built by adapting Builder.io's MIT-licensed `agent-native` framework into a vertical product. The staff back-office adapts agent-native's Mail and Calendar web templates; the member app forks agent-native's `packages/mobile-app` (Expo + RN). The first deployment is a signed gym studio customer; the same fork pattern is intended to seed future verticals in other industries.
+GymClassOS is a boutique fitness studio management platform — staff back-office web app and a native member-facing mobile app (React Native via Expo), with direct integrations to WhatsApp Business API and Stripe — built by adapting Builder.io's MIT-licensed `agent-native` framework into a vertical product. The staff back-office adapts agent-native's Mail and Calendar web templates; the member app forks agent-native's `packages/mobile-app` (Expo + RN). The first deployment is a signed gym studio customer; the same fork pattern is intended to seed future verticals in other industries.
 
 ## Core Value
 
@@ -59,7 +59,7 @@ Coaches and studio managers run their entire day from one inbox-and-schedule sur
 - **Stripe Connect (OAuth platform model)** — using direct restricted-API-key model instead (studio creates Stripe account, gives scoped key, we store encrypted). Avoids Connect onboarding ceremony, application-fee logic, and `account.application.deauthorized` handling. Aligns with "studio owns merchant relationship" thesis.
 - **Card data storage** — Stripe holds everything; we hold tokenised IDs only.
 - **Sending WhatsApp outside the 24-hour window without an approved template** — Meta will flag / suspend the number. Enforced at sender layer (worker chokepoint), not just UI.
-- **Premature abstraction into a generic "vertical SaaS framework"** — build GymOS cleanly first, observe what's actually reusable when vertical #2 begins, *then* extract.
+- **Premature abstraction into a generic "vertical SaaS framework"** — build GymClassOS cleanly first, observe what's actually reusable when vertical #2 begins, *then* extract.
 - **Multi-channel campaign engine + segment builder** — deferred from v1. Segment builder + campaigns are post-v1 (covered in PLATFORM-VISION.md reference doc).
 - **A2A (Agent-to-Agent) cross-app signed calls** — one workspace, one auth context for v1; A2A overkill until multiple deployments coexist.
 - **Forking OpenNutriTracker** — Flutter + GPL v3 (would force the whole codebase to GPL v3, killing commercial distribution). Used as inspiration only.
@@ -67,9 +67,9 @@ Coaches and studio managers run their entire day from one inbox-and-schedule sur
 
 ## Context
 
-**Source framework.** Builder.io's `agent-native` (`https://github.com/BuilderIO/agent-native`, MIT) ships 22 templates. The README headlines 11 (Mail, Calendar, Content, Slides, Video, Analytics, Clips, Design, Dispatch, Forms, Brain). GymOS adapts a subset for the studio domain:
+**Source framework.** Builder.io's `agent-native` (`https://github.com/BuilderIO/agent-native`, MIT) ships 22 templates. The README headlines 11 (Mail, Calendar, Content, Slides, Video, Analytics, Clips, Design, Dispatch, Forms, Brain). GymClassOS adapts a subset for the studio domain:
 
-| Template | GymOS surface | When |
+| Template | GymClassOS surface | When |
 |---|---|---|
 | Mail | Staff WhatsApp inbox | Demo Sprint + production v1 |
 | Calendar | Class schedule + bookings | Demo Sprint + production v1 |
@@ -80,7 +80,7 @@ Coaches and studio managers run their entire day from one inbox-and-schedule sur
 
 **Calorie counter is built fresh** (no `Calorie tracker` template exists upstream — verified 2026-05-17 by direct README + grep). Reference: OpenNutriTracker (Flutter, GPL v3 — read for product/UX inspiration only; no code copied). Data sources: Open Food Facts + USDA Food Data Central. Lives as a new app/surface inside the agent-native workspace using RR v7 + Drizzle + shadcn + agent-skill tools.
 
-**Vertical-SaaS factory framing.** GymOS is the first of multiple vertical products planned off the same agent-native foundation. Subsequent businesses (other verticals, not other gym customers) will get their own modified template sets. Decisions made here should keep the agent-native-modifications layer distinguishable from the GymOS-specific layer — without prematurely extracting a framework.
+**Vertical-SaaS factory framing.** GymClassOS is the first of multiple vertical products planned off the same agent-native foundation. Subsequent businesses (other verticals, not other gym customers) will get their own modified template sets. Decisions made here should keep the agent-native-modifications layer distinguishable from the GymClassOS-specific layer — without prematurely extracting a framework.
 
 **Tenancy model.** Single-tenant code, multi-tenant deploy. One Neon project + one Vercel deploy + one Fly app per studio customer. No `studio_id` columns anywhere. New customers get a deployment, not a tenant row.
 

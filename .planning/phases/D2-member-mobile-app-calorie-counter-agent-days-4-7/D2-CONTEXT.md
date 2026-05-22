@@ -6,7 +6,7 @@
 <domain>
 ## Phase Boundary
 
-A member opens Expo Go on their phone, scans the project's QR code, loads the GymOS member app, picks themselves from a member dropdown, books a class from the schedule, logs a meal in the calorie counter, and chats with the in-app agent. At least one **real** WhatsApp message (inbound from a member's phone OR outbound from the staff inbox) is delivered end-to-end via Meta Graph API.
+A member opens Expo Go on their phone, scans the project's QR code, loads the GymClassOS member app, picks themselves from a member dropdown, books a class from the schedule, logs a meal in the calorie counter, and chats with the in-app agent. At least one **real** WhatsApp message (inbound from a member's phone OR outbound from the staff inbox) is delivered end-to-end via Meta Graph API.
 
 Demo grade. Hardcoded targets, stubbed auth, no production workers. P-tagged scope (cancellation, USDA fallback, profile-derived macros, persistent agent memory, recents/favourites) is **explicitly deferred** to Production v1 phases P1a/P1b/P2.
 
@@ -22,7 +22,7 @@ Demo grade. Hardcoded targets, stubbed auth, no production workers. P-tagged sco
 ### Mobile shell strategy
 
 - **D-01:** Edit `packages/mobile-app/` **in-place**. Do not fork to `apps/member-app/`. Follows the D0 "demo-time fork-boundary loosened" precedent (templates/mail edited directly for the inbox surface). Post-demo P0 audit can copy-out to `apps/member-app/` if upstream-merge churn becomes a real cost.
-- **D-02:** **Rip out the existing `app/(tabs)/` content** (analytics, brain, calendar, clips, content, design, dispatch, forms, index, mail, more, sessions, settings, slides, starter, videos) and replace with GymOS native tabs. The upstream multi-template WebView shell is not the right base; only the Expo / Expo Router / EAS scaffolding is kept. Note in `MODIFICATIONS.md` (P0 task) which files were removed.
+- **D-02:** **Rip out the existing `app/(tabs)/` content** (analytics, brain, calendar, clips, content, design, dispatch, forms, index, mail, more, sessions, settings, slides, starter, videos) and replace with GymClassOS native tabs. The upstream multi-template WebView shell is not the right base; only the Expo / Expo Router / EAS scaffolding is kept. Note in `MODIFICATIONS.md` (P0 task) which files were removed.
 - **D-03:** **Native Expo screens**, not WebView wrapper. Use Expo APIs throughout (`expo-camera` for barcode, `expo-router` for navigation, native `<FlatList>` for lists). Reason: barcode scanning inside a WebView is unreliable on iOS WebKit; the demo "wow" hinges on the camera feeling native; and member screens diverge enough from staff-web that the WebView shortcut buys nothing.
 - **D-04:** Five top-level tabs: **Home**, **Schedule**, **Food**, **Profile**, plus the agent surface as a FAB (not a tab) — see D-12.
 
@@ -52,7 +52,7 @@ The following are NOT user-facing visionary decisions — the planner / executor
 
 - **Schedule view density** for the member tab — week-grid vs day-by-day vs flat list. Default: mirror the staff schedule's week-grid layout but mobile-optimised (vertical scroll, one day per row, occurrences as cards).
 - **WA-01 / WA-02 demo path.** Default approach: stand up a minimal Hono webhook receiver on a Fly machine (or ngrok tunnel for the demo) that signature-verifies and persists inbound messages; outbound calls Meta Graph API directly from the staff inbox `action` handler (no worker queue this phase — STR-03 / WA-05 / WA-06 are P1b). One real test phone + one approved Meta sandbox phone number is enough.
-- **Branding** — app name, icon, colours. Default: name = "GymOS", icon = a stylised dumbbell or "G" mark generated via simple PNG; primary colour matches whatever the inbox surface uses today. Replaceable in 5 min for production.
+- **Branding** — app name, icon, colours. Default: name = "GymClassOS", icon = a stylised dumbbell or "G" mark generated via simple PNG; primary colour matches whatever the inbox surface uses today. Replaceable in 5 min for production.
 - **Agent system prompt** — exact wording. Default: a short prompt stating the agent's role, member context (name, pass balance, next booking), available tools, and confirmation rules for `book_class`.
 - **Permission UX for camera** — when to ask, copy of the consent screen.
 - **Booking flow on member side** — full modal vs inline expand. Default: inline expand under the occurrence card with a "Confirm booking" button.
@@ -107,9 +107,9 @@ The following are NOT user-facing visionary decisions — the planner / executor
 
 - **`app/_layout.tsx`** — Expo Router root stack with dark theme; reuse as-is and just add a new auth-gate before showing tabs.
 - **`app/(tabs)/_layout.tsx`** — Tabs layout shape with conditional `href` (used to hide disabled tabs). Pattern is solid; we replace the contents (all 16 upstream-template tabs) but keep the structure.
-- **`lib/get-app-url.ts`, `lib/use-apps.ts`** — `enabledApps` pattern via `@agent-native/shared-app-config`. **Do NOT use** for GymOS member surface; this is the multi-app shell logic we're stripping out.
+- **`lib/get-app-url.ts`, `lib/use-apps.ts`** — `enabledApps` pattern via `@agent-native/shared-app-config`. **Do NOT use** for GymClassOS member surface; this is the multi-app shell logic we're stripping out.
 - **`components/AppCard.tsx`, `components/AppForm.tsx`** — generic styled primitives we can reuse for layouts.
-- **`components/AppWebView.tsx`** — **Not used** for native GymOS screens but is a clean reference for session-token handling, if WA-01/02 ever needs an embedded surface.
+- **`components/AppWebView.tsx`** — **Not used** for native GymClassOS screens but is a clean reference for session-token handling, if WA-01/02 ever needs an embedded surface.
 - **`eas.json`, `app.config.ts`, `app.json`** — EAS Build + Expo config already wired up. For demo via Expo Go, no changes needed; for P2 native builds, update bundle identifier + app icon.
 - **`@react-native-async-storage/async-storage`** already in deps — use for the demo member-ID persistence.
 
@@ -145,7 +145,7 @@ The following are NOT user-facing visionary decisions — the planner / executor
 - Macro line format: "P 82g  C 134g  F 38g"
 - Meal-type section headers: Breakfast / Lunch / Dinner / Snacks
 - Agent welcome message: "Hi {firstName} 👋 how can I help today?" (the 👋 is **user-authored chat content**, not an icon — per AGENTS.md the no-emoji-as-icon rule explicitly allows user-authored emoji and the agent's chat output is conversational content)
-- Bottom-sheet chat header: "Agent — GymOS Coach"
+- Bottom-sheet chat header: "Agent — GymClassOS Coach"
 
 </specifics>
 

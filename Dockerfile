@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 
-# GymOS Fly image — builds BOTH apps/edge-webhooks AND apps/worker.
+# GymClassOS Fly image — builds BOTH apps/edge-webhooks AND apps/worker.
 # fly.toml [processes] selects which entrypoint runs.
 
 FROM node:22-alpine AS base

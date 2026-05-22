@@ -21,7 +21,7 @@ must_haves:
   truths:
     - "A floating FAB (Feather 'message-circle' icon, lower-right) is visible on every tab — Home, Schedule, Food, Profile"
     - "Tapping the FAB opens a bottom-sheet (the implementation chosen by D2-01 Task 2 spike — @gorhom/bottom-sheet OR RN Modal) covering ~2/3 of the viewport with a dim scrim behind"
-    - "The sheet shows a chat surface with header 'Agent — GymOS Coach', a scrolling message list, and a text input at the bottom"
+    - "The sheet shows a chat surface with header 'Agent — GymClassOS Coach', a scrolling message list, and a text input at the bottom"
     - "On open, the sheet is empty (or shows a welcome message); user types → sends → SSE deltas stream the assistant reply word-by-word"
     - "POST /api/m/agent/stream returns text/event-stream with `delta` events containing text chunks, `tool_use` events when Claude calls a tool, `tool_result` events after server-side tool execution, and `done` when the turn completes"
     - "Tool `greet` returns capability list — testable by 'hi' → agent describes itself"
@@ -124,7 +124,7 @@ const final = await stream.finalMessage();
 // final.content is an array of blocks; tool_use blocks have {type:"tool_use", id, name, input}
 ```
 
-Existing GymOS schema tables this plan writes to:
+Existing GymClassOS schema tables this plan writes to:
 - `bookings`: { id, occurrenceId, memberId, status, bookedAt }
 - `foodItems`: { id, name, brand, barcode, kcalPer100g, ... }
 - `foodEntries`: { id, memberId, foodItemId, loggedAt, mealType, quantityG, kcal, ... }
@@ -147,7 +147,7 @@ The SSE event format the mobile client expects (matches RESEARCH §Pattern 5):
     - templates/mail/app/routes/api.m.agent.stream.tsx
   </files>
   <read_first>
-    - .planning/phases/D2-member-mobile-app-calorie-counter-agent-days-4-7/D2-RESEARCH.md §"Pattern 5: Anthropic agent SSE route with manual tool loop" (the full ~150-line source — this Task is essentially typing it in with the GymOS schema bindings)
+    - .planning/phases/D2-member-mobile-app-calorie-counter-agent-days-4-7/D2-RESEARCH.md §"Pattern 5: Anthropic agent SSE route with manual tool loop" (the full ~150-line source — this Task is essentially typing it in with the GymClassOS schema bindings)
     - templates/mail/server/db/schema.ts (bookings, foodItems, foodEntries — the runTool inserts target these)
     - .planning/phases/D2-member-mobile-app-calorie-counter-agent-days-4-7/D2-CONTEXT.md §"In-app agent" → D-13/D-14/D-15 (3 tools, sonnet-4-6, no persistence)
     - .planning/phases/D2-member-mobile-app-calorie-counter-agent-days-4-7/D2-RESEARCH.md §"Common Pitfalls" → Pitfall #9 (Anthropic SDK must stay server-side — file path is templates/mail/app/routes/ which IS server-side in RR v7 framework mode)
@@ -155,7 +155,7 @@ The SSE event format the mobile client expects (matches RESEARCH §Pattern 5):
   <action>
 Create new file `templates/mail/app/routes/api.m.agent.stream.tsx`. URL: `/api/m/agent/stream`.
 
-The file structure mirrors RESEARCH Pattern 5 with concrete GymOS bindings. Full content:
+The file structure mirrors RESEARCH Pattern 5 with concrete GymClassOS bindings. Full content:
 
 ```ts
 //
@@ -225,7 +225,7 @@ const TOOLS = [
   },
 ] as const;
 
-const SYSTEM_PROMPT = `You are GymOS Coach — a brief, kind, action-oriented in-app assistant for a member of a boutique fitness studio.
+const SYSTEM_PROMPT = `You are GymClassOS Coach — a brief, kind, action-oriented in-app assistant for a member of a boutique fitness studio.
 
 Rules:
 - Be terse. One short paragraph per turn unless the member asks for detail.
@@ -400,7 +400,7 @@ async function runTool(name: string, input: any, memberId: string) {
       `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(description)}` +
       `&search_simple=1&action=process&json=1&page_size=1`;
     const res = await fetch(offUrl, {
-      headers: { "User-Agent": "GymOS-Demo/0.1 (https://gymos.local; demo@gymos.local)" },
+      headers: { "User-Agent": "GymClassOS-Demo/0.1 (https://gymos.local; demo@gymos.local)" },
     });
     if (!res.ok) return { ok: false, reason: `OFF ${res.status}` };
     const json = (await res.json()) as any;
@@ -474,7 +474,7 @@ Run `npx prettier --write templates/mail/app/routes/api.m.agent.stream.tsx`.
     - File has at least 200 lines
     - `pnpm --filter mail exec tsc --noEmit` returns 0 errors
   </acceptance_criteria>
-  <done>The SSE route accepts {messages}, runs the manual tool loop against Claude Sonnet 4.6 with prompt caching, executes the 3 tools server-side (greet/book_class/log_food_nl), emits SSE events (delta/tool_use/tool_result/done/error) — all GymOS-schema-bound</done>
+  <done>The SSE route accepts {messages}, runs the manual tool loop against Claude Sonnet 4.6 with prompt caching, executes the 3 tools server-side (greet/book_class/log_food_nl), emits SSE events (delta/tool_use/tool_result/done/error) — all GymClassOS-schema-bound</done>
 </task>
 
 <task type="auto" tdd="false">
@@ -486,7 +486,7 @@ Run `npx prettier --write templates/mail/app/routes/api.m.agent.stream.tsx`.
   <read_first>
     - .planning/phases/D2-member-mobile-app-calorie-counter-agent-days-4-7/D2-RESEARCH.md §"Pattern 6: React Native SSE consumption with react-native-sse" — the streamAgent source
     - packages/mobile-app/lib/bottom-sheet-impl.ts (D2-01 Task 2 spike output — AgentSheetContainer is the wrapper)
-    - .planning/phases/D2-member-mobile-app-calorie-counter-agent-days-4-7/D2-CONTEXT.md §"Specific Ideas" (Bottom-sheet header: "Agent — GymOS Coach"; welcome message format)
+    - .planning/phases/D2-member-mobile-app-calorie-counter-agent-days-4-7/D2-CONTEXT.md §"Specific Ideas" (Bottom-sheet header: "Agent — GymClassOS Coach"; welcome message format)
     - packages/mobile-app/lib/api.ts (API_BASE_URL — reuse so tunnel/LAN config stays in one place)
   </read_first>
   <action>
@@ -588,7 +588,7 @@ type Props = { onClose: () => void };
 export default function AgentSheet({ onClose }: Props) {
   const qc = useQueryClient();
   const [messages, setMessages] = useState<ChatMessage[]>([
-    { id: "sys-welcome", role: "system", text: "Agent — GymOS Coach" },
+    { id: "sys-welcome", role: "system", text: "Agent — GymClassOS Coach" },
   ]);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
@@ -676,7 +676,7 @@ export default function AgentSheet({ onClose }: Props) {
       style={styles.container}
     >
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Agent — GymOS Coach</Text>
+        <Text style={styles.headerTitle}>Agent — GymClassOS Coach</Text>
         <Pressable onPress={onClose} hitSlop={12}>
           <Feather name="x" size={22} color="#999" />
         </Pressable>
@@ -777,7 +777,7 @@ const styles = StyleSheet.create({
 Run `npx prettier --write packages/mobile-app/lib/agent-stream.ts packages/mobile-app/components/AgentSheet.tsx`.
   </action>
   <verify>
-    <automated>node -e "const fs=require('fs');const c=[['packages/mobile-app/lib/agent-stream.ts','react-native-sse'],['packages/mobile-app/lib/agent-stream.ts','X-Demo-Member-Id'],['packages/mobile-app/lib/agent-stream.ts','/api/m/agent/stream'],['packages/mobile-app/lib/agent-stream.ts','onDelta'],['packages/mobile-app/lib/agent-stream.ts','onToolUse'],['packages/mobile-app/lib/agent-stream.ts','onDone'],['packages/mobile-app/components/AgentSheet.tsx','streamAgent'],['packages/mobile-app/components/AgentSheet.tsx','Agent — GymOS Coach'],['packages/mobile-app/components/AgentSheet.tsx','invalidateQueries']];for(const[f,s] of c){if(!fs.readFileSync(f,'utf8').includes(s)){console.error('FAIL',f,s);process.exit(1)}}"</automated>
+    <automated>node -e "const fs=require('fs');const c=[['packages/mobile-app/lib/agent-stream.ts','react-native-sse'],['packages/mobile-app/lib/agent-stream.ts','X-Demo-Member-Id'],['packages/mobile-app/lib/agent-stream.ts','/api/m/agent/stream'],['packages/mobile-app/lib/agent-stream.ts','onDelta'],['packages/mobile-app/lib/agent-stream.ts','onToolUse'],['packages/mobile-app/lib/agent-stream.ts','onDone'],['packages/mobile-app/components/AgentSheet.tsx','streamAgent'],['packages/mobile-app/components/AgentSheet.tsx','Agent — GymClassOS Coach'],['packages/mobile-app/components/AgentSheet.tsx','invalidateQueries']];for(const[f,s] of c){if(!fs.readFileSync(f,'utf8').includes(s)){console.error('FAIL',f,s);process.exit(1)}}"</automated>
   </verify>
   <acceptance_criteria>
     - `grep -c 'react-native-sse' packages/mobile-app/lib/agent-stream.ts` returns at least 1 (import)
@@ -786,7 +786,7 @@ Run `npx prettier --write packages/mobile-app/lib/agent-stream.ts packages/mobil
     - `grep -c 'addEventListener' packages/mobile-app/lib/agent-stream.ts` returns at least 5 (delta + tool_use + tool_result + done + error)
     - `grep -c 'export.*streamAgent' packages/mobile-app/lib/agent-stream.ts` returns 1
     - `grep -c 'streamAgent' packages/mobile-app/components/AgentSheet.tsx` returns at least 2 (import + call)
-    - `grep -c 'Agent — GymOS Coach' packages/mobile-app/components/AgentSheet.tsx` returns 1 (sheet header)
+    - `grep -c 'Agent — GymClassOS Coach' packages/mobile-app/components/AgentSheet.tsx` returns 1 (sheet header)
     - `grep -c 'invalidateQueries' packages/mobile-app/components/AgentSheet.tsx` returns at least 3 (schedule + food-entries + profile invalidation on tool_result)
     - `grep -c 'KeyboardAvoidingView' packages/mobile-app/components/AgentSheet.tsx` returns at least 2
     - `grep -c 'export default function AgentSheet' packages/mobile-app/components/AgentSheet.tsx` returns 1
@@ -936,7 +936,7 @@ The full agent path: FAB tap → bottom-sheet → user prompt → SSE deltas str
 
 **Test 1 — `greet` tool:**
 1. Tap the FAB (lower-right blue circle with message bubble)
-2. Bottom-sheet slides up to ~2/3 viewport. Header "Agent — GymOS Coach". Input visible.
+2. Bottom-sheet slides up to ~2/3 viewport. Header "Agent — GymClassOS Coach". Input visible.
 3. Type "hi" + Send
 4. Expected: assistant bubble appears, text streams in word-by-word (proves SSE delta path), agent identifies itself and lists capabilities. May or may not explicitly call the `greet` tool (Claude's discretion).
 5. Server log shows the Anthropic request + response.

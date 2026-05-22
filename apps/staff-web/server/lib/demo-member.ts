@@ -19,7 +19,7 @@ export async function requireDemoMember(request: Request): Promise<DemoMember> {
     throw new Response("Missing X-Demo-Member-Id", { status: 401 });
 
   const db = getDb();
-  // guard:allow-unscoped — demo D-07 (X-Demo-Member-Id is the access scope; no ownableColumns on GymOS schema)
+  // guard:allow-unscoped — demo D-07 (X-Demo-Member-Id is the access scope; no ownableColumns on GymClassOS schema)
   const member = await db
     .select()
     .from(schema.gymMembers)

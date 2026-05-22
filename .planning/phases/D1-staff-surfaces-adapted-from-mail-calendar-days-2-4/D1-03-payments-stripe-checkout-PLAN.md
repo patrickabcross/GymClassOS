@@ -176,7 +176,7 @@ If output is `missing`, run `pnpm --filter mail add stripe@^17.0.0` from repo ro
 **Step 2b — Create `templates/mail/server/lib/stripe-demo.ts`** with this exact content:
 
 ```typescript
-// GymOS Demo Sprint D1 — minimal Stripe client wrapper.
+// GymClassOS Demo Sprint D1 — minimal Stripe client wrapper.
 // Production (STR-01) will replace this with a per-studio encrypted key
 // loader + rotation handling. Demo: read STRIPE_SECRET_KEY from env.
 
@@ -208,7 +208,7 @@ export function getStripe(): Stripe {
 **Step 2c — Append to `templates/mail/.env.local.example`** (create the file if it doesn't exist):
 
 ```
-# GymOS Demo Sprint D1 — Stripe test-mode key for /gymos/payments
+# GymClassOS Demo Sprint D1 — Stripe test-mode key for /gymos/payments
 # Get one at https://dashboard.stripe.com/test/apikeys → Create restricted key
 # Required permissions: Checkout Sessions (write), Products (write),
 #   Customers (write), PaymentIntents (read).
@@ -248,7 +248,7 @@ Create `templates/mail/app/routes/gymos.payments.tsx`. URL `/gymos/payments`.
 
 Module structure:
 
-1. Header comment: `// GymOS Payments — Demo Sprint D1. Generate a Stripe Checkout link for a 10-pack pass purchase; on success-redirect, retrieve the session and grant the pass. Demo grade — no webhook handler (STR-03 is Production v1).`
+1. Header comment: `// GymClassOS Payments — Demo Sprint D1. Generate a Stripe Checkout link for a 10-pack pass purchase; on success-redirect, retrieve the session and grant the pass. Demo grade — no webhook handler (STR-03 is Production v1).`
 
 2. Imports:
 ```typescript
@@ -263,7 +263,7 @@ import { cn } from "@/lib/utils";
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "react-router";
 ```
 
-3. `export function meta() { return [{ title: "GymOS — Payments" }]; }`
+3. `export function meta() { return [{ title: "GymClassOS — Payments" }]; }`
 
 4. **`export async function loader({ request }: LoaderFunctionArgs)`** — handles TWO cases:
    - **Case A: success branch** — `?success=<sessionId>&memberId=<id>` in URL
@@ -336,7 +336,7 @@ import type { LoaderFunctionArgs, ActionFunctionArgs } from "react-router";
      line_items: [{
        price_data: {
          currency: "gbp",
-         product_data: { name: "10-class pass (GymOS demo)" },
+         product_data: { name: "10-class pass (GymClassOS demo)" },
          unit_amount: 12000, // £120.00
        },
        quantity: 1,

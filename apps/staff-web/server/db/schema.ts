@@ -91,7 +91,7 @@ export const queuedEmailDrafts = table("queued_email_drafts", {
 });
 
 // ---------------------------------------------------------------------------
-// GymOS domain tables — added 2026-05-17 for Demo Sprint.
+// GymClassOS domain tables — added 2026-05-17 for Demo Sprint.
 //
 // Naming: tables prefixed `gym_*` to avoid collision with framework `member` /
 // `organization` (Better-auth org-plugin). Single-tenant code, multi-tenant

@@ -1,4 +1,4 @@
-// GymOS member-app root layout. Wraps the entire app in:
+// GymClassOS member-app root layout. Wraps the entire app in:
 //   1. QueryProvider (TanStack Query — every screen uses it).
 //   2. GestureRoot (gesture-handler root view — required by @gorhom/bottom-sheet
 //      used by the agent FAB in D2-06).

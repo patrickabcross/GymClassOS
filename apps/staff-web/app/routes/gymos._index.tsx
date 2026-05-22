@@ -1,4 +1,4 @@
-// GymOS WhatsApp Inbox — P1b (post-spine).
+// GymClassOS WhatsApp Inbox — P1b (post-spine).
 //
 // P1b-08 refactor (2026-05-20): Send action no longer calls Meta directly.
 // Outbound flow is now:
@@ -42,7 +42,7 @@ import { cn } from "@/lib/utils";
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "react-router";
 
 export function meta() {
-  return [{ title: "GymOS — WhatsApp Inbox" }];
+  return [{ title: "GymClassOS — WhatsApp Inbox" }];
 }
 
 // ─── Loader ──────────────────────────────────────────────────────────────────
@@ -560,7 +560,7 @@ export default function GymosInbox() {
           <header className="px-4 py-3 border-b border-border/50">
             <h3 className="text-sm font-semibold">Member context</h3>
             <p className="text-[11px] text-muted-foreground mt-0.5">
-              Why GymOS &gt; Mindbody — this panel
+              Why GymClassOS &gt; Mindbody — this panel
             </p>
           </header>
           <div className="px-4 py-3 space-y-4 text-[12px]">

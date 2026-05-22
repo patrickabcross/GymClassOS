@@ -1,5 +1,5 @@
 /**
- * Root-level Vitest config for the GymOS integration suite.
+ * Root-level Vitest config for the GymClassOS integration suite.
  *
  * SCOPE: this config covers ONLY `tests/integration/**` — the cross-app
  * smoke/integration tests that exercise the live Fly receiver + Neon DB.

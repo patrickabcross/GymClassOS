@@ -1,4 +1,4 @@
-# GymOS edge-webhooks + worker — single Fly app, two processes (D-01).
+# GymClassOS edge-webhooks + worker — single Fly app, two processes (D-01).
 #
 # CRITICAL: region = "iad" (Virginia) NOT "lhr" (London) per P1b RESEARCH finding.
 # Neon project gymos-demo lives in us-east-1; lhr⇄us-east-1 RTT is ~75-90ms which

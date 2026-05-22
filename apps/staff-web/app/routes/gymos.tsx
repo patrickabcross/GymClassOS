@@ -1,4 +1,4 @@
-// GymOS layout — wraps every /gymos/* surface with the shared top-nav strip.
+// GymClassOS layout — wraps every /gymos/* surface with the shared top-nav strip.
 //
 // In Remix flat routes / @react-router/fs-routes, sibling files like
 // `gymos.tsx` + `gymos.members.tsx` are NESTED by default: gymos.tsx is the
@@ -14,7 +14,7 @@ import { Outlet } from "react-router";
 import { GymosTopNav } from "@/components/gymos/GymosTopNav";
 
 export function meta() {
-  return [{ title: "GymOS" }];
+  return [{ title: "GymClassOS" }];
 }
 
 export default function GymosLayout() {

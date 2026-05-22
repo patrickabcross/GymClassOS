@@ -1,4 +1,4 @@
-# Architecture Research — GymOS
+# Architecture Research — GymClassOS
 
 **Domain:** Boutique fitness studio management platform (WhatsApp inbox + class schedule + Stripe + member CRM, with per-customer deploy)
 **Researched:** 2026-05-17
@@ -11,7 +11,7 @@
 Before the diagrams, the three constraints from PROJECT.md that make this architecture different from a "standard SaaS":
 
 1. **Single-tenant code, multi-tenant deploy.** No `studio_id` columns. One Neon project + one Vercel deploy + one Fly app per studio. The "tenant" lives in DNS and env vars, not in your SQL.
-2. **agent-native is upstream, not a starter.** You're not writing a Mail app — you're forking one. The architecture must keep the agent-native layer mergeable while the GymOS-specific layer evolves.
+2. **agent-native is upstream, not a starter.** You're not writing a Mail app — you're forking one. The architecture must keep the agent-native layer mergeable while the GymClassOS-specific layer evolves.
 3. **Webhooks (WhatsApp + Stripe) are first-class infrastructure, not a side route.** They have raw-body requirements, signature verification, idempotency requirements, and tight ack timeouts. They live in their own deployable, not as `apps/staff-web` routes.
 
 Everything below follows from these three.
@@ -128,8 +128,8 @@ Everything below follows from these three.
 |---|---|---|---|
 | **Card data + customer/subscription IDs** | Stripe | `stripe_customers`, `stripe_subscriptions`, `payments` (mirrored from webhook events) | Stripe webhooks → worker → DB. NEVER write to these tables from the staff-web action layer. |
 | **WhatsApp message delivery/read state** | Meta | `messages.delivery_status`, `messages.read_at` | Status webhooks → worker → DB. The send action enqueues; the worker updates on the API ack; status webhooks update further. |
-| **Class/booking/pass state** | GymOS Postgres | (this is the only thing fully owned by you) | n/a — direct writes from staff-web actions or worker. |
-| **Member identity (phone, name)** | GymOS Postgres, but seeded/updated by Stripe customer events for paying members | n/a | Stripe `customer.updated` events flow into the worker → upsert `members`. |
+| **Class/booking/pass state** | GymClassOS Postgres | (this is the only thing fully owned by you) | n/a — direct writes from staff-web actions or worker. |
+| **Member identity (phone, name)** | GymClassOS Postgres, but seeded/updated by Stripe customer events for paying members | n/a | Stripe `customer.updated` events flow into the worker → upsert `members`. |
 | **Template approval state** | Meta | `whatsapp_templates.status` | Worker housekeeping job pulls Meta's Template Management API daily; manual sync action available from settings. |
 
 **Rule:** if a piece of data has an external source of truth, only the worker writes it locally. The staff-web app *reads* it but never *writes* it directly. This makes Stripe + WhatsApp webhook replay safe.
@@ -140,15 +140,15 @@ Everything below follows from these three.
 
 ```
 gymos/                                  # fork of BuilderIO/agent-native
-├── apps/                               # NEW — GymOS-specific deployables
+├── apps/                               # NEW — GymClassOS-specific deployables
 │   ├── staff-web/                      # Vercel — React Router v7 SSR
 │   │   ├── app/
 │   │   │   ├── routes/                 # loader/action endpoints
 │   │   │   │   ├── inbox/              # forked from agent-native Mail
 │   │   │   │   ├── schedule/           # forked from agent-native Calendar
-│   │   │   │   ├── members/            # GymOS-original
-│   │   │   │   └── settings/           # GymOS-original
-│   │   │   ├── components/             # GymOS-specific UI (composes agent-native primitives)
+│   │   │   │   ├── members/            # GymClassOS-original
+│   │   │   │   └── settings/           # GymClassOS-original
+│   │   │   ├── components/             # GymClassOS-specific UI (composes agent-native primitives)
 │   │   │   ├── features/               # business logic per surface
 │   │   │   │   ├── whatsapp/           # send action, template picker, window check
 │   │   │   │   ├── schedule/           # class CRUD, booking CRUD, capacity rules
@@ -203,7 +203,7 @@ gymos/                                  # fork of BuilderIO/agent-native
 │       ├── fly.toml
 │       └── package.json
 │
-├── packages/                           # SHARED across apps/* (still GymOS-specific)
+├── packages/                           # SHARED across apps/* (still GymClassOS-specific)
 │   ├── db/                             # Drizzle schema lives here ONCE
 │   │   ├── schema/
 │   │   │   ├── members.ts
@@ -255,7 +255,7 @@ This is the single most important architectural rule for staying mergeable with 
 |---|---|---|---|
 | **Upstream vendored** | `packages-vendored/core/`, `templates/*/` | NEVER edit in place | `git merge upstream/main` lands cleanly here every time |
 | **Upstream adapted** | `apps/staff-web/app/routes/{inbox,schedule}/`, copied from `templates/mail` and `templates/calendar` | Edit freely | Merges from upstream require *manual* re-application — track in `.upstream-merge.md` checklist |
-| **GymOS-original** | `apps/edge-webhooks/`, `apps/worker/`, `packages/db/`, `packages/domain-types/`, `apps/staff-web/app/routes/{members,settings}/`, all `apps/staff-web/app/features/` | Edit freely | Unrelated to upstream merges |
+| **GymClassOS-original** | `apps/edge-webhooks/`, `apps/worker/`, `packages/db/`, `packages/domain-types/`, `apps/staff-web/app/routes/{members,settings}/`, all `apps/staff-web/app/features/` | Edit freely | Unrelated to upstream merges |
 
 **Mechanics:**
 
@@ -276,7 +276,7 @@ git merge upstream/main          # conflicts land in templates/ and packages-ven
 #       and cherry-pick relevant upstream changes manually
 ```
 
-**Why this works:** the merge surface is small and confined (`templates/`, `packages-vendored/`). The high-churn area (`apps/`, `packages/`) is yours alone. The handful of GymOS-adapted routes have a documented manual reconciliation process — they're the cost of forking, paid in a few hours per upstream pull, not in re-engineering a framework.
+**Why this works:** the merge surface is small and confined (`templates/`, `packages-vendored/`). The high-churn area (`apps/`, `packages/`) is yours alone. The handful of GymClassOS-adapted routes have a documented manual reconciliation process — they're the cost of forking, paid in a few hours per upstream pull, not in re-engineering a framework.
 
 **Future-proofing for vertical #2:** when you start the next vertical, this layer separation tells you what to extract. Anything in `packages/` that proved useful across both is a framework candidate. Until then, **do not pre-extract** (per PROJECT.md Key Decision).
 
@@ -751,18 +751,18 @@ The per-customer-deploy model changes the scaling question. You don't scale to "
 | **Stripe Connect** | OAuth flow puts `stripe_user_id` (acct_...) into env var (`STRIPE_CONNECTED_ACCOUNT_ID`). Webhook endpoint configured in Stripe dashboard during onboarding. All API calls use the platform key with `Stripe-Account: <connected_id>` header (handled by SDK if you pass `stripeAccount` option). | Note: connecting the same studio twice consumes the OAuth code; subsequent attempts fail. Plan onboarding as a one-shot. Listen for `account.updated` for charges_enabled / payouts_enabled transitions before opening payment surfaces to staff. |
 | **Neon Postgres** | Drizzle ORM. From Vercel: `neon-http` driver (cold-start friendly). From Fly: `neon-serverless` WebSocket driver (better latency for transactional work). | One Neon **project** per studio (gives you a separate database + connection string + isolated compute). Use Neon branches for dev/staging *within* a studio's project. Run migrations via `drizzle-kit migrate` in a deploy step (Fly worker boot is a fine hook for v1; later, move to CI). |
 | **OpenFoodFacts (post-v1)** | Public HTTPS API, no auth. From worker for nutrition lookup. Cache results in DB. | LLM fallback for natural-language descriptions per STACK.md. |
-| **Customer's existing React Native app (post-v1, Phase 3)** | Their app calls authenticated GymOS API (lives in `apps/staff-web` actions/loaders or a new `apps/mobile-api` Hono service on Fly — decide at Phase 3 planning). | Auth: Better-auth's mobile session pattern (Bearer token) or a separate API-key model. Determined when reading their codebase. |
+| **Customer's existing React Native app (post-v1, Phase 3)** | Their app calls authenticated GymClassOS API (lives in `apps/staff-web` actions/loaders or a new `apps/mobile-api` Hono service on Fly — decide at Phase 3 planning). | Auth: Better-auth's mobile session pattern (Bearer token) or a separate API-key model. Determined when reading their codebase. |
 
 ### Internal Boundaries
 
 | Boundary | Communication | Notes |
 |---|---|---|
-| **staff-web ↔ Postgres** | Drizzle queries from loaders/actions | Reads + GymOS-owned writes (bookings, member CRM, schedule, templates). Never writes Stripe-mirrored or WhatsApp-mirrored tables. |
+| **staff-web ↔ Postgres** | Drizzle queries from loaders/actions | Reads + GymClassOS-owned writes (bookings, member CRM, schedule, templates). Never writes Stripe-mirrored or WhatsApp-mirrored tables. |
 | **staff-web ↔ pg-boss (queue)** | Enqueue-only (producer) via shared `packages/queue` helper. Connects to the same Neon DATABASE_URL the staff-web already uses. | No Redis to provision, no extra network hop, no secret. Vercel uses the `neon-http` driver for stateless action handlers; pg-boss's `send()` is one INSERT. The Vercel↔Fly-Redis routing question that existed in the BullMQ design is moot. |
 | **edge-webhooks ↔ Postgres** | Drizzle inserts to `webhook_events` + pg-boss `send()` (same connection) | The receiver is allowed to touch the idempotency table + enqueue. Anything else is the worker's job. |
 | **worker ↔ Postgres** | Drizzle reads + writes across all tables | The worker is the only place that writes Stripe mirrors, conversation/message state, pass debits. |
 | **worker ↔ External APIs** | Stripe SDK + `@great-detail/whatsapp` | All retries, rate-limit handling, error classification lives here. |
-| **agent-native vendored code ↔ GymOS code** | One-way: GymOS imports from `@agent-native/*`, never the reverse | Enforced by the directory structure and pnpm workspace topology. If GymOS code "needs to be" in `@agent-native/core/`, it's a refactor smell — wrap, don't reach back. |
+| **agent-native vendored code ↔ GymClassOS code** | One-way: GymClassOS imports from `@agent-native/*`, never the reverse | Enforced by the directory structure and pnpm workspace topology. If GymClassOS code "needs to be" in `@agent-native/core/`, it's a refactor smell — wrap, don't reach back. |
 
 ---
 
@@ -826,7 +826,7 @@ This ordering minimises blocking dependencies between components. The phase numb
 
 ## Comparison: Per-Customer Deploy vs Standard Tenancy-Row SaaS
 
-| Dimension | Standard (tenancy column) | GymOS (per-customer deploy) |
+| Dimension | Standard (tenancy column) | GymClassOS (per-customer deploy) |
 |---|---|---|
 | **Schema** | Every table has `tenant_id NOT NULL`; every query has `WHERE tenant_id = ?`. RLS policies, middleware enforcement. | No tenant column. Every table is "this studio's data" by virtue of which DB you connected to. |
 | **Onboarding** | `INSERT INTO tenants(...)`; provision per-tenant resources (Stripe Connect, WhatsApp WABA) referenced by `tenant_id`. | `neonctl projects create`, `vercel link`, `fly launch`, populate env vars, deploy. A script, but a script that runs *infrastructure*. |
@@ -840,7 +840,7 @@ This ordering minimises blocking dependencies between components. The phase numb
 | **Noisy neighbour risk** | Real. One large studio can degrade others. | Zero — they have separate infra. |
 | **Tenant-scoping bug class** | Constant vigilance required (linter rules, code review for "where's the tenant filter?"). | Doesn't exist — schema has no concept of "another tenant". |
 
-**Why GymOS chose per-deploy:**
+**Why GymClassOS chose per-deploy:**
 - Eliminates the entire tenant-scoping bug class (the deciding factor — solo dev, limited code-review capacity)
 - Matches the vertical-SaaS-factory mental model (each vertical = a fork = its own infra)
 - WhatsApp Business API is *naturally* per-WABA per-phone-number, which maps cleanly to per-deploy
@@ -862,10 +862,10 @@ This ordering minimises blocking dependencies between components. The phase numb
 - React Router v7 framework mode: [Route Module docs](https://reactrouter.com/start/framework/route-module), [Data Loading docs](https://reactrouter.com/start/framework/data-loading), [Actions docs](https://reactrouter.com/start/framework/actions), [Picking a Mode](https://reactrouter.com/start/modes)
 - pnpm workspace patterns: [pnpm Workspaces docs](https://pnpm.io/workspaces), [Monorepo Architecture with pnpm Workspace](https://dev.to/yasinatesim/monorepo-architecture-with-pnpm-workspace-turborepo-changesets-g0j)
 - `BuilderIO/agent-native` repository (inspected for STACK.md, same source authoritative for fork boundary mechanics here)
-- GymOS internal: `C:\Users\dimet\hustle\.planning\PROJECT.md`, `C:\Users\dimet\hustle\.planning\research\STACK.md`
+- GymClassOS internal: `C:\Users\dimet\hustle\.planning\PROJECT.md`, `C:\Users\dimet\hustle\.planning\research\STACK.md`
 
 ---
 
-*Architecture research for: boutique fitness studio management platform (GymOS)*
+*Architecture research for: boutique fitness studio management platform (GymClassOS)*
 *Researched: 2026-05-17*
 *Confidence: HIGH on the receiver/worker/idempotency topology; MEDIUM on the agent-native fork mechanics until Phase 0 audit confirms the upstream layout. Queue choice locked to pg-boss 2026-05-17 (no Redis); BullMQ migration trigger documented in STACK.md if studio volume ever exceeds ~10k jobs/day.*

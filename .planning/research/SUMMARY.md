@@ -1,4 +1,4 @@
-# Project Research Summary — GymOS
+# Project Research Summary — GymClassOS
 
 > **⚠️ PARTIALLY STALE (revised 2026-05-17):** Written before the major scope revision. Specifically:
 > - **Stripe Connect → direct restricted-API-key** (no Connect ceremony, no app-fee, no deauth handler)
@@ -9,7 +9,7 @@
 >
 > Read this for stack/feature/architecture *patterns*; architecture-of-record is PROJECT.md.
 
-**Project:** GymOS — boutique fitness studio management platform (fork of `BuilderIO/agent-native`)
+**Project:** GymClassOS — boutique fitness studio management platform (fork of `BuilderIO/agent-native`)
 **Domain:** Vertical SaaS — WhatsApp-first staff inbox + class scheduling/bookings/passes + Stripe Connect billing; mobile features (Phase 3+) embed into customer's existing React Native app
 **Researched:** 2026-05-17
 **Confidence:** HIGH overall. MEDIUM on a handful of specifically-flagged spots (Vercel × React Router v7 middleware seam; BullMQ vs pg-boss queue choice; `@great-detail/whatsapp` single-maintainer risk; per-customer-deploy ops mechanics for Fly+Vercel+Neon).
@@ -20,7 +20,7 @@
 
 ## Executive Summary
 
-GymOS is a **fork-and-ship** project, not a green-field build. The single most consequential discovery across all four research files is that `BuilderIO/agent-native` is NOT a Next.js codebase — it is **React Router v7 (framework mode) + Vite + Drizzle ORM + H3 + Better-auth + Radix/Tailwind v4**, with `@neondatabase/serverless` already wired as a first-class option. Every architectural choice flows from "stay merge-tractable with upstream." Drop Next.js, drop Prisma, drop NextAuth. The only DB swap at fork time is configuring Drizzle for `neon-http`/`neon-serverless` instead of LibSQL.
+GymClassOS is a **fork-and-ship** project, not a green-field build. The single most consequential discovery across all four research files is that `BuilderIO/agent-native` is NOT a Next.js codebase — it is **React Router v7 (framework mode) + Vite + Drizzle ORM + H3 + Better-auth + Radix/Tailwind v4**, with `@neondatabase/serverless` already wired as a first-class option. Every architectural choice flows from "stay merge-tractable with upstream." Drop Next.js, drop Prisma, drop NextAuth. The only DB swap at fork time is configuring Drizzle for `neon-http`/`neon-serverless` instead of LibSQL.
 
 The competitive thesis is **WhatsApp-as-canonical-channel with member context inside the conversation**. Every incumbent (Mindbody, Glofox, TeamUp, Mariana Tek, PushPress, Pike13) defaults to SMS+email; none surface member state (next class, pass balance, subscription health) inside the inbox. That whitespace is what the signed customer signed for, and it is the *only* differentiator dimension worth defending in v1. Trying to beat Mindbody on feature *breadth* in two months is suicide; trying to beat them on conversational depth is the strategy. The roadmap must protect this — every "table-stakes" feature that doesn't ship breaks the deal, but every "MarTech / multi-location / web member portal" feature that sneaks in eats the whole deadline.
 
@@ -66,7 +66,7 @@ The stack is **forced by the agent-native fork decision** — there is essential
 
 ### Expected Features
 
-Feature research compared GymOS against 13 competitors (Mindbody, Glofox, TeamUp, Mariana Tek, PushPress, Pike13, Arketa, Zen Planner, Vibefam, Virtuagym, Wellyx, StudioGrowth, ClassPass). The MoSCoW cut below is the **v1 ship list**.
+Feature research compared GymClassOS against 13 competitors (Mindbody, Glofox, TeamUp, Mariana Tek, PushPress, Pike13, Arketa, Zen Planner, Vibefam, Virtuagym, Wellyx, StudioGrowth, ClassPass). The MoSCoW cut below is the **v1 ship list**.
 
 **Must have (table stakes — studios will not switch without these):**
 
@@ -84,7 +84,7 @@ Feature research compared GymOS against 13 competitors (Mindbody, Glofox, TeamUp
 - **Stripe webhook handlers** for: `checkout.session.completed`, `invoice.paid`, `invoice.payment_failed`, `customer.subscription.updated`, `customer.subscription.deleted`, `charge.refunded`, `account.application.deauthorized`.
 - **Time-zone correct class display** — IANA zone names (NOT offsets like `+02:00`), separate "rule" vs "occurrence" storage.
 
-**Should have (differentiators — why a studio picks GymOS over Mindbody):**
+**Should have (differentiators — why a studio picks GymClassOS over Mindbody):**
 
 - **Member context panel inside the WhatsApp conversation** — the signature feature. No competitor does this.
 - **WhatsApp as the canonical notification channel** for class reminders, waitlist offers, payment-failed, pass-expiring.
@@ -137,7 +137,7 @@ The architecture is shaped by three load-bearing decisions from PROJECT.md, each
 |---|---|---|
 | Card data, customer/subscription IDs | Stripe | Stripe webhooks → worker → DB. Staff-web NEVER writes these. |
 | WhatsApp delivery status | Meta | Status webhooks → worker → ordinal-guarded UPDATE (`sent < delivered < read < failed`). |
-| Class/booking/pass state | GymOS Postgres | Direct writes from staff-web actions or worker. |
+| Class/booking/pass state | GymClassOS Postgres | Direct writes from staff-web actions or worker. |
 | Template approval state | Meta | Worker housekeeping job pulls Meta's API daily. |
 
 **Five canonical patterns:**
@@ -374,6 +374,6 @@ Full source lists live in each research file. Aggregated highlights:
 
 ---
 
-*Research synthesis for: GymOS — boutique fitness studio management platform*
+*Research synthesis for: GymClassOS — boutique fitness studio management platform*
 *Synthesized: 2026-05-17*
 *Ready for roadmap: yes*

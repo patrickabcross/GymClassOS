@@ -1,13 +1,13 @@
-<!-- GymOS project context. Framework-level agent-native instructions live in AGENTS.md (read both). -->
+<!-- GymClassOS project context. Framework-level agent-native instructions live in AGENTS.md (read both). -->
 
 @AGENTS.md
 
 <!-- GSD:project-start source:PROJECT.md -->
 ## Project
 
-**GymOS**
+**GymClassOS**
 
-GymOS is a boutique fitness studio management platform — staff web app, member mobile features, and direct integrations with WhatsApp Business API and Stripe — built by adapting Builder.io's MIT-licensed `agent-native` framework into a vertical product. The first deployment is a signed gym studio customer; the same fork pattern is intended to seed future verticals in other industries.
+GymClassOS is a boutique fitness studio management platform — staff web app, member mobile features, and direct integrations with WhatsApp Business API and Stripe — built by adapting Builder.io's MIT-licensed `agent-native` framework into a vertical product. The first deployment is a signed gym studio customer; the same fork pattern is intended to seed future verticals in other industries.
 
 **Core Value:** Coaches and studio managers run their entire day from one inbox-and-schedule surface (WhatsApp conversations + class bookings + member context), and members book / pay / log activity from the studio's existing mobile app — without staff cobbling together WhatsApp, calendar, and CRM tools.
 
@@ -55,7 +55,7 @@ GymOS is a boutique fitness studio management platform — staff web app, member
 | **`@neondatabase/serverless`** | `^1.1.x` | DB driver (HTTP + WebSocket) | Already a dep in `@agent-native/core`. Use the HTTP driver for Vercel-hosted stateless routes (cold-start friendly) and the WebSocket driver for the long-lived Fly worker (better latency for transactional workloads). |
 | **H3** | `^2.0.x` (RC line in upstream — the same version agent-native ships) | Server runtime inside the React Router app | Already wired up by agent-native's middleware layer. Used for the global auth guard middleware. Do not replace; extend. |
 | **Better-auth** | `^1.6.x` | Staff auth | Already in agent-native (`runAuthGuard` from `@agent-native/core/server` is Better-auth under the hood). Email/password + magic link for v1 staff login is enough; add OAuth later if needed. |
-| **Stripe Node SDK** | `^17.x` (latest stable — verify the exact patch at install time; pin to the version that matches your target API version) | Payments | Use `stripe.webhooks.constructEvent()` — never hand-roll HMAC. Use Stripe Connect (OAuth) so studios authorise GymOS onto their *existing* account. |
+| **Stripe Node SDK** | `^17.x` (latest stable — verify the exact patch at install time; pin to the version that matches your target API version) | Payments | Use `stripe.webhooks.constructEvent()` — never hand-roll HMAC. Use Stripe Connect (OAuth) so studios authorise GymClassOS onto their *existing* account. |
 | **`@great-detail/whatsapp`** | `^9.x` (April 2026) | WhatsApp Cloud API client | **Critical**: Meta's official `WhatsApp/WhatsApp-Nodejs-SDK` was paused (see Issue #31, "Pausing Development of the WhatsApp SDK"). `@great-detail/whatsapp` is the maintained fork. Tracks Cloud API v23, ships TS types, ESM + CJS, includes `event.verifySignature(appSecret)` for webhook validation. **Confidence: MEDIUM** — depends on a single maintainer; mitigation in the "What NOT to Use" section below. |
 | **Hono** | `^4.x` | The Fly.io webhook receiver app + the Fly.io background worker's tiny admin HTTP surface | Hono is the right TS-native choice for the *Fly.io side* (which is a *separate* app from the React Router app on Vercel). Tiny bundle, first-class TS, easy raw-body handling for Stripe and WhatsApp signature verification. Do *not* use Hono for the staff web app — that's React Router. |
 | **BullMQ** | `^5.x` | Background job queue on Fly.io | Industry-standard Node queue. Pairs with Redis. Workers run as a separate Fly machine. Used for: outbound WhatsApp send queue, Stripe webhook idempotent post-processing, class reminder scheduling. |
@@ -64,7 +64,7 @@ GymOS is a boutique fitness studio management platform — staff web app, member
 | Library | Version | Purpose | When to Use |
 |---|---|---|---|
 | **Tailwind CSS** | `^4.x` | Styling | Already in agent-native; v4 is the version `@agent-native/core` peers against |
-| **shadcn/ui** | latest CLI (no semver — copy-in components) | UI components | shadcn officially supports React Router v7 (`ui.shadcn.com/docs/installation/react-router`). Already aligned with agent-native's Radix + Tailwind + CVA stack — `shadcn add` should drop in cleanly without ejecting existing Radix usages. Use to fill gaps where agent-native's components don't cover GymOS-specific surfaces (forms, data tables, calendars beyond what's in the Calendar template). |
+| **shadcn/ui** | latest CLI (no semver — copy-in components) | UI components | shadcn officially supports React Router v7 (`ui.shadcn.com/docs/installation/react-router`). Already aligned with agent-native's Radix + Tailwind + CVA stack — `shadcn add` should drop in cleanly without ejecting existing Radix usages. Use to fill gaps where agent-native's components don't cover GymClassOS-specific surfaces (forms, data tables, calendars beyond what's in the Calendar template). |
 | **Radix UI primitives** | `^1.1.x` / `^2.2.x` | Accessible UI primitives | Already in agent-native; underlies shadcn |
 | **Lucide React** | `^1.8.x` | Icon set | Already in agent-native |
 | **Sonner** | `^2.0.x` | Toast notifications | Already in agent-native |
@@ -87,7 +87,7 @@ GymOS is a boutique fitness studio management platform — staff web app, member
 | **Prettier** | Formatting | Already in agent-native (`^3.6.2`). Inherit its config. |
 | **Changesets** | Version management (optional for v1) | Agent-native uses it; for a solo-dev forked monorepo with one customer it's overkill — defer to Phase 4+. |
 ## Installation
-# Inside the fork — packages added for GymOS-specific surfaces
+# Inside the fork — packages added for GymClassOS-specific surfaces
 # Dev-only additions
 ## The Three Apps You're Actually Deploying
 | App | Where | What | Why there |
@@ -130,7 +130,7 @@ GymOS is a boutique fitness studio management platform — staff web app, member
 | **Multi-tenant column scoping (`studio_id` everywhere)** | Locked out by tenancy decision | One Neon project per studio, no tenant column |
 ## Stack Patterns by Variant
 - Keep `@agent-native/core` as a pnpm workspace dep; never edit it in-place
-- All GymOS-specific code lives in `apps/staff-web` (NEW), `apps/edge-webhooks` (NEW), `apps/worker` (NEW)
+- All GymClassOS-specific code lives in `apps/staff-web` (NEW), `apps/edge-webhooks` (NEW), `apps/worker` (NEW)
 - The Mail/Calendar/Content/Analytics/Calorie templates are *copied into* `apps/staff-web/features/{whatsapp,schedule,kb,reports,calorie}/` then modified — original templates stay untouched in `templates/` so upstream merges can flow
 - Use git remotes: `upstream = BuilderIO/agent-native`, `origin = your fork`. Periodically `git fetch upstream && git merge upstream/main` into the framework-layer branches.
 - Same structure but stop pretending you'll merge upstream — delete the `templates/` directory after copying out what you need
@@ -174,7 +174,7 @@ GymOS is a boutique fitness studio management platform — staff web app, member
 - shadcn/ui docs (`ui.shadcn.com/docs/installation/react-router`, `ui.shadcn.com/docs/tailwind-v4`) — first-class React Router v7 and Tailwind v4 support
 - Fly.io docs (`fly.io/docs/blueprints/work-queues/`, `fly.io/docs/upstash/redis/`) — BullMQ + Upstash Redis is the official pattern; fixed-price plans recommended
 - Hono docs (`hono.dev`) + Express vs Hono 2026 surveys — Hono is the TS-native default for new webhook receivers
-- Better Stack + Axiom Vercel/Fly integration docs — both supported; Better Stack lower-friction at GymOS volume
+- Better Stack + Axiom Vercel/Fly integration docs — both supported; Better Stack lower-friction at GymClassOS volume
 <!-- GSD:stack-end -->
 
 <!-- GSD:conventions-start source:CONVENTIONS.md -->

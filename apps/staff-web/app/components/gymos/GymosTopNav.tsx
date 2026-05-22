@@ -1,4 +1,4 @@
-// GymOS top-nav strip (INBX-07 demo cohesion).
+// GymClassOS top-nav strip (INBX-07 demo cohesion).
 //
 // Visual unifier that ties the four demo surfaces (Inbox / Schedule / Members /
 // Payments) into one back-office product. Active tab is highlighted via
@@ -32,7 +32,7 @@ export function GymosTopNav() {
   const isSettings = path.startsWith("/gymos/settings");
   return (
     <nav className="flex items-center gap-1 px-4 h-11 border-b border-border/50 bg-card/40 shrink-0">
-      <span className="text-[12px] font-semibold mr-3">GymOS</span>
+      <span className="text-[12px] font-semibold mr-3">GymClassOS</span>
       <Link to="/gymos" className={tabClass(isInbox)}>
         Inbox
       </Link>

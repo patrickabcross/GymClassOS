@@ -191,7 +191,7 @@ None — plan executed exactly as written. Both automated verification checks (T
 
 9. **WA-02 — Outbound smoke test:**
    - In `/gymos` UI, click the conversation with the test phone
-   - Type "Hi from GymOS demo" and press Send
+   - Type "Hi from GymClassOS demo" and press Send
    - Expect: `?sent=1` banner appears; test phone receives the message within ~5 seconds
    - Verify in Neon: `SELECT id, direction, status, external_id, error FROM messages WHERE direction='out' ORDER BY created_at DESC LIMIT 1;` — `status='sent'`, `external_id` starts with `wamid.`, `error IS NULL`
 

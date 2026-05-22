@@ -7,13 +7,13 @@ tags: [monorepo, pnpm-workspace, react-router-v7, drizzle, postgres, better-auth
 # Dependency graph
 requires:
   - phase: D0-fork-schema-deploys
-    provides: "GymOS routes (gymos.*, /api/m, /webhooks/whatsapp, /pick-member) + 12 domain tables in templates/mail/"
+    provides: "GymClassOS routes (gymos.*, /api/m, /webhooks/whatsapp, /pick-member) + 12 domain tables in templates/mail/"
   - phase: D1-staff-surfaces-adapted-from-mail-calendar-days-2-4
     provides: "Staff inbox/schedule/members surfaces — copied verbatim into apps/staff-web/"
   - phase: D2-member-mobile-app-calorie-counter-agent-days-4-7
     provides: "api.m.* + webhooks.whatsapp.tsx + auth.ts publicPaths"
 provides:
-  - "apps/staff-web/ workspace package (`@gymos/staff-web`) — new home for all GymOS staff-facing routes"
+  - "apps/staff-web/ workspace package (`@gymos/staff-web`) — new home for all GymClassOS staff-facing routes"
   - "templates/mail/ restored to upstream-clean state (only webhooks.whatsapp.tsx remains, deleted in Plan 09)"
   - "Postgres-flavored Drizzle migration baseline at apps/staff-web/server/db/migrations/0000_gymos_postgres_initial.sql"
   - "pnpm-workspace.yaml apps/* glob — enables P1b-03/04/05 packages and apps to land alongside"
@@ -38,7 +38,7 @@ key-files:
     - "apps/staff-web/app/routes/pick-member.tsx — D2 mobile demo entry"
     - "apps/staff-web/app/routes/webhooks.whatsapp.tsx — demo WA receiver (deleted in Plan 09)"
     - "apps/staff-web/app/routes/api.m.*.tsx — 8 mobile API routes (profile/schedule/bookings/food-entries/foods.barcode/foods.search/members.list/agent.stream)"
-    - "apps/staff-web/server/db/schema.ts — 12 GymOS domain tables (gymMembers, coaches, conversations, messages, classDefinitions, classOccurrences, bookings, passes, passDebits, foodItems, foodEntries, agentSessions, webhookEvents)"
+    - "apps/staff-web/server/db/schema.ts — 12 GymClassOS domain tables (gymMembers, coaches, conversations, messages, classDefinitions, classOccurrences, bookings, passes, passDebits, foodItems, foodEntries, agentSessions, webhookEvents)"
     - "apps/staff-web/server/db/migrations/0000_gymos_postgres_initial.sql — PG-flavored baseline (TIMESTAMP/BOOLEAN/now())"
     - "apps/staff-web/server/db/migrations/meta/_journal.json + 0000_snapshot.json — Drizzle Kit PG state"
     - "apps/staff-web/server/plugins/auth.ts — publicPaths includes /, /gymos*, /api/m, /pick-member, /webhooks/whatsapp"
@@ -58,7 +58,7 @@ key-files:
     - "templates/mail/app/routes/webhooks.whatsapp.tsx (177 LOC) — DEVIATION from plan (see Decisions)"
     - "templates/mail/server/lib/demo-member.ts (31 LOC)"
     - "templates/mail/server/db/migrations/0000_late_professor_monster.sql — SQLite-flavored, replaced by PG version in apps/staff-web/"
-    - "templates/mail/server/db/schema.ts — restored to upstream-only (227 GymOS LOC removed)"
+    - "templates/mail/server/db/schema.ts — restored to upstream-only (227 GymClassOS LOC removed)"
     - "templates/mail/server/plugins/auth.ts — publicPaths restored to upstream (Gmail Pub/Sub only)"
     - "templates/mail/app/routes/_index.tsx — restored to upstream Mail index"
 
@@ -82,7 +82,7 @@ completed: 2026-05-20
 
 # Phase P1b Plan 01: Monorepo Refactor (templates/mail → apps/staff-web) Summary
 
-**Moved the entire GymOS staff surface from `templates/mail/` to a new `apps/staff-web/` workspace package; templates/mail restored to upstream-clean for safe future agent-native merges; Drizzle baseline regenerated for Postgres dialect.**
+**Moved the entire GymClassOS staff surface from `templates/mail/` to a new `apps/staff-web/` workspace package; templates/mail restored to upstream-clean for safe future agent-native merges; Drizzle baseline regenerated for Postgres dialect.**
 
 ## Performance
 
@@ -94,8 +94,8 @@ completed: 2026-05-20
 
 ## Accomplishments
 
-- `apps/staff-web/` workspace package created with the full GymOS staff surface — boots locally on `:8081`, serves `/`, `/gymos`, `/gymos/schedule`, `/gymos/members`, `/gymos/payments`, `/pick-member`, `/api/m/*`, `/webhooks/whatsapp` against the same gymos-demo Neon project as before.
-- `templates/mail/` restored to upstream-clean: no `gymos.*` routes, no `/api/m/*` routes, no `pick-member`, no GymOS schema additions, no GymOS publicPaths. `_index.tsx`, `schema.ts`, and `auth.ts` reverted to upstream Mail state.
+- `apps/staff-web/` workspace package created with the full GymClassOS staff surface — boots locally on `:8081`, serves `/`, `/gymos`, `/gymos/schedule`, `/gymos/members`, `/gymos/payments`, `/pick-member`, `/api/m/*`, `/webhooks/whatsapp` against the same gymos-demo Neon project as before.
+- `templates/mail/` restored to upstream-clean: no `gymos.*` routes, no `/api/m/*` routes, no `pick-member`, no GymClassOS schema additions, no GymClassOS publicPaths. `_index.tsx`, `schema.ts`, and `auth.ts` reverted to upstream Mail state.
 - `pnpm-workspace.yaml` extended with `- apps/*` glob alongside `packages/*`, `templates/*`, `templates/*/desktop`. Future P1b apps (edge-webhooks, worker) drop into the same layout.
 - Drizzle migration baseline regenerated for Postgres at `apps/staff-web/server/db/migrations/0000_gymos_postgres_initial.sql` (TIMESTAMP/BOOLEAN/`now()` syntax, no SQLite leftovers). Plan 02 will generate `0001_*.sql` against this baseline.
 - Root redirect (`/` → `/gymos`) now bypasses the upstream Mail Google sign-in page — `/` added to publicPaths as Task 4 follow-up.
@@ -114,15 +114,15 @@ completed: 2026-05-20
 
 See `key-files` in frontmatter for the full list. Headline counts:
 
-- **apps/staff-web/ created** — 236 files including 13 GymOS route files, 12-table schema, 1 PG-flavored baseline migration, drizzle/vite/RR/tsconfig, netlify.toml, .env.local.example, .gitignore, CLAUDE.md+AGENTS.md include shims.
-- **templates/mail/ cleaned** — 17 files deleted/reverted to upstream Mail state (gymos.* routes, api.m.* routes, pick-member, webhooks.whatsapp, demo-member helper, schema GymOS exports, auth.ts publicPaths additions).
+- **apps/staff-web/ created** — 236 files including 13 GymClassOS route files, 12-table schema, 1 PG-flavored baseline migration, drizzle/vite/RR/tsconfig, netlify.toml, .env.local.example, .gitignore, CLAUDE.md+AGENTS.md include shims.
+- **templates/mail/ cleaned** — 17 files deleted/reverted to upstream Mail state (gymos.* routes, api.m.* routes, pick-member, webhooks.whatsapp, demo-member helper, schema GymClassOS exports, auth.ts publicPaths additions).
 - **pnpm-workspace.yaml** — `- apps/*` added.
 
 ## Decisions Made
 
-- **Delete `webhooks.whatsapp.tsx` from templates/mail/ in Plan 01 rather than Plan 09.** Originally D-05 in the phase context specified the file should remain in templates/mail/ until the very last task of P1b (after Meta URL flip). Discovered during Task 2 that the file's imports referenced the removed GymOS schema (`gym_members`, `conversations`, `webhook_events`), so leaving it broke templates/mail's typecheck. Resolution: delete the templates/mail copy now (Task 2 commit `7efcbf9a`). Cutover semantics are preserved because the identical file lives at `apps/staff-web/app/routes/webhooks.whatsapp.tsx` and remains the Meta-targeted endpoint via ngrok until Plan 09 flips Meta to the Fly URL and deletes BOTH copies. This change is semantically a no-op for the cutover; the only effect is that templates/mail typechecks today instead of after Plan 09.
+- **Delete `webhooks.whatsapp.tsx` from templates/mail/ in Plan 01 rather than Plan 09.** Originally D-05 in the phase context specified the file should remain in templates/mail/ until the very last task of P1b (after Meta URL flip). Discovered during Task 2 that the file's imports referenced the removed GymClassOS schema (`gym_members`, `conversations`, `webhook_events`), so leaving it broke templates/mail's typecheck. Resolution: delete the templates/mail copy now (Task 2 commit `7efcbf9a`). Cutover semantics are preserved because the identical file lives at `apps/staff-web/app/routes/webhooks.whatsapp.tsx` and remains the Meta-targeted endpoint via ngrok until Plan 09 flips Meta to the Fly URL and deletes BOTH copies. This change is semantically a no-op for the cutover; the only effect is that templates/mail typechecks today instead of after Plan 09.
 - **Add `/` to publicPaths (Task 4 polish).** During the Task 4 boot test, `curl http://localhost:8081/` returned the upstream Mail Google sign-in page instead of redirecting to `/gymos`. Cause: `matchesPathList()` in `@agent-native/core/server` checks publicPaths before route loaders run, and `_index.tsx`'s redirect to `/gymos` never executed because `/` itself wasn't whitelisted. The fix is exact-match-safe (matchesPathList treats `/` specially — it won't prefix-match every path). User explicitly approved this polish during checkpoint verification.
-- **Drizzle migration is baseline only — NOT applied to gymos-demo Neon.** The live DB at Neon already has all 12 GymOS tables from D0.4's MCP-driven SQL transactions. The generated `0000_gymos_postgres_initial.sql` exists purely to give Drizzle Kit a Postgres-dialect snapshot so Plan 02's `drizzle-kit generate` emits PG syntax (not SQLite). Header comment on the SQL file warns "Do NOT run against gymos-demo."
+- **Drizzle migration is baseline only — NOT applied to gymos-demo Neon.** The live DB at Neon already has all 12 GymClassOS tables from D0.4's MCP-driven SQL transactions. The generated `0000_gymos_postgres_initial.sql` exists purely to give Drizzle Kit a Postgres-dialect snapshot so Plan 02's `drizzle-kit generate` emits PG syntax (not SQLite). Header comment on the SQL file warns "Do NOT run against gymos-demo."
 
 ## Deviations from Plan
 
@@ -131,7 +131,7 @@ See `key-files` in frontmatter for the full list. Headline counts:
 **1. [Rule 3 - Blocking] Deleted templates/mail/app/routes/webhooks.whatsapp.tsx in Task 2 instead of deferring to Plan 09**
 
 - **Found during:** Task 2 (restoring templates/mail/ to upstream-clean)
-- **Issue:** The plan specified `webhooks.whatsapp.tsx` should remain in templates/mail/ until Plan 09 (per D-05 in CONTEXT.md). But its imports (`gym_members`, `conversations`, `webhookEvents` from `server/db/schema`) reference GymOS schema exports that Task 2 explicitly removes from templates/mail/server/db/schema.ts. Leaving the file in place would have broken `pnpm --filter mail exec tsc --noEmit`, violating the Task 2 acceptance criterion "Mail template still type-checks."
+- **Issue:** The plan specified `webhooks.whatsapp.tsx` should remain in templates/mail/ until Plan 09 (per D-05 in CONTEXT.md). But its imports (`gym_members`, `conversations`, `webhookEvents` from `server/db/schema`) reference GymClassOS schema exports that Task 2 explicitly removes from templates/mail/server/db/schema.ts. Leaving the file in place would have broken `pnpm --filter mail exec tsc --noEmit`, violating the Task 2 acceptance criterion "Mail template still type-checks."
 - **Fix:** Deleted templates/mail/app/routes/webhooks.whatsapp.tsx in Task 2 (commit `7efcbf9a`). Identical file already lives at apps/staff-web/app/routes/webhooks.whatsapp.tsx so the Meta-targeted endpoint is preserved. Plan 09's "delete webhooks.whatsapp.tsx as last task" now refers to the apps/staff-web/ copy after Meta URL flips to Fly — semantically equivalent.
 - **Files modified:** templates/mail/app/routes/webhooks.whatsapp.tsx (deleted, 177 LOC)
 - **Verification:** `pnpm --filter mail exec tsc --noEmit` returned green per Task 2 commit notes; apps/staff-web/ boots and serves /webhooks/whatsapp verify-token requests successfully.
@@ -140,10 +140,10 @@ See `key-files` in frontmatter for the full list. Headline counts:
 **2. [Rule 2 - Missing Critical] Added `/` to apps/staff-web/server/plugins/auth.ts publicPaths during Task 4 verification**
 
 - **Found during:** Task 4 (human-verify checkpoint — boot test of apps/staff-web/)
-- **Issue:** `curl http://localhost:8081/` returned the upstream Mail Google sign-in page instead of redirecting to /gymos. Root cause: better-auth's `matchesPathList()` runs BEFORE the React Router `_index.tsx` redirect, so the `/` → `/gymos` redirect never fired without `/` being in publicPaths. The plan's Task 1 specified copying publicPaths verbatim from templates/mail, but templates/mail never needed `/` whitelisted because its `_index.tsx` was the upstream Mail page (not a GymOS redirect). The redirect was added separately in commit `596a84b3` and never had `/` whitelisted.
+- **Issue:** `curl http://localhost:8081/` returned the upstream Mail Google sign-in page instead of redirecting to /gymos. Root cause: better-auth's `matchesPathList()` runs BEFORE the React Router `_index.tsx` redirect, so the `/` → `/gymos` redirect never fired without `/` being in publicPaths. The plan's Task 1 specified copying publicPaths verbatim from templates/mail, but templates/mail never needed `/` whitelisted because its `_index.tsx` was the upstream Mail page (not a GymClassOS redirect). The redirect was added separately in commit `596a84b3` and never had `/` whitelisted.
 - **Fix:** Added literal string `"/"` to the publicPaths array with a 4-line explanatory comment about `matchesPathList()` exact-match semantics. User approved during Task 4 checkpoint verification.
 - **Files modified:** apps/staff-web/server/plugins/auth.ts
-- **Verification:** `curl http://localhost:8081/` now returns HTTP 200 + title "GymOS — WhatsApp Inbox" + 0 Google sign-in markers (verified by user-run curl tests immediately before this commit).
+- **Verification:** `curl http://localhost:8081/` now returns HTTP 200 + title "GymClassOS — WhatsApp Inbox" + 0 Google sign-in markers (verified by user-run curl tests immediately before this commit).
 - **Committed in:** `51e67e67` (this plan's Task 4 polish commit)
 
 ---
@@ -161,7 +161,7 @@ See `key-files` in frontmatter for the full list. Headline counts:
 These are load-bearing for downstream plans and must NOT be changed without a coordinated update:
 
 1. **`apps/staff-web/drizzle.config.ts` must remain Postgres-flavored (dialect auto-detected via `createDrizzleConfig` + DATABASE_URL pointing at a `neon.tech` host).** Plan 02's `drizzle-kit generate` runs against this config; an SQLite-flavored config would produce broken DDL.
-2. **`apps/staff-web/server/db/schema.ts` is the GymOS schema source of truth.** Plan 02 extends THIS file (additive only — new tables for whatsapp_opt_in, whatsapp_templates, stripe_customers, stripe_subscriptions, payments, secrets; new columns delivered_at/read_at/error_code on messages; new UNIQUE constraint on webhook_events). Never extend templates/mail/server/db/schema.ts — that file is upstream-clean now.
+2. **`apps/staff-web/server/db/schema.ts` is the GymClassOS schema source of truth.** Plan 02 extends THIS file (additive only — new tables for whatsapp_opt_in, whatsapp_templates, stripe_customers, stripe_subscriptions, payments, secrets; new columns delivered_at/read_at/error_code on messages; new UNIQUE constraint on webhook_events). Never extend templates/mail/server/db/schema.ts — that file is upstream-clean now.
 3. **`apps/staff-web/app/routes/webhooks.whatsapp.tsx` is the demo WA webhook receiver.** It stays in place until Plan 09 (P1b-09-validation-cutover) flips Meta's webhook URL from the ngrok-tunneled apps/staff-web endpoint to `https://gymos-edge-webhooks.fly.dev/webhooks/whatsapp` (the apps/edge-webhooks Hono receiver). Do NOT delete it before Plan 09 — that's the D-05 cutover ordering.
 4. **`publicPaths` in `apps/staff-web/server/plugins/auth.ts` now includes `/`.** Plan 08 (P1b-08-staffweb-outbound-rotation) extends this list when adding `/gymos/settings/integrations` for the Stripe key rotation UI. Existing entries (`/`, `/gymos*`, `/api/m`, `/pick-member`, `/webhooks/whatsapp`) must stay.
 5. **`pnpm-workspace.yaml` `apps/*` glob.** Plans 03-05 (`packages/queue`, `packages/whatsapp`, `apps/edge-webhooks`, `apps/worker`) all rely on this glob plus the existing `packages/*` glob. Don't narrow either.
@@ -178,7 +178,7 @@ These are load-bearing for downstream plans and must NOT be changed without a co
 Verified during finalization (2026-05-20):
 
 - `apps/staff-web/package.json` exists with `"name": "@gymos/staff-web"` (verified via git show)
-- `apps/staff-web/server/db/schema.ts` exists with all 12 GymOS table exports (verified — file count and LOC match templates/mail pre-deletion state)
+- `apps/staff-web/server/db/schema.ts` exists with all 12 GymClassOS table exports (verified — file count and LOC match templates/mail pre-deletion state)
 - `apps/staff-web/server/db/migrations/0000_gymos_postgres_initial.sql` exists with PG syntax (243 LOC; verified via git show stats)
 - `apps/staff-web/server/plugins/auth.ts` publicPaths includes `/`, `/gymos`, `/api/m`, `/pick-member`, `/webhooks/whatsapp` (verified via Read tool)
 - `templates/mail/app/routes/gymos.tsx` does not exist (verified via Task 2 commit stat: deleted)

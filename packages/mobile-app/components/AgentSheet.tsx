@@ -1,7 +1,7 @@
 // AgentSheet — chat UI mounted inside the bottom-sheet (D2-06 AGENT-01/02/03).
 //
 // Responsibilities:
-//   - Render header ("Agent — GymOS Coach"), message list, text input, send button.
+//   - Render header ("Agent — GymClassOS Coach"), message list, text input, send button.
 //   - On send: optimistic user bubble + empty assistant bubble that streams in.
 //   - Call streamAgent() and accumulate onDelta into the streaming assistant bubble.
 //   - On tool_use: surface inline as a small "· Using <tool>…" system line.
@@ -42,7 +42,7 @@ type Props = { onClose: () => void };
 export default function AgentSheet({ onClose }: Props) {
   const qc = useQueryClient();
   const [messages, setMessages] = useState<ChatMessage[]>([
-    { id: "sys-welcome", role: "system", text: "Agent — GymOS Coach" },
+    { id: "sys-welcome", role: "system", text: "Agent — GymClassOS Coach" },
   ]);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
@@ -161,7 +161,7 @@ export default function AgentSheet({ onClose }: Props) {
       style={styles.container}
     >
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Agent — GymOS Coach</Text>
+        <Text style={styles.headerTitle}>Agent — GymClassOS Coach</Text>
         <Pressable onPress={onClose} hitSlop={12}>
           <Feather name="x" size={22} color="#999" />
         </Pressable>

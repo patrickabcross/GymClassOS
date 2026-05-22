@@ -138,7 +138,7 @@ Create new file `templates/mail/app/routes/gymos.members.tsx`. React Router v7 f
 
 Module structure (mirror `gymos.tsx`):
 
-1. Header comment: `// GymOS Members — Demo Sprint D1. Directory of seeded gym members with pass-balance summary. Standalone for demo; will move to apps/staff-web/features/members/ post-demo.`
+1. Header comment: `// GymClassOS Members — Demo Sprint D1. Directory of seeded gym members with pass-balance summary. Standalone for demo; will move to apps/staff-web/features/members/ post-demo.`
 
 2. Imports:
 ```typescript
@@ -150,7 +150,7 @@ import { cn } from "@/lib/utils";
 import type { LoaderFunctionArgs } from "react-router";
 ```
 
-3. `export function meta() { return [{ title: "GymOS — Members" }]; }`
+3. `export function meta() { return [{ title: "GymClassOS — Members" }]; }`
 
 4. `export async function loader({ request }: LoaderFunctionArgs)`:
    - `const db = getDb();`
@@ -229,7 +229,7 @@ Create new file `templates/mail/app/routes/gymos.members.$id.tsx`. URL path `/gy
 
 Module structure:
 
-1. Header comment: `// GymOS Member Profile — Demo Sprint D1. Per-member detail: pass balance, bookings, recent food, deep-link to WhatsApp conversation.`
+1. Header comment: `// GymClassOS Member Profile — Demo Sprint D1. Per-member detail: pass balance, bookings, recent food, deep-link to WhatsApp conversation.`
 
 2. Imports:
 ```typescript
@@ -243,7 +243,7 @@ import { cn } from "@/lib/utils";
 import type { LoaderFunctionArgs } from "react-router";
 ```
 
-3. `export function meta() { return [{ title: "GymOS — Member Profile" }]; }`
+3. `export function meta() { return [{ title: "GymClassOS — Member Profile" }]; }`
 
 4. `export async function loader({ params }: LoaderFunctionArgs)`:
    - `const memberId = params.id; if (!memberId) throw new Response("Not found", { status: 404 });`

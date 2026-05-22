@@ -70,7 +70,7 @@ const TOOLS = [
   },
 ] as const;
 
-const SYSTEM_PROMPT = `You are GymOS Coach — a brief, kind, action-oriented in-app assistant for a member of a boutique fitness studio.
+const SYSTEM_PROMPT = `You are GymClassOS Coach — a brief, kind, action-oriented in-app assistant for a member of a boutique fitness studio.
 
 Rules:
 - Be terse. One short paragraph per turn unless the member asks for detail.
@@ -264,7 +264,7 @@ async function runTool(name: string, input: any, memberId: string) {
       `&search_simple=1&action=process&json=1&page_size=1`;
     const res = await fetch(offUrl, {
       headers: {
-        "User-Agent": "GymOS-Demo/0.1 (https://gymos.local; demo@gymos.local)",
+        "User-Agent": "GymClassOS-Demo/0.1 (https://gymos.local; demo@gymos.local)",
       },
     });
     if (!res.ok) return { ok: false, reason: `OFF ${res.status}` };

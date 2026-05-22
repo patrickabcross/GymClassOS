@@ -1,4 +1,4 @@
-// GymOS Payments — deferred stub.
+// GymClassOS Payments — deferred stub.
 //
 // D1-03 (Stripe Checkout link generation) was paused at Task 1 awaiting
 // STRIPE_SECRET_KEY=rk_test_… in the env file. Plan lives at
@@ -13,7 +13,7 @@ import { Link } from "react-router";
 import { Badge } from "@/components/ui/badge";
 
 export function meta() {
-  return [{ title: "GymOS — Payments" }];
+  return [{ title: "GymClassOS — Payments" }];
 }
 
 export default function GymosPayments() {

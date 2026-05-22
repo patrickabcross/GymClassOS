@@ -1,4 +1,4 @@
-# Requirements: GymOS
+# Requirements: GymClassOS
 
 **Defined:** 2026-05-17 (revised 2026-05-17 — major scope pivot)
 **Core Value:** Coaches and studio managers run their entire day from one inbox-and-schedule surface (WhatsApp + class bookings + member context). Members book, pay, and log activity / nutrition from a native iOS/Android app (forked from agent-native's `packages/mobile-app`) that includes an in-app coaching agent.
@@ -264,7 +264,7 @@ Explicitly excluded from v1. Reasoning preserved to prevent re-adding under dead
 | Sending WhatsApp outside 24h window without template | Meta will suspend the number. Enforced at sender layer (WA-06). |
 | Multi-channel campaign engine + segment builder | Post-v1. |
 | A2A cross-app signed calls | Post-v1; one workspace / one auth context in v1. |
-| Premature extraction into generic "vertical framework" | Build GymOS clean first; observe what's reusable when vertical #2 begins. |
+| Premature extraction into generic "vertical framework" | Build GymClassOS clean first; observe what's reusable when vertical #2 begins. |
 | Member self-service browser portal beyond the PWA | PWA IS the member portal. No separate desktop web member experience. |
 | 1:1 personal training appointments | Group classes only — confirmed by customer (FND-07). |
 | Spot picking / floor plan / reformer-bike selection | Not in signed customer's class mix. |

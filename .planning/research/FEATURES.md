@@ -1,4 +1,4 @@
-# Feature Research — GymOS
+# Feature Research — GymClassOS
 
 **Domain:** Boutique fitness studio management platform (staff web + WhatsApp + Stripe + member-mobile-integration)
 **Researched:** 2026-05-17
@@ -8,7 +8,7 @@
 
 ## TL;DR for the Roadmap
 
-GymOS's competitive moat is **two things**:
+GymClassOS's competitive moat is **two things**:
 1. **WhatsApp as the canonical comms channel for staff↔member**, with a real shared inbox UX (not a Twilio bot, not a notification firehose) — Mindbody/Glofox/TeamUp/Mariana Tek all default to SMS+email and their WhatsApp stories are weak-to-nonexistent.
 2. **Member context surfaced inside the conversation** (next class, pass balance, last attendance, payment status) so the coach replies with full context in one screen instead of swivel-chairing between inbox + CRM + scheduler.
 
@@ -44,18 +44,18 @@ These are the "if you don't have it, the customer leaves you on Mindbody" featur
 | **Stripe payment-failed handling** | Required by every subscription business. Card declines, expired cards, insufficient funds — all happen weekly at studios with hundreds of members. | M | `invoice.payment_failed` webhook → mark subscription `past_due` → fire WhatsApp template asking member to update payment → on `customer.subscription.updated` to `unpaid` after dunning fails → suspend bookings. |
 | **Time-zone correct class display** | Boutique studios are single-location; classes are always in the studio's local TZ. Members in other TZs (e.g., traveling) get confused if not handled. | S | Store class times as `timestamp with time zone` (Postgres) anchored to studio TZ stored in env. Use `date-fns-tz` (already in STACK) for render. |
 
-### Differentiators (Why a Studio Picks GymOS Over Mindbody)
+### Differentiators (Why a Studio Picks GymClassOS Over Mindbody)
 
-These are the features that make GymOS *better* than the incumbents for the signed customer, not just *equal*. Pick the smallest set that the signed customer will actually value — each one costs days.
+These are the features that make GymClassOS *better* than the incumbents for the signed customer, not just *equal*. Pick the smallest set that the signed customer will actually value — each one costs days.
 
 | Feature | Value Proposition | Complexity | Notes |
 |---|---|---|---|
 | **Member context panel inside the WhatsApp conversation** | The signature feature. When the coach opens a thread, the right rail shows: next booked class, pass balance, last 5 attendances, subscription status, any flags (late-cancel streak, payment past_due). **No competitor does this** — they all force a swivel-chair to a separate member profile. | M | Same data as the member-profile route, rendered as a side panel in the inbox. Reuses the same queries — just a UI assembly. Re-fetches on conversation open. |
-| **WhatsApp as the *canonical* notification channel (not SMS/email)** | Every competitor sends class reminders, waitlist offers, payment-failed, pass-expiring via SMS+email. GymOS sends them via WhatsApp — 98%+ open rates, conversational reply path back into the inbox. The signed customer's members already live in WhatsApp. | M | Just a routing decision once the template library + sender exist. The infra cost is the template approvals and the rate-limit-aware sender queue (BullMQ on Fly per STACK). |
+| **WhatsApp as the *canonical* notification channel (not SMS/email)** | Every competitor sends class reminders, waitlist offers, payment-failed, pass-expiring via SMS+email. GymClassOS sends them via WhatsApp — 98%+ open rates, conversational reply path back into the inbox. The signed customer's members already live in WhatsApp. | M | Just a routing decision once the template library + sender exist. The infra cost is the template approvals and the rate-limit-aware sender queue (BullMQ on Fly per STACK). |
 | **Reply-to-confirm / reply-to-cancel for waitlist offers and reminders** | When a member gets a WhatsApp "Spot opened in 6pm cycle, reply YES to confirm" message, they can just reply YES. The inbound webhook parses it and confirms the booking. No app open, no link tap. This is the *real* unlock of WhatsApp-as-channel. | M | Lightweight inbound message classifier on a per-conversation `pending_action` row. Don't try to build a generic NLP layer for v1 — just match exact keywords (`YES`, `CONFIRM`, `1`, `Y`, language-localised). When `pending_action.expires_at < now`, ignore and fall through to inbox. |
 | **Coach can book a member into a class from the WhatsApp conversation** | Member asks "can you put me in tomorrow's 6pm" — coach hits a "Book into class" action in the conversation, picks the class, books it, confirms back via the same thread. No swivel-chair to scheduler. | M | An inline action in the inbox UI. Reuses the same booking transaction. Sends a WhatsApp template confirmation if message is out of window, or free-text confirmation if in. |
-| **Studio-branded inside the customer's existing mobile app (Phase 3+)** | Member-facing surface lives inside the studio's existing branded RN app — no separate "GymOS app" to install. Mariana Tek and Glofox do this with their *own* branded apps; GymOS goes one better by embedding into what the studio already ships. | L | Post-v1. Phase 3. Defer all design work until v1 ships and the audit of the customer's RN repo is done. |
-| **Single-tenant deploy = per-studio data isolation by infrastructure, not by query filter** | A common boutique-studio concern: "my member data is mixed with 10,000 other studios in Mindbody's DB". GymOS = one Neon project, one Vercel deploy, one Fly app per studio. Whole tenants can be backed up, exported, restored, deleted by infra commands. | — (architectural, not a feature) | This is in the STACK already. It surfaces as a *sales talking point*, not a feature with code. |
+| **Studio-branded inside the customer's existing mobile app (Phase 3+)** | Member-facing surface lives inside the studio's existing branded RN app — no separate "GymClassOS app" to install. Mariana Tek and Glofox do this with their *own* branded apps; GymClassOS goes one better by embedding into what the studio already ships. | L | Post-v1. Phase 3. Defer all design work until v1 ships and the audit of the customer's RN repo is done. |
+| **Single-tenant deploy = per-studio data isolation by infrastructure, not by query filter** | A common boutique-studio concern: "my member data is mixed with 10,000 other studios in Mindbody's DB". GymClassOS = one Neon project, one Vercel deploy, one Fly app per studio. Whole tenants can be backed up, exported, restored, deleted by infra commands. | — (architectural, not a feature) | This is in the STACK already. It surfaces as a *sales talking point*, not a feature with code. |
 | **Coach voice/photo replies** | Coaches frequently respond in voice messages or photos at boutique studios (more personal). WhatsApp's media support is native — competitors using SMS lose this entirely. | S | Inbound: store media URL from webhook payload, fetch via Graph API media endpoint, store in object storage (S3-compatible, can be on Fly Volumes for v1). Outbound: upload to Graph API then send the media ID. **Optional for v1** — text-only inbox ships day 1, media added once text path is stable. |
 
 ### Anti-Features (Commonly Requested, Specifically NOT for v1)
@@ -73,12 +73,12 @@ This is the ruthless cut list. Every item here is "yes that's in Mindbody, no we
 | **Calorie counter / nutrition tracking** | Already in project — explicitly Phase 5. | OpenFoodFacts integration + LLM-fill + meal logging is its own subproduct. Zero connection to the v1 booking/comms loop. | Phase 5 (Calorie tracker template fork). |
 | **Spot picking / floor-plan / reformer selection** | Mariana Tek's signature feature; very loud in the cycling/Pilates segment. | Floor-plan editor + per-spot booking + spot-swap logic is L-complexity on its own. The signed customer's class types likely don't need it (verify in Phase 0 / requirements). | If the signed customer needs it: defer to Phase 3+ as a feature flag. v1 capacity-only. **Flag for Phase 0 audit**: confirm with customer whether reformer/bike studios are in their class mix. |
 | **Door access control / Kisi integration / QR check-in hardware** | Standard at 24/7 gyms. Kisi integrates with Mindbody, Glofox, TeamUp. | The signed customer is a boutique studio (likely staffed check-in, not 24/7 access). Even if eventually wanted, this is a hardware integration with per-customer setup — not v1. | Confirm staffed-only with signed customer (Phase 0). If yes, defer indefinitely. Manual check-in by staff via the inbox or schedule view is enough for v1. |
-| **In-app retail / merch / smoothie POS** | Standard at Glofox, PushPress, Mariana Tek. | Whole orthogonal subsystem: SKU catalog, inventory, POS UI, tax handling, receipt printer integration. Multi-week build. | If the studio sells retail today, they keep using their existing POS (Square is the typical answer). GymOS does *services* in v1, not goods. |
+| **In-app retail / merch / smoothie POS** | Standard at Glofox, PushPress, Mariana Tek. | Whole orthogonal subsystem: SKU catalog, inventory, POS UI, tax handling, receipt printer integration. Multi-week build. | If the studio sells retail today, they keep using their existing POS (Square is the typical answer). GymClassOS does *services* in v1, not goods. |
 | **Personal training / 1:1 appointment booking with per-coach calendars** | Standard. Mindbody, TeamUp, Pike13 all do appointment booking alongside class booking. | A whole second booking primitive (`appointment` vs `class`), with per-coach availability rules, buffer times, double-booking prevention. | If the signed customer offers 1:1, defer to Phase 3+. v1 = group classes only. **Flag for Phase 0**: confirm class-only with customer. |
 | **Multi-currency / international tax / VAT compliance** | Required for international studios. | Stripe handles currency natively but tax compliance is real work (Stripe Tax adds a config layer). | Whatever currency + tax setup the signed customer's Stripe account already has — inherit it via Stripe Connect OAuth. Don't add new tax logic. |
 | **Push notifications outside WhatsApp** | "What if WhatsApp is down? What if the member doesn't have WhatsApp?" | WhatsApp-first is the strategic bet. Adding fallback SMS / push doubles the comms infra. | Document the bet. If the signed customer's segment doesn't have WhatsApp coverage, this is the wrong customer / wrong project. |
 | **Member self-cancel of recurring membership from the app** | Standard at all consumer-facing tools. | Members cancel via Stripe Customer Portal (hosted by Stripe — free, no build cost). | Send a Stripe Customer Portal link via WhatsApp template when member asks. Zero code. |
-| **Refunds UI for staff** | Standard. | Stripe Dashboard already provides this. Building a refunds UI inside GymOS = duplicating Stripe's UX. | Staff use Stripe Dashboard for refunds in v1. GymOS shows refund events on the member profile (read-only) via the `charge.refunded` webhook. |
+| **Refunds UI for staff** | Standard. | Stripe Dashboard already provides this. Building a refunds UI inside GymClassOS = duplicating Stripe's UX. | Staff use Stripe Dashboard for refunds in v1. GymClassOS shows refund events on the member profile (read-only) via the `charge.refunded` webhook. |
 | **Email marketing / newsletter sending** | Standard. | A whole second channel + IP warming + deliverability work + unsubscribe-management compliance (CAN-SPAM, CASL). | WhatsApp is the channel. Studio can use Mailchimp/Beehiiv externally if they need email broadcast. |
 | **Real-time presence / "who's in the studio right now"** | Asked by tech-forward studio owners. | Requires check-in hardware or manual staff toggling per-member-per-class. Limited operational value vs cost. | Booked-but-not-yet-cancelled count on a class instance is the proxy. |
 | **AI-suggested replies in the inbox** | Trendy 2026 feature. | Tempting because the parent project is `agent-native`. But hooking up an LLM, prompt engineering for studio voice, handling hallucinations, getting the customer comfortable — multi-week. | Defer to Phase 3+. v1 inbox is plain. The architectural choice of `agent-native` keeps the door open without paying the cost now. |
@@ -305,7 +305,7 @@ Already documented in PROJECT.md but listed here for completeness as feature sco
 
 ## Competitor Feature Analysis
 
-| Feature | Mindbody | Glofox | TeamUp | Mariana Tek | PushPress | Pike13 | **GymOS (v1)** |
+| Feature | Mindbody | Glofox | TeamUp | Mariana Tek | PushPress | Pike13 | **GymClassOS (v1)** |
 |---|---|---|---|---|---|---|---|
 | Class schedule + booking | Yes (clunky UI) | Yes | Yes | Yes (high-end UX) | Yes | Yes | **Yes (Calendar template fork)** |
 | Waitlist auto-promote | Yes | Yes | Yes | Yes (≤15min fill) | Yes | Yes | **Yes** |
@@ -326,7 +326,7 @@ Already documented in PROJECT.md but listed here for completeness as feature sco
 | Operational reporting | Yes (paid tier) | Yes | Yes | Yes (Premium tier) | Yes | Yes | **NO in v1 (Phase 4)** |
 | Per-month pricing | $159-$595+ | $100-$600+ | Scales with members | $$$$ | $159-$559 + free tier | $139-$249 | **Internal cost only** |
 
-**Pattern:** Every incumbent does the same broad feature set, differentiated by polish (Mariana Tek), price-per-member (TeamUp), all-in-one breadth (Mindbody), or vertical-fit (Glofox for boutique). The whitespace where GymOS competes is **conversational channel + context**, not feature breadth. Trying to beat Mindbody on feature breadth in 2 months is suicide; not trying to is the strategy.
+**Pattern:** Every incumbent does the same broad feature set, differentiated by polish (Mariana Tek), price-per-member (TeamUp), all-in-one breadth (Mindbody), or vertical-fit (Glofox for boutique). The whitespace where GymClassOS competes is **conversational channel + context**, not feature breadth. Trying to beat Mindbody on feature breadth in 2 months is suicide; not trying to is the strategy.
 
 ---
 
@@ -381,6 +381,6 @@ Already documented in PROJECT.md but listed here for completeness as feature sco
 
 ---
 
-*Feature research for: boutique fitness studio management platform (GymOS)*
+*Feature research for: boutique fitness studio management platform (GymClassOS)*
 *Researched: 2026-05-17*
 *Confidence: HIGH on table-stakes (verified across 7+ competitors); HIGH on WhatsApp/Stripe constraint rules; MEDIUM on exact debit-priority semantics for hybrid pass+membership cases (varies by competitor — recommended rule is opinionated, not industry-standard).*

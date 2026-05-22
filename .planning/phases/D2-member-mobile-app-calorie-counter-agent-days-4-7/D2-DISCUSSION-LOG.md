@@ -26,7 +26,7 @@
 
 | Option | Description | Selected |
 |--------|-------------|----------|
-| Edit `packages/mobile-app` in-place — native screens | Reuse Expo skeleton, rip out `(tabs)/` content, build native GymOS screens with `expo-camera`, native gestures | ✓ |
+| Edit `packages/mobile-app` in-place — native screens | Reuse Expo skeleton, rip out `(tabs)/` content, build native GymClassOS screens with `expo-camera`, native gestures | ✓ |
 | Edit `packages/mobile-app` in-place — WebView wrapper | Reuse `AppWebView` pointing at `/gymos/m/*` mobile-optimized routes; barcode unreliable on iOS WebKit | |
 | Fresh fork to `apps/member-app/` | Clean break with `expo init`; costs ~half a day of scaffolding | |
 
@@ -93,7 +93,7 @@ Areas the user explicitly declined to discuss (defaults applied in CONTEXT.md):
 
 - Schedule view density (default: week-grid mirrored from staff schedule, mobile-tuned vertical scroll)
 - WA-01/WA-02 demo path (default: Fly Hono webhook receiver + direct Meta Graph API call from staff inbox action)
-- App branding (default: name = "GymOS", placeholder icon, primary colour matching inbox surface)
+- App branding (default: name = "GymClassOS", placeholder icon, primary colour matching inbox surface)
 - Agent system prompt wording
 - Camera permission UX
 - Booking flow UX detail (default: inline-expand under occurrence card)

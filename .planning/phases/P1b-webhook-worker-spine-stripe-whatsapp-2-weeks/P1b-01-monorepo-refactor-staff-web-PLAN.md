@@ -30,7 +30,7 @@ requirements: []
 must_haves:
   truths:
     - "apps/staff-web/ boots locally on :8081 with same /gymos routes as before"
-    - "templates/mail/ is upstream-clean — no gymos.* routes, no GymOS schema additions, no GymOS publicPaths"
+    - "templates/mail/ is upstream-clean — no gymos.* routes, no GymClassOS schema additions, no GymClassOS publicPaths"
     - "pnpm-workspace.yaml lists apps/* alongside packages/* and templates/*"
     - "Drizzle config is regenerated for Postgres (Neon) dialect — no SQLite syntax in any new migration"
     - "Existing /gymos page still renders against gymos-demo Neon (same DATABASE_URL works from new location)"
@@ -38,7 +38,7 @@ must_haves:
     - path: "apps/staff-web/package.json"
       provides: "Workspace package named @gymos/staff-web with React Router v7 + Drizzle + Better-auth deps"
     - path: "apps/staff-web/server/db/schema.ts"
-      provides: "All GymOS domain tables (gymMembers, conversations, messages, webhookEvents, ...) — copied verbatim from templates/mail"
+      provides: "All GymClassOS domain tables (gymMembers, conversations, messages, webhookEvents, ...) — copied verbatim from templates/mail"
     - path: "apps/staff-web/app/routes/gymos.tsx"
       provides: "Main inbox route — copied verbatim from templates/mail"
     - path: "apps/staff-web/drizzle.config.ts"
@@ -57,7 +57,7 @@ must_haves:
 ---
 
 <objective>
-Move the entire `templates/mail/` GymOS surface to a new top-level workspace package `apps/staff-web/` so future P1b plans (edge-webhooks, worker, packages/queue, packages/whatsapp) can sit alongside it under `apps/`/`packages/` and templates/mail/ stays upstream-clean for future agent-native merges. This is purely mechanical — NO new features, NO webhook code, NO new schema, NO new env vars. The point is that after this plan lands the existing /gymos demo still works AND templates/mail/ has no GymOS code in it AND we have a clean apps/ tree to build on.
+Move the entire `templates/mail/` GymClassOS surface to a new top-level workspace package `apps/staff-web/` so future P1b plans (edge-webhooks, worker, packages/queue, packages/whatsapp) can sit alongside it under `apps/`/`packages/` and templates/mail/ stays upstream-clean for future agent-native merges. This is purely mechanical — NO new features, NO webhook code, NO new schema, NO new env vars. The point is that after this plan lands the existing /gymos demo still works AND templates/mail/ has no GymClassOS code in it AND we have a clean apps/ tree to build on.
 
 Purpose: D-06 + D-07 — avoid TWO sets of merge conflicts when later moving staff-web out of templates/mail/. Doing it once now means subsequent plans land in a stable layout.
 Output: Functional `apps/staff-web/` workspace + cleaned `templates/mail/` + working /gymos demo.
@@ -93,7 +93,7 @@ templates/mail/server/plugins/auth.ts:
 - createAuthPlugin({ googleOnly: true, publicPaths: [...] }) — list at lines 53-71
 - /gymos, /gymos/schedule, /gymos/members, /gymos/payments, /api/m, /pick-member, /webhooks/whatsapp
 
-GymOS routes to copy (under templates/mail/app/routes/):
+GymClassOS routes to copy (under templates/mail/app/routes/):
 - gymos.tsx (main inbox — 600+ lines)
 - gymos.schedule.tsx (D1-01)
 - gymos.members.tsx, gymos.members.$id.tsx (D1-02)
@@ -144,7 +144,7 @@ GymOS routes to copy (under templates/mail/app/routes/):
        ```
 
     2. Create `apps/staff-web/` directory tree by COPYING from `templates/mail/`. Use the Read tool to read each source file then Write to the target. Copy these exactly (byte-for-byte for code; rename only `name` field in package.json):
-       - `templates/mail/package.json` → `apps/staff-web/package.json`. Change ONLY `"name": "mail"` → `"name": "@gymos/staff-web"`, `"description"` field to `"GymOS staff web app (forked from agent-native Mail template)"`. Keep all dependencies, devDependencies, scripts identical. Do NOT add or remove deps in this task — this is purely a move.
+       - `templates/mail/package.json` → `apps/staff-web/package.json`. Change ONLY `"name": "mail"` → `"name": "@gymos/staff-web"`, `"description"` field to `"GymClassOS staff web app (forked from agent-native Mail template)"`. Keep all dependencies, devDependencies, scripts identical. Do NOT add or remove deps in this task — this is purely a move.
        - `templates/mail/react-router.config.ts` → `apps/staff-web/react-router.config.ts` (identical bytes)
        - `templates/mail/vite.config.ts` → `apps/staff-web/vite.config.ts` (identical bytes)
        - `templates/mail/drizzle.config.ts` → `apps/staff-web/drizzle.config.ts` (identical bytes)
@@ -183,14 +183,14 @@ GymOS routes to copy (under templates/mail/app/routes/):
     - `apps/staff-web/CLAUDE.md` file size ≤ 30 bytes (contains only `@AGENTS.md` + optional newline)
     - templates/mail/app/routes/gymos.tsx STILL EXISTS (not yet deleted — that's Task 2)
   </acceptance_criteria>
-  <done>apps/staff-web/ workspace package exists with full copy of templates/mail/ GymOS surface; pnpm install resolves; templates/mail/ untouched (deletion in Task 2).</done>
+  <done>apps/staff-web/ workspace package exists with full copy of templates/mail/ GymClassOS surface; pnpm install resolves; templates/mail/ untouched (deletion in Task 2).</done>
 </task>
 
 <task type="auto">
-  <name>Task 2: Delete GymOS code from templates/mail/ (restore upstream-clean state)</name>
+  <name>Task 2: Delete GymClassOS code from templates/mail/ (restore upstream-clean state)</name>
   <files>templates/mail/app/routes/gymos.tsx, templates/mail/app/routes/gymos.schedule.tsx, templates/mail/app/routes/gymos.members.tsx, templates/mail/app/routes/gymos.members.$id.tsx, templates/mail/app/routes/gymos.payments.tsx, templates/mail/app/routes/pick-member.tsx, templates/mail/app/routes/api.m.*.tsx, templates/mail/app/routes/api.m.*.ts, templates/mail/server/db/schema.ts, templates/mail/server/plugins/auth.ts</files>
   <read_first>
-    - templates/mail/server/db/schema.ts (need to know which exports are GymOS — lines 100-326 per CONTEXT)
+    - templates/mail/server/db/schema.ts (need to know which exports are GymClassOS — lines 100-326 per CONTEXT)
     - templates/mail/server/plugins/auth.ts (publicPaths to revert)
     - apps/staff-web/server/db/schema.ts (verify the copy is complete BEFORE deletion)
     - apps/staff-web/app/routes/gymos.tsx (verify copy is complete BEFORE deletion)
@@ -203,17 +203,17 @@ GymOS routes to copy (under templates/mail/app/routes/):
 
     1. Verify Task 1 completion (read apps/staff-web/server/db/schema.ts and confirm it contains `export const webhookEvents`; read apps/staff-web/app/routes/gymos.tsx and confirm file size > 10KB). If either is missing, STOP and report.
 
-    2. Use Glob to enumerate all GymOS files under templates/mail/app/routes/:
+    2. Use Glob to enumerate all GymClassOS files under templates/mail/app/routes/:
        - Glob pattern: `templates/mail/app/routes/gymos*.tsx`
        - Glob pattern: `templates/mail/app/routes/api.m.*` (covers `api.m.profile.ts`, `api.m.schedule.ts`, etc.)
        - Glob pattern: `templates/mail/app/routes/pick-member*`
        - Glob pattern: `templates/mail/app/routes/webhooks.whatsapp.tsx` — KEEP this file in templates/mail/ for now. Per D-05 it is deleted as the LAST task of P1b (Plan 09 task) after Meta URL flip is verified.
 
-    3. Delete each GymOS file found in step 2 using the Bash tool with `Remove-Item` (PowerShell). Do NOT delete `webhooks.whatsapp.tsx`.
+    3. Delete each GymClassOS file found in step 2 using the Bash tool with `Remove-Item` (PowerShell). Do NOT delete `webhooks.whatsapp.tsx`.
 
-    4. Edit `templates/mail/server/db/schema.ts`: remove all GymOS table exports added in D0.4. Per CONTEXT line 206 these are: `gymMembers`, `coaches`, `conversations`, `messages`, `classDefinitions`, `classOccurrences`, `bookings`, `passes`, `passDebits`, `foodItems`, `foodEntries`, `agentSessions`, `webhookEvents`. Identify the start marker: search for the first `gym` table definition or a comment like `// GymOS` and remove from there to end of file (where the file currently ends with `webhookEvents` at line 318+). Restore the file to what it was before D0.4 — if you can git log/show the pre-D0.4 version, use that as the canonical state; otherwise truncate after the last upstream-only export.
+    4. Edit `templates/mail/server/db/schema.ts`: remove all GymClassOS table exports added in D0.4. Per CONTEXT line 206 these are: `gymMembers`, `coaches`, `conversations`, `messages`, `classDefinitions`, `classOccurrences`, `bookings`, `passes`, `passDebits`, `foodItems`, `foodEntries`, `agentSessions`, `webhookEvents`. Identify the start marker: search for the first `gym` table definition or a comment like `// GymClassOS` and remove from there to end of file (where the file currently ends with `webhookEvents` at line 318+). Restore the file to what it was before D0.4 — if you can git log/show the pre-D0.4 version, use that as the canonical state; otherwise truncate after the last upstream-only export.
 
-       Use `git log --oneline templates/mail/server/db/schema.ts` first to identify the commit BEFORE GymOS additions (search for D0.4 commit per STATE.md). If found, use `git show <pre-D0.4-sha>:templates/mail/server/db/schema.ts` to capture the upstream-clean content and Write that back. If not findable, leave a comment `// GymOS schema additions moved to apps/staff-web/server/db/schema.ts (P1b-01 refactor)` at the location where they used to be and delete the table defs.
+       Use `git log --oneline templates/mail/server/db/schema.ts` first to identify the commit BEFORE GymClassOS additions (search for D0.4 commit per STATE.md). If found, use `git show <pre-D0.4-sha>:templates/mail/server/db/schema.ts` to capture the upstream-clean content and Write that back. If not findable, leave a comment `// GymClassOS schema additions moved to apps/staff-web/server/db/schema.ts (P1b-01 refactor)` at the location where they used to be and delete the table defs.
 
     5. Edit `templates/mail/server/plugins/auth.ts`: in the `publicPaths` array, remove these entries (added in D2-D01 and D2-02): `"/gymos"`, `"/gymos/schedule"`, `"/gymos/members"`, `"/gymos/payments"`, `"/api/m"`, `"/pick-member"`, `"/webhooks/whatsapp"`. Keep `"/api/gmail/push"` and `"/api/gmail/watch/renew"` (these are upstream Mail entries). Final publicPaths should match the upstream Mail template state.
 
@@ -235,9 +235,9 @@ GymOS routes to copy (under templates/mail/app/routes/):
     - `templates/mail/server/db/schema.ts` does NOT contain string `webhookEvents` (grep returns nothing)
     - `templates/mail/server/plugins/auth.ts` does NOT contain string `"/gymos"` (grep returns nothing — note: with quotes)
     - `templates/mail/server/plugins/auth.ts` still contains `"/api/gmail/push"` (upstream entries preserved)
-    - `pnpm --filter mail exec tsc --noEmit` exits 0 OR only fails on pre-existing upstream errors unrelated to GymOS
+    - `pnpm --filter mail exec tsc --noEmit` exits 0 OR only fails on pre-existing upstream errors unrelated to GymClassOS
   </acceptance_criteria>
-  <done>templates/mail/ is upstream-clean except for the demo webhook receiver (which gets deleted last in Plan 09). All GymOS code lives in apps/staff-web/.</done>
+  <done>templates/mail/ is upstream-clean except for the demo webhook receiver (which gets deleted last in Plan 09). All GymClassOS code lives in apps/staff-web/.</done>
 </task>
 
 <task type="auto">
@@ -309,7 +309,7 @@ GymOS routes to copy (under templates/mail/app/routes/):
 <task type="checkpoint:human-verify" gate="blocking">
   <name>Task 4: Boot apps/staff-web/ locally and verify /gymos demo still works</name>
   <what-built>
-    Refactored monorepo: `templates/mail/` GymOS surface moved to `apps/staff-web/` with all files preserved verbatim. templates/mail/ restored to upstream-clean (except `webhooks.whatsapp.tsx` deleted last task of P1b). Drizzle migration regenerated for Postgres dialect.
+    Refactored monorepo: `templates/mail/` GymClassOS surface moved to `apps/staff-web/` with all files preserved verbatim. templates/mail/ restored to upstream-clean (except `webhooks.whatsapp.tsx` deleted last task of P1b). Drizzle migration regenerated for Postgres dialect.
   </what-built>
   <files>(human verification — no specific file write; see &lt;how-to-verify&gt; below)</files>
   <action>
@@ -347,7 +347,7 @@ GymOS routes to copy (under templates/mail/app/routes/):
 
     6. Confirm `http://localhost:8081/webhooks/whatsapp?hub.mode=subscribe&hub.verify_token=<WHATSAPP_VERIFY_TOKEN>&hub.challenge=test123` returns `test123` with HTTP 200 (this still lives in templates/mail/ for now per D-05; the route is reachable because templates/mail still runs alongside apps/staff-web at this point — OR if templates/mail is no longer started, this URL test is N/A and that's fine because Plan 04 will move the webhook to Fly).
 
-    7. If templates/mail/ is also expected to boot for the upstream Mail demo: run `pnpm --filter mail dev` separately and confirm it still boots without GymOS routes. The `/gymos` URL should return 404 there.
+    7. If templates/mail/ is also expected to boot for the upstream Mail demo: run `pnpm --filter mail dev` separately and confirm it still boots without GymClassOS routes. The `/gymos` URL should return 404 there.
 
     Report any errors. Do NOT proceed to Plan 02 until the demo /gymos surface is confirmed working in apps/staff-web/.
   </how-to-verify>
@@ -359,7 +359,7 @@ GymOS routes to copy (under templates/mail/app/routes/):
     - User confirms /pick-member loads
     - User confirms reply send still persists to Neon (existing demo behaviour preserved)
   </acceptance_criteria>
-  <done>apps/staff-web/ is the new home for the GymOS demo. templates/mail/ is upstream-clean. Subsequent P1b plans build alongside apps/staff-web/.</done>
+  <done>apps/staff-web/ is the new home for the GymClassOS demo. templates/mail/ is upstream-clean. Subsequent P1b plans build alongside apps/staff-web/.</done>
 </task>
 
 </tasks>
@@ -370,7 +370,7 @@ GymOS routes to copy (under templates/mail/app/routes/):
 - /gymos, /gymos/schedule, /gymos/members, /pick-member all render correctly
 - templates/mail/ does NOT contain any `gymos*` route file (except `webhooks.whatsapp.tsx`)
 - templates/mail/server/db/schema.ts does NOT contain `gymMembers` or `webhookEvents` exports
-- apps/staff-web/ contains the full GymOS surface
+- apps/staff-web/ contains the full GymClassOS surface
 - Drizzle baseline migration in apps/staff-web/ uses Postgres syntax (`TIMESTAMP`/`BOOLEAN`/`NOW()`)
 </verification>
 

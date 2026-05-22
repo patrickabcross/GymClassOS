@@ -139,7 +139,7 @@ Two cross-cutting risks surfaced during research that the planner should treat a
 
 | Library | Version | Purpose | Why Standard |
 |---------|---------|---------|--------------|
-| **Hono** | `^4.x` (verify at install with `npm view hono version`) | Edge-webhooks receiver framework | TS-native, first-class raw-body access via `c.req.text()`, designed for the Stripe/WhatsApp signature-verify pattern (PITFALL #9 mitigation). Agent-native does NOT use Hono; this is GymOS-specific to the Fly side. |
+| **Hono** | `^4.x` (verify at install with `npm view hono version`) | Edge-webhooks receiver framework | TS-native, first-class raw-body access via `c.req.text()`, designed for the Stripe/WhatsApp signature-verify pattern (PITFALL #9 mitigation). Agent-native does NOT use Hono; this is GymClassOS-specific to the Fly side. |
 | **pg-boss** | `12.18.x` (verified 2026-05-02 release; STACK.md lists `^10.x` but is stale — use latest 12.x) | Postgres-backed job queue | Eliminates Redis. Runs in same Neon DB as application schema. `singletonKey` for idempotent enqueue. `boss.send()`, `boss.work()`, `boss.schedule()` API. **Requires UNPOOLED Neon endpoint.** |
 | **`@great-detail/whatsapp`** | `^9.0.0` (April 2026; verified current — Cloud API v23) | WhatsApp Cloud API client (maintained fork) | Meta's official SDK is paused. Single-maintainer; mitigation = thin adapter (D-09) + mirror to studio org GitHub (FND-05, P0). API surface: `sdk.message.createMessage({phoneNumberID, to, type, ...})` for both text and template; `event.verifySignature(appSecret)` for webhook validation. Requires **Node 22+**. |
 | **`stripe`** | `^19.x` (latest; verify with `npm view stripe version` at install) — pin `apiVersion: "2026-04-22.dahlia"` exactly | Stripe Node SDK | `stripe.webhooks.constructEvent(rawBody, sig, secret)` is the only correct webhook pattern (PITFALL #2). Always pin `apiVersion` constructor option (CLAUDE.md WEB-06 mandate). |
@@ -275,7 +275,7 @@ hustle/                                    # repo root
 │
 ├── templates/                             # untouched fork
 │   ├── mail/                              # ← back to upstream-clean after Task 1
-│   │   └── ...                            # (no gymos.* routes, no webhooks.whatsapp.tsx, no GymOS schema additions)
+│   │   └── ...                            # (no gymos.* routes, no webhooks.whatsapp.tsx, no GymClassOS schema additions)
 │   └── ...
 │
 ├── packages/                              # existing — agent-native vendored
@@ -983,7 +983,7 @@ export async function applyStatusUpdate(
 | 24h-window check | "Set a cron to clear stale flags" | **Pure function `differenceInHours(now, lastInboundAt) >= 24`** | Stateless. Always-fresh from `conversations.last_inbound_at`. Pure = trivially testable. |
 | Webhook signature for WhatsApp | Hand-rolled timing-safe compare | **`@great-detail/whatsapp`'s `event.verifySignature(appSecret)`** OR keep the demo's `crypto.timingSafeEqual` pattern (which is correct — port unchanged) | Either is acceptable; SDK version is more defensive about edge cases. |
 
-**Key insight:** Every problem in this phase has a single canonical solution that exists in the ecosystem. The only thing GymOS writes by hand is the BUSINESS LOGIC inside the gates + reducers. Don't recreate plumbing.
+**Key insight:** Every problem in this phase has a single canonical solution that exists in the ecosystem. The only thing GymClassOS writes by hand is the BUSINESS LOGIC inside the gates + reducers. Don't recreate plumbing.
 
 ## Runtime State Inventory
 
@@ -997,7 +997,7 @@ This is a refactor phase (Task 1: `templates/mail/` → `apps/staff-web/`) AND a
 | **Secrets and env vars** | (a) `templates/mail/.env.local` contains `DATABASE_URL` (pooled), `WHATSAPP_VERIFY_TOKEN`, `WHATSAPP_APP_SECRET`, `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`. (b) `STRIPE_SECRET_KEY` MISSING (D1-03 blocker). (c) No `DATABASE_URL_UNPOOLED` — must be added for pg-boss. (d) No `STRIPE_WEBHOOK_SECRET` — generated at Stripe dashboard webhook registration. (e) No `PGCRYPTO_MASTER_KEY` — Fly Secret for `pgp_sym_encrypt`. | (a) **Move env vars** from `templates/mail/.env.local` → `apps/staff-web/.env.local` AND set as Fly Secrets for `apps/edge-webhooks` + `apps/worker`. (b) Add `STRIPE_SECRET_KEY=sk_test_…` to all three apps when P0 / D1-03 unblocks; for P1b use a fresh test key. (c) **ADD `DATABASE_URL_UNPOOLED`** to edge-webhooks + worker Fly Secrets (this is the no-`-pooler` variant of the existing DATABASE_URL). (d) Generate at Stripe dashboard, set as Fly Secret. (e) Generate a 32-byte random key, set as Fly Secret on edge-webhooks + worker + staff-web (rotation UI reads it). |
 | **Build artifacts / installed packages** | (a) `node_modules/` under templates/mail/ is symlinked into pnpm workspace — moving `templates/mail/` → `apps/staff-web/` requires `pnpm install` at root after the move. (b) `templates/mail/server/db/migrations/0000_late_professor_monster.sql` references SQLite syntax (`datetime('now')`, `INTEGER DEFAULT 1`) — production Neon uses Postgres. **This is a latent issue: the demo's migration file is SQLite-flavored but `agent-native/core` `createDrizzleConfig` switches dialect at runtime via DATABASE_URL detection.** The actual Neon schema was created via `mcp__Neon__run_sql_transaction` (per STATE.md D0.4), bypassing the SQLite migration. (c) No compiled binaries; no Docker images built yet. | (a) After the move, `git mv` for history preservation, then `pnpm install` at root. (b) **P1b's additive migration MUST be Postgres-flavored.** Use `drizzle-kit generate` with `DATABASE_URL=<neon url>` set so Drizzle Kit emits PG syntax (`TIMESTAMP DEFAULT NOW()`, `BOOLEAN`, etc.). Test against the Neon `test` branch before running on `gymos-demo`. (c) `Dockerfile` for both Fly apps; can share a single multi-stage Dockerfile in repo root if both apps use the same Node 22 + pnpm base. |
 
-**Canonical answer:** After Task 1 (the refactor), every existing demo route still works because (a) the routes moved files, not URLs, and (b) `templates/mail/` becomes upstream-clean (no GymOS code there to break). After P1b cutover, the only "old string" still cached at runtime is **the ngrok URL in Meta Business Manager** — which gets flipped as the last P1b task.
+**Canonical answer:** After Task 1 (the refactor), every existing demo route still works because (a) the routes moved files, not URLs, and (b) `templates/mail/` becomes upstream-clean (no GymClassOS code there to break). After P1b cutover, the only "old string" still cached at runtime is **the ngrok URL in Meta Business Manager** — which gets flipped as the last P1b task.
 
 ## Environment Availability
 
@@ -1492,7 +1492,7 @@ CMD ["node", "apps/edge-webhooks/dist/index.js"]
 ### Primary (HIGH confidence)
 
 - `templates/mail/app/routes/webhooks.whatsapp.tsx` (inspected) — demo HMAC verify + idempotency pattern (already correct; preserve in port)
-- `templates/mail/server/db/schema.ts` lines 100-326 (inspected) — existing GymOS schema; `webhookEvents` at 318
+- `templates/mail/server/db/schema.ts` lines 100-326 (inspected) — existing GymClassOS schema; `webhookEvents` at 318
 - `templates/mail/app/routes/gymos.tsx` lines 490-530 (inspected) — send action call site to refactor
 - `templates/mail/server/plugins/auth.ts` (inspected) — `publicPaths` pattern; webhook bypass entry already exists at line 70
 - `packages/core/src/db/create-get-db.ts` (inspected) — confirms agent-native uses `drizzle-orm/neon-serverless` (WebSocket) on Neon URLs

@@ -1,4 +1,4 @@
-// GymOS Schedule — Demo Sprint D1. Week-grid of seeded class occurrences with
+// GymClassOS Schedule — Demo Sprint D1. Week-grid of seeded class occurrences with
 // book-into-occurrence dialog. Standalone for demo; will move to
 // apps/staff-web/features/schedule/ post-demo.
 //
@@ -35,7 +35,7 @@ import { cn } from "@/lib/utils";
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "react-router";
 
 export function meta() {
-  return [{ title: "GymOS — Schedule" }];
+  return [{ title: "GymClassOS — Schedule" }];
 }
 
 // ─── Action: insert booking row (demo-grade, no atomicity) ──────────────────

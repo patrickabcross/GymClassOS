@@ -10,7 +10,7 @@ requires:
     plan: 01
     provides:
       - "templates/mail/server/lib/demo-member.ts requireDemoMember(request) — X-Demo-Member-Id gate"
-      - "templates/mail/server/db/schema.ts foodItems + foodEntries Drizzle tables (12 GymOS tables)"
+      - "templates/mail/server/db/schema.ts foodItems + foodEntries Drizzle tables (12 GymClassOS tables)"
       - "packages/mobile-app/lib/api.ts apiFetch() injecting X-Demo-Member-Id header"
       - "packages/mobile-app/app/_layout.tsx Stack root ready for new Stack.Screen registrations"
       - "expo-camera ~55.0.18 already in packages/mobile-app/package.json"
@@ -27,7 +27,7 @@ provides:
   - "food-add screen — 350ms debounced OFF search, result list, meal picker + quantity input, log + cache-invalidate + router.back()"
   - "food-barcode screen — 5-state lookup machine (scanning/loading/found/notfound/error) wrapping BarcodeScanner; missing-nutrition warning instead of silently logging 0 kcal"
   - "Pitfall #7 handling — hasNutritionData flag surfaced server-side; UI warns user when OFF product has no kcal data"
-  - "ODbL attribution UA — GymOS-Demo/0.1 (https://gymos.local; demo@gymos.local) sent with every OFF request"
+  - "ODbL attribution UA — GymClassOS-Demo/0.1 (https://gymos.local; demo@gymos.local) sent with every OFF request"
 
 affects:
   - D2-06-agent-chat-sse-tools (agent tool log_food_nl will POST to /api/m/food-entries and invalidate ['food-entries'] + ['profile'] — same single-source-of-truth pattern as the food-add screen)
@@ -92,7 +92,7 @@ completed: 2026-05-19
 ## Accomplishments
 
 - **Server endpoints (Task 1):**
-  - `api.m.foods.search.tsx` — `GET /api/m/foods/search?q=<term>` proxies `world.openfoodfacts.org/cgi/search.pl` with the ODbL UA `GymOS-Demo/0.1 (https://gymos.local; demo@gymos.local)`. Returns `{ results: [{ id, name, brand, kcalPer100g, proteinPer100g, carbsPer100g, fatPer100g, servingSizeG }] }` mapped from OFF's `nutriments.*` keys with `Number(x ?? 0)` casts (Pitfall #7).
+  - `api.m.foods.search.tsx` — `GET /api/m/foods/search?q=<term>` proxies `world.openfoodfacts.org/cgi/search.pl` with the ODbL UA `GymClassOS-Demo/0.1 (https://gymos.local; demo@gymos.local)`. Returns `{ results: [{ id, name, brand, kcalPer100g, proteinPer100g, carbsPer100g, fatPer100g, servingSizeG }] }` mapped from OFF's `nutriments.*` keys with `Number(x ?? 0)` casts (Pitfall #7).
   - `api.m.foods.barcode.$ean.tsx` — `GET /api/m/foods/barcode/<ean>` proxies OFF v2 `api/v2/product/<ean>`. Returns `{ found: true, item: {...kcal/macros, hasNutritionData} }` or `{ found: false }`. The `hasNutritionData` boolean signals to the UI whether to surface a "no nutrition values" warning.
   - `api.m.food-entries.tsx` — `GET /api/m/food-entries?date=YYYY-MM-DD` joins `foodEntries` to `foodItems` (left join — entries always have a foodItemId by schema NOT NULL, but the join makes the food name available in one round-trip). `POST` accepts `{ foodItem, quantityG, mealType }`, inserts a fresh `foodItems` row, then inserts the `foodEntries` row with `kcal = (kcalPer100g × quantityG) / 100` and macros computed the same way. Source field is `"barcode"` if a barcode field was passed, otherwise `"search"`. Both loader + action gated by `requireDemoMember`.
 

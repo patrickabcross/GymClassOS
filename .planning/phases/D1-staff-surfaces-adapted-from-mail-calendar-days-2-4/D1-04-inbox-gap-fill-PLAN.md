@@ -155,7 +155,7 @@ function GymosTopNav() {
   ];
   return (
     <nav className="flex items-center gap-1 px-4 h-11 border-b border-border/50 bg-card/40 shrink-0">
-      <span className="text-[12px] font-semibold mr-3">GymOS</span>
+      <span className="text-[12px] font-semibold mr-3">GymClassOS</span>
       {items.map((it) => {
         const active = it.match(location.pathname + location.search);
         return (
@@ -267,7 +267,7 @@ Manual smoke test of the inbox after edits:
 
 1. `pnpm --filter mail dev`
 2. Open `http://localhost:8081/gymos`
-3. Expect: top-nav strip across the top showing "GymOS" + four tabs (Inbox / Schedule / Members / Payments). "Inbox" tab is highlighted (active state).
+3. Expect: top-nav strip across the top showing "GymClassOS" + four tabs (Inbox / Schedule / Members / Payments). "Inbox" tab is highlighted (active state).
 4. Click "Schedule" — navigates to `/gymos/schedule` (route from D1-01)
 5. Click "Members" — navigates to `/gymos/members` (route from D1-02)
 6. Click "Payments" — navigates to `/gymos/payments` (route from D1-03)

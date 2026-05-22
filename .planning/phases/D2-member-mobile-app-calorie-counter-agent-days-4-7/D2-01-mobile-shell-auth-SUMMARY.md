@@ -8,13 +8,13 @@ tags: [expo, expo-router, react-native, tanstack-query, gorhom-bottom-sheet, asy
 requires:
   - phase: D1-staff-surfaces-adapted-from-mail-calendar-days-2-4
     provides:
-      - "12 GymOS tables in Neon (gym_members, passes, pass_debits, bookings, class_occurrences, class_definitions, food_entries, food_items, conversations, messages, agent_sessions, webhook_events) seeded with 5 members"
+      - "12 GymClassOS tables in Neon (gym_members, passes, pass_debits, bookings, class_occurrences, class_definitions, food_entries, food_items, conversations, messages, agent_sessions, webhook_events) seeded with 5 members"
       - "Pass-balance two-aggregation pattern (D1-02 lesson) — SUM grants minus SUM debits as TWO separate queries; never chain leftJoin through pass_debits"
       - "templates/mail/server/db/{index,schema}.ts singleton + drizzle schema"
       - "templates/mail/server/plugins/auth.ts publicPaths convention (Better-auth bypass for demo)"
 
 provides:
-  - "GymOS 4-tab Expo shell (Home / Schedule / Food / Profile) replacing the 16-template upstream WebView shell"
+  - "GymClassOS 4-tab Expo shell (Home / Schedule / Food / Profile) replacing the 16-template upstream WebView shell"
   - "First-launch member-picker (D-05) + AsyncStorage persistence (lib/current-member.ts)"
   - "X-Demo-Member-Id propagation (D-07): apiFetch wrapper client-side + requireDemoMember server-side helper"
   - "TanStack Query provider singleton (lib/query-client.ts) — every D2 mobile screen consumes this"
@@ -62,7 +62,7 @@ key-files:
     - "templates/mail/.env.local.example"
   modified:
     - "packages/mobile-app/app/_layout.tsx (rewrite: + QueryProvider + GestureRoot + AuthGate + pick-member Stack.Screen)"
-    - "packages/mobile-app/app/(tabs)/_layout.tsx (rewrite: 419 → 60 lines, 4 GymOS tabs replacing 14 template tabs)"
+    - "packages/mobile-app/app/(tabs)/_layout.tsx (rewrite: 419 → 60 lines, 4 GymClassOS tabs replacing 14 template tabs)"
     - "packages/mobile-app/app/(tabs)/index.tsx (rewrite: WebView mail tab → Home placeholder)"
     - "packages/mobile-app/package.json (+ deps)"
     - "templates/mail/package.json (+ @anthropic-ai/sdk)"
@@ -71,7 +71,7 @@ key-files:
 
 key-decisions:
   - "Bottom-sheet impl locked: @gorhom/bottom-sheet 5.2.14 (not RN Modal fallback) — Reanimated 4 worklets plugin (Pitfall #4 mitigation) is wired in babel.config.js, peer deps satisfied via npx expo install"
-  - "DELETE upstream multi-app shell components (AppCard, AppForm, AppWebView) — D-02 mandates no backwards-compat stubs; nothing in GymOS imports them"
+  - "DELETE upstream multi-app shell components (AppCard, AppForm, AppWebView) — D-02 mandates no backwards-compat stubs; nothing in GymClassOS imports them"
   - "Demo-time fork-boundary stays loosened — server-side member routes live inside templates/mail/ (D0 precedent) rather than apps/staff-web/features/"
   - "Hardcoded macro targets exposed in /api/m/profile response under `today.target*` keys per D-10 — D2-04 Home tab reads these directly, P2/CAL-06 swaps in Mifflin-St Jeor"
 
@@ -93,7 +93,7 @@ completed: 2026-05-19
 
 # Phase D2 Plan 01: Mobile Shell + Demo Auth Summary
 
-**GymOS 4-tab Expo shell with AsyncStorage member-picker, X-Demo-Member-Id propagation, TanStack Query provider, @gorhom/bottom-sheet locked as agent sheet impl, and two server endpoints (members.list + profile) that prove the end-to-end mobile→Neon round-trip.**
+**GymClassOS 4-tab Expo shell with AsyncStorage member-picker, X-Demo-Member-Id propagation, TanStack Query provider, @gorhom/bottom-sheet locked as agent sheet impl, and two server endpoints (members.list + profile) that prove the end-to-end mobile→Neon round-trip.**
 
 ## Performance
 
@@ -107,7 +107,7 @@ completed: 2026-05-19
 
 ## Accomplishments
 
-- Mobile-app stripped of 419-line multi-template tab bar and 16 upstream tabs/screens; replaced with 60-line GymOS 4-tab shell.
+- Mobile-app stripped of 419-line multi-template tab bar and 16 upstream tabs/screens; replaced with 60-line GymClassOS 4-tab shell.
 - First-launch member-picker working end-to-end against Neon (server returns 5 seeded members; AsyncStorage persists choice across reloads; long-press Profile → Switch member clears).
 - X-Demo-Member-Id round-trip wired: apiFetch (client) injects from AsyncStorage on every call; requireDemoMember (server) gates DEMO_MODE + valid id.
 - Pass-balance two-aggregation pattern (D1-02 lesson) reused in /api/m/profile — never chains leftJoin through pass_debits.
@@ -121,7 +121,7 @@ Each task was committed atomically (linear history on `master`, no branching per
 
 1. **Task 1: Install mobile + server deps + babel.config.js** — `ad141878` (chore)
 2. **Task 2: SPIKE @gorhom/bottom-sheet + lock impl** — `00c4cc22` (feat) — see "Bottom-sheet decision" below
-3. **Task 3: Strip upstream shell + write GymOS 4-tab shell + pick-member** — `b1a3c8b1` (feat) — 14 upstream tab files + 5 upstream lib helpers + 3 upstream components deleted; new shell + auth-gate + picker created
+3. **Task 3: Strip upstream shell + write GymClassOS 4-tab shell + pick-member** — `b1a3c8b1` (feat) — 14 upstream tab files + 5 upstream lib helpers + 3 upstream components deleted; new shell + auth-gate + picker created
 4. **Task 4: requireDemoMember + 2 server endpoints + auth publicPaths + .env example** — `cae3cb93` (feat)
 5. **Task 5: End-to-end smoke test** — DEFERRED (see "User Setup Required" — requires Expo Go on physical phone)
 
@@ -160,7 +160,7 @@ If D2-06 hits a runtime worklet error in Expo Go, swap to fallback is a **one-fi
 
 **Modified:**
 - `packages/mobile-app/app/_layout.tsx` — full rewrite (QueryProvider + GestureRoot + AuthGate + pick-member route)
-- `packages/mobile-app/app/(tabs)/_layout.tsx` — 419-line rewrite to 60-line GymOS 4-tab shell
+- `packages/mobile-app/app/(tabs)/_layout.tsx` — 419-line rewrite to 60-line GymClassOS 4-tab shell
 - `packages/mobile-app/app/(tabs)/index.tsx` — WebView mail tab → Home placeholder
 - `packages/mobile-app/package.json` — + 6 deps (TanStack Query, react-native-sse, gorhom, expo-camera, gesture-handler, reanimated)
 - `templates/mail/package.json` — + @anthropic-ai/sdk
@@ -177,7 +177,7 @@ If D2-06 hits a runtime worklet error in Expo Go, swap to fallback is a **one-fi
 ## Decisions Made
 
 - **Bottom-sheet impl locked to gorhom (not RN Modal fallback)** — Pitfall #4 mitigation is in place; D2-06 benefits from gesture polish; one-file swap available if Expo Go runtime proves otherwise.
-- **DELETE upstream multi-app components** (AppCard, AppForm, AppWebView) instead of keeping them as reusable primitives — they all imported stale `@agent-native/shared-app-config`; D-02 mandates no backwards-compat stubs. None were imported by any GymOS code.
+- **DELETE upstream multi-app components** (AppCard, AppForm, AppWebView) instead of keeping them as reusable primitives — they all imported stale `@agent-native/shared-app-config`; D-02 mandates no backwards-compat stubs. None were imported by any GymClassOS code.
 - **Hardcoded macro targets live in the API response** (under `today.target*` keys), not in mobile-app code — this way D2-04 Home tab reads them as plain data, P2/CAL-06 swaps the source without changing the consumer.
 - **Use React.createElement (not JSX) in `.ts` utility files** — TypeScript with `jsx: "react-native"` only parses JSX in `.tsx`; the plan's artifact spec is `.ts`; switching to React.createElement keeps `.ts` while still passing tsc strict.
 
@@ -196,7 +196,7 @@ If D2-06 hits a runtime worklet error in Expo Go, swap to fallback is a **one-fi
 **2. [Rule 3 - Blocking] Delete upstream components (AppCard, AppForm, AppWebView) — they imported stale `@agent-native/shared-app-config`**
 - **Found during:** Task 3 stale-import sweep (`node` script scanning all `.ts`/`.tsx` files in `packages/mobile-app/`)
 - **Issue:** Plan's RESEARCH.md said "KEEP AppCard, AppForm — reusable primitives", but all three still imported the stale `@agent-native/shared-app-config` workspace package. After Task 3's deletions, the stale-import sweep failed pointing at `components/AppCard.tsx` and `components/AppForm.tsx`. AppWebView also referenced upstream multi-app types.
-- **Fix:** Deleted all three component files. Grep confirmed nothing in GymOS imports them. Per CLAUDE.md "No backwards-compat shims" + D-02 "delete files cleanly — do not stub them out with empty exports."
+- **Fix:** Deleted all three component files. Grep confirmed nothing in GymClassOS imports them. Per CLAUDE.md "No backwards-compat shims" + D-02 "delete files cleanly — do not stub them out with empty exports."
 - **Files modified:** Deleted `packages/mobile-app/components/{AppCard,AppForm,AppWebView}.tsx`
 - **Verification:** Stale-import sweep passes clean; `pnpm --filter @agent-native/mobile-app exec tsc --noEmit` passes clean.
 - **Committed in:** `b1a3c8b1` (Task 3 commit)

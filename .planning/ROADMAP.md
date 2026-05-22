@@ -1,8 +1,8 @@
-# Roadmap: GymOS
+# Roadmap: GymClassOS
 
 ## Overview
 
-GymOS v1 ships in **two milestones**:
+GymClassOS v1 ships in **two milestones**:
 
 1. **Demo Sprint** — Week 1 (by ~2026-05-24). A vertical slice across all surfaces — prototype quality, deliberate corner-cutting acceptable, throwaway code where useful. Goal: signed customer sees a working URL on their phone (member PWA) and laptop (staff back-office) within the week, with at least one of: real inbound WhatsApp message in the inbox, one outbound WhatsApp send, one Stripe Checkout completed in test mode, one class booked, one meal logged, one agent chat exchange.
 
@@ -57,14 +57,14 @@ Post-v1 backlog (HealthKit + native mobile, Coach View with health context, CRM 
 
 ### Phase D2: Member Mobile App + Calorie Counter + Agent (Days 4–7)
 
-**Goal:** Member opens an Expo Go link on their phone, loads the GymOS member app (forked from agent-native's `packages/mobile-app`), logs in (demo-stub picker), browses + books a class, logs a meal via search + barcode, and chats with the in-app agent that can `greet` / `book_class` (with confirmation) / `log_food_nl`. At least one real WhatsApp message round-trip (inbound + outbound) lands in the staff inbox.
+**Goal:** Member opens an Expo Go link on their phone, loads the GymClassOS member app (forked from agent-native's `packages/mobile-app`), logs in (demo-stub picker), browses + books a class, logs a meal via search + barcode, and chats with the in-app agent that can `greet` / `book_class` (with confirmation) / `log_food_nl`. At least one real WhatsApp message round-trip (inbound + outbound) lands in the staff inbox.
 
 > **CORRECTION (2026-05-17 late):** Earlier text in this file said "PWA" for the member surface. Replaced — member surface is native via Expo + RN, forked from upstream `packages/mobile-app`. Demo via Expo Go (no native module compile, no Apple Dev Account this week). Production via EAS Build later. Read "PWA" / "web manifest" / "install-to-home-screen" elsewhere in this file as native Expo Go install for the demo and EAS Build install for production.
 
 **Requirements:** MEMBR-01, MEMBR-02, MEMBR-03, CAL-01, CAL-02, CAL-03, AGENT-01, AGENT-02, AGENT-03, WA-01, WA-02, MEMAUTH-01 (stubbed picker)
 
 **Success criteria:**
-1. Customer can open the Expo Go QR on their iPhone and load the GymOS member app (member-picker first launch → 4 tabs after pick)
+1. Customer can open the Expo Go QR on their iPhone and load the GymClassOS member app (member-picker first launch → 4 tabs after pick)
 2. Member can browse the seeded class schedule and book one class from the mobile Schedule tab; the booking reflects in /gymos staff member-profile
 3. Member can search "banana" → find an Open Food Facts result → log it as a snack from the Food tab; daily totals (kcal + macros) update on Home + Food tabs
 4. Member can scan a barcode (using `expo-camera` built-in scanner) on a packaged food → see it logged with OFF nutrition data
@@ -75,7 +75,7 @@ Post-v1 backlog (HealthKit + native mobile, Coach View with health context, CRM 
 
 **Plans:** 5/6 plans executed
 
-- [x] D2-01-mobile-shell-auth-PLAN.md — Strip upstream tabs, install deps, build 4-tab GymOS shell + member-picker + AsyncStorage + TanStack Query + apiFetch wrapper + requireDemoMember server helper + `/api/m/members/list` + `/api/m/profile`. Includes the @gorhom/bottom-sheet × Expo Go SDK 55 compatibility spike (Pitfall #4). (MEMAUTH-01 stubbed, MEMBR-03 server side)
+- [x] D2-01-mobile-shell-auth-PLAN.md — Strip upstream tabs, install deps, build 4-tab GymClassOS shell + member-picker + AsyncStorage + TanStack Query + apiFetch wrapper + requireDemoMember server helper + `/api/m/members/list` + `/api/m/profile`. Includes the @gorhom/bottom-sheet × Expo Go SDK 55 compatibility spike (Pitfall #4). (MEMAUTH-01 stubbed, MEMBR-03 server side)
 - [x] D2-02-whatsapp-webhook-outbound-PLAN.md — `templates/mail/app/routes/webhooks.whatsapp.tsx` HMAC-verified inbound receiver (ngrok-tunnelled) + augment `gymos.tsx` send action with real Meta Graph API v23 POST. (WA-01, WA-02)
 - [x] D2-03-member-schedule-booking-PLAN.md — `/api/m/schedule` 7-day window + `/api/m/bookings` POST + mobile Schedule tab with day-grouped cards + optimistic UI booking. (MEMBR-01, MEMBR-02)
 - [x] D2-04-member-home-tab-PLAN.md — SVG-free KcalRing component + Home tab with greeting / pass-balance pill / next-class card / kcal ring + macros. (MEMBR-03)

@@ -115,7 +115,7 @@ export async function requireDemoMember(request: Request): Promise<DemoMember>;
 OFF endpoints (verified by RESEARCH §Pattern 4):
 - Search: `https://world.openfoodfacts.org/cgi/search.pl?search_terms={q}&search_simple=1&action=process&json=1&page_size=20`
 - Barcode: `https://world.openfoodfacts.org/api/v2/product/{ean}?fields=code,product_name,brands,nutriments,serving_size`
-- Attribution: `User-Agent: GymOS-Demo/0.1 (https://gymos.local; demo@gymos.local)` (ODbL — required)
+- Attribution: `User-Agent: GymClassOS-Demo/0.1 (https://gymos.local; demo@gymos.local)` (ODbL — required)
 
 expo-camera (verified by RESEARCH §Pattern 3):
 - Import: `import { CameraView, useCameraPermissions } from "expo-camera"`
@@ -150,7 +150,7 @@ expo-camera (verified by RESEARCH §Pattern 3):
 import { requireDemoMember } from "../../server/lib/demo-member";
 import type { LoaderFunctionArgs } from "react-router";
 
-const UA = "GymOS-Demo/0.1 (https://gymos.local; demo@gymos.local)";
+const UA = "GymClassOS-Demo/0.1 (https://gymos.local; demo@gymos.local)";
 
 export async function loader({ request }: LoaderFunctionArgs) {
   await requireDemoMember(request);
@@ -189,7 +189,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 import { requireDemoMember } from "../../server/lib/demo-member";
 import type { LoaderFunctionArgs } from "react-router";
 
-const UA = "GymOS-Demo/0.1 (https://gymos.local; demo@gymos.local)";
+const UA = "GymClassOS-Demo/0.1 (https://gymos.local; demo@gymos.local)";
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   await requireDemoMember(request);
@@ -349,12 +349,12 @@ export async function action({ request }: ActionFunctionArgs) {
 Run `npx prettier --write templates/mail/app/routes/api.m.foods.search.tsx templates/mail/app/routes/api.m.foods.barcode.\$ean.tsx templates/mail/app/routes/api.m.food-entries.tsx`.
   </action>
   <verify>
-    <automated>node -e "const fs=require('fs');const checks=[['templates/mail/app/routes/api.m.foods.search.tsx','openfoodfacts.org/cgi/search'],['templates/mail/app/routes/api.m.foods.search.tsx','GymOS-Demo'],['templates/mail/app/routes/api.m.foods.barcode.$ean.tsx','api/v2/product'],['templates/mail/app/routes/api.m.foods.barcode.$ean.tsx','hasNutritionData'],['templates/mail/app/routes/api.m.food-entries.tsx','export async function loader'],['templates/mail/app/routes/api.m.food-entries.tsx','export async function action'],['templates/mail/app/routes/api.m.food-entries.tsx','db.insert(schema.foodItems)'],['templates/mail/app/routes/api.m.food-entries.tsx','db.insert(schema.foodEntries)']];for(const[f,s] of checks){if(!fs.readFileSync(f,'utf8').includes(s)){console.error('FAIL',f,s);process.exit(1)}}"</automated>
+    <automated>node -e "const fs=require('fs');const checks=[['templates/mail/app/routes/api.m.foods.search.tsx','openfoodfacts.org/cgi/search'],['templates/mail/app/routes/api.m.foods.search.tsx','GymClassOS-Demo'],['templates/mail/app/routes/api.m.foods.barcode.$ean.tsx','api/v2/product'],['templates/mail/app/routes/api.m.foods.barcode.$ean.tsx','hasNutritionData'],['templates/mail/app/routes/api.m.food-entries.tsx','export async function loader'],['templates/mail/app/routes/api.m.food-entries.tsx','export async function action'],['templates/mail/app/routes/api.m.food-entries.tsx','db.insert(schema.foodItems)'],['templates/mail/app/routes/api.m.food-entries.tsx','db.insert(schema.foodEntries)']];for(const[f,s] of checks){if(!fs.readFileSync(f,'utf8').includes(s)){console.error('FAIL',f,s);process.exit(1)}}"</automated>
   </verify>
   <acceptance_criteria>
     - Files exist: `api.m.foods.search.tsx`, `api.m.foods.barcode.$ean.tsx`, `api.m.food-entries.tsx`
     - `grep -c 'openfoodfacts.org/cgi/search' templates/mail/app/routes/api.m.foods.search.tsx` returns 1
-    - `grep -c 'GymOS-Demo' templates/mail/app/routes/api.m.foods.search.tsx` returns 1 (ODbL UA)
+    - `grep -c 'GymClassOS-Demo' templates/mail/app/routes/api.m.foods.search.tsx` returns 1 (ODbL UA)
     - `grep -c 'api/v2/product' templates/mail/app/routes/api.m.foods.barcode.$ean.tsx` returns 1
     - `grep -c 'hasNutritionData' templates/mail/app/routes/api.m.foods.barcode.$ean.tsx` returns 1 (Pitfall #7 signal)
     - `grep -c 'export async function action' templates/mail/app/routes/api.m.food-entries.tsx` returns 1

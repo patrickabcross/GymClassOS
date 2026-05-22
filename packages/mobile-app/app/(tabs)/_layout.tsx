@@ -1,4 +1,4 @@
-// GymOS 4-tab shell (D-04). Replaces the 16-template upstream tab bar.
+// GymClassOS 4-tab shell (D-04). Replaces the 16-template upstream tab bar.
 // Tabs: Home / Schedule / Food / Profile. Agent surface is a FAB rendered
 // elsewhere (D2-06), not a tab.
 import { Tabs } from "expo-router";

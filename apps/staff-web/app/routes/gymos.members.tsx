@@ -1,4 +1,4 @@
-// GymOS Members — Demo Sprint D1. Directory of seeded gym members with pass-balance summary. Standalone for demo; will move to apps/staff-web/features/members/ post-demo.
+// GymClassOS Members — Demo Sprint D1. Directory of seeded gym members with pass-balance summary. Standalone for demo; will move to apps/staff-web/features/members/ post-demo.
 
 import { useLoaderData, Link } from "react-router";
 import { eq, asc, sql } from "drizzle-orm";
@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import type { LoaderFunctionArgs } from "react-router";
 
 export function meta() {
-  return [{ title: "GymOS — Members" }];
+  return [{ title: "GymClassOS — Members" }];
 }
 
 // ─── Loader ──────────────────────────────────────────────────────────────────

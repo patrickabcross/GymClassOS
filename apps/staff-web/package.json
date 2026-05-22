@@ -1,7 +1,7 @@
 {
   "name": "@gymos/staff-web",
-  "displayName": "GymOS Staff Web",
-  "description": "GymOS staff web app (forked from agent-native Mail template)",
+  "displayName": "GymClassOS Staff Web",
+  "description": "GymClassOS staff web app (forked from agent-native Mail template)",
   "private": true,
   "type": "module",
   "scripts": {

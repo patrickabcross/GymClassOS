@@ -1024,7 +1024,7 @@ Inbound WhatsApp payload variants (from @gymos/queue InboundWhatsAppPayload):
 
     1. Create `apps/edge-webhooks/fly.toml` with two-process [processes] block, region iad, min_machines_running=1, auto_stop_machines=false, AND a worker-process health check on port 3002 (MEDIUM #10):
        ```toml
-       # GymOS edge-webhooks + worker — single Fly app, two processes (D-01).
+       # GymClassOS edge-webhooks + worker — single Fly app, two processes (D-01).
        #
        # CRITICAL: region = "iad" (Virginia) NOT "lhr" (London) per P1b RESEARCH finding.
        # Neon project gymos-demo lives in us-east-1; lhr⇄us-east-1 RTT is ~75-90ms which
@@ -1122,7 +1122,7 @@ Inbound WhatsApp payload variants (from @gymos/queue InboundWhatsAppPayload):
        ```dockerfile
        # syntax=docker/dockerfile:1.7
 
-       # GymOS Fly image — builds BOTH apps/edge-webhooks AND apps/worker.
+       # GymClassOS Fly image — builds BOTH apps/edge-webhooks AND apps/worker.
        # fly.toml [processes] selects which entrypoint runs.
 
        FROM node:22-alpine AS base

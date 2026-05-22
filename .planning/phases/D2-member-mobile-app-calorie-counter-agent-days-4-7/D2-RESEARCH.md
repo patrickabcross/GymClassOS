@@ -13,7 +13,7 @@
 
 **Mobile shell strategy**
 - **D-01:** Edit `packages/mobile-app/` **in-place**. Do not fork to `apps/member-app/`. Follows the D0 "demo-time fork-boundary loosened" precedent (templates/mail edited directly for the inbox surface). Post-demo P0 audit can copy-out to `apps/member-app/` if upstream-merge churn becomes a real cost.
-- **D-02:** **Rip out the existing `app/(tabs)/` content** (analytics, brain, calendar, clips, content, design, dispatch, forms, index, mail, more, sessions, settings, slides, starter, videos) and replace with GymOS native tabs. The upstream multi-template WebView shell is not the right base; only the Expo / Expo Router / EAS scaffolding is kept. Note in `MODIFICATIONS.md` (P0 task) which files were removed.
+- **D-02:** **Rip out the existing `app/(tabs)/` content** (analytics, brain, calendar, clips, content, design, dispatch, forms, index, mail, more, sessions, settings, slides, starter, videos) and replace with GymClassOS native tabs. The upstream multi-template WebView shell is not the right base; only the Expo / Expo Router / EAS scaffolding is kept. Note in `MODIFICATIONS.md` (P0 task) which files were removed.
 - **D-03:** **Native Expo screens**, not WebView wrapper. Use Expo APIs throughout (`expo-camera` for barcode, `expo-router` for navigation, native `<FlatList>` for lists).
 - **D-04:** Five top-level tabs: **Home**, **Schedule**, **Food**, **Profile**, plus the agent surface as a FAB (not a tab) — see D-12.
 
@@ -38,7 +38,7 @@
 
 - **Schedule view density** for the member tab — default: week-grid mobile-optimised (vertical scroll, one day per row, occurrences as cards).
 - **WA-01 / WA-02 demo path** — default: minimal Hono webhook receiver on Fly (or ngrok tunnel) that signature-verifies and persists inbound messages; outbound calls Meta Graph API directly from the staff inbox action handler.
-- **Branding** — default: name = "GymOS", icon = stylised dumbbell or "G" mark, primary colour matches inbox surface.
+- **Branding** — default: name = "GymClassOS", icon = stylised dumbbell or "G" mark, primary colour matches inbox surface.
 - **Agent system prompt** — default: short prompt stating role, member context, available tools, confirmation rules.
 - **Permission UX for camera** — when to ask + consent screen copy.
 - **Booking flow on member side** — default: inline expand under occurrence card with "Confirm booking" button.
@@ -205,7 +205,7 @@ packages/mobile-app/                              # EDIT IN-PLACE (D-01)
 │   ├── _layout.tsx                               # Root Stack — add QueryClientProvider + auth-gate wrapper here
 │   ├── pick-member.tsx                           # Member-picker first-launch screen (NEW)
 │   ├── (tabs)/
-│   │   ├── _layout.tsx                           # OVERWRITE — 4 GymOS tabs (Home / Schedule / Food / Profile)
+│   │   ├── _layout.tsx                           # OVERWRITE — 4 GymClassOS tabs (Home / Schedule / Food / Profile)
 │   │   ├── index.tsx                             # Home tab
 │   │   ├── schedule.tsx                          # Schedule tab
 │   │   ├── food.tsx                              # Food / Today tab
@@ -280,7 +280,7 @@ export async function requireDemoMember(request: Request) {
 }
 ```
 
-**Note on the unscoped-queries guard:** Member-API routes call ownable tables (`bookings`, `passes`, etc.) by `memberId` filter — that filter IS the access scope. CLAUDE.md's `guard-no-unscoped-queries.mjs` looks for `accessFilter` / `resolveAccess` / `assertAccess`, which don't exist on the GymOS schema (no `ownableColumns()` markers). The existing D1 routes are already exempt by virtue of being in `templates/mail/app/routes/gymos*` paths the guard doesn't scan. New `api.m.*.tsx` routes are in the same directory tree — same exemption applies — but add `// guard:allow-unscoped — demo D-07 (X-Demo-Member-Id gates access)` next to each query as a deliberate signal.
+**Note on the unscoped-queries guard:** Member-API routes call ownable tables (`bookings`, `passes`, etc.) by `memberId` filter — that filter IS the access scope. CLAUDE.md's `guard-no-unscoped-queries.mjs` looks for `accessFilter` / `resolveAccess` / `assertAccess`, which don't exist on the GymClassOS schema (no `ownableColumns()` markers). The existing D1 routes are already exempt by virtue of being in `templates/mail/app/routes/gymos*` paths the guard doesn't scan. New `api.m.*.tsx` routes are in the same directory tree — same exemption applies — but add `// guard:allow-unscoped — demo D-07 (X-Demo-Member-Id gates access)` next to each query as a deliberate signal.
 
 ### Pattern 2: Mobile fetch wrapper (header injection)
 
@@ -398,7 +398,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     `?search_terms=${encodeURIComponent(q)}&search_simple=1&action=process&json=1&page_size=20`;
 
   const res = await fetch(offUrl, {
-    headers: { "User-Agent": "GymOS-Demo/0.1 (https://gymos.local; demo@gymos.local)" }, // ODbL attribution
+    headers: { "User-Agent": "GymClassOS-Demo/0.1 (https://gymos.local; demo@gymos.local)" }, // ODbL attribution
   });
   if (!res.ok) return { results: [], error: `OFF ${res.status}` };
   const json = (await res.json()) as { products?: any[] };
@@ -435,7 +435,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     `?fields=code,product_name,brands,nutriments,serving_size`;
 
   const res = await fetch(offUrl, {
-    headers: { "User-Agent": "GymOS-Demo/0.1 (https://gymos.local; demo@gymos.local)" },
+    headers: { "User-Agent": "GymClassOS-Demo/0.1 (https://gymos.local; demo@gymos.local)" },
   });
   if (!res.ok) return { found: false };
   const json = (await res.json()) as { status: number; product?: any };
@@ -516,7 +516,7 @@ const TOOLS = [
   },
 ] as const;
 
-const SYSTEM_PROMPT = `You are GymOS Coach — a brief, kind, action-oriented in-app assistant for a member of a boutique fitness studio.
+const SYSTEM_PROMPT = `You are GymClassOS Coach — a brief, kind, action-oriented in-app assistant for a member of a boutique fitness studio.
 
 Rules:
 - Be terse. One short paragraph per turn unless the member asks for detail.
@@ -642,7 +642,7 @@ async function runTool(name: string, input: any, memberId: string) {
       `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(input.description)}` +
       `&search_simple=1&action=process&json=1&page_size=1`;
     const res = await fetch(offUrl, {
-      headers: { "User-Agent": "GymOS-Demo/0.1 (https://gymos.local; demo@gymos.local)" },
+      headers: { "User-Agent": "GymClassOS-Demo/0.1 (https://gymos.local; demo@gymos.local)" },
     });
     if (!res.ok) return { ok: false, reason: "OFF unreachable" };
     const json = (await res.json()) as any;
@@ -953,7 +953,7 @@ async function sendWhatsAppOutbound(toE164: string, body: string) {
 |----------|-------------|------------------|
 | Stored data | None — verified by reading the existing schema (`templates/mail/server/db/schema.ts`) and confirming all phase D2 tables (`gymMembers`, `bookings`, `classOccurrences`, `classDefinitions`, `passes`, `passDebits`, `foodEntries`, `foodItems`, `conversations`, `messages`, `agentSessions`, `webhookEvents`) already exist with correct shape for D2 use. | None |
 | Live service config | None — no production Meta WhatsApp number, no Datadog, no Cloudflare, no Tailscale to update. Demo phase. | None |
-| OS-registered state | None — no Windows Task Scheduler, no pm2, no systemd registrations for GymOS. | None |
+| OS-registered state | None — no Windows Task Scheduler, no pm2, no systemd registrations for GymClassOS. | None |
 | Secrets/env vars | NEW vars required (not changes — additions): `ANTHROPIC_API_KEY` (server), `WHATSAPP_APP_SECRET` (server), `WHATSAPP_VERIFY_TOKEN` (server, chosen by us), `WHATSAPP_PHONE_NUMBER_ID` (server), `WHATSAPP_ACCESS_TOKEN` (server), `DEMO_MODE=true` (server), `EXPO_PUBLIC_API_BASE` (mobile, build-time). | Add to `templates/mail/.env.local` (already gitignored). Document in phase plan as a "User Setup Required" item. |
 | Build artifacts / installed packages | None — fresh deps added via `pnpm add`; no stale egg-info / compiled artifacts to clear. | None |
 

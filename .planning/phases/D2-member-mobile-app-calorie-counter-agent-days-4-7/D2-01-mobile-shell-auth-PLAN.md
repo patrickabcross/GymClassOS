@@ -75,7 +75,7 @@ must_haves:
       exports: ["default"]
       min_lines: 30
     - path: "packages/mobile-app/app/(tabs)/_layout.tsx"
-      provides: "4-tab GymOS shell (Home / Schedule / Food / Profile) — replaces the 16-template upstream shell"
+      provides: "4-tab GymClassOS shell (Home / Schedule / Food / Profile) — replaces the 16-template upstream shell"
       exports: ["default"]
       min_lines: 50
     - path: "packages/mobile-app/app/(tabs)/index.tsx"
@@ -133,12 +133,12 @@ must_haves:
 ---
 
 <objective>
-Replace the multi-template `packages/mobile-app` shell with a GymOS-specific 4-tab Expo app (Home / Schedule / Food / Profile), gated by a demo member-picker, wired to the staff-web's Neon DB via X-Demo-Member-Id-authenticated API routes. Also runs the `@gorhom/bottom-sheet` × Expo Go SDK 55 compatibility spike (RESEARCH.md Pitfall #4) and commits the winning implementation to a single shared module so D2-06 can import it without ambiguity.
+Replace the multi-template `packages/mobile-app` shell with a GymClassOS-specific 4-tab Expo app (Home / Schedule / Food / Profile), gated by a demo member-picker, wired to the staff-web's Neon DB via X-Demo-Member-Id-authenticated API routes. Also runs the `@gorhom/bottom-sheet` × Expo Go SDK 55 compatibility spike (RESEARCH.md Pitfall #4) and commits the winning implementation to a single shared module so D2-06 can import it without ambiguity.
 
 Purpose: Foundation for the entire D2 phase. Plans D2-03 (schedule), D2-04 (home/profile content), D2-05 (food), and D2-06 (agent) all build on the shell, the API wrapper, the server gate, and the bottom-sheet decision made here. Implements MEMAUTH-01 (stubbed per D-05/D-06) and the server-side scaffolding for MEMBR-03 (the home screen polish lands in D2-04).
 
 Output:
-- `packages/mobile-app` stripped of all 16 upstream-template tabs; new 4-tab GymOS shell with placeholder screens
+- `packages/mobile-app` stripped of all 16 upstream-template tabs; new 4-tab GymClassOS shell with placeholder screens
 - New `pick-member.tsx` first-launch screen + AsyncStorage persistence (D-05, D-06, D-07)
 - TanStack Query provider + apiFetch wrapper injecting `X-Demo-Member-Id`
 - Server helper `requireDemoMember` and 2 first server endpoints (`/api/m/members/list`, `/api/m/profile`)
@@ -441,7 +441,7 @@ The user should confirm the choice with one of:
 </task>
 
 <task type="auto" tdd="false">
-  <name>Task 3: Strip upstream tabs, write new GymOS 4-tab shell + auth-gated root layout + 4 placeholder screens + pick-member screen</name>
+  <name>Task 3: Strip upstream tabs, write new GymClassOS 4-tab shell + auth-gated root layout + 4 placeholder screens + pick-member screen</name>
   <files>
     - packages/mobile-app/app/_layout.tsx
     - packages/mobile-app/app/(tabs)/_layout.tsx
@@ -631,7 +631,7 @@ export default function RootLayout() {
 }
 ```
 
-**Step F — REWRITE `packages/mobile-app/app/(tabs)/_layout.tsx`** (replace the entire 419-line current file with this 60-line GymOS shell):
+**Step F — REWRITE `packages/mobile-app/app/(tabs)/_layout.tsx`** (replace the entire 419-line current file with this 60-line GymClassOS shell):
 
 ```tsx
 import { Tabs } from "expo-router";
@@ -910,7 +910,7 @@ If the check fails, fix the residual imports.
     - `grep -c 'onLongPress' packages/mobile-app/app/(tabs)/profile.tsx` returns at least 1
     - No file references `use-apps`, `app-store`, `get-app-url`, `remote-sessions-api`, `use-remote-push-registration`, or `@agent-native/shared-app-config` (stale-import check passes)
   </acceptance_criteria>
-  <done>The mobile app boots into the GymOS-only shell: pick-member on first launch, then 4 tabs with the long-press switch-member affordance on Profile; all upstream multi-template files removed; no stale imports</done>
+  <done>The mobile app boots into the GymClassOS-only shell: pick-member on first launch, then 4 tabs with the long-press switch-member affordance on Profile; all upstream multi-template files removed; no stale imports</done>
 </task>
 
 <task type="auto" tdd="false">
@@ -948,7 +948,7 @@ export async function requireDemoMember(request: Request): Promise<DemoMember> {
   if (!memberId) throw new Response("Missing X-Demo-Member-Id", { status: 401 });
 
   const db = getDb();
-  // guard:allow-unscoped — demo D-07 (X-Demo-Member-Id is the access scope; no ownableColumns on GymOS schema)
+  // guard:allow-unscoped — demo D-07 (X-Demo-Member-Id is the access scope; no ownableColumns on GymClassOS schema)
   const member = await db
     .select()
     .from(schema.gymMembers)
@@ -1109,7 +1109,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
 ```bash
 # Existing entries (DO NOT remove — preserve whatever's already in .env.local.example if present)
-# Add these for GymOS Demo Sprint Phase D2:
+# Add these for GymClassOS Demo Sprint Phase D2:
 
 # Demo-mode gate — required for /api/m/* to function
 DEMO_MODE=true
@@ -1239,7 +1239,7 @@ pnpm --filter @agent-native/mobile-app exec tsc --noEmit
 - [ ] All deps in mobile-app + mail package.json (lockfile updated)
 - [ ] babel.config.js exists with react-native-worklets/plugin
 - [ ] 14 upstream tab files + 5 upstream lib files DELETED
-- [ ] 4 GymOS tab placeholders + pick-member + new root layout exist
+- [ ] 4 GymClassOS tab placeholders + pick-member + new root layout exist
 - [ ] apiFetch wrapper injects X-Demo-Member-Id from AsyncStorage
 - [ ] requireDemoMember helper refuses without DEMO_MODE+header
 - [ ] GET /api/m/members/list returns 5 seeded members

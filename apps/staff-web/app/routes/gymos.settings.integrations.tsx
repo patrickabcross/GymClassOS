@@ -1,4 +1,4 @@
-// GymOS Settings — Stripe integration (key rotation).
+// GymClassOS Settings — Stripe integration (key rotation).
 //
 // P1b-08 success criterion #6: studio admin can rotate the Stripe restricted
 // API key without downtime.
@@ -30,7 +30,7 @@ import { IconPointFilled } from "@tabler/icons-react";
 import { getDb } from "../../server/db";
 
 export function meta() {
-  return [{ title: "GymOS — Stripe Integration" }];
+  return [{ title: "GymClassOS — Stripe Integration" }];
 }
 
 // Stripe API version pin. PITFALL #3: never let Stripe float the API version.

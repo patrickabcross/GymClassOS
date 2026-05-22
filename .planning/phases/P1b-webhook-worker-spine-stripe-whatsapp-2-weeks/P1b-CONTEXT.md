@@ -203,7 +203,7 @@ Planner / executor picks these — not user-facing visionary decisions:
 
 ### Reusable assets (currently in templates/mail/, moving to apps/staff-web/ in Task 1)
 
-- **`templates/mail/server/db/schema.ts`** — 12 GymOS tables already defined (`gymMembers`, `coaches`, `conversations`, `messages`, `classDefinitions`, `classOccurrences`, `bookings`, `passes`, `passDebits`, `foodItems`, `foodEntries`, `agentSessions`, `webhookEvents`). All additive P1b tables co-exist; no breaking changes needed.
+- **`templates/mail/server/db/schema.ts`** — 12 GymClassOS tables already defined (`gymMembers`, `coaches`, `conversations`, `messages`, `classDefinitions`, `classOccurrences`, `bookings`, `passes`, `passDebits`, `foodItems`, `foodEntries`, `agentSessions`, `webhookEvents`). All additive P1b tables co-exist; no breaking changes needed.
 - **`templates/mail/server/db/index.ts`** — `getDb()` singleton. Reuse from edge-webhooks + worker (probably extract to packages/db/ if cyclic import emerges; otherwise pnpm workspace import from apps/staff-web).
 - **`templates/mail/app/routes/webhooks.whatsapp.tsx`** — Reference for HMAC verify (lines 47–67), idempotency check (lines 89–105), conversation upsert by phoneE164 (lines 124–156). Pattern is correct; P1b port is structural (RR v7 route → Hono route) not logical.
 - **`templates/mail/app/routes/gymos.tsx`** — Current send action (env-gated direct Meta call). P1b refactor: replace direct call with `enqueueOutboundWhatsApp({ messageId, memberId, payload })`. Insert messages row with status='queued' optimistically. UI already supports `?sent=1` redirect ACK (per D1-04) — that becomes optimistic update instead.
@@ -262,7 +262,7 @@ Came up during P1b discussion; belong in other phases.
 - **50-concurrent webhook stress test** — **deferred** (re-evaluate post-launch). BKG-03 in P2 owns the concurrency contract; P1b validates idempotency via 2× replay, not stress.
 - **Chaos test (worker crash mid-job)** — **deferred.** pg-boss claims at-least-once is enforced; we accept that on trust until first real customer incident.
 - **SSE channel for live message status** — **post-v1.** TanStack refetch-on-focus is good enough for 1-coach-per-studio. Reconsider for multi-coach studios.
-- **`integration_pending_tasks` queue pattern from agent-native AGENTS.md** — different problem (cross-platform webhook → SQL queue → processor for Slack/Telegram). pg-boss is the GymOS-specific implementation choice; both patterns coexist (one for agent-native templates, one for GymOS webhooks).
+- **`integration_pending_tasks` queue pattern from agent-native AGENTS.md** — different problem (cross-platform webhook → SQL queue → processor for Slack/Telegram). pg-boss is the GymClassOS-specific implementation choice; both patterns coexist (one for agent-native templates, one for GymClassOS webhooks).
 - **Stripe Customer Portal link generation** (PAY-04) — **P2.** P1b sets up the customer state mirror tables (`stripe_customers`); the staff-web link-generation UX is P2.
 - **Per-customer (per-studio) deploy script `scripts/deploy.sh <studio>`** (DEP-01..04) — **P1a/P0.** P1b deploys for the one-customer demo studio; scripted-multi-studio comes when N > 1.
 - **Pino PII-redacted logging across all apps** (OBS-01) — **P1a.** P1b uses Pino with sensible defaults; full redaction config in P1a.

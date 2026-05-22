@@ -1,4 +1,4 @@
-# Pitfalls Research — GymOS
+# Pitfalls Research — GymClassOS
 
 > **⚠️ PARTIALLY STALE (revised 2026-05-17):** This file was written before the major scope revision. Specifically:
 > - **Stripe Connect pitfalls (#13 etc.)** no longer apply — we're using direct restricted-API-key (NOT Connect). Skip the deauth + app-fee sections; the rest of the Stripe idempotency / atomicity / raw-body / replay pitfalls still apply.
@@ -22,7 +22,7 @@ Every pitfall below carries five fields:
 2. **Why it happens** — root cause / why a careful developer still makes the mistake
 3. **How to avoid** — a specific, actionable prevention strategy (no "be careful")
 4. **Warning signs** — early-detection signals
-5. **Phase to address** — where in the GymOS roadmap (Phase 0 audit, Phase 1 foundations, Phase 2 product) this should be designed-in, or **cross-cutting** if it spans multiple phases
+5. **Phase to address** — where in the GymClassOS roadmap (Phase 0 audit, Phase 1 foundations, Phase 2 product) this should be designed-in, or **cross-cutting** if it spans multiple phases
 6. **Severity** — critical / high / medium / low
 
 The phase numbering follows `PROJECT.md`: Phase 0 = framework audit, Phase 1 = data + integrations foundation (Neon schema, WhatsApp, Stripe, auth shell), Phase 2 = product (staff app + schedule + bookings + passes), Phase 3 = mobile, Phase 4 = analytics + KB, Phase 5 = calorie counter.
@@ -197,7 +197,7 @@ Also: do NOT use `+02:00`-style offsets anywhere in the schema. Use `Europe/Vien
 **Severity:** CRITICAL for the vertical-SaaS-factory thesis; HIGH for v1 maintenance
 
 **What goes wrong:**
-You fork `BuilderIO/agent-native`, copy the Mail template, and modify it directly under `templates/mail/` to become the WhatsApp client. Six months in, agent-native ships a major refactor of `@agent-native/core` and a security patch to the Mail template. Your `git merge upstream/main` produces hundreds of conflicts. You stop merging. Now you've adopted the cost of forking with none of the benefit. Worse: when vertical #2 starts, you can't tell which changes are "GymOS specifics" vs "framework upgrades I made by hand" — every diff is a thicket.
+You fork `BuilderIO/agent-native`, copy the Mail template, and modify it directly under `templates/mail/` to become the WhatsApp client. Six months in, agent-native ships a major refactor of `@agent-native/core` and a security patch to the Mail template. Your `git merge upstream/main` produces hundreds of conflicts. You stop merging. Now you've adopted the cost of forking with none of the benefit. Worse: when vertical #2 starts, you can't tell which changes are "GymClassOS specifics" vs "framework upgrades I made by hand" — every diff is a thicket.
 
 **Why it happens:**
 The fastest way to ship is "open the file, change the thing." The investment in a clean modification layer feels like premature abstraction (especially under the 2-month deadline). Meta's WebRTC team and Preset's blog both document this exact failure pattern — "fork drift" — under different names, and it's the dominant outcome unless you discipline yourself from day 0.
@@ -206,7 +206,7 @@ The fastest way to ship is "open the file, change the thing." The investment in 
 Apply Meta's friendly-fork discipline at small scale:
 
 1. **Two git remotes from day one:** `origin = your fork`, `upstream = BuilderIO/agent-native`. `git remote add upstream ...` at clone time.
-2. **Treat `templates/` as read-only.** Copy templates *out* of `templates/` into `apps/staff-web/features/{whatsapp,schedule,...}/` for GymOS-specific modifications. Original templates stay pristine so `git merge upstream/main` doesn't touch your modified code.
+2. **Treat `templates/` as read-only.** Copy templates *out* of `templates/` into `apps/staff-web/features/{whatsapp,schedule,...}/` for GymClassOS-specific modifications. Original templates stay pristine so `git merge upstream/main` doesn't touch your modified code.
 3. **Treat `packages/core` as a workspace dependency you don't edit.** If you find yourself needing to change core, fork it cleanly to a `packages/core-gymos` sibling instead.
 4. **Bi-weekly merge cadence in Phase 1-2.** A scheduled "Friday afternoon: `git fetch upstream && git merge upstream/main` and resolve" prevents drift from compounding. If a merge ever takes >2 hours, that's a smell — investigate WHAT modifications are catching, those are your fork-drift hotspots.
 5. **Maintain `MODIFICATIONS.md`** at repo root listing every file you've edited under `templates/` or `packages/` with a reason. If the list grows past ~5 entries, that's a re-architecture signal.
@@ -227,21 +227,21 @@ Apply Meta's friendly-fork discipline at small scale:
 **Severity:** HIGH — directly kills the v1 deadline
 
 **What goes wrong:**
-The vertical-SaaS-factory thesis tempts you to build abstractions for vertical #2 *while* building GymOS. You introduce a "studio plugin" interface, a "vertical config" layer, a "tenant theme" indirection. Vertical #2 turns out to need none of these (or needs different ones entirely). You shipped GymOS slow because you were really building two products at once. Project constraint #11 in `PROJECT.md` flags this explicitly as out-of-scope, but the temptation will recur every time you write something "studio-specific".
+The vertical-SaaS-factory thesis tempts you to build abstractions for vertical #2 *while* building GymClassOS. You introduce a "studio plugin" interface, a "vertical config" layer, a "tenant theme" indirection. Vertical #2 turns out to need none of these (or needs different ones entirely). You shipped GymClassOS slow because you were really building two products at once. Project constraint #11 in `PROJECT.md` flags this explicitly as out-of-scope, but the temptation will recur every time you write something "studio-specific".
 
 **Why it happens:**
-Smart developers spot reuse patterns and want to factor early. The second vertical is hypothetical, so its shape is whatever you imagine. You imagine wrong. The cost shows up later as "the abstraction we built for vertical #2 doesn't actually fit vertical #2, and is in the way for everything in GymOS."
+Smart developers spot reuse patterns and want to factor early. The second vertical is hypothetical, so its shape is whatever you imagine. You imagine wrong. The cost shows up later as "the abstraction we built for vertical #2 doesn't actually fit vertical #2, and is in the way for everything in GymClassOS."
 
 **How to avoid:**
-1. **Hard rule:** until vertical #2 has a signed customer, GymOS code may NOT introduce a "vertical config" / "plugin" / "theme" / "tenant-aware" abstraction. Use `git grep` periodically to check for these words; if they appear, delete them.
-2. **The "two verticals before extraction" rule.** Rule of three says wait for the third repetition; the constraint in `PROJECT.md` allows two. Either way, GymOS-only is single-occurrence; no extraction allowed.
+1. **Hard rule:** until vertical #2 has a signed customer, GymClassOS code may NOT introduce a "vertical config" / "plugin" / "theme" / "tenant-aware" abstraction. Use `git grep` periodically to check for these words; if they appear, delete them.
+2. **The "two verticals before extraction" rule.** Rule of three says wait for the third repetition; the constraint in `PROJECT.md` allows two. Either way, GymClassOS-only is single-occurrence; no extraction allowed.
 3. **Keep the framework/product distinction with directory structure, not abstractions.** `packages/core` (from upstream) = framework. `apps/staff-web/features/*` = product. The line is `import` direction: never let `packages/core` import from `apps/`. This is enough discipline to make extraction *easier when it's time*, without paying the cost up front.
 4. **Pre-commit code review (with yourself).** If a diff includes the word "interface" or "abstract" for something that has one concrete implementation, push back on yourself.
 
 **Warning signs:**
 - Code introduces `StudioConfig`, `VerticalAdapter`, `TenantTheme`-style types
 - A feature takes 2x longer than estimated because you stopped to "make it reusable"
-- Documentation discusses "the framework" vs "GymOS" instead of just "the codebase"
+- Documentation discusses "the framework" vs "GymClassOS" instead of just "the codebase"
 
 **Phase to address:** Cross-cutting — every phase. The audit in Phase 0 should explicitly state "extraction deferred until vertical #2 begins" and re-affirm at each phase transition.
 
@@ -377,7 +377,7 @@ The categories overlap intuitively. A "reminder" feels utility but if it nudges 
 **Severity:** HIGH — silent revenue leak from the platform to the connected studio
 
 **What goes wrong:**
-Studio refunds a customer. Stripe refunds the underlying charge but does NOT automatically refund the application fee. The connected studio loses that money (which they may not notice for months); GymOS keeps the application fee on a refunded transaction (which the studio absolutely will notice when they audit). Worse: when refunds get tangled with disputes, the lack of clarity about whose money is whose creates a billing nightmare.
+Studio refunds a customer. Stripe refunds the underlying charge but does NOT automatically refund the application fee. The connected studio loses that money (which they may not notice for months); GymClassOS keeps the application fee on a refunded transaction (which the studio absolutely will notice when they audit). Worse: when refunds get tangled with disputes, the lack of clarity about whose money is whose creates a billing nightmare.
 
 **Why it happens:**
 Stripe's refund API has an explicit `refund_application_fee: true` parameter that defaults to `false`. The default does the wrong thing for almost every platform.
@@ -716,7 +716,7 @@ Shortcuts that seem reasonable but create long-term problems.
 | Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
 |----------|-------------------|----------------|-----------------|
 | Mutable `passes.balance` column instead of ledger | Half the schema, faster to ship | Refund/dispute audits become detective work; race conditions multiply | ONLY for the launch customer, MUST refactor before studio #2 |
-| Hand-modifying `templates/` files for GymOS specifics | Fastest path to a working WhatsApp client | Upstream merges become unfixable; framework value evaporates | NEVER — copy out to `apps/staff-web/features/` even when slower |
+| Hand-modifying `templates/` files for GymClassOS specifics | Fastest path to a working WhatsApp client | Upstream merges become unfixable; framework value evaporates | NEVER — copy out to `apps/staff-web/features/` even when slower |
 | Single env vars file shared across studios | One config to maintain | First per-studio override leaks across all studios; security blast radius | NEVER once N > 1 |
 | Inline Stripe webhook handler in React Router action | Skip the Fly deploy | Cold-start retries, signature-verification fragility | NEVER — webhooks belong on Fly |
 | `drizzle-kit push` "just this once" | Skip the migration review step | Data loss | NEVER in any environment (Drizzle + Neon makes branching painless; use a branch) |
@@ -976,11 +976,11 @@ How roadmap phases should address these pitfalls. (Phase numbering per PROJECT.m
 - [Migrating a React Native App to Expo (Headway)](https://www.headway.io/blog/migrating-a-react-native-app-to-expo)
 
 **Project context (read at start):**
-- `C:\Users\dimet\hustle\.planning\PROJECT.md` — GymOS v1 scope, constraints, key decisions
+- `C:\Users\dimet\hustle\.planning\PROJECT.md` — GymClassOS v1 scope, constraints, key decisions
 - `C:\Users\dimet\hustle\.planning\research\STACK.md` — stack research (already complete) — anchored several pitfalls (Vercel-vs-Fly webhook decision; `@great-detail/whatsapp` fork risk; `drizzle-kit push` guard; Vitest browser-mode bug; React Router v7 + Vercel validation gate)
 
 ---
 
-*Pitfalls research for: GymOS — boutique fitness studio management platform*
+*Pitfalls research for: GymClassOS — boutique fitness studio management platform*
 *Researched: 2026-05-17*
 *Confidence: HIGH (integration-specific pitfalls have direct vendor-doc support and 2026 community write-ups); MEDIUM for per-customer-deploy specifics (extrapolated from multi-tenant ops literature; the abstract pattern is well-documented, the specific tooling for Fly+Vercel+Neon-per-studio is fresh ground)*

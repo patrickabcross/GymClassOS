@@ -138,7 +138,7 @@ Edit `templates/mail/server/plugins/auth.ts`. In the `publicPaths` array (curren
 "/gymos/payments",
 ```
 
-Preserve the two `/api/gmail/*` entries above them. Preserve the surrounding comment block ("GymOS Demo Sprint — bypass auth ..."). Do not touch any other field of `createAuthPlugin({...})`.
+Preserve the two `/api/gmail/*` entries above them. Preserve the surrounding comment block ("GymClassOS Demo Sprint — bypass auth ..."). Do not touch any other field of `createAuthPlugin({...})`.
 
 This single edit unblocks plans D1-01 (this one), D1-02 (members directory), and D1-03 (payments) to all run in parallel without each needing to touch this file.
   </action>
@@ -168,7 +168,7 @@ Create new file `templates/mail/app/routes/gymos.schedule.tsx`. React Router v7 
 
 Module structure (mirror `gymos.tsx` exactly for consistency):
 
-1. Header comment block: `// GymOS Schedule — Demo Sprint D1. Week-grid of seeded class occurrences with book-into-occurrence dialog. Standalone for demo; will move to apps/staff-web/features/schedule/ post-demo.`
+1. Header comment block: `// GymClassOS Schedule — Demo Sprint D1. Week-grid of seeded class occurrences with book-into-occurrence dialog. Standalone for demo; will move to apps/staff-web/features/schedule/ post-demo.`
 
 2. Imports:
 ```typescript
@@ -183,7 +183,7 @@ import { cn } from "@/lib/utils";
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "react-router";
 ```
 
-3. `export function meta() { return [{ title: "GymOS — Schedule" }]; }`
+3. `export function meta() { return [{ title: "GymClassOS — Schedule" }]; }`
 
 4. `export async function loader({ request }: LoaderFunctionArgs)`:
    - `const url = new URL(request.url); const bookOccurrenceId = url.searchParams.get("book");`

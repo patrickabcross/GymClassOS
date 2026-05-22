@@ -7,7 +7,7 @@ tags: [react-router-v7, drizzle, neon, members, profile, deep-link]
 # Dependency graph
 requires:
   - phase: D0-fork-bootstrap-schema-seed-day-1
-    provides: 12 GymOS Neon tables (gym_members, passes, pass_debits, bookings, class_occurrences, class_definitions, food_entries, conversations) + 5 seeded members + Mail template routing
+    provides: 12 GymClassOS Neon tables (gym_members, passes, pass_debits, bookings, class_occurrences, class_definitions, food_entries, conversations) + 5 seeded members + Mail template routing
 provides:
   - "/gymos/members directory list with pass-balance per row"
   - "/gymos/members/:id profile page with bookings + passes + food + conversation deep-link"
@@ -36,7 +36,7 @@ key-decisions:
   - "Demo-grade caps: no pagination, no search, no edit on directory; food-entries shows snapshotted kcal/protein from food_entries (no join to food_items for richer descriptions). All three deferred to MEM-03 / MEM-05 in Production v1"
 
 patterns-established:
-  - "GymOS profile pages live at /gymos/<entity>/<id> (dollar-prefix file) and pair with a /gymos/<entity> list page (no dollar)"
+  - "GymClassOS profile pages live at /gymos/<entity>/<id> (dollar-prefix file) and pair with a /gymos/<entity> list page (no dollar)"
   - "Pass balance everywhere = SUM(passes.granted WHERE member_id=X) − SUM(pass_debits.amount WHERE pass.member_id=X). Inbox panel + members directory + profile page all share this formula. Production v1 will extract to a single helper in server/db/queries.ts"
 
 requirements-completed: [MEM-01, MEM-02]
