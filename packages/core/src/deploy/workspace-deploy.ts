@@ -674,7 +674,10 @@ let cachedHandler;
 
 export default async function handler(...args) {
   setBasePathEnv();
-  cachedHandler ??= (await import("./main.mjs")).default;
+  if (!cachedHandler) {
+    const mod = (await import("./main.mjs")).default;
+    cachedHandler = typeof mod === "function" ? mod : mod.fetch.bind(mod);
+  }
   return cachedHandler(${handlerArgs});
 }
 
@@ -764,7 +767,10 @@ let cachedHandler;
 
 export default async function handler(...args) {
   setBasePathEnv();
-  cachedHandler ??= (await import("./main.mjs")).default;
+  if (!cachedHandler) {
+    const mod = (await import("./main.mjs")).default;
+    cachedHandler = typeof mod === "function" ? mod : mod.fetch.bind(mod);
+  }
   return cachedHandler(...normalizeBasePathArgs(args));
 }
 `;
