@@ -33,7 +33,7 @@ Milestone: Demo Sprint (1 of 2) — Week 1 (by ~2026-05-24)
 Phase: P1b (Webhook + Worker Spine (Stripe + WhatsApp)) — EXECUTING
 Plan: 8 of 9
 Status: Ready to execute
-Last activity: 2026-05-20
+Last activity: 2026-05-24 - Completed quick task 260524-r8f: Fix staff-web OAuth: redirect Mail routes to /gymos, remove Mail account hook, narrow Google scopes
 
 Progress: Demo Sprint [███░░░░░░░] ~30%
 
@@ -157,6 +157,12 @@ None tracked as TODOs; everything is in the roadmap / requirements.
 - ODbL attribution for Open Food Facts (`CAL-11`) — need to display attribution in calorie counter UI
 - PWA web push on iOS 16.4+ — N/A now since mobile is native Expo, not PWA
 - D2-01 Task 5 smoke test deferred — requires Expo Go on a physical phone (not runnable from CLI). User must run the 16-step verification in plan §how-to-verify before downstream D2 plans are fully verified.
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 260524-r8f | Fix staff-web OAuth: redirect Mail routes to /gymos, remove Mail account hook, narrow Google scopes | 2026-05-24 | 1c60a41e | [260524-r8f-fix-staff-web-oauth-redirect-mail-routes](./quick/260524-r8f-fix-staff-web-oauth-redirect-mail-routes/) |
 
 ## Session Continuity
 
