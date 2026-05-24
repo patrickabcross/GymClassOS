@@ -1,8 +1,20 @@
-import { InboxPage } from "@/pages/InboxPage";
+import { redirect } from "react-router";
 import { Spinner } from "@/components/ui/spinner";
 
 export function meta() {
-  return [{ title: "Agent-Native Mail" }];
+  return [{ title: "GymClassOS" }];
+}
+
+// Legacy Mail-template thread path. Anything matching /<view>/<threadId>
+// redirects to the GymOS WhatsApp inbox. Both server loader and client
+// loader so the navigation completes before hydration — same pattern as
+// routes/_index.tsx and routes/$view.tsx.
+export function loader() {
+  throw redirect("/gymos");
+}
+
+export function clientLoader() {
+  throw redirect("/gymos");
 }
 
 export function HydrateFallback() {
@@ -14,5 +26,6 @@ export function HydrateFallback() {
 }
 
 export default function ThreadRoute() {
-  return <InboxPage />;
+  // Should never render — both loaders redirect to /gymos.
+  return null;
 }
