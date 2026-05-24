@@ -3,6 +3,7 @@ packages:
   - templates/*
   - templates/*/desktop
   - apps/*
+  - services/*
 
 catalog:
   "@tabler/icons-react": ^3.41.1
@@ -21,9 +22,5 @@ catalog:
 
 onlyBuiltDependencies:
   - "@swc/core"
-  - better-sqlite3
-  - canvas
-  - electron
   - esbuild
   - lightningcss
-  - node-pty

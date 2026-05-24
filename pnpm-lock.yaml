@@ -90,58 +90,6 @@ importers:
         specifier: ^4.80.0
         version: 4.81.0
 
-  apps/edge-webhooks:
-    dependencies:
-      '@agent-native/core':
-        specifier: workspace:*
-        version: link:../../packages/core
-      '@gymos/queue':
-        specifier: workspace:*
-        version: link:../../packages/queue
-      '@gymos/whatsapp':
-        specifier: workspace:*
-        version: link:../../packages/whatsapp
-      '@hono/node-server':
-        specifier: ^1.13.0
-        version: 1.19.12(hono@4.12.10)
-      '@neondatabase/serverless':
-        specifier: ^1.1.0
-        version: 1.1.0
-      drizzle-orm:
-        specifier: ^0.45.2
-        version: 0.45.2(@libsql/client@0.15.15)(@neondatabase/serverless@1.1.0)(@opentelemetry/api@1.9.1)(@types/better-sqlite3@7.6.13)(@types/pg@8.20.0)(better-sqlite3@12.8.0)(kysely@0.28.15)(pg@8.20.0)(postgres@3.4.9)
-      hono:
-        specifier: '>=4.12.4'
-        version: 4.12.10
-      pino:
-        specifier: ^9.5.0
-        version: 9.14.0
-      stripe:
-        specifier: ^19.0.0
-        version: 19.3.1(@types/node@22.19.17)
-      ws:
-        specifier: ^8.18.0
-        version: 8.20.0
-      zod:
-        specifier: ^4.0.0
-        version: 4.4.3
-    devDependencies:
-      '@types/node':
-        specifier: ^22.0.0
-        version: 22.19.17
-      '@types/ws':
-        specifier: ^8.5.0
-        version: 8.18.1
-      tsx:
-        specifier: 'catalog:'
-        version: 4.21.0
-      typescript:
-        specifier: 'catalog:'
-        version: 6.0.3
-      vitest:
-        specifier: ^2.0.0
-        version: 2.1.9(@types/node@22.19.17)(happy-dom@20.8.9)(jsdom@29.1.1(@noble/hashes@2.0.1)(canvas@3.2.3))(lightningcss@1.32.0)(sass@1.51.0)(terser@5.46.1)
-
   apps/staff-web:
     dependencies:
       '@agent-native/core':
@@ -409,70 +357,6 @@ importers:
       vitest:
         specifier: ^4.1.5
         version: 4.1.6(@opentelemetry/api@1.9.1)(@types/node@24.12.2)(happy-dom@20.8.9)(jsdom@29.1.1(@noble/hashes@2.0.1)(canvas@3.2.3))(vite@8.0.3(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)(@types/node@24.12.2)(esbuild@0.27.7)(jiti@2.6.1)(terser@5.46.1)(tsx@4.21.0)(yaml@2.8.3))
-
-  apps/worker:
-    dependencies:
-      '@gymos/queue':
-        specifier: workspace:*
-        version: link:../../packages/queue
-      '@gymos/whatsapp':
-        specifier: workspace:*
-        version: link:../../packages/whatsapp
-      '@hono/node-server':
-        specifier: ^1.13.0
-        version: 1.19.12(hono@4.12.10)
-      '@neondatabase/serverless':
-        specifier: ^1.1.0
-        version: 1.1.0
-      date-fns:
-        specifier: ^4.1.0
-        version: 4.1.0
-      drizzle-orm:
-        specifier: ^0.45.2
-        version: 0.45.2(@libsql/client@0.15.15)(@neondatabase/serverless@1.1.0)(@opentelemetry/api@1.9.1)(@types/better-sqlite3@7.6.13)(@types/pg@8.20.0)(better-sqlite3@12.8.0)(kysely@0.28.15)(pg@8.20.0)(postgres@3.4.9)
-      hono:
-        specifier: '>=4.12.4'
-        version: 4.12.10
-      nanoid:
-        specifier: ^5.1.0
-        version: 5.1.9
-      pg:
-        specifier: ^8.13.0
-        version: 8.20.0
-      pg-boss:
-        specifier: ^12.18.0
-        version: 12.18.2
-      pino:
-        specifier: ^9.5.0
-        version: 9.14.0
-      stripe:
-        specifier: ^19.0.0
-        version: 19.3.1(@types/node@22.19.17)
-      ws:
-        specifier: ^8.18.0
-        version: 8.20.0
-      zod:
-        specifier: ^4.0.0
-        version: 4.4.3
-    devDependencies:
-      '@types/node':
-        specifier: ^22.0.0
-        version: 22.19.17
-      '@types/pg':
-        specifier: ^8.11.0
-        version: 8.20.0
-      '@types/ws':
-        specifier: ^8.5.0
-        version: 8.18.1
-      tsx:
-        specifier: 'catalog:'
-        version: 4.21.0
-      typescript:
-        specifier: 'catalog:'
-        version: 6.0.3
-      vitest:
-        specifier: ^2.0.0
-        version: 2.1.9(@types/node@22.19.17)(happy-dom@20.8.9)(jsdom@29.1.1(@noble/hashes@2.0.1)(canvas@3.2.3))(lightningcss@1.32.0)(sass@1.51.0)(terser@5.46.1)
 
   packages/code-agents-ui:
     dependencies:
@@ -1414,6 +1298,122 @@ importers:
       '@types/node':
         specifier: ^22.0.0
         version: 22.19.17
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
+      vitest:
+        specifier: ^2.0.0
+        version: 2.1.9(@types/node@22.19.17)(happy-dom@20.8.9)(jsdom@29.1.1(@noble/hashes@2.0.1)(canvas@3.2.3))(lightningcss@1.32.0)(sass@1.51.0)(terser@5.46.1)
+
+  services/edge-webhooks:
+    dependencies:
+      '@agent-native/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@gymos/queue':
+        specifier: workspace:*
+        version: link:../../packages/queue
+      '@gymos/whatsapp':
+        specifier: workspace:*
+        version: link:../../packages/whatsapp
+      '@hono/node-server':
+        specifier: ^1.13.0
+        version: 1.19.12(hono@4.12.10)
+      '@neondatabase/serverless':
+        specifier: ^1.1.0
+        version: 1.1.0
+      drizzle-orm:
+        specifier: ^0.45.2
+        version: 0.45.2(@libsql/client@0.15.15)(@neondatabase/serverless@1.1.0)(@opentelemetry/api@1.9.1)(@types/better-sqlite3@7.6.13)(@types/pg@8.20.0)(better-sqlite3@12.8.0)(kysely@0.28.15)(pg@8.20.0)(postgres@3.4.9)
+      hono:
+        specifier: '>=4.12.4'
+        version: 4.12.10
+      pino:
+        specifier: ^9.5.0
+        version: 9.14.0
+      stripe:
+        specifier: ^19.0.0
+        version: 19.3.1(@types/node@22.19.17)
+      ws:
+        specifier: ^8.18.0
+        version: 8.20.0
+      zod:
+        specifier: ^4.0.0
+        version: 4.4.3
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.19.17
+      '@types/ws':
+        specifier: ^8.5.0
+        version: 8.18.1
+      tsx:
+        specifier: 'catalog:'
+        version: 4.21.0
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
+      vitest:
+        specifier: ^2.0.0
+        version: 2.1.9(@types/node@22.19.17)(happy-dom@20.8.9)(jsdom@29.1.1(@noble/hashes@2.0.1)(canvas@3.2.3))(lightningcss@1.32.0)(sass@1.51.0)(terser@5.46.1)
+
+  services/worker:
+    dependencies:
+      '@gymos/queue':
+        specifier: workspace:*
+        version: link:../../packages/queue
+      '@gymos/whatsapp':
+        specifier: workspace:*
+        version: link:../../packages/whatsapp
+      '@hono/node-server':
+        specifier: ^1.13.0
+        version: 1.19.12(hono@4.12.10)
+      '@neondatabase/serverless':
+        specifier: ^1.1.0
+        version: 1.1.0
+      date-fns:
+        specifier: ^4.1.0
+        version: 4.1.0
+      drizzle-orm:
+        specifier: ^0.45.2
+        version: 0.45.2(@libsql/client@0.15.15)(@neondatabase/serverless@1.1.0)(@opentelemetry/api@1.9.1)(@types/better-sqlite3@7.6.13)(@types/pg@8.20.0)(better-sqlite3@12.8.0)(kysely@0.28.15)(pg@8.20.0)(postgres@3.4.9)
+      hono:
+        specifier: '>=4.12.4'
+        version: 4.12.10
+      nanoid:
+        specifier: ^5.1.0
+        version: 5.1.9
+      pg:
+        specifier: ^8.13.0
+        version: 8.20.0
+      pg-boss:
+        specifier: ^12.18.0
+        version: 12.18.2
+      pino:
+        specifier: ^9.5.0
+        version: 9.14.0
+      stripe:
+        specifier: ^19.0.0
+        version: 19.3.1(@types/node@22.19.17)
+      ws:
+        specifier: ^8.18.0
+        version: 8.20.0
+      zod:
+        specifier: ^4.0.0
+        version: 4.4.3
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.19.17
+      '@types/pg':
+        specifier: ^8.11.0
+        version: 8.20.0
+      '@types/ws':
+        specifier: ^8.5.0
+        version: 8.18.1
+      tsx:
+        specifier: 'catalog:'
+        version: 4.21.0
       typescript:
         specifier: 'catalog:'
         version: 6.0.3
@@ -36248,7 +36248,7 @@ snapshots:
       esbuild: 0.27.7
       fdir: 6.5.0(picomatch@4.0.4)
       picomatch: 4.0.4
-      postcss: 8.5.10
+      postcss: 8.5.14
       rollup: 4.60.1
       tinyglobby: 0.2.16
     optionalDependencies:
@@ -36265,7 +36265,7 @@ snapshots:
       esbuild: 0.27.7
       fdir: 6.5.0(picomatch@4.0.4)
       picomatch: 4.0.4
-      postcss: 8.5.10
+      postcss: 8.5.14
       rollup: 4.60.1
       tinyglobby: 0.2.16
     optionalDependencies:
@@ -36282,7 +36282,7 @@ snapshots:
       esbuild: 0.27.7
       fdir: 6.5.0(picomatch@4.0.4)
       picomatch: 4.0.4
-      postcss: 8.5.10
+      postcss: 8.5.14
       rollup: 4.60.1
       tinyglobby: 0.2.16
     optionalDependencies:
