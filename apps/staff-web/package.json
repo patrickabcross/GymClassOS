@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "agent-native dev",
-    "build": "agent-native build",
+    "build": "node ../../packages/core/dist/cli/index.js build",
     "start": "agent-native start",
     "test": "vitest --run",
     "format.fix": "prettier --write .",
