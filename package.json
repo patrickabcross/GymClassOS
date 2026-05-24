@@ -84,6 +84,7 @@
     }
   },
   "dependencies": {
+    "@agent-native/core": "workspace:*",
     "diff-match-patch": "^1.0.5",
     "yjs": "^13.6.30"
   }
