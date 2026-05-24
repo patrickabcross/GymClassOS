@@ -25,15 +25,14 @@ import { isOAuthConnected, getOAuthAccounts } from "@agent-native/core/server";
 import { getUserSetting, putUserSetting } from "@agent-native/core/settings";
 import { decodeCommonHtmlEntities } from "@shared/markdown.js";
 
+// Identity-only scopes. GymClassOS does NOT read Gmail/Calendar/Contacts on
+// the staff side — those were the upstream Mail template's needs. The Google
+// consent screen must stay minimal (profile + email) so studios signing in
+// don't see scary "access your Gmail" prompts. Re-add scopes only when a
+// feature genuinely needs them.
 const SCOPES = [
-  "https://www.googleapis.com/auth/gmail.readonly",
-  "https://www.googleapis.com/auth/gmail.send",
-  "https://www.googleapis.com/auth/gmail.modify",
-  "https://www.googleapis.com/auth/gmail.settings.basic",
   "https://www.googleapis.com/auth/userinfo.profile",
-  "https://www.googleapis.com/auth/contacts.readonly",
-  "https://www.googleapis.com/auth/contacts.other.readonly",
-  "https://www.googleapis.com/auth/calendar.events",
+  "https://www.googleapis.com/auth/userinfo.email",
 ];
 
 interface GoogleTokens {
@@ -242,12 +241,11 @@ export async function exchangeCode(
     owner ?? email,
   );
 
-  try {
-    await startWatch(tokens.access_token);
-  } catch (err: any) {
-    console.warn(`[gmail-watch] start after OAuth failed: ${err.message}`);
-  }
-
+  // NOTE: Gmail watch hook intentionally removed from the post-OAuth path.
+  // GymClassOS staff sign-in is identity-only (profile + email scopes); we do
+  // NOT subscribe to inbox change notifications. `startWatch` remains
+  // available for env-gated callers (server/routes/api/gmail/watch/renew.post.ts
+  // + actions/bootstrap-watches.ts) but is no longer invoked automatically.
   return email;
 }
 

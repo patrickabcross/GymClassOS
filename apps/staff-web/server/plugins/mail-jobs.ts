@@ -10,37 +10,21 @@ import {
   type SendLaterPayload,
 } from "../lib/jobs.js";
 import { processAutomations } from "../lib/automation-engine.js";
-import { listOAuthAccounts } from "@agent-native/core/oauth-tokens";
-import { getClientForAccount, startWatch } from "../lib/google-auth.js";
+// NOTE: imports from ../lib/google-auth.js intentionally removed.
+// The Gmail-watch account hook (renewAllWatches) was deleted here as
+// defence-in-depth — even if a future deploy mis-sets GMAIL_WATCH_TOPIC,
+// the Mail-template inbox subscription cannot fire from this cron path.
+// startWatch itself still exists in google-auth.ts and is reachable from
+// server/routes/api/gmail/watch/renew.post.ts + actions/bootstrap-watches.ts.
+// listOAuthAccounts likewise no longer needs to be imported here.
 import { registerEvent } from "@agent-native/core/event-bus";
 import { z } from "zod";
 
 const INTERVAL_MS = 60_000; // 1 minute
-const WATCH_RENEW_INTERVAL_MS = 12 * 60 * 60_000;
-let lastWatchRenewalAt = 0;
 // Vite's dev server initializes Nitro plugins more than once during boot
 // (initial load + post-init). Module-scope flag ensures the "skipping" log
 // fires at most once per process.
 let skippingLogged = false;
-
-async function renewAllWatches(): Promise<void> {
-  if (!process.env.GMAIL_WATCH_TOPIC) return;
-  const accounts = await listOAuthAccounts("google");
-  for (const acc of accounts) {
-    try {
-      // Use accountId-based lookup so secondary/added accounts (where
-      // `owner !== accountId`) also get their watch renewed. Gmail watches
-      // expire in ~7 days and must be renewed regularly.
-      const client = await getClientForAccount(acc.accountId);
-      if (!client) continue;
-      await startWatch(client.accessToken);
-    } catch (err: any) {
-      console.warn(
-        `[gmail-watch] renew failed for ${acc.accountId}: ${err.message}`,
-      );
-    }
-  }
-}
 
 async function processJobs(): Promise<void> {
   const now = Date.now();
@@ -134,13 +118,6 @@ export default () => {
     } catch (err) {
       console.error("[mail-jobs] processAutomations failed:", err);
     }
-    if (Date.now() - lastWatchRenewalAt > WATCH_RENEW_INTERVAL_MS) {
-      lastWatchRenewalAt = Date.now();
-      try {
-        await renewAllWatches();
-      } catch (err) {
-        console.error("[mail-jobs] renewAllWatches failed:", err);
-      }
-    }
+    // Gmail watch renewal removed — see import comment above.
   }, INTERVAL_MS);
 };
