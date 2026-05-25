@@ -61,7 +61,7 @@ These sizes match existing gymos routes. Do not introduce new sizes — use only
 | Body / messages | 13px | 400 (regular) | 1.5 | Conversation message text, form inputs, dialog body |
 | Label / meta | 12px | 400 (regular) | 1.4 | Conversation list previews, member context values, analytics sub-labels |
 | Caption / badge | 10–11px | 400 (regular) | 1.3 | Timestamps (`text-[10px]`), unread badge counts, window-state badges, error bubbles (`text-[11px]`) |
-| Heading / section | 14px | 600 (semibold) | 1.2 | Panel headers (`text-sm font-semibold`), dialog titles, analytics metric primary values |
+| Heading / section | 14px | 600 (semibold) | 1.2 | Panel headers (`text-sm font-semibold`), dialog titles, analytics metric primary values, access-denied brand wordmark |
 
 Weights declared: regular (400) and semibold (600) only. Do not use 500 (medium) or 700 (bold) in new gymos surfaces — they are not used in existing gymos components.
 
@@ -230,7 +230,7 @@ Empty state (zero seeded data): show cards with "–" as the value and "No data 
 
 **`/access-denied` page:**
 - Full-page centered layout (`min-h-screen flex flex-col items-center justify-center gap-6 bg-background`)
-- Brand wordmark: "GymClassOS" (16px semibold, `text-foreground`) at top
+- Brand wordmark: "GymClassOS" (14px semibold — Heading/section role; `text-foreground` / `text-sm font-semibold`) at top
 - Icon: `IconLock` from Tabler (size 40, `text-muted-foreground`)
 - Heading: "Access not permitted" (14px semibold)
 - Body: "Your account isn't on the approved list for this studio. Contact your studio admin to get access." (13px muted, max-width 320px, center-aligned, line-height 1.5)
@@ -358,6 +358,7 @@ No third-party registries declared. Registry vetting gate: not applicable.
 | Dimension 1 — "Cancel" is BLOCK-listed generic label | Replaced with "Discard draft" in both Surface Spec dialog footer description and Copywriting Contract table |
 | Dimension 4 — `text-2xl` (24px) was undeclared 5th font size | Replaced with `text-sm font-semibold` (14px) in analytics metric card Surface Spec; Typography table "Heading / section" role now explicitly lists "analytics metric primary values" |
 | Dimension 5 — `px-2.5` (10px) is not a multiple of 4 | Removed from Spacing exceptions table; added explanatory note that this is pre-existing `GymosTopNav.tsx:34` code not introduced or reaffirmed by this phase |
+| Dimension 4 — Surface Spec §4 wordmark declared 16px (undeclared 5th size) | Replaced with 14px Heading/section role (`text-sm font-semibold`) in §4 wordmark line; Typography table "Heading / section" usage column updated to include "access-denied brand wordmark" |
 
 ---
 
