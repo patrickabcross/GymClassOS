@@ -378,10 +378,6 @@ export default function GymosMemberProfile() {
                 ))}
               </div>
             )}
-            <p className="mt-3 text-[10px] text-muted-foreground">
-              Demo-grade: shows the snapshotted kcal/protein from food_entries.
-              Production v1 joins food_items for richer descriptions + macros.
-            </p>
           </CardContent>
         </Card>
       </div>

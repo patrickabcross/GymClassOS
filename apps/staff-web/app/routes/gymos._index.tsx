@@ -643,11 +643,6 @@ export default function GymosInbox() {
                   Send
                 </Button>
               </div>
-              <p className="text-[10px] text-muted-foreground mt-1.5">
-                Sends route through pg-boss → worker → Meta v23. The worker
-                re-checks opt-in + 24h-window at the chokepoint (defence in
-                depth — UI cache can be stale).
-              </p>
             </Form>
           </>
         )}
@@ -659,7 +654,7 @@ export default function GymosInbox() {
           <header className="px-4 py-3 border-b border-border/50">
             <h3 className="text-sm font-semibold">Member context</h3>
             <p className="text-[11px] text-muted-foreground mt-0.5">
-              Why GymClassOS &gt; Mindbody — this panel
+              Member at a glance
             </p>
           </header>
           <div className="px-4 py-3 space-y-4 text-[12px]">

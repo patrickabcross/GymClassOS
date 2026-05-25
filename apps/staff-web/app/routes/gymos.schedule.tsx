@@ -347,12 +347,6 @@ export default function GymosSchedule() {
                   </Select>
                 </div>
 
-                <p className="text-[10px] text-muted-foreground">
-                  Demo: inserts a bookings row directly. Production wraps
-                  capacity check + entitlement resolution + pass debit in a
-                  single SQL transaction (BKG-03/BKG-04).
-                </p>
-
                 <DialogFooter>
                   <Button
                     type="button"

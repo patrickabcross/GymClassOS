@@ -175,12 +175,6 @@ export default function GymosMembers() {
             );
           })}
         </div>
-
-        {/* Demo-grade limits footer */}
-        <p className="mt-4 text-[11px] text-muted-foreground">
-          Demo-grade: no pagination, no search, no edit (MEM-03 / MEM-05 in
-          Production v1).
-        </p>
       </div>
     </div>
   );

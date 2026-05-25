@@ -28,13 +28,8 @@ export default function GymosPayments() {
             </Badge>
           </div>
           <p className="mt-2 text-[13px] text-muted-foreground">
-            Stripe Checkout link generation + pass-grant reconciliation. Demo
-            Sprint D1-03 is paused awaiting{" "}
-            <code className="px-1 py-0.5 bg-muted rounded text-[12px]">
-              STRIPE_SECRET_KEY
-            </code>{" "}
-            in the env file. Production payments + Stripe webhook spine ship in
-            Phase P1b.
+            Stripe Checkout link generation and pass-grant reconciliation are
+            coming soon.
           </p>
         </header>
 
