@@ -44,10 +44,11 @@ Declared values (multiples of 4 only). These match the Tailwind v4 default scale
 
 Exceptions:
 - Nav bar height: 44px (`h-11`) — matches existing `GymosTopNav` exactly; do not change
-- Nav tab padding: `px-2.5 py-1` (10px / 4px) — preserve existing tab rhythm
 - Reply form area: `px-5 py-3` (20px / 12px) — matches existing form chrome in `gymos._index.tsx:522`
 - Touch target minimum: 44px height for all interactive elements (buttons, nav tabs)
 - Member context panel width: 300px fixed (`w-[300px]`) — matches existing right-rail
+
+Note: `GymosTopNav.tsx:34` uses `px-2.5 py-1` (10px) on existing tabs — this is pre-existing code that this phase does not change. P1b.1 does not introduce or reaffirm this value; no new tab-level spacing is specified in this phase. When the Analytics tab is added it inherits the parent `tabClass()` pattern unchanged.
 
 ---
 
@@ -60,7 +61,7 @@ These sizes match existing gymos routes. Do not introduce new sizes — use only
 | Body / messages | 13px | 400 (regular) | 1.5 | Conversation message text, form inputs, dialog body |
 | Label / meta | 12px | 400 (regular) | 1.4 | Conversation list previews, member context values, analytics sub-labels |
 | Caption / badge | 10–11px | 400 (regular) | 1.3 | Timestamps (`text-[10px]`), unread badge counts, window-state badges, error bubbles (`text-[11px]`) |
-| Heading / section | 14px | 600 (semibold) | 1.2 | Panel headers (`text-sm font-semibold`), dialog titles, analytics metric values |
+| Heading / section | 14px | 600 (semibold) | 1.2 | Panel headers (`text-sm font-semibold`), dialog titles, analytics metric primary values |
 
 Weights declared: regular (400) and semibold (600) only. Do not use 500 (medium) or 700 (bold) in new gymos surfaces — they are not used in existing gymos components.
 
@@ -104,7 +105,7 @@ Components already installed in `apps/staff-web/app/components/ui/` that this ph
 | Component | Phase usage |
 |-----------|-------------|
 | `Dialog` + `DialogContent` + `DialogHeader` + `DialogTitle` | Templates picker (D-04). Left/right split layout within DialogContent. |
-| `Button` | "Templates" secondary button beside Send; Send button; dialog Send + Cancel |
+| `Button` | "Templates" secondary button beside Send; Send button; dialog Send + dismiss |
 | `Input` | Reply text input (existing); template variable inputs inside dialog |
 | `Form` | Existing reply form shell; template variable sub-form inside dialog |
 | `Badge` | Approved / pending-approval status on templates in picker list |
@@ -169,7 +170,7 @@ DialogContent — max-width: 640px, height: 520px, flex row
     │   ├── Body preview section (12px label "Preview" uppercase tracking-wide muted)
     │   └── Preview block (13px, bg-muted/40 rounded p-3, line-height 1.5, monospace-free)
     └── Dialog footer (border-t border-border/50 px-4 py-3 flex justify-end gap-2)
-        ├── Cancel button (variant=ghost)
+        ├── "Discard draft" button (variant=ghost) — closes dialog and discards unsaved variable inputs
         └── Send button (variant=default, disabled if no approved template selected or required variables empty)
 ```
 
@@ -178,7 +179,7 @@ DialogContent — max-width: 640px, height: 520px, flex row
 - Variable inputs: standard `Input` components; validation is presence-only (no empty required fields) — error shown inline below input (`text-[11px] text-destructive`)
 - Preview updates live as variables are typed (client-side string substitution of `{{variable_name}}` placeholders)
 - Send: calls the existing `enqueueOutboundWhatsApp` action; on success closes dialog + shows Sonner toast "Template queued" (green); on error shows Sonner toast with the typed error code copy
-- Cancel: closes dialog, discards state
+- Discard draft: closes dialog, discards state
 - Keyboard: `Escape` closes dialog (shadcn default); `Tab` moves through template list then variable inputs then buttons
 
 **Template list rows for seeded templates:**
@@ -211,7 +212,7 @@ Card (p-4 border border-border/50 rounded-lg bg-card/40)
 │   ├── label: metric name (12px uppercase tracking-wide muted-foreground)
 │   └── period badge: "7d" / "30d" (10px, bg-muted rounded-full px-1.5)
 ├── CardContent
-│   ├── primary value: "73%" or "12" (28px, weight 600) — `text-2xl font-semibold`
+│   ├── primary value: "73%" or "12" (14px semibold, `text-sm font-semibold`) — Heading / section role
 │   ├── secondary context: "of 15 classes" or "4 cancellations" (12px muted)
 │   └── [loading state]: Skeleton (h-8 w-24 + h-4 w-32)
 ```
@@ -258,6 +259,7 @@ Empty state (zero seeded data): show cards with "–" as the value and "No data 
 | Template status — approved | "Approved" (badge, green outline) |
 | Template status — pending | "Awaiting approval" (badge, muted) |
 | Pending template tooltip | "Awaiting Meta approval — submit templates via your Meta Business Manager" |
+| Dialog dismiss action | "Discard draft" (variant=ghost button; closes dialog and discards unsaved variable inputs) |
 | Send success toast | "Template queued" |
 | Send error — no opt-in | "Member hasn't opted in to WhatsApp messages" |
 | Send error — window expired | "24h window closed — this is a template send, so it should still proceed. Contact support if this error persists." |
@@ -334,7 +336,7 @@ No third-party registries declared. Registry vetting gate: not applicable.
 | shadcn initialized (style=default, slate, cssVariables) | `components.json` — codebase scan |
 | Inter font, 400/600 weights only | `global.css:1` + existing gymos components |
 | 10–14px type scale (4 sizes) | Existing gymos routes (`gymos._index.tsx`, `GymosTopNav.tsx`) |
-| `h-11` nav height, `px-2.5 py-1` tab padding | `GymosTopNav.tsx:34` — codebase scan |
+| `h-11` nav height, `px-2.5 py-1` tab padding | `GymosTopNav.tsx:34` — codebase scan; pre-existing, not reaffirmed by this phase |
 | Slate CSS token palette | `global.css:8-37` — codebase scan |
 | Emerald for in-window badge | `gymos._index.tsx:411` — codebase scan |
 | Tabler icons mandatory | `AGENTS.md` + `CLAUDE.md` |
@@ -348,6 +350,14 @@ No third-party registries declared. Registry vetting gate: not applicable.
 | Agent chip copy exact strings | `AppLayout.tsx:143-146` — codebase scan |
 | No shadcn third-party registries | CONTEXT.md + codebase scan |
 | User input during this session | 0 questions asked — all answered by upstream artifacts |
+
+### Checker revision notes (2026-05-25)
+
+| Issue | Fix applied |
+|-------|------------|
+| Dimension 1 — "Cancel" is BLOCK-listed generic label | Replaced with "Discard draft" in both Surface Spec dialog footer description and Copywriting Contract table |
+| Dimension 4 — `text-2xl` (24px) was undeclared 5th font size | Replaced with `text-sm font-semibold` (14px) in analytics metric card Surface Spec; Typography table "Heading / section" role now explicitly lists "analytics metric primary values" |
+| Dimension 5 — `px-2.5` (10px) is not a multiple of 4 | Removed from Spacing exceptions table; added explanatory note that this is pre-existing `GymosTopNav.tsx:34` code not introduced or reaffirmed by this phase |
 
 ---
 
