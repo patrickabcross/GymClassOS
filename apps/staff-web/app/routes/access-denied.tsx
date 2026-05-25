@@ -45,22 +45,23 @@ export default function AccessDenied() {
   };
 
   return (
-    <main
-      role="main"
-      className="min-h-screen flex flex-col items-center justify-center gap-6 bg-background px-6"
-    >
-      <div className="text-sm font-semibold text-foreground">GymClassOS</div>
-      <IconLock size={40} className="text-muted-foreground" aria-hidden />
-      <h1 className="text-sm font-semibold text-foreground">
-        Access not permitted
-      </h1>
-      <p className="max-w-[320px] text-center text-[13px] leading-[1.5] text-muted-foreground">
-        Your account isn't on the approved list for this studio. Contact your
-        studio admin to get access.
-      </p>
-      <Button variant="outline" onClick={handleSignInDifferent}>
-        Sign in with a different account
-      </Button>
+    <main role="main" className="min-h-screen flex flex-col bg-background">
+      <header className="px-6 py-4">
+        <div className="text-sm font-semibold text-foreground">GymClassOS</div>
+      </header>
+      <div className="flex-1 flex flex-col items-center justify-center gap-6 px-6">
+        <IconLock size={40} className="text-muted-foreground" aria-hidden />
+        <h1 className="text-sm font-semibold text-foreground">
+          Access not permitted
+        </h1>
+        <p className="max-w-[320px] text-center text-[13px] leading-[1.5] text-muted-foreground">
+          Your account isn't on the approved list for this studio. Contact your
+          studio admin to get access.
+        </p>
+        <Button variant="outline" onClick={handleSignInDifferent}>
+          Sign in with a different account
+        </Button>
+      </div>
     </main>
   );
 }

@@ -189,19 +189,32 @@ function formatPct(pct: number | null): string {
   return pct === null ? "–" : `${pct}%`;
 }
 
-function MetricCard({
-  label,
-  primaryValue,
-  primaryContext,
-  secondaryValue,
-  secondaryContext,
-}: {
+// MetricCard variants:
+//   - default: 7d / 30d comparison (two stacked value rows + badges)
+//   - snapshot: single primary value with no badge split — used for
+//     point-in-time metrics like Pass Utilisation where there is no
+//     window comparison to make. Avoids the "30d duplicates 7d" visual
+//     bug (UI-REVIEW fix #7).
+type MetricCardProps = {
   label: string;
   primaryValue: string;
   primaryContext: string;
-  secondaryValue: string;
-  secondaryContext: string;
-}) {
+} & (
+  | {
+      variant?: "default";
+      secondaryValue: string;
+      secondaryContext: string;
+    }
+  | {
+      variant: "snapshot";
+      secondaryValue?: never;
+      secondaryContext?: never;
+    }
+);
+
+function MetricCard(props: MetricCardProps) {
+  const { label, primaryValue, primaryContext } = props;
+  const isSnapshot = props.variant === "snapshot";
   return (
     <Card
       role="region"
@@ -216,22 +229,28 @@ function MetricCard({
       <CardContent className="p-0 flex flex-col gap-3 mt-3">
         <div className="flex items-baseline gap-2">
           <div className="text-sm font-semibold">{primaryValue}</div>
-          <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-            7d
-          </Badge>
+          {!isSnapshot && (
+            <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+              7d
+            </Badge>
+          )}
         </div>
         <div className="text-[12px] text-muted-foreground">
           {primaryContext}
         </div>
-        <div className="flex items-baseline gap-2 mt-1">
-          <div className="text-sm font-semibold">{secondaryValue}</div>
-          <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-            30d
-          </Badge>
-        </div>
-        <div className="text-[12px] text-muted-foreground">
-          {secondaryContext}
-        </div>
+        {!isSnapshot && (
+          <>
+            <div className="flex items-baseline gap-2 mt-1">
+              <div className="text-sm font-semibold">{props.secondaryValue}</div>
+              <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                30d
+              </Badge>
+            </div>
+            <div className="text-[12px] text-muted-foreground">
+              {props.secondaryContext}
+            </div>
+          </>
+        )}
       </CardContent>
     </Card>
   );
@@ -282,15 +301,14 @@ export default function GymosAnalytics() {
           }
         />
         <MetricCard
+          variant="snapshot"
           label="Pass Utilisation"
           primaryValue={formatPct(data.passUtil.pct)}
           primaryContext={
             data.passUtil.totalActive === 0
               ? "No data yet"
-              : `${data.passUtil.withDebit} of ${data.passUtil.totalActive} active passes used`
+              : `${data.passUtil.withDebit} of ${data.passUtil.totalActive} active passes used · snapshot`
           }
-          secondaryValue={formatPct(data.passUtil.pct)}
-          secondaryContext="Snapshot — all active passes"
         />
       </div>
     </div>

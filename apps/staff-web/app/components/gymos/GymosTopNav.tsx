@@ -11,7 +11,6 @@
 // without an <Outlet />, latent since D1).
 
 import { Link, useLocation } from "react-router";
-import { IconSettings } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
 
 export function GymosTopNav() {
@@ -51,13 +50,8 @@ export function GymosTopNav() {
       </Link>
       <Link
         to="/gymos/settings/integrations"
-        className={cn(
-          tabClass(isSettings),
-          "ml-auto inline-flex items-center gap-1",
-        )}
-        aria-label="Settings"
+        className={cn(tabClass(isSettings), "ml-auto")}
       >
-        <IconSettings size={14} aria-hidden />
         Settings
       </Link>
     </nav>
