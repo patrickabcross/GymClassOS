@@ -346,7 +346,9 @@ type Occurrence = {
 };
 
 function generateOccurrences(): Occurrence[] {
-  const defById = new Map(CLASS_DEFS.map((d) => [d.id, d]));
+  const defById = new Map<string, (typeof CLASS_DEFS)[number]>(
+    CLASS_DEFS.map((d) => [d.id, d]),
+  );
   const occurrences: Occurrence[] = [];
   let counter = 0;
 
