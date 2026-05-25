@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed P1b.1-04 (list-renewals + list-at-risk-members + whatsapp_templates seed)
-last_updated: "2026-05-25T22:06:31.083Z"
+stopped_at: Completed P1b.1-07 (gym agent surface — agent-chat.ts + AGENTS.md replaced)
+last_updated: "2026-05-25T22:16:05.818Z"
 last_activity: 2026-05-25
 progress:
   total_phases: 8
   completed_phases: 0
   total_plans: 8
-  completed_plans: 4
+  completed_plans: 5
   percent: 30
 ---
 
@@ -31,7 +31,7 @@ Requirements: `.planning/REQUIREMENTS.md` (130 reqs across 20 categories — see
 
 Milestone: Demo Sprint (1 of 2) — Week 1 (by ~2026-05-24)
 Phase: P1b.1-customer-pilot-enablement (Customer Pilot Enablement) — EXECUTING
-Plan: 4 of 8
+Plan: 5 of 8
 Status: Ready to execute
 Last activity: 2026-05-25
 
@@ -141,6 +141,9 @@ Decisions are logged in `PROJECT.md` Key Decisions table. Recent ones affecting 
 - [Phase P1b.1-customer-pilot-enablement]: P1b.1-02: Composable Nitro plugin pattern (await createAuthPlugin then getH3App(nitroApp).use(handler)) appends an allowlist hook AFTER framework auth session is set; CUSTOMER_ALLOWED_EMAILS env (empty = dev fallback). Plan referenced /_better_auth/* paths that don't exist — actual framework paths are /_agent-native/auth/* + /_agent-native/google/* (verified by reading core/dist/server/auth.js). Sign-out lives on the denial page CTA (POST /_agent-native/auth/logout), NOT in the middleware, to avoid the OAuth-loop trap (Pitfall 4).
 - [Phase P1b.1-customer-pilot-enablement]: P1b.1-03: Three primitive read actions (list-fill-rate, list-classes, list-members) shipped as defineAction GET endpoints. Used ../server/db/index.js import path (ESM .js convention matches sibling actions); guard:allow-unscoped marker on each query (gym tables exempt per research §6). Schema deviation auto-fixed: gym_members uses firstName+lastName (not single name); list-members returns composed name plus raw firstName/lastName for agent ergonomics.
 - [Phase P1b.1-customer-pilot-enablement]: P1b.1-04: whatsapp_templates.category seeded as lowercase ('utility') to match Drizzle enum constraint; passes table has no status column so renewals/at-risk filter on expires_at IS NOT NULL AND >= now; standalone tsx seed scripts load .env.local then .env via dotenv before dynamic-importing @agent-native/core/db (avoids module-eval ordering issues with DATABASE_URL). Idempotent via onConflictDoNothing on text PK.
+- [Phase P1b.1-customer-pilot-enablement]: P1b.1-07: Mail action files (archive-email, list-emails, etc.) intentionally NOT deleted from apps/staff-web/actions/ — they auto-register but the gym systemPrompt doesn't name them so the LLM has no signal to call them. systemPrompt-as-tool-gate pattern (cheap to reverse, dogfooding-friendly). Deletion belongs to P0 audit.
+- [Phase P1b.1-customer-pilot-enablement]: P1b.1-07: mentionProviders set to empty object {} rather than removed — framework accepts empty object; reserves slot for P2 gym mention providers (@member, @class, @conversation) without touching plugin signature.
+- [Phase P1b.1-customer-pilot-enablement]: P1b.1-07: templates/mail/AGENTS.md preserved upstream-clean (578 lines) for future BuilderIO/agent-native fork merges — fork-boundary discipline. apps/staff-web/AGENTS.md fully replaced with 85-line gym guide; apps/staff-web/CLAUDE.md still @-includes it so Claude Code dev sessions read gym instructions on every session.
 
 ### Pending Todos
 
@@ -176,11 +179,12 @@ None tracked as TODOs; everything is in the roadmap / requirements.
 | Phase P1b.1-customer-pilot-enablement P02 | 25min | 2 tasks | 3 files |
 | Phase P1b.1-customer-pilot-enablement P03 | 15min | 3 tasks | 3 files |
 | Phase P1b.1-customer-pilot-enablement P04 | 35min | 3 tasks | 4 files |
+| Phase P1b.1-customer-pilot-enablement P07 | 12min | 2 tasks | 2 files |
 
 ## Session Continuity
 
-Last session: 2026-05-25T22:06:31.075Z
-Stopped at: Completed P1b.1-04 (list-renewals + list-at-risk-members + whatsapp_templates seed)
+Last session: 2026-05-25T22:16:05.809Z
+Stopped at: Completed P1b.1-07 (gym agent surface — agent-chat.ts + AGENTS.md replaced)
 Resume file: None
 
 ### Resume Notes — Next Session Quick-Start

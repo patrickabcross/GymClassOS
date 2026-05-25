@@ -197,7 +197,7 @@ The production milestone is structured as 4 phases (preserving the prior coarse-
 - [x] P1b.1-04-gym-actions-and-template-seed-PLAN.md — Create list-renewals, list-at-risk-members + seed 5 whatsapp_templates rows including approved hello_world (AGENT-05, WA-05)
 - [ ] P1b.1-05-templates-dialog-PLAN.md — Templates picker dialog beside Send in gymos._index.tsx reply form, routes through enqueueOutboundWhatsApp with type:'template' payload (WA-05, WA-06, WA-07)
 - [ ] P1b.1-06-analytics-route-PLAN.md — /gymos/analytics route with Fill Rate / Cancellation Rate / Pass Utilisation metric cards (INBX-01)
-- [ ] P1b.1-07-gym-agent-surface-PLAN.md — Rewrite agent-chat.ts systemPrompt + replace apps/staff-web/AGENTS.md with gym version (AGENT-04, AGENT-05)
+- [x] P1b.1-07-gym-agent-surface-PLAN.md — Rewrite agent-chat.ts systemPrompt + replace apps/staff-web/AGENTS.md with gym version (AGENT-04, AGENT-05)
 - [ ] P1b.1-08-end-to-end-verification-PLAN.md — Manual walkthrough of 6 ROADMAP success criteria + negative auth test, recorded in VERIFICATION.md (all phase REQ-IDs)
 
 ### Phase P2: Staff + Member Product Surfaces (~3–4 weeks)
