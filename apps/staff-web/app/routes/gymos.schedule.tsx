@@ -319,7 +319,7 @@ export default function GymosSchedule() {
                   >
                     {occBookedCount} / {occ.capacity} booked
                   </span>
-                  {occFull && " (over capacity — demo allows this)"}
+                  {occFull && " · At capacity"}
                 </DialogDescription>
               </DialogHeader>
 
@@ -353,9 +353,14 @@ export default function GymosSchedule() {
                     variant="outline"
                     onClick={() => setParams({})}
                   >
-                    Cancel
+                    Discard
                   </Button>
-                  <Button type="submit">Book</Button>
+                  {/* occFull gate is UI-only; production atomicity
+                      (capacity check inside the booking transaction) ships
+                      in BKG-03/BKG-04. */}
+                  <Button type="submit" disabled={occFull}>
+                    Book
+                  </Button>
                 </DialogFooter>
               </Form>
             </>
