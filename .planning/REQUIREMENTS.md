@@ -68,7 +68,7 @@
 
 ### Staff Authentication
 
-- [ ] **AUTH-01** [D]: Coach can sign in to staff-web with email + password via Better-auth (demo can use seeded test accounts)
+- [x] **AUTH-01** [D]: Coach can sign in to staff-web with email + password via Better-auth (demo can use seeded test accounts)
 - [ ] **AUTH-02** [D+P]: Coach session persists across browser refresh and SSR loaders
 - [ ] **AUTH-03** [P]: Coach can sign out from any page
 - [ ] **AUTH-04** [P]: Two roles supported (`admin`, `coach`); `admin` can manage class definitions + Stripe settings, `coach` cannot
