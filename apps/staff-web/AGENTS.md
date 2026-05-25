@@ -14,7 +14,7 @@ You are the AI assistant for GymClassOS, a boutique fitness studio management pl
 | `class_definitions` | Class catalog — id, name (e.g. "Yoga"), duration_min, default_capacity |
 | `class_occurrences` | Individual class instances — id, definition_id, starts_at, capacity, status (scheduled/cancelled/completed) |
 | `bookings` | Who booked what — id, occurrence_id, member_id, status (booked/attended/no_show/cancelled), booked_at |
-| `passes` | Pass grants — id, member_id, granted_credits, expires_at, status (active/expired/void) |
+| `passes` | Pass grants — id, member_id, granted (credits), expires_at (active = NULL or future). No status column; "active" is derived from expires_at. |
 | `pass_debits` | Pass-balance ledger — id, pass_id, amount, created_at. Balance = SUM(granted) − SUM(debited). Never chain-join through this. |
 | `stripe_subscriptions` | Active recurring memberships — id, member_id, status, current_period_end |
 | `conversations` + `messages` | WhatsApp inbox threads |
