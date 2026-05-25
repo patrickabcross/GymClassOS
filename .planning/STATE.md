@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase P1b.1 context gathered
-last_updated: "2026-05-25T07:41:30.489Z"
-last_activity: "2026-05-24 - Completed quick task 260524-r8f: Fix staff-web OAuth: redirect Mail routes to /gymos, remove Mail account hook, narrow Google scopes"
+stopped_at: Completed P1b.1-02-auth-allowlist-access-denied-PLAN.md
+last_updated: "2026-05-25T22:01:02.501Z"
+last_activity: 2026-05-25
 progress:
   total_phases: 8
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_plans: 8
+  completed_plans: 2
   percent: 30
 ---
 
@@ -25,15 +25,15 @@ Requirements: `.planning/REQUIREMENTS.md` (130 reqs across 20 categories — see
 
 **Core value:** Coaches and studio managers run their entire day from one inbox-and-schedule surface (WhatsApp + class bookings + member context). Members book, pay, and log activity / nutrition from a native iOS/Android Expo app (forked from agent-native's `packages/mobile-app`) that includes an in-app coaching agent.
 
-**Current focus:** Phase P1b — Webhook + Worker Spine (Stripe + WhatsApp)
+**Current focus:** Phase P1b.1-customer-pilot-enablement — Customer Pilot Enablement
 
 ## Current Position
 
 Milestone: Demo Sprint (1 of 2) — Week 1 (by ~2026-05-24)
-Phase: P1b (Webhook + Worker Spine (Stripe + WhatsApp)) — EXECUTING
-Plan: 8 of 9
+Phase: P1b.1-customer-pilot-enablement (Customer Pilot Enablement) — EXECUTING
+Plan: 3 of 8
 Status: Ready to execute
-Last activity: 2026-05-24 - Completed quick task 260524-r8f: Fix staff-web OAuth: redirect Mail routes to /gymos, remove Mail account hook, narrow Google scopes
+Last activity: 2026-05-25
 
 Progress: Demo Sprint [███░░░░░░░] ~30%
 
@@ -136,6 +136,9 @@ Decisions are logged in `PROJECT.md` Key Decisions table. Recent ones affecting 
 - [Phase P1b-webhook-worker-spine-stripe-whatsapp-2-weeks]: P1b-06: For staff-web (Plan 08) — failed-bubble copy can map directly off messages.error_code values. Stable typed codes: NO_OPT_IN, WINDOW_EXPIRED, TEMPLATE_NOT_APPROVED. Pre-flight UX hints (read whatsapp_opt_in + conversations.last_inbound_at) MAY disable Send / nudge to template, but MUST NOT bypass the worker chokepoint — D-19 defence in depth: UI cache can be stale.
 - [Phase P1b-webhook-worker-spine-stripe-whatsapp-2-weeks]: P1b-07: stripe-event pg-boss queue handler runs reducer + webhook_events.processed_at UPDATE in single Drizzle transaction (WEB-06). 6 reducers (checkout.session.completed, invoice.paid, invoice.payment_failed, customer.subscription.{updated,deleted}, charge.refunded) — every reducer EXCEPT subscription-deleted refetches via stripe.X.retrieve (PITFALL #4); subscription-deleted is documented exception (resource gone, refetch 404s). Deterministic-key idempotency: pay_<piId>, pass_<piId>_<liId>, pdebit_refund_<chgId>_<passId> + ON CONFLICT DO NOTHING/UPDATE. Concurrency=3 via pg-boss v12 names (batchSize:3 + localConcurrency:3). pgcrypto-backed writeSecret/readSecret enables Plan 08 rotation without worker restart. Stripe SDK 19.3.1 Invoice retrieve cast to any for legacy subscription/payment_intent top-level fields (dahlia API returns them at top level via expand; SDK types lag). 49/49 worker tests green.
 - [Phase P1b-webhook-worker-spine-stripe-whatsapp-2-weeks]: P1b-08: Inbox Send refactored from direct Meta fetch to enqueueOutboundWhatsApp + status='queued' optimistic insert (D-18). Loader fans-out whatsapp_window_state VIEW + whatsapp_opt_in table; UI badges use Tabler IconPointFilled (LOW #12, not the ● U+25CF char). /gymos/settings/integrations validates Stripe restricted key via accounts.retrieve() then UPSERTs pgp_sym_encrypt(plain, PGCRYPTO_MASTER_KEY) — worker's getStripeSecretKey reads fresh each Stripe-event job so rotation is zero-restart. Two auto-fixes: added stripe ^19.0.0 dep (Rule 3 blocking) + added Settings link in GymosTopNav (Rule 2 missing critical UX — feature undiscoverable without it). Plan referenced gymos.tsx but actual inbox lives in gymos._index.tsx; edits applied there. (db as any).execute(sql`…`) cast pattern for raw SQL against Neon Postgres mirrors Plans 04/05.
+- [Phase P1b.1-customer-pilot-enablement]: P1b.1-01: Reverted outer-wrapper AgentSidebar (non-gymos paths) from gym-themed strings back to Mail original — required for plan's exactly-once acceptance criteria; gym empty-state + 3 chip prompts now scoped to /gymos/* only (was leaking onto /inbox /sent /settings via prior rebrand commit abe558fa).
+- [Phase P1b.1-customer-pilot-enablement]: P1b.1-01: AppLayout per-surface-family branching — third early-return alongside BARE_ROUTES.has() and isStandardLayoutPath(); AppLayoutInner email hooks (useEmails/useSettings/useLabels/useGoogleAuthStatus) mechanically inert on /gymos/* since React only runs hooks of mounted components (Pitfall 1 from RESEARCH.md confirmed by code).
+- [Phase P1b.1-customer-pilot-enablement]: P1b.1-02: Composable Nitro plugin pattern (await createAuthPlugin then getH3App(nitroApp).use(handler)) appends an allowlist hook AFTER framework auth session is set; CUSTOMER_ALLOWED_EMAILS env (empty = dev fallback). Plan referenced /_better_auth/* paths that don't exist — actual framework paths are /_agent-native/auth/* + /_agent-native/google/* (verified by reading core/dist/server/auth.js). Sign-out lives on the denial page CTA (POST /_agent-native/auth/logout), NOT in the middleware, to avoid the OAuth-loop trap (Pitfall 4).
 
 ### Pending Todos
 
@@ -167,12 +170,14 @@ None tracked as TODOs; everything is in the roadmap / requirements.
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 260524-r8f | Fix staff-web OAuth: redirect Mail routes to /gymos, remove Mail account hook, narrow Google scopes | 2026-05-24 | 1c60a41e | [260524-r8f-fix-staff-web-oauth-redirect-mail-routes](./quick/260524-r8f-fix-staff-web-oauth-redirect-mail-routes/) |
+| Phase P1b.1-customer-pilot-enablement P01 | 7min | 2 tasks | 2 files |
+| Phase P1b.1-customer-pilot-enablement P02 | 25min | 2 tasks | 3 files |
 
 ## Session Continuity
 
-Last session: 2026-05-25T07:41:30.480Z
-Stopped at: Phase P1b.1 context gathered
-Resume file: .planning/phases/P1b.1-customer-pilot-enablement/P1b.1-CONTEXT.md
+Last session: 2026-05-25T22:01:02.488Z
+Stopped at: Completed P1b.1-02-auth-allowlist-access-denied-PLAN.md
+Resume file: None
 
 ### Resume Notes — Next Session Quick-Start
 

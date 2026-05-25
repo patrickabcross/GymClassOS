@@ -161,6 +161,45 @@ The production milestone is structured as 4 phases (preserving the prior coarse-
 - [x] P1b-08-staffweb-outbound-rotation-PLAN.md — /gymos Send action refactored to enqueue (no direct Meta) + loader exposes whatsapp_window_state + opt-in; UI badges + Send gate + D-19 failed-bubble copy; /gymos/settings/integrations Stripe key rotation (WA-05/08)
 - [ ] P1b-09-validation-cutover-PLAN.md — WA-08 daily template-sync cron via pg-boss schedule + integration tests for the 4 D-23 scenarios + Meta/Stripe URL flip + DELETE templates/mail/webhooks.whatsapp.tsx (D-05 last task) (WA-08)
 
+### Phase P1b.1: Customer Pilot Enablement (INSERTED — 2026-05-25)
+
+**Goal:** Hand the deployed staff-web to the signed customer as a real pilot tool. After the successful 2026-05-25 demo, the customer immediately needs (a) accounts to log in with and (b) the ability to actually send WhatsApp messages from the inbox via approved templates. Plus the cosmetic + functional cleanup the demo exposed: `/gymos` looks like an email client, the AI sidebar isn't gym-aware, and Analytics is missing from the top-nav.
+
+**Scope:**
+1. **Strip email chrome from `/gymos/*`** — the email AppLayout (`apps/staff-web/app/components/layout/AppLayout.tsx`) wraps gymos routes today, bleeding email-only UI (hamburger, "Important"/"Other" tabs, email sidebar, email Compose button, refresh, bell) on top of `GymosTopNav`. Short-circuit `/gymos/*` to a bare gymos layout: only `GymosTopNav` + content + right-rail Chat.
+2. **Rename "Compose" → "Templates" + open WhatsApp template picker.** WhatsApp Business cannot send free-text outside the 24h window; the button must reflect that. Clicking opens a `<Dialog>` listing approved templates (queried from Meta, or seeded `whatsapp_templates` for the first pilot), variable form for the chosen template, and sends via the P1b-06 worker `sendMessage` chokepoint (which already enforces opt-in + window + template gates).
+3. **Add Analytics tab to GymosTopNav** — new `/gymos/analytics` route showing booking fill rate, cancellation rate, no-shows, pass utilisation (read-only dashboards for first pilot; exact metric list finalised at plan time).
+4. **Provision staff logins for customer** — Better-auth accounts for the studio's coach(es) + owner. Email/password seeded by us, or magic-link via email (decide at plan time). Customer logs in to `gym-class-os.vercel.app` and reaches `/gymos` without our help.
+5. **Ground the AI assistant in gym data, not email.** AgentSidebar in `AppLayout.tsx:138` already shows gym-flavored suggestions, but the agent's tools + system prompt still come from the Mail template's `apps/staff-web/AGENTS.md`. Replace (or layer) with a gymos AGENTS.md describing actions like `list-classes`, `list-bookings`, `list-cancellations`, `member-retention`; write the matching actions in `apps/staff-web/actions/` where they don't exist; verify the agent answers the three suggestion prompts end-to-end.
+
+**Requirements:** AUTH-01 (extend to customer accounts), WA-05/-06/-07 (template send path — most shipped in P1b-06, this surfaces it in UI), INBX-01/-02 (gym-focused inbox chrome), AGENT-04/-05 (gym-aware agent surface — pulled forward from P2 for pilot)
+
+**Success criteria:**
+1. Customer signs in to `https://gym-class-os.vercel.app` with their own credentials and lands on `/gymos` without a redirect to `/inbox` or any email surface.
+2. `/gymos/*` shows only the gymos top-nav (Inbox / Schedule / Members / Payments / Analytics / Settings) + content + right-rail Chat. No hamburger, no "Important"/"Other 25", no email Compose, no email sidebar.
+3. Clicking "Templates" from a conversation opens a dialog of approved WhatsApp templates; selecting one + filling variables + Send enqueues an outbound that arrives on a test WhatsApp number via Meta Cloud API.
+4. `/gymos/analytics` loads and shows at least three real metrics from the seeded data (fill rate, cancellation rate, pass utilisation — exact set finalised at plan time).
+5. Asking the right-rail Chat "which classes haven't been filled in the last week?" returns a real answer from gym data (not an email-assistant response); same for "provide renewal numbers" and "which customers should I reach out to?".
+6. Sending free-text WhatsApp to a number whose 24h window has expired is rejected by the worker with the typed `WindowExpiredError` (no Meta API call made) — confirms P1b-06 gates still hold from the new UI.
+
+**Depends on:** Phase P1b (P1b-06 sendMessage chokepoint + P1b-08 outbound-rotation UI both ✓)
+
+**Risks:**
+- **WhatsApp templates not yet approved by Meta.** P0 success criterion 4 (templates submitted) hasn't been hit; the first pilot may have zero approved templates, leaving the Templates button useless except for 24h-window replies. Plan-phase decides: ship Templates UI now and gate behind seeded test templates, or pull P0 template submission forward.
+- **Better-auth for non-Google customer accounts** — staff-web has only seen Google OAuth in the demo path. Plan-phase decides email/password vs. email magic-link and verifies Better-auth's email transport.
+- **Agent action surface drift.** If `apps/staff-web/actions/` lacks the actions the new gymos AGENTS.md describes, the agent will hallucinate. Plan-phase verifies action inventory before writing AGENTS.md.
+
+**Plans:** 2/8 plans executed
+
+- [x] P1b.1-01-bare-gymos-layout-PLAN.md — Strip email chrome from /gymos/* (AppLayout early-return for /gymos paths) and add Analytics tab to GymosTopNav (INBX-01, INBX-02)
+- [x] P1b.1-02-auth-allowlist-access-denied-PLAN.md — CUSTOMER_ALLOWED_EMAILS env allowlist hook in auth.ts + branded /access-denied route (AUTH-01)
+- [ ] P1b.1-03-gym-actions-part-a-PLAN.md — Create list-fill-rate, list-classes, list-members defineAction files (AGENT-04)
+- [ ] P1b.1-04-gym-actions-and-template-seed-PLAN.md — Create list-renewals, list-at-risk-members + seed 5 whatsapp_templates rows including approved hello_world (AGENT-05, WA-05)
+- [ ] P1b.1-05-templates-dialog-PLAN.md — Templates picker dialog beside Send in gymos._index.tsx reply form, routes through enqueueOutboundWhatsApp with type:'template' payload (WA-05, WA-06, WA-07)
+- [ ] P1b.1-06-analytics-route-PLAN.md — /gymos/analytics route with Fill Rate / Cancellation Rate / Pass Utilisation metric cards (INBX-01)
+- [ ] P1b.1-07-gym-agent-surface-PLAN.md — Rewrite agent-chat.ts systemPrompt + replace apps/staff-web/AGENTS.md with gym version (AGENT-04, AGENT-05)
+- [ ] P1b.1-08-end-to-end-verification-PLAN.md — Manual walkthrough of 6 ROADMAP success criteria + negative auth test, recorded in VERIFICATION.md (all phase REQ-IDs)
+
 ### Phase P2: Staff + Member Product Surfaces (~3–4 weeks)
 
 **Goal:** Production-quality versions of every surface the demo showed, plus the surfaces the demo skipped. Coach runs a full day from staff-web; member runs their fitness life from the PWA.
@@ -212,3 +251,4 @@ Demo Sprint runs first (D0 → D1 → D2 over 7 days). Production v1 runs after 
 *Revised: 2026-05-17 — major restructure (Demo Sprint + Production v1 two-milestone shape; mobile = PWA; Stripe direct; calorie counter in v1)*
 *Revised: 2026-05-19 — D2 plan list registered (6 plans), success criteria realigned to native Expo flow (was inherited PWA wording), MEMBR-06 dropped from D2 (PWA manifest is N/A for native Expo Go; rolled into P1a EAS work)*
 *Out of v1 scope: Native mobile (v1.x), HealthKit, Coach View with health context, CRM campaigns + segments, Knowledge Base, Operational Reporting, bsport-migration productisation, A2A. See REQUIREMENTS.md §Post-v1 Backlog and PLATFORM-VISION.md.*
+
