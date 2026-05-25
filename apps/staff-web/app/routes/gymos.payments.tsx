@@ -22,7 +22,7 @@ export default function GymosPayments() {
       <div className="mx-auto max-w-[720px] px-6 py-12">
         <header className="mb-6">
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-semibold tracking-tight">Payments</h1>
+            <h1 className="text-sm font-semibold">Payments</h1>
             <Badge variant="outline" className="text-[11px]">
               Coming soon
             </Badge>

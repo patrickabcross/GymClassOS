@@ -98,7 +98,7 @@ export default function GymosMembers() {
         <header className="mb-6 flex items-center justify-between">
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-semibold tracking-tight">Members</h1>
+              <h1 className="text-sm font-semibold">Members</h1>
               <Badge variant="outline" className="text-[11px]">
                 {data.members.length}
               </Badge>
@@ -145,7 +145,7 @@ export default function GymosMembers() {
                 )}
               >
                 <div className="flex flex-col min-w-0">
-                  <span className="font-medium truncate">{name}</span>
+                  <span className="font-semibold truncate">{name}</span>
                   {m.email && (
                     <span className="text-[11px] text-muted-foreground truncate">
                       {m.email}

@@ -21,7 +21,7 @@ export function GymosTopNav() {
     cn(
       "px-2.5 py-1 rounded text-[12px] transition",
       active
-        ? "bg-accent text-foreground font-medium"
+        ? "bg-accent text-foreground font-semibold"
         : "text-muted-foreground hover:bg-accent/40 hover:text-foreground",
     );
   const isInbox = path === "/gymos";

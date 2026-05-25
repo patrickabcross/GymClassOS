@@ -144,7 +144,7 @@ export default function StripeIntegrations() {
   return (
     <div className="h-full w-full overflow-y-auto bg-background text-foreground">
       <div className="max-w-2xl mx-auto p-6">
-        <h1 className="text-xl font-semibold mb-2">Stripe Integration</h1>
+        <h1 className="text-sm font-semibold mb-2">Stripe Integration</h1>
         <p className="text-sm text-muted-foreground mb-6">
           Paste a restricted API key from{" "}
           <a
@@ -161,7 +161,7 @@ export default function StripeIntegrations() {
         </p>
 
         <div className="rounded-lg border border-border/50 p-4 mb-6 bg-card/30">
-          <div className="text-xs text-muted-foreground mb-1">Current key</div>
+          <div className="text-[12px] text-muted-foreground mb-1">Current key</div>
           <div className="text-sm inline-flex items-center gap-2">
             {data.keyPresent ? (
               <>
@@ -170,7 +170,7 @@ export default function StripeIntegrations() {
                   className="text-emerald-500"
                   aria-hidden
                 />
-                <span className="font-medium">set</span>
+                <span className="font-semibold">set</span>
                 <span className="text-muted-foreground">
                   — updated {data.updatedAt}
                   {data.lastUsedAt && ` · last used ${data.lastUsedAt}`}
@@ -193,13 +193,13 @@ export default function StripeIntegrations() {
         </div>
 
         <Form method="post" className="space-y-3">
-          <label className="block text-sm font-medium">
+          <label className="block text-sm font-semibold">
             New restricted key
           </label>
           <textarea
             name="key"
             placeholder="rk_test_... or rk_live_..."
-            className="w-full border border-border/50 rounded-md px-3 py-2 font-mono text-xs bg-background"
+            className="w-full border border-border/50 rounded-md px-3 py-2 font-mono text-[12px] bg-background"
             rows={3}
             required
             autoComplete="off"
@@ -208,7 +208,7 @@ export default function StripeIntegrations() {
           <button
             type="submit"
             disabled={submitting}
-            className="px-4 py-2 rounded-md bg-foreground text-background text-sm font-medium disabled:opacity-50"
+            className="px-4 py-2 rounded-md bg-foreground text-background text-sm font-semibold disabled:opacity-50"
           >
             {submitting ? "Validating + rotating…" : "Validate & rotate"}
           </button>

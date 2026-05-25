@@ -244,7 +244,7 @@ export default function GymosSchedule() {
                           )}
                         >
                           <div className="flex items-center justify-between gap-2">
-                            <span className="text-[12px] font-medium tabular-nums">
+                            <span className="text-[12px] font-semibold tabular-nums">
                               {formatTime(o.startsAt)}
                             </span>
                             <span
@@ -329,7 +329,7 @@ export default function GymosSchedule() {
                 <div className="space-y-2">
                   <label
                     htmlFor="memberId"
-                    className="text-[12px] font-medium text-muted-foreground"
+                    className="text-[12px] font-semibold text-muted-foreground"
                   >
                     Member
                   </label>

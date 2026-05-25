@@ -482,7 +482,7 @@ export default function GymosInbox() {
                 )}
               >
                 <div className="flex items-center justify-between gap-2 mb-1">
-                  <span className="text-[13px] font-medium truncate">
+                  <span className="text-[13px] font-semibold truncate">
                     {name}
                   </span>
                   <div className="flex items-center gap-1.5 shrink-0">
@@ -551,7 +551,7 @@ export default function GymosInbox() {
               {/* D-20 thread-header window-state badge (LOW #12: IconPointFilled) */}
               {selectedWs ? (
                 selectedWs.inWindow ? (
-                  <span className="inline-flex items-center gap-1.5 text-[11px] font-medium px-2 py-1 rounded bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
+                  <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2 py-1 rounded bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
                     <IconPointFilled
                       size={10}
                       className="text-emerald-500"
@@ -563,7 +563,7 @@ export default function GymosInbox() {
                       : ""}
                   </span>
                 ) : (
-                  <span className="inline-flex items-center gap-1.5 text-[11px] font-medium px-2 py-1 rounded bg-zinc-500/15 text-zinc-700 dark:text-zinc-300">
+                  <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2 py-1 rounded bg-zinc-500/15 text-zinc-700 dark:text-zinc-300">
                     <IconPointFilled
                       size={10}
                       className="text-zinc-400"
@@ -662,7 +662,7 @@ export default function GymosInbox() {
               <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">
                 Pass balance
               </div>
-              <div className="text-[15px] font-semibold tabular-nums">
+              <div className="text-sm font-semibold tabular-nums">
                 {data.memberStats.passBalance}{" "}
                 <span className="text-[10px] text-muted-foreground font-normal">
                   credits
@@ -688,7 +688,7 @@ export default function GymosInbox() {
               </div>
               {data.upcomingBooking ? (
                 <div>
-                  <div className="text-[13px] font-medium">
+                  <div className="text-[13px] font-semibold">
                     {data.upcomingBooking.className}
                   </div>
                   <div className="text-[11px] text-muted-foreground">
@@ -715,7 +715,7 @@ export default function GymosInbox() {
               <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">
                 Lifetime bookings
               </div>
-              <div className="text-[15px] font-semibold tabular-nums">
+              <div className="text-sm font-semibold tabular-nums">
                 {data.memberStats.lifetimeBookings}
               </div>
             </div>

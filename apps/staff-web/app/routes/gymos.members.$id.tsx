@@ -164,9 +164,7 @@ export default function GymosMemberProfile() {
           </Link>
           <div className="mt-3 flex items-start justify-between gap-4">
             <div>
-              <h1 className="text-2xl font-semibold tracking-tight">
-                {fullName}
-              </h1>
+              <h1 className="text-sm font-semibold">{fullName}</h1>
               <div className="mt-1 flex flex-wrap items-center gap-3 text-[13px] text-muted-foreground">
                 {member.phoneE164 && (
                   <span className="tabular-nums">{member.phoneE164}</span>
@@ -204,11 +202,11 @@ export default function GymosMemberProfile() {
         {/* ─── Pass balance ───────────────────────────────────────────── */}
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">Pass balance</CardTitle>
+            <CardTitle className="text-sm font-semibold">Pass balance</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <div>
-              <div className="text-3xl font-semibold tabular-nums">
+              <div className="text-sm font-semibold tabular-nums">
                 {passBalance}
                 <span className="ml-1 text-[12px] font-normal text-muted-foreground">
                   credits
@@ -226,7 +224,7 @@ export default function GymosMemberProfile() {
                     className="flex items-center justify-between text-[12px]"
                   >
                     <div>
-                      <span className="font-medium">
+                      <span className="font-semibold">
                         {p.productName ?? capitalise(p.source)}
                       </span>
                       <span className="ml-2 text-muted-foreground">
@@ -252,7 +250,7 @@ export default function GymosMemberProfile() {
         {/* ─── Bookings ───────────────────────────────────────────────── */}
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">Bookings</CardTitle>
+            <CardTitle className="text-sm font-semibold">Bookings</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             {/* Upcoming */}
@@ -272,7 +270,7 @@ export default function GymosMemberProfile() {
                       className="flex items-center justify-between gap-3 text-[12px] rounded-md border border-border/40 px-3 py-2"
                     >
                       <div className="min-w-0 flex-1">
-                        <div className="font-medium truncate">
+                        <div className="font-semibold truncate">
                           {b.className ?? "Class"}
                         </div>
                         <div className="text-[11px] text-muted-foreground">
@@ -313,7 +311,7 @@ export default function GymosMemberProfile() {
                       )}
                     >
                       <div className="min-w-0 flex-1">
-                        <div className="font-medium truncate">
+                        <div className="font-semibold truncate">
                           {b.className ?? "Class"}
                         </div>
                         <div className="text-[11px] text-muted-foreground">
@@ -337,7 +335,7 @@ export default function GymosMemberProfile() {
         {/* ─── Recent food ────────────────────────────────────────────── */}
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">Recent food entries</CardTitle>
+            <CardTitle className="text-sm font-semibold">Recent food entries</CardTitle>
           </CardHeader>
           <CardContent>
             {foodEntries.length === 0 ? (
@@ -365,7 +363,7 @@ export default function GymosMemberProfile() {
                       </div>
                     </div>
                     <div className="text-right tabular-nums shrink-0">
-                      <div className="font-medium">
+                      <div className="font-semibold">
                         {Math.round(f.kcal)} kcal
                       </div>
                       {f.proteinG != null && (
