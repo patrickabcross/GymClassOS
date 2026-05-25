@@ -193,7 +193,7 @@ The production milestone is structured as 4 phases (preserving the prior coarse-
 
 - [x] P1b.1-01-bare-gymos-layout-PLAN.md — Strip email chrome from /gymos/* (AppLayout early-return for /gymos paths) and add Analytics tab to GymosTopNav (INBX-01, INBX-02)
 - [x] P1b.1-02-auth-allowlist-access-denied-PLAN.md — CUSTOMER_ALLOWED_EMAILS env allowlist hook in auth.ts + branded /access-denied route (AUTH-01)
-- [ ] P1b.1-03-gym-actions-part-a-PLAN.md — Create list-fill-rate, list-classes, list-members defineAction files (AGENT-04)
+- [x] P1b.1-03-gym-actions-part-a-PLAN.md — Create list-fill-rate, list-classes, list-members defineAction files (AGENT-04)
 - [ ] P1b.1-04-gym-actions-and-template-seed-PLAN.md — Create list-renewals, list-at-risk-members + seed 5 whatsapp_templates rows including approved hello_world (AGENT-05, WA-05)
 - [ ] P1b.1-05-templates-dialog-PLAN.md — Templates picker dialog beside Send in gymos._index.tsx reply form, routes through enqueueOutboundWhatsApp with type:'template' payload (WA-05, WA-06, WA-07)
 - [ ] P1b.1-06-analytics-route-PLAN.md — /gymos/analytics route with Fill Rate / Cancellation Rate / Pass Utilisation metric cards (INBX-01)

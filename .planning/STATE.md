@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed P1b.1-02-auth-allowlist-access-denied-PLAN.md
-last_updated: "2026-05-25T22:01:02.501Z"
+stopped_at: Completed P1b.1-03-gym-actions-part-a-PLAN.md
+last_updated: "2026-05-25T22:02:09.551Z"
 last_activity: 2026-05-25
 progress:
   total_phases: 8
   completed_phases: 0
   total_plans: 8
-  completed_plans: 2
+  completed_plans: 3
   percent: 30
 ---
 
@@ -139,6 +139,7 @@ Decisions are logged in `PROJECT.md` Key Decisions table. Recent ones affecting 
 - [Phase P1b.1-customer-pilot-enablement]: P1b.1-01: Reverted outer-wrapper AgentSidebar (non-gymos paths) from gym-themed strings back to Mail original — required for plan's exactly-once acceptance criteria; gym empty-state + 3 chip prompts now scoped to /gymos/* only (was leaking onto /inbox /sent /settings via prior rebrand commit abe558fa).
 - [Phase P1b.1-customer-pilot-enablement]: P1b.1-01: AppLayout per-surface-family branching — third early-return alongside BARE_ROUTES.has() and isStandardLayoutPath(); AppLayoutInner email hooks (useEmails/useSettings/useLabels/useGoogleAuthStatus) mechanically inert on /gymos/* since React only runs hooks of mounted components (Pitfall 1 from RESEARCH.md confirmed by code).
 - [Phase P1b.1-customer-pilot-enablement]: P1b.1-02: Composable Nitro plugin pattern (await createAuthPlugin then getH3App(nitroApp).use(handler)) appends an allowlist hook AFTER framework auth session is set; CUSTOMER_ALLOWED_EMAILS env (empty = dev fallback). Plan referenced /_better_auth/* paths that don't exist — actual framework paths are /_agent-native/auth/* + /_agent-native/google/* (verified by reading core/dist/server/auth.js). Sign-out lives on the denial page CTA (POST /_agent-native/auth/logout), NOT in the middleware, to avoid the OAuth-loop trap (Pitfall 4).
+- [Phase P1b.1-customer-pilot-enablement]: P1b.1-03: Three primitive read actions (list-fill-rate, list-classes, list-members) shipped as defineAction GET endpoints. Used ../server/db/index.js import path (ESM .js convention matches sibling actions); guard:allow-unscoped marker on each query (gym tables exempt per research §6). Schema deviation auto-fixed: gym_members uses firstName+lastName (not single name); list-members returns composed name plus raw firstName/lastName for agent ergonomics.
 
 ### Pending Todos
 
@@ -172,11 +173,12 @@ None tracked as TODOs; everything is in the roadmap / requirements.
 | 260524-r8f | Fix staff-web OAuth: redirect Mail routes to /gymos, remove Mail account hook, narrow Google scopes | 2026-05-24 | 1c60a41e | [260524-r8f-fix-staff-web-oauth-redirect-mail-routes](./quick/260524-r8f-fix-staff-web-oauth-redirect-mail-routes/) |
 | Phase P1b.1-customer-pilot-enablement P01 | 7min | 2 tasks | 2 files |
 | Phase P1b.1-customer-pilot-enablement P02 | 25min | 2 tasks | 3 files |
+| Phase P1b.1-customer-pilot-enablement P03 | 15min | 3 tasks | 3 files |
 
 ## Session Continuity
 
-Last session: 2026-05-25T22:01:02.488Z
-Stopped at: Completed P1b.1-02-auth-allowlist-access-denied-PLAN.md
+Last session: 2026-05-25T22:02:09.541Z
+Stopped at: Completed P1b.1-03-gym-actions-part-a-PLAN.md
 Resume file: None
 
 ### Resume Notes — Next Session Quick-Start
