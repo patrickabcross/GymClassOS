@@ -3,11 +3,11 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: "staff-web LIVE on Vercel at https://gym-class-os.vercel.app/ after ~16-hour deploy investigation. Root cause was fork-specific: @gymos/queue → pg-boss → pg gets pulled into SSR bundle via app/routes/gymos._index.tsx → app/lib/queue-client.ts; Vite mis-bundles pg's Pool extends Client CJS class hierarchy producing TypeError: Class extends value #<Object> at module load. Fix shipped (commit 5225baf0): externalize pg in apps/staff-web/vite.config.ts, add as direct deps, postbuild-inject into traced .vercel/output package.json. Verified by building upstream vanilla templates/mail with same Nitro vercel preset (server2.mjs: 2 lines, no pg, no crash vs our pre-fix: 2,490 lines with pg names visible at crash coordinates). Also patched packages/core/src/deploy/workspace-deploy.ts fetch-handler unwrap (commit 3bc68acd) for the workspace-deploy CLI path — not used in final architecture but worth filing upstream. Vercel project gym-class-os: Root Directory apps/staff-web, Build Command pnpm --filter @gymos/staff-web build, all defaults otherwise, 10 env vars set including A2A_SECRET. Restructure: apps/edge-webhooks and apps/worker moved to services/* in 36d919dd — apps/ now holds only Nitro-buildable apps that agent-native deploy will pick up. Decommissioned: gymos-staff-web Fly app (was the abandoned host-migration attempt). Next session: complete gymos-edge-webhooks deploy (still pending), wire Google OAuth redirect URI fix (user mentioned), and validate end-to-end logged-in /gymos flows."
-last_updated: "2026-05-24T15:45:00.000Z"
-last_activity: 2026-05-24
+stopped_at: Phase P1b.1 context gathered
+last_updated: "2026-05-25T07:41:30.489Z"
+last_activity: "2026-05-24 - Completed quick task 260524-r8f: Fix staff-web OAuth: redirect Mail routes to /gymos, remove Mail account hook, narrow Google scopes"
 progress:
-  total_phases: 7
+  total_phases: 8
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -76,6 +76,10 @@ Not started — Demo Sprint runs first. See ROADMAP.md for the 4 production phas
 **Lesson for next session:** scope was reconciled twice mid-session (PWA decision reversed when `packages/mobile-app` discovered upstream). Catch upstream-survey findings BEFORE locking architectural decisions next time — saved scope-locking costs ~15 min of doc rewrites both times.
 
 ## Accumulated Context
+
+### Roadmap Evolution
+
+- Phase P1b.1 inserted after Phase P1b: Customer Pilot Enablement — strip email chrome from /gymos, rename Compose→Templates with real Meta Cloud API send, add Analytics tab, provision staff logins for signed customer, ground AgentSidebar in gym data instead of email actions (URGENT — customer waiting post-2026-05-25 demo)
 
 ### Decisions
 
@@ -166,9 +170,9 @@ None tracked as TODOs; everything is in the roadmap / requirements.
 
 ## Session Continuity
 
-Last session: 2026-05-24T18:45:00.000Z
-Stopped at: Quick task 260524-r8f shipped + pushed to origin/master. After signing into Vercel staff-web with support@myutik.com, the live app rendered the upstream Mail template (full Gmail data: Loom, Netlify, "Welcome to Better Auth!") at /inbox/<threadId> instead of /gymos. Three landed fixes: (1) apps/staff-web/app/routes/$view.tsx + $view.$threadId.tsx now throw redirect("/gymos") in server+client loaders, killing every Mail-template URL; (2) apps/staff-web/server/lib/google-auth.ts SCOPES narrowed from 8 (gmail.* + calendar.events + contacts.* + userinfo.profile) to 2 (userinfo.profile + userinfo.email), and exchangeCode no longer calls startWatch; (3) apps/staff-web/server/plugins/mail-jobs.ts lost renewAllWatches + the cron call site + three now-unused imports. Vercel pg-externals fix (vite.config.ts, scripts/post-vercel-build.mjs, package.json) verified untouched. Four commits pushed: 471fe10a (routes), 8351022e (scopes + watch), 1c60a41e (PLAN+SUMMARY), 10fb68e9 (STATE.md). Resolves the "framework's account hook tries to set up Gmail watch" + "OAuth routes hardcode Mail scope list" gotchas previously noted in project_gymos_deploy memory. User is verifying on the live Vercel deploy and shutting down. Outstanding: full verification of the 6-step checklist in 260524-r8f-SUMMARY.md once Vercel deploy finishes — especially that Google consent screen only asks for profile+email (may require revoking the existing grant at myaccount.google.com/permissions because Google caches consent).
-Resume file: None
+Last session: 2026-05-25T07:41:30.480Z
+Stopped at: Phase P1b.1 context gathered
+Resume file: .planning/phases/P1b.1-customer-pilot-enablement/P1b.1-CONTEXT.md
 
 ### Resume Notes — Next Session Quick-Start
 
