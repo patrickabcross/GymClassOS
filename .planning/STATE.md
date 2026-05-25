@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: Completed P1b.1-05 (templates dialog + send-template action)
-last_updated: "2026-05-25T22:18:26.938Z"
+status: awaiting-user-verification
+stopped_at: P1b.1-08 scaffold committed — awaiting user walkthrough of VERIFICATION.md
+last_updated: "2026-05-25T23:00:00.000Z"
 last_activity: 2026-05-25
 progress:
   total_phases: 8
@@ -31,8 +31,8 @@ Requirements: `.planning/REQUIREMENTS.md` (130 reqs across 20 categories — see
 
 Milestone: Demo Sprint (1 of 2) — Week 1 (by ~2026-05-24)
 Phase: P1b.1-customer-pilot-enablement (Customer Pilot Enablement) — EXECUTING
-Plan: 7 of 8
-Status: Ready to execute
+Plan: 8 of 8 (at human-verify checkpoint)
+Status: VERIFICATION.md scaffold committed; awaiting user walkthrough of 7-criteria script
 Last activity: 2026-05-25
 
 Progress: Demo Sprint [███░░░░░░░] ~30%
