@@ -177,7 +177,7 @@
 - [ ] **AGENT-02** [D]: Agent has 3 working tools end-to-end: `greet` (intro / capabilities listing), `book_class` (with member confirmation step), `log_food_nl` (parse "I had a chicken caesar at Pret" → food entry)
 - [ ] **AGENT-03** [D]: Agent response streams (SSE) to the chat sheet
 - [x] **AGENT-04** [P]: Conversation history persists across sessions (`agent_sessions` table)
-- [ ] **AGENT-05** [P]: Per-member memory (`agent_memory` table) — preferences, coaching context
+- [x] **AGENT-05** [P]: Per-member memory (`agent_memory` table) — preferences, coaching context
 - [ ] **AGENT-06** [P]: Additional tools: `view_schedule`, `cancel_booking`, `view_passes`, `escalate_to_coach` (creates a staff-visible note)
 - [ ] **AGENT-07** [P]: Tools are typed wrappers around the same API endpoints the UI uses (single source of truth)
 - [ ] **AGENT-08** [P]: Every agent tool call is audited (`audit_log`) with inputs + outputs + actor=agent
