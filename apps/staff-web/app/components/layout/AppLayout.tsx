@@ -128,6 +128,25 @@ export function AppLayout({ children }: AppLayoutProps) {
     return <>{children}</>;
   }
 
+  // Gymos paths skip email chrome entirely — AgentSidebar wrap only.
+  // gymos.tsx provides GymosTopNav + Outlet inside `children`.
+  if (location.pathname.startsWith("/gymos")) {
+    return (
+      <AgentSidebar
+        position="right"
+        defaultOpen={!isMobile}
+        emptyStateText="Ask me anything about your gym"
+        suggestions={[
+          "Provide renewal numbers",
+          "Which classes haven't been filled in the last week?",
+          "Which customers should I reach out to?",
+        ]}
+      >
+        {children}
+      </AgentSidebar>
+    );
+  }
+
   const content = isStandardLayoutPath(location.pathname) ? (
     <StandardLayout>{children}</StandardLayout>
   ) : (
@@ -138,11 +157,11 @@ export function AppLayout({ children }: AppLayoutProps) {
     <AgentSidebar
       position="right"
       defaultOpen={!isMobile}
-      emptyStateText="Ask me anything about your gym"
+      emptyStateText="Ask me anything about your emails"
       suggestions={[
-        "Provide renewal numbers",
-        "Which classes haven't been filled in the last week?",
-        "Which customers should I reach out to?",
+        "Summarize my unread emails",
+        "What needs my reply today?",
+        "Build me a custom widget for my inbox",
       ]}
     >
       {content}
