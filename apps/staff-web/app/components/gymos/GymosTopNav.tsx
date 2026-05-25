@@ -28,6 +28,7 @@ export function GymosTopNav() {
   const isSchedule = path.startsWith("/gymos/schedule");
   const isMembers = path.startsWith("/gymos/members");
   const isPayments = path.startsWith("/gymos/payments");
+  const isAnalytics = path.startsWith("/gymos/analytics");
   // P1b-08: Settings → Integrations (Stripe key rotation).
   const isSettings = path.startsWith("/gymos/settings");
   return (
@@ -44,6 +45,9 @@ export function GymosTopNav() {
       </Link>
       <Link to="/gymos/payments" className={tabClass(isPayments)}>
         Payments
+      </Link>
+      <Link to="/gymos/analytics" className={tabClass(isAnalytics)}>
+        Analytics
       </Link>
       <Link
         to="/gymos/settings/integrations"
