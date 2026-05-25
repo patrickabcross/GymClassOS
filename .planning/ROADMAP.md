@@ -195,8 +195,8 @@ The production milestone is structured as 4 phases (preserving the prior coarse-
 - [x] P1b.1-02-auth-allowlist-access-denied-PLAN.md — CUSTOMER_ALLOWED_EMAILS env allowlist hook in auth.ts + branded /access-denied route (AUTH-01)
 - [x] P1b.1-03-gym-actions-part-a-PLAN.md — Create list-fill-rate, list-classes, list-members defineAction files (AGENT-04)
 - [x] P1b.1-04-gym-actions-and-template-seed-PLAN.md — Create list-renewals, list-at-risk-members + seed 5 whatsapp_templates rows including approved hello_world (AGENT-05, WA-05)
-- [ ] P1b.1-05-templates-dialog-PLAN.md — Templates picker dialog beside Send in gymos._index.tsx reply form, routes through enqueueOutboundWhatsApp with type:'template' payload (WA-05, WA-06, WA-07)
-- [ ] P1b.1-06-analytics-route-PLAN.md — /gymos/analytics route with Fill Rate / Cancellation Rate / Pass Utilisation metric cards (INBX-01)
+- [x] P1b.1-05-templates-dialog-PLAN.md — Templates picker dialog beside Send in gymos._index.tsx reply form, routes through enqueueOutboundWhatsApp with type:'template' payload (WA-05, WA-06, WA-07)
+- [x] P1b.1-06-analytics-route-PLAN.md — /gymos/analytics route with Fill Rate / Cancellation Rate / Pass Utilisation metric cards (INBX-01)
 - [x] P1b.1-07-gym-agent-surface-PLAN.md — Rewrite agent-chat.ts systemPrompt + replace apps/staff-web/AGENTS.md with gym version (AGENT-04, AGENT-05)
 - [ ] P1b.1-08-end-to-end-verification-PLAN.md — Manual walkthrough of 6 ROADMAP success criteria + negative auth test, recorded in VERIFICATION.md (all phase REQ-IDs)
 

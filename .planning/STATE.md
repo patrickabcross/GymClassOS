@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed P1b.1-07 (gym agent surface — agent-chat.ts + AGENTS.md replaced)
-last_updated: "2026-05-25T22:16:05.818Z"
+stopped_at: Completed P1b.1-05 (templates dialog + send-template action)
+last_updated: "2026-05-25T22:18:26.938Z"
 last_activity: 2026-05-25
 progress:
   total_phases: 8
   completed_phases: 0
   total_plans: 8
-  completed_plans: 5
+  completed_plans: 7
   percent: 30
 ---
 
@@ -31,7 +31,7 @@ Requirements: `.planning/REQUIREMENTS.md` (130 reqs across 20 categories — see
 
 Milestone: Demo Sprint (1 of 2) — Week 1 (by ~2026-05-24)
 Phase: P1b.1-customer-pilot-enablement (Customer Pilot Enablement) — EXECUTING
-Plan: 5 of 8
+Plan: 7 of 8
 Status: Ready to execute
 Last activity: 2026-05-25
 
@@ -144,6 +144,12 @@ Decisions are logged in `PROJECT.md` Key Decisions table. Recent ones affecting 
 - [Phase P1b.1-customer-pilot-enablement]: P1b.1-07: Mail action files (archive-email, list-emails, etc.) intentionally NOT deleted from apps/staff-web/actions/ — they auto-register but the gym systemPrompt doesn't name them so the LLM has no signal to call them. systemPrompt-as-tool-gate pattern (cheap to reverse, dogfooding-friendly). Deletion belongs to P0 audit.
 - [Phase P1b.1-customer-pilot-enablement]: P1b.1-07: mentionProviders set to empty object {} rather than removed — framework accepts empty object; reserves slot for P2 gym mention providers (@member, @class, @conversation) without touching plugin signature.
 - [Phase P1b.1-customer-pilot-enablement]: P1b.1-07: templates/mail/AGENTS.md preserved upstream-clean (578 lines) for future BuilderIO/agent-native fork merges — fork-boundary discipline. apps/staff-web/AGENTS.md fully replaced with 85-line gym guide; apps/staff-web/CLAUDE.md still @-includes it so Claude Code dev sessions read gym instructions on every session.
+- [Phase P1b.1-customer-pilot-enablement]: P1b.1-06: /gymos/analytics loader uses Promise.all over 5 aggregation closures. fillRate split into two parallel queries (capacity-from-occurrences + booked-from-inner-join) to avoid leftJoin fan-out multi-counting capacity — pattern mirrors gymos.members.tsx granted/debit split.
+- [Phase P1b.1-customer-pilot-enablement]: P1b.1-06: 'Active pass' definition in staff-web = expires_at IS NULL OR expires_at >= now() (passes table has no status column). Same definition shared with list-at-risk-members + members.$id balance calc. AGENTS.md table that lists passes.status (added by Plan 07 sibling) is incorrect and needs a follow-up.
+- [Phase P1b.1-customer-pilot-enablement]: P1b.1-06: react-router v7 framework mode no longer exports json() — every staff-web loader returns plain objects; ~/* TS alias does not exist in apps/staff-web/tsconfig.json (only @/* + @shared/*). Future PLAN.md templates should not reference json() or ~/components/*.
+- [Phase P1b.1-customer-pilot-enablement]: P1b.1-05: TemplatesDialog uses @/ path alias (not ~/ as plan said) — apps/staff-web/tsconfig.json only configures @/* paths; same alias every existing staff-web component uses. Plan instructions overridden by project convention per CLAUDE.md.
+- [Phase P1b.1-customer-pilot-enablement]: P1b.1-05: Pitfall 3 resolved without action-handler guard — sdk-impl Object.values({}) returns [] for hello_world (0 vars), Meta accepts empty components array. No extra code needed.
+- [Phase P1b.1-customer-pilot-enablement]: P1b.1-05: fetcher.submit targets action='/gymos' explicitly so the dialog can fire from inside the existing reply <Form> without action-routing collision.
 
 ### Pending Todos
 
@@ -180,11 +186,13 @@ None tracked as TODOs; everything is in the roadmap / requirements.
 | Phase P1b.1-customer-pilot-enablement P03 | 15min | 3 tasks | 3 files |
 | Phase P1b.1-customer-pilot-enablement P04 | 35min | 3 tasks | 4 files |
 | Phase P1b.1-customer-pilot-enablement P07 | 12min | 2 tasks | 2 files |
+| Phase P1b.1-customer-pilot-enablement P06 | 5min | 1 tasks | 1 files |
+| Phase P1b.1-customer-pilot-enablement PP05 | 6min | 2 tasks | 2 files |
 
 ## Session Continuity
 
-Last session: 2026-05-25T22:16:05.809Z
-Stopped at: Completed P1b.1-07 (gym agent surface — agent-chat.ts + AGENTS.md replaced)
+Last session: 2026-05-25T22:18:26.931Z
+Stopped at: Completed P1b.1-05 (templates dialog + send-template action)
 Resume file: None
 
 ### Resume Notes — Next Session Quick-Start
