@@ -589,7 +589,7 @@ export default function GymosInbox() {
                       "rounded-2xl px-3.5 py-2 text-[13px] leading-relaxed",
                       m.direction === "out"
                         ? m.status === "failed"
-                          ? "bg-red-500/10 text-red-900 dark:text-red-200 border border-red-500/30"
+                          ? "bg-destructive/10 text-destructive border border-destructive/30"
                           : "bg-primary text-primary-foreground"
                         : "bg-muted/70",
                     )}
@@ -602,7 +602,7 @@ export default function GymosInbox() {
                   </span>
                   {/* D-19 failed-bubble error copy */}
                   {m.direction === "out" && m.status === "failed" && (
-                    <p className="text-[11px] text-red-600 dark:text-red-400 mt-1 px-1">
+                    <p className="text-[11px] text-destructive mt-1 px-1">
                       {failedCopy(m.errorCode)}
                     </p>
                   )}

@@ -25,6 +25,13 @@
 //     label in a plain <div> inside CardHeader rather than via CardTitle.
 //
 // Requirements covered: INBX-01 (analytics tab destination, no longer 404).
+//
+// Skeleton loading state (UI-SPEC §"Loading states"): deferred to P2. This
+// route's loader runs synchronously in SSR — the first paint always carries
+// real values, and there is no client-side fetcher whose `state==="loading"`
+// could trigger a skeleton on revalidation. If/when this route grows a
+// fetcher (e.g. a date-range picker), wrap each MetricCard value/context in
+// shadcn `<Skeleton>` (h-8 w-24 + h-4 w-32) per the UI-SPEC contract.
 
 import { useLoaderData } from "react-router";
 import { and, eq, gte, lt, ne, sql } from "drizzle-orm";

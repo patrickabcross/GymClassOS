@@ -18,6 +18,14 @@
 //
 // Copywriting: every visible string in this file is verbatim per P1b.1-UI-SPEC
 // §"Copywriting Contract". Do not paraphrase — the checker fails otherwise.
+//
+// Skeleton loading state (UI-SPEC §"Loading states"): deferred. The templates
+// list ships in the parent route loader (gymos._index.tsx returns
+// `data.templates`), so by the time this Dialog renders the list is already
+// populated. No realistic case triggers a loading state. If/when templates
+// move to a client fetcher (e.g. a polling refresh while waiting for Meta
+// approval to land), wrap the left-pane list in shadcn `<Skeleton>` rows
+// (h-8 w-full, 3 rows) per the UI-SPEC contract.
 
 import { useState, useMemo } from "react";
 import { useFetcher } from "react-router";
