@@ -1,10 +1,11 @@
 ---
 phase: P1b.1
 slug: customer-pilot-enablement
-status: draft
+status: approved
 shadcn_initialized: true
 preset: default / slate / cssVariables=true
 created: 2026-05-25
+reviewed_at: 2026-05-25
 ---
 
 # Phase P1b.1 — UI Design Contract
