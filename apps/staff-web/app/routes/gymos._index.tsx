@@ -19,7 +19,12 @@
 //
 // Requirements covered:
 // - WA-05: single sendMessage chokepoint — staff-web NEVER calls Meta
+// - WA-06: 24h-window enforcement (worker authoritative; UI pre-gates)
 // - WA-07: opt-in gate surfaced in UI (worker still enforces)
+// - WA-08: template send path (P1b.1-05) — Templates dialog enqueues
+//   payload.type='template' which the worker chokepoint re-checks for
+//   status='approved' before any Meta call. hello_world is seeded as the
+//   only approved template; the other four show as awaiting-approval.
 // - INBX-01..03, INBX-06, INBX-07 (carried from D1)
 
 import {
@@ -39,6 +44,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { TemplatesDialog } from "@/components/gymos/TemplatesDialog";
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "react-router";
 
 export function meta() {
@@ -127,6 +133,23 @@ export async function loader({ request }: LoaderFunctionArgs) {
   }
   const optInByMemberId: Record<string, boolean> = {};
   for (const id of memberIds) optInByMemberId[id] = optInSet.has(id);
+
+  // ─── Templates fan-out (P1b.1-05 / WA-08) ─────────────────────────────
+  //
+  // All seeded whatsapp_templates rows. The reply-form Templates dialog
+  // renders these (approved=selectable, others=disabled). Worker re-checks
+  // status='approved' at sendMessage chokepoint per WA-05 / WA-08.
+  // guard:allow-unscoped — single-tenant deploy; templates are studio-wide
+  const templates = await db
+    .select({
+      name: schema.whatsappTemplates.name,
+      status: schema.whatsappTemplates.status,
+      category: schema.whatsappTemplates.category,
+      language: schema.whatsappTemplates.language,
+      componentsJson: schema.whatsappTemplates.componentsJson,
+    })
+    .from(schema.whatsappTemplates)
+    .orderBy(schema.whatsappTemplates.name);
 
   let selectedConversation = null;
   let selectedMessages: any[] = [];
@@ -237,6 +260,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     upcomingBooking,
     windowStateByConvId: windowMap,
     optInByMemberId,
+    templates,
   };
 }
 
@@ -249,10 +273,11 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
 export async function action({ request }: ActionFunctionArgs) {
   const formData = await request.formData();
+  const intent = String(formData.get("_intent") ?? "send-text");
   const conversationId = String(formData.get("conversationId") ?? "");
-  const body = String(formData.get("body") ?? "").trim();
-  if (!conversationId || !body) {
-    return { error: "Missing conversation or body" };
+
+  if (!conversationId) {
+    return { error: "Missing conversation" };
   }
 
   const db = getDb();
@@ -269,6 +294,75 @@ export async function action({ request }: ActionFunctionArgs) {
     .then((r) => r[0] ?? null);
   if (!conv) {
     throw new Response("Conversation not found", { status: 404 });
+  }
+
+  // ─── send-template branch (P1b.1-05 / WA-08) ─────────────────────────────
+  //
+  // Identical optimistic-insert + enqueue pattern to send-text, but with a
+  // `type: 'template'` payload. The worker's sendMessage chokepoint re-checks
+  // template approval (WA-08) and opt-in (WA-07) before any Meta call.
+  // Templates bypass the 24h-window gate (WA-06) — that's the whole point.
+  if (intent === "send-template") {
+    const templateName = String(formData.get("templateName") ?? "").trim();
+    const varsJson = String(formData.get("vars") ?? "{}");
+    let vars: Record<string, string> = {};
+    try {
+      const parsed = JSON.parse(varsJson);
+      if (parsed && typeof parsed === "object") {
+        vars = parsed as Record<string, string>;
+      }
+    } catch {
+      return { error: "Invalid template variables JSON" };
+    }
+    if (!templateName) {
+      return { error: "Missing template name" };
+    }
+
+    const messageId = `msg_${nanoid()}`;
+    const nowIso = new Date().toISOString();
+    const previewBody = `[template: ${templateName}]`;
+
+    await db.insert(schema.messages).values({
+      id: messageId,
+      conversationId,
+      direction: "out",
+      messageType: "template",
+      body: previewBody,
+      payload: JSON.stringify({ name: templateName, vars }),
+      status: "queued",
+      createdAt: nowIso,
+    });
+
+    await db
+      .update(schema.conversations)
+      .set({
+        lastMessagePreview: previewBody,
+        updatedAt: nowIso,
+      })
+      .where(eq(schema.conversations.id, conversationId));
+
+    // Hand to worker chokepoint. Empty vars (e.g. hello_world with 0
+    // placeholders) flow through as `vars: {}` — the @gymos/whatsapp
+    // sdk-impl maps Object.values({}) -> [] and Meta accepts an empty
+    // components array, so no extra guard is needed here.
+    await enqueueOutboundWhatsApp({
+      messageId,
+      memberId: conv.memberId,
+      payload: {
+        type: "template",
+        name: templateName,
+        vars,
+        language: "en_US",
+      },
+    });
+
+    return redirect(`/gymos?conversation=${conversationId}&sent=1`);
+  }
+
+  // ─── send-text branch (existing behaviour — unchanged) ───────────────────
+  const body = String(formData.get("body") ?? "").trim();
+  if (!body) {
+    return { error: "Missing body" };
   }
 
   // D-18: OPTIMISTIC insert with status='queued'. The bubble renders on the
@@ -534,11 +628,16 @@ export default function GymosInbox() {
                     !selectedHasOptIn
                       ? "Member hasn't opted in to WhatsApp messages"
                       : !selectedWs?.inWindow
-                        ? "Out of 24h window — use a template (P2)"
+                        ? "Out of 24h window — use a template"
                         : "Type a reply..."
                   }
                   disabled={!canSendText}
                   className="text-[13px]"
+                />
+                <TemplatesDialog
+                  conversationId={data.selectedConversation.id}
+                  templates={data.templates}
+                  hasOptIn={selectedHasOptIn}
                 />
                 <Button type="submit" disabled={!canSendText || !reply.trim()}>
                   Send
