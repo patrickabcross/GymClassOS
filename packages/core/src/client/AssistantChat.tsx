@@ -2508,6 +2508,17 @@ function BuilderSetupCard({
     el.classList.add("animate-bounce-once");
   }, [bouncePulse]);
 
+  // GymClassOS fork: rewrote this card's body to remove the Builder.io
+  // block (CTA + "no API key needed" copy + Connect button). Per-customer
+  // deploys ship with their own Anthropic key configured via Settings → LLM,
+  // so the framework's hosted-Builder onboarding doesn't apply. We keep the
+  // wrapper card + the "open settings" affordance (relabelled as a primary
+  // action since it's now the only way out of this empty state). The
+  // BuilderConnectCta + ConnectBuilderCard exports above are untouched so
+  // upstream framework consumers still get the original behaviour.
+  // `onConnected` is now unused in our fork but kept in the prop signature
+  // for upstream merge compatibility.
+  void onConnected;
   return (
     <div
       ref={cardRef}
@@ -2519,24 +2530,22 @@ function BuilderSetupCard({
         </div>
         <div>
           <h3 className="text-sm font-medium text-foreground">
-            Turn on the AI assistant
+            AI assistant not configured
           </h3>
           <p className="mt-0.5 text-[11px] text-muted-foreground">
-            One click to connect Builder for free hosted access — no API keys
-            needed.
+            Add an Anthropic API key in Settings to enable the assistant.
           </p>
         </div>
       </div>
 
       <div className="space-y-3">
-        <BuilderConnectCta onConnected={onConnected} />
         <div className="text-center">
           <button
             type="button"
             onClick={openSettings}
-            className="text-[11px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+            className="inline-flex items-center gap-1 rounded-md bg-foreground px-3 py-1.5 text-[11px] font-medium text-background hover:opacity-90"
           >
-            Or add your own API key
+            Open Settings
           </button>
         </div>
       </div>
