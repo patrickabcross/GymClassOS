@@ -30,6 +30,22 @@ export function GymosTopNav() {
   const isAnalytics = path.startsWith("/gymos/analytics");
   // P1b-08: Settings → Integrations (Stripe key rotation).
   const isSettings = path.startsWith("/gymos/settings");
+
+  // P1b.1-livefix: sign-out hits the better-auth backward-compat shim at
+  // POST /_agent-native/auth/logout (see packages/core/src/server/auth.ts:2697
+  // and the pattern already used in access-denied.tsx). We swallow errors so
+  // a cookie-already-expired response still ends up at "/" — the auth guard
+  // will then route the user into the sign-in flow.
+  const handleSignOut = async () => {
+    try {
+      await fetch("/_agent-native/auth/logout", {
+        method: "POST",
+        credentials: "include",
+      });
+    } catch {}
+    window.location.href = "/";
+  };
+
   return (
     <nav className="flex items-center gap-1 px-4 h-11 border-b border-border/50 bg-card/40 shrink-0">
       <span className="text-[12px] font-semibold mr-3">GymClassOS</span>
@@ -54,6 +70,13 @@ export function GymosTopNav() {
       >
         Settings
       </Link>
+      <button
+        type="button"
+        onClick={handleSignOut}
+        className={tabClass(false)}
+      >
+        Sign out
+      </button>
     </nav>
   );
 }
