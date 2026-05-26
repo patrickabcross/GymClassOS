@@ -29,6 +29,7 @@ These are the tools available via `defineAction` in `apps/staff-web/actions/`. E
 |------|---------|---------|
 | `list-fill-rate` | "Which classes are not filling up?" / fill-rate analytics over a trailing window | Array of `{occurrenceId, className, startsAt, capacity, booked, fillPct}` |
 | `list-renewals` | "Provide renewal numbers" / retention figures | `{activeSubscriptions, expiringPasses7d, expiringPasses30d, subscriptionsRenewingNext30d, asOf}` |
+| `list-revenue` | "What's our MRR?" / "are we net positive?" / drop-in revenue / ARPM / net growth | `{mrrPence, mrrPounds, activeSubscribers, unlimitedCount, limitedCount, dropInRevenuePence30d, dropInRevenuePounds30d, tenPacksSold30d, arpmPence, arpmPounds, acquired30d, lost30d, net30d, asOf}` |
 | `list-at-risk-members` | "Which customers should I reach out to?" / churn outreach | Array of `{memberId, name, phoneE164, lastAttendedAt, bookingCount30d, earliestPassExpiry}` |
 | `list-classes` | Supporting context — what classes the gym offers | Array of class definitions with occurrence counts |
 | `list-members` | Supporting context — gym member roster, optional name/phone filter | Array of member rows |
