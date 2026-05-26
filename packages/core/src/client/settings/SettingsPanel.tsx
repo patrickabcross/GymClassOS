@@ -13,8 +13,6 @@ import {
   IconCheck,
   IconExternalLink,
   IconBrain,
-  IconBrowser,
-  IconGitBranch,
   IconCloud,
   IconDatabase,
   IconShield,
@@ -862,17 +860,10 @@ function LLMSectionInner({
         <SettingsSkeleton lines={3} />
       ) : (
         <div className="space-y-2">
-          <UseBuilderCard
-            builderFlow={builderFlow}
-            connectUrl={connectUrl}
-            connected={connected}
-            orgName={orgName}
-            envManaged={envManaged}
-            credentialSource={credentialSource}
-            trackingSource="llm_settings"
-            trackingFlow="connect_llm"
-            label="Connect Builder.io"
-          />
+          {/* GymClassOS fork: removed UseBuilderCard from LLM section
+              (was a "Connect Builder.io" CTA). Customer-facing surfaces
+              are white-labelled. The ManualSetupCard below remains the
+              real config path. */}
           {!builderConnected && (
             <ManualSetupCard
               hint="Choose your AI provider and model."
@@ -1960,9 +1951,7 @@ function CapabilityStatusRow({
 function CapabilityStatusStrip({
   isDevMode,
   builderConnected,
-  builderLoading,
   builderBranchesAvailable,
-  onOpenLlm,
 }: {
   isDevMode: boolean;
   builderConnected: boolean;
@@ -1970,12 +1959,18 @@ function CapabilityStatusStrip({
   builderBranchesAvailable: boolean;
   onOpenLlm: () => void;
 }) {
+  // GymClassOS fork: removed the "Builder" row from this strip. The
+  // customer-facing /gymos surfaces are white-labelled and should not
+  // promote a Builder.io connection. The Code row's `builderConnected &&
+  // builderBranchesAvailable` branch is kept so that if a Builder-managed
+  // workspace IS configured at the env level (BUILDER_PRIVATE_KEY), the
+  // Code label still reflects reality.
   const codeAvailable =
     isDevMode || (builderConnected && builderBranchesAvailable);
   const codeLabel = isDevMode
     ? "Local tools"
     : builderConnected && builderBranchesAvailable
-      ? "Builder branches"
+      ? "Hosted branches"
       : "Desktop/local";
 
   return (
@@ -1989,25 +1984,6 @@ function CapabilityStatusStrip({
           label="Code"
           value={codeLabel}
           active={codeAvailable}
-        />
-        <CapabilityStatusRow
-          label="Builder"
-          active={builderConnected}
-          value={
-            builderLoading ? (
-              "Checking..."
-            ) : builderConnected ? (
-              "Connected"
-            ) : (
-              <button
-                type="button"
-                onClick={onOpenLlm}
-                className="rounded border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground"
-              >
-                Connect
-              </button>
-            )
-          }
         />
       </div>
     </div>
@@ -2316,115 +2292,61 @@ export function SettingsPanel({
         <SecretsSection focusKey={focusSecretKey} />
       </SettingsSection>
 
-      {/* Hosting */}
+      {/* Hosting
+          GymClassOS fork: removed the inline UseBuilderCard "Connect Builder.io"
+          CTA. Surfaces are white-labelled. Manual setup card retained as the
+          actual guidance path. */}
       <SettingsSection
         icon={<IconCloud size={14} />}
         title="Hosting"
         subtitle="Deploy your app to the cloud."
-        connected={connected}
         open={openSection === "hosting"}
         onToggle={() => toggle("hosting")}
       >
         <div className="space-y-2">
-          <UseBuilderCard
-            builderFlow={builderFlow}
-            connectUrl={connectUrl}
-            connected={connected}
-            orgName={orgName}
-            envManaged={envManaged}
-            credentialSource={credentialSource}
-            trackingSource="hosting_settings"
-            trackingFlow="hosting"
-          />
-          <ManualSetupCard
-            hint="Deploy manually to Netlify, Vercel, Cloudflare, or any Nitro-supported target."
-            docsUrl="https://www.builder.io/c/docs/agent-native-deployment"
-            dim={connected}
-          />
+          <ManualSetupCard hint="Deploy to Netlify, Vercel, Cloudflare, Fly.io, or any Nitro-supported target." />
         </div>
       </SettingsSection>
 
-      {/* Database */}
+      {/* Database
+          GymClassOS fork: removed Builder.io connect CTA. */}
       <SettingsSection
         icon={<IconDatabase size={14} />}
         title="Database"
         subtitle="Connect a cloud database for persistent storage."
-        connected={connected}
         open={openSection === "database"}
         onToggle={() => toggle("database")}
       >
         <div className="space-y-2">
-          <UseBuilderCard
-            builderFlow={builderFlow}
-            connectUrl={connectUrl}
-            connected={connected}
-            orgName={orgName}
-            envManaged={envManaged}
-            credentialSource={credentialSource}
-            trackingSource="database_settings"
-            trackingFlow="database"
-          />
-          <ManualSetupCard
-            hint="Set DATABASE_URL in your .env to connect Neon, Supabase, Turso, or any Postgres/SQLite database."
-            docsUrl="https://www.builder.io/c/docs/agent-native-database"
-            dim={connected}
-          />
+          <ManualSetupCard hint="Set DATABASE_URL in your .env to connect Neon, Supabase, Turso, or any Postgres/SQLite database." />
         </div>
       </SettingsSection>
 
-      {/* File uploads */}
+      {/* File uploads
+          GymClassOS fork: removed Builder.io connect CTA. */}
       <SettingsSection
         icon={<IconUpload size={14} />}
         title="File uploads"
         subtitle="Where user-uploaded files (avatars, chat attachments) are stored."
-        connected={connected}
         open={openSection === "uploads"}
         onToggle={() => toggle("uploads")}
       >
         <div className="space-y-2">
-          <UseBuilderCard
-            builderFlow={builderFlow}
-            connectUrl={connectUrl}
-            connected={connected}
-            orgName={orgName}
-            envManaged={envManaged}
-            credentialSource={credentialSource}
-            trackingSource="file_upload_settings"
-            trackingFlow="file_upload"
-          />
-          <ManualSetupCard
-            hint="Without a provider, files are stored as base64 in your database. Fine for dev, not recommended for production."
-            docsUrl="https://www.builder.io/c/docs/agent-native-file-uploads"
-            dim={connected}
-          />
+          <ManualSetupCard hint="Without a provider, files are stored as base64 in your database. Fine for dev, not recommended for production." />
         </div>
       </SettingsSection>
 
-      {/* Authentication */}
+      {/* Authentication
+          GymClassOS fork: removed Builder.io connect CTA. */}
       <SettingsSection
         icon={<IconShield size={14} />}
         title="Authentication"
         subtitle="Set up user authentication and access control."
-        connected={connected}
         open={openSection === "auth"}
         onToggle={() => toggle("auth")}
       >
         <div className="space-y-2">
-          <UseBuilderCard
-            builderFlow={builderFlow}
-            connectUrl={connectUrl}
-            connected={connected}
-            orgName={orgName}
-            envManaged={envManaged}
-            credentialSource={credentialSource}
-            trackingSource="auth_settings"
-            trackingFlow="auth"
-          />
-          <ManualSetupCard
-            hint="Configure Better Auth with BETTER_AUTH_SECRET and optional Google/GitHub OAuth providers."
-            docsUrl="https://www.builder.io/c/docs/agent-native-authentication"
-            dim={connected}
-          />
+          <ManualSetupCard hint="Configure Better Auth with BETTER_AUTH_SECRET and optional Google/GitHub OAuth providers." />
         </div>
       </SettingsSection>
 
@@ -2434,48 +2356,13 @@ export function SettingsPanel({
         onToggle={() => toggle("email")}
       />
 
-      {/* Browser Automation */}
-      <SettingsSection
-        icon={<IconBrowser size={14} />}
-        title="Browser Automation"
-        subtitle="Let agents control a real browser for web tasks."
-        connected={connected}
-        open={openSection === "browser"}
-        onToggle={() => toggle("browser")}
-      >
-        <UseBuilderCard
-          builderFlow={builderFlow}
-          connectUrl={connectUrl}
-          connected={connected}
-          orgName={orgName}
-          envManaged={envManaged}
-          credentialSource={credentialSource}
-          trackingSource="browser_settings"
-          trackingFlow="browser_automation"
-        />
-      </SettingsSection>
-
-      {builderBranchesAvailable && (
-        <SettingsSection
-          icon={<IconGitBranch size={14} />}
-          title="Background Agent"
-          subtitle="Make code changes from production mode via Builder."
-          connected={connected}
-          open={openSection === "background"}
-          onToggle={() => toggle("background")}
-        >
-          <UseBuilderCard
-            builderFlow={builderFlow}
-            connectUrl={connectUrl}
-            connected={connected}
-            orgName={orgName}
-            envManaged={envManaged}
-            credentialSource={credentialSource}
-            trackingSource="background_agent_settings"
-            trackingFlow="background_agent"
-          />
-        </SettingsSection>
-      )}
+      {/* Browser Automation
+          GymClassOS fork: section removed entirely (Builder-only feature in
+          the upstream framework, irrelevant for customer-facing gym product).
+          Restore by reverting this hunk if a non-Builder browser automation
+          provider is added upstream. */}
+      {/* Background Agent
+          GymClassOS fork: section removed entirely (Builder-only feature). */}
 
       {/* Integrations */}
       <SettingsSection
