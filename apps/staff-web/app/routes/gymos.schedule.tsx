@@ -1,21 +1,55 @@
-// GymClassOS Schedule — Demo Sprint D1. Week-grid of seeded class occurrences with
-// book-into-occurrence dialog. Standalone for demo; will move to
-// apps/staff-web/features/schedule/ post-demo.
+// GymClassOS Schedule — month-grid calendar with day drill-down.
 //
 // Route: /gymos/schedule (file naming: dot separator = path segment in RR v7
 // framework mode, matching the existing gymos.tsx inbox route).
 //
-// Loader returns the full seeded week (Sun May 18 → Fri May 22, 7 occurrences).
-// Action inserts a booking row (status='booked'); demo-grade — no atomic
-// capacity check, no entitlement resolution, no pass debit. Production
-// (BKG-03/BKG-04) wraps capacity + entitlement + debit in a single transaction
-// with SELECT ... FOR UPDATE on the occurrence row.
+// Shape: standard month grid (7 cols × N weeks), today highlighted, each day
+// cell shows a class-count badge. Click a day to select it; the right-hand
+// detail pane lists that day's occurrences with the existing book-into-
+// occurrence dialog preserved.
+//
+// Why month grid (over a 5-day strip): the seed carries ~423 occurrences
+// across 3 months — density information is actually present, so a month grid
+// gives operators the most signal at a glance. date-fns helpers cover the
+// awkward calendar math (week roll, month boundaries).
+//
+// State lives in URL search params (month=YYYY-MM, date=YYYY-MM-DD, book=<id>)
+// so the calendar is SSR-stable and shareable. Defaults: month=current month,
+// date=today.
+//
+// Loader still pulls the full occurrence + booking-count set. For 3 months
+// of seed data this is ~423 rows; once production windows grow we'll add a
+// month-range filter in the loader URL (covered post-pilot under SCH-08).
+//
+// Action: unchanged from the previous flat-list version — insert booking row
+// (demo-grade, no atomic capacity check). Production atomicity ships in
+// BKG-03/BKG-04.
 
 import { useLoaderData, Form, redirect, useSearchParams } from "react-router";
 import { eq, asc, sql } from "drizzle-orm";
+import {
+  addMonths,
+  eachDayOfInterval,
+  endOfMonth,
+  endOfWeek,
+  format,
+  isSameDay,
+  isSameMonth,
+  isToday,
+  parse,
+  startOfMonth,
+  startOfWeek,
+  subMonths,
+} from "date-fns";
+import {
+  IconCalendarEvent,
+  IconChevronLeft,
+  IconChevronRight,
+} from "@tabler/icons-react";
 import { getDb, schema } from "../../server/db";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -44,6 +78,7 @@ export async function action({ request }: ActionFunctionArgs) {
   const formData = await request.formData();
   const occurrenceId = String(formData.get("occurrenceId") ?? "");
   const memberId = String(formData.get("memberId") ?? "");
+  const returnTo = String(formData.get("returnTo") ?? "/gymos/schedule");
   if (!occurrenceId || !memberId) {
     return { error: "Missing occurrenceId or memberId" };
   }
@@ -66,7 +101,7 @@ export async function action({ request }: ActionFunctionArgs) {
     bookedAt: now,
   });
 
-  return redirect("/gymos/schedule");
+  return redirect(returnTo);
 }
 
 // ─── Loader ──────────────────────────────────────────────────────────────────
@@ -77,6 +112,9 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const db = getDb();
 
   // Query A — list occurrences joined to definitions, ordered by start time.
+  //
+  // guard:allow-unscoped — single-tenant gym tables (no ownableColumns) per
+  // P1b.1-RESEARCH.md §6 "no unscoped queries" exemption.
   const occurrences = await db
     .select({
       id: schema.classOccurrences.id,
@@ -97,6 +135,8 @@ export async function loader({ request }: LoaderFunctionArgs) {
     .orderBy(asc(schema.classOccurrences.startsAt));
 
   // Query B — booking counts per occurrence (single grouped query).
+  //
+  // guard:allow-unscoped — single-tenant gym tables.
   const bookingCountsRows = await db
     .select({
       occurrenceId: schema.bookings.occurrenceId,
@@ -139,11 +179,17 @@ type Occurrence = Awaited<ReturnType<typeof loader>>["occurrences"][number];
 
 // Demo uses UTC date bucket; production must use studio IANA timezone
 // (DST-correct per SCH-07).
-function groupByDay(occurrences: Occurrence[]): Record<string, Occurrence[]> {
-  const out: Record<string, Occurrence[]> = {};
+function dayKey(iso: string): string {
+  return new Date(iso).toISOString().slice(0, 10);
+}
+
+function groupByDay(occurrences: Occurrence[]): Map<string, Occurrence[]> {
+  const out = new Map<string, Occurrence[]>();
   for (const o of occurrences) {
-    const key = new Date(o.startsAt).toISOString().slice(0, 10);
-    (out[key] ??= []).push(o);
+    const key = dayKey(o.startsAt);
+    const bucket = out.get(key);
+    if (bucket) bucket.push(o);
+    else out.set(key, [o]);
   }
   return out;
 }
@@ -155,101 +201,296 @@ function formatTime(iso: string) {
   });
 }
 
-function formatDayHeader(yyyymmdd: string) {
-  const d = new Date(yyyymmdd + "T00:00:00Z");
-  return {
-    weekday: d.toLocaleDateString("en-GB", {
-      weekday: "short",
-      timeZone: "UTC",
-    }),
-    dayMonth: d.toLocaleDateString("en-GB", {
-      day: "numeric",
-      month: "short",
-      timeZone: "UTC",
-    }),
-  };
+// Build the rendered month grid (always whole weeks, Mon–Sun).
+function monthGridDays(anchor: Date): Date[] {
+  const start = startOfWeek(startOfMonth(anchor), { weekStartsOn: 1 });
+  const end = endOfWeek(endOfMonth(anchor), { weekStartsOn: 1 });
+  return eachDayOfInterval({ start, end });
+}
+
+// Parse a YYYY-MM string into a Date anchored at the first of that month.
+// Falls back to today if the param is missing or malformed.
+function parseMonthParam(raw: string | null): Date {
+  if (!raw) return startOfMonth(new Date());
+  const parsed = parse(raw, "yyyy-MM", new Date());
+  return isNaN(parsed.getTime()) ? startOfMonth(new Date()) : parsed;
+}
+
+// Parse a YYYY-MM-DD string into a Date. Falls back to today.
+function parseDateParam(raw: string | null): Date {
+  if (!raw) return new Date();
+  const parsed = parse(raw, "yyyy-MM-dd", new Date());
+  return isNaN(parsed.getTime()) ? new Date() : parsed;
 }
 
 // ─── Route ───────────────────────────────────────────────────────────────────
 
 export default function GymosSchedule() {
   const data = useLoaderData<typeof loader>();
-  const [, setParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
 
+  // ─── URL-driven state ───────────────────────────────────────────────────
+  const monthAnchor = parseMonthParam(searchParams.get("month"));
+  const selectedDate = parseDateParam(searchParams.get("date"));
+  const monthLabel = format(monthAnchor, "MMMM yyyy");
+
+  // ─── Derived calendar data ──────────────────────────────────────────────
   const byDay = groupByDay(data.occurrences);
-  const dayKeys = Object.keys(byDay).sort();
+  const gridDays = monthGridDays(monthAnchor);
+  const selectedKey = format(selectedDate, "yyyy-MM-dd");
+  const selectedOccurrences = (byDay.get(selectedKey) ?? []).slice().sort(
+    (a, b) => a.startsAt.localeCompare(b.startsAt),
+  );
 
+  // ─── Nav helpers — preserve other params; only swap calendar params ─────
+  function navigateTo(updates: Record<string, string | null>) {
+    const next = new URLSearchParams(searchParams);
+    for (const [k, v] of Object.entries(updates)) {
+      if (v === null) next.delete(k);
+      else next.set(k, v);
+    }
+    setSearchParams(next);
+  }
+
+  function goPrevMonth() {
+    navigateTo({ month: format(subMonths(monthAnchor, 1), "yyyy-MM") });
+  }
+  function goNextMonth() {
+    navigateTo({ month: format(addMonths(monthAnchor, 1), "yyyy-MM") });
+  }
+  function goToday() {
+    const today = new Date();
+    navigateTo({
+      month: format(startOfMonth(today), "yyyy-MM"),
+      date: format(today, "yyyy-MM-dd"),
+    });
+  }
+  function selectDay(d: Date) {
+    navigateTo({
+      month: format(startOfMonth(d), "yyyy-MM"),
+      date: format(d, "yyyy-MM-dd"),
+    });
+  }
+  function openBookDialog(occurrenceId: string) {
+    navigateTo({ book: occurrenceId });
+  }
+  function closeBookDialog() {
+    navigateTo({ book: null });
+  }
+
+  // ─── Dialog state ───────────────────────────────────────────────────────
   const dialogOpen = !!data.bookOccurrence;
   const occ = data.bookOccurrence;
   const occBookedCount = occ ? (data.bookingCounts[occ.id] ?? 0) : 0;
   const occFull = occ ? occBookedCount >= occ.capacity : false;
+  const returnTo = `/gymos/schedule?${(() => {
+    const r = new URLSearchParams(searchParams);
+    r.delete("book");
+    return r.toString();
+  })()}`;
+
+  const totalThisMonth = gridDays
+    .filter((d) => isSameMonth(d, monthAnchor))
+    .reduce((sum, d) => sum + (byDay.get(format(d, "yyyy-MM-dd"))?.length ?? 0), 0);
 
   return (
-    <div className="flex h-full w-full flex-col overflow-y-auto bg-background text-foreground">
+    <div className="flex h-full w-full flex-col overflow-hidden bg-background text-foreground">
       {/* ─── Header ───────────────────────────────────────────────────── */}
       <header className="border-b border-border/50 bg-card/30 px-5 py-3">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-4">
           <div>
             <h1 className="text-sm font-semibold">Class Schedule</h1>
             <p className="mt-0.5 text-[11px] text-muted-foreground">
-              Week view · click an occurrence to book a member
+              Pick a day to see its classes · click a class to book a member
             </p>
           </div>
-          <Badge variant="outline" className="h-5 text-[10px]">
-            {data.occurrences.length} occurrences
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="h-5 text-[10px]">
+              {totalThisMonth} this month
+            </Badge>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 text-[12px]"
+              onClick={goToday}
+            >
+              Today
+            </Button>
+            <div className="flex items-center gap-1">
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="h-7 w-7"
+                onClick={goPrevMonth}
+                aria-label="Previous month"
+              >
+                <IconChevronLeft size={14} aria-hidden />
+              </Button>
+              <div className="min-w-[112px] text-center text-[12px] font-semibold tabular-nums">
+                {monthLabel}
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="h-7 w-7"
+                onClick={goNextMonth}
+                aria-label="Next month"
+              >
+                <IconChevronRight size={14} aria-hidden />
+              </Button>
+            </div>
+          </div>
         </div>
       </header>
 
-      {/* ─── Week grid ────────────────────────────────────────────────── */}
-      <main className="flex-1 overflow-auto px-5 py-4">
-        {dayKeys.length === 0 ? (
-          <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-            No class occurrences in the database.
+      {/* ─── Two-pane body: calendar grid (left) + day detail (right) ─── */}
+      <main className="grid flex-1 grid-cols-1 gap-4 overflow-hidden px-5 py-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(320px,1fr)]">
+        {/* ─── Month grid ─────────────────────────────────────────────── */}
+        <section
+          className="flex min-h-0 flex-col rounded-lg border border-border/50 bg-card/20"
+          aria-label={`${monthLabel} calendar`}
+        >
+          {/* Weekday header (Mon–Sun) */}
+          <div className="grid grid-cols-7 border-b border-border/40 px-2 py-1.5">
+            {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((w) => (
+              <div
+                key={w}
+                className="px-1 text-[11px] uppercase tracking-wide text-muted-foreground"
+              >
+                {w}
+              </div>
+            ))}
           </div>
-        ) : (
+
+          {/* Day cells */}
           <div
-            className="grid gap-3"
+            className="grid flex-1 grid-cols-7 gap-1 overflow-auto p-2"
             style={{
-              gridTemplateColumns: `repeat(${dayKeys.length}, minmax(180px, 1fr))`,
+              gridAutoRows: "minmax(64px, 1fr)",
             }}
           >
-            {dayKeys.map((dayKey) => {
-              const header = formatDayHeader(dayKey);
+            {gridDays.map((d) => {
+              const key = format(d, "yyyy-MM-dd");
+              const count = byDay.get(key)?.length ?? 0;
+              const inMonth = isSameMonth(d, monthAnchor);
+              const isSelected = isSameDay(d, selectedDate);
+              const today = isToday(d);
               return (
-                <section
-                  key={dayKey}
-                  className="flex flex-col rounded-lg border border-border/50 bg-card/20"
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => selectDay(d)}
+                  aria-pressed={isSelected}
+                  aria-label={`${format(d, "EEEE d MMMM")}, ${count} ${
+                    count === 1 ? "class" : "classes"
+                  }`}
+                  className={cn(
+                    "flex flex-col items-start gap-1.5 rounded-md border px-2 py-1.5 text-left transition",
+                    "border-border/40 bg-background/40 hover:bg-accent/40",
+                    !inMonth && "opacity-40",
+                    today && "border-foreground/40",
+                    isSelected &&
+                      "border-foreground bg-accent ring-1 ring-foreground/20",
+                  )}
                 >
-                  <header className="border-b border-border/40 px-3 py-2">
-                    <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                      {header.weekday}
-                    </div>
-                    <div className="text-[13px] font-semibold">
-                      {header.dayMonth}
-                    </div>
-                  </header>
-                  <div className="flex-1 space-y-2 p-2">
-                    {byDay[dayKey].map((o) => {
-                      const booked = data.bookingCounts[o.id] ?? 0;
-                      const full = booked >= o.capacity;
-                      return (
-                        <button
-                          key={o.id}
-                          type="button"
-                          onClick={() => setParams({ book: o.id })}
-                          className={cn(
-                            "w-full rounded-md border border-border/50 bg-background/60 px-3 py-2 text-left transition hover:bg-accent/40",
-                            o.status === "cancelled" && "opacity-50",
-                          )}
-                        >
+                  <div className="flex w-full items-center justify-between">
+                    <span
+                      className={cn(
+                        "text-[12px] tabular-nums",
+                        today
+                          ? "font-semibold text-foreground"
+                          : "text-foreground",
+                        !inMonth && "text-muted-foreground",
+                      )}
+                    >
+                      {format(d, "d")}
+                    </span>
+                    {count > 0 && (
+                      <span
+                        className={cn(
+                          "rounded-full bg-foreground/80 px-1.5 text-[10px] tabular-nums text-background",
+                        )}
+                        aria-hidden
+                      >
+                        {count}
+                      </span>
+                    )}
+                  </div>
+                  {count > 0 ? (
+                    <span className="h-1 w-1 rounded-full bg-foreground/60" aria-hidden />
+                  ) : (
+                    <span className="h-1 w-1" aria-hidden />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* ─── Day detail pane ─────────────────────────────────────────── */}
+        <section
+          className="flex min-h-0 flex-col rounded-lg border border-border/50 bg-card/20"
+          aria-label={`Classes on ${format(selectedDate, "EEEE d MMMM yyyy")}`}
+        >
+          <header className="flex items-center justify-between gap-2 border-b border-border/40 px-3 py-2">
+            <div>
+              <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                {format(selectedDate, "EEEE")}
+              </div>
+              <div className="text-sm font-semibold">
+                {format(selectedDate, "d MMMM yyyy")}
+              </div>
+            </div>
+            <Badge variant="outline" className="h-5 text-[10px]">
+              {selectedOccurrences.length}{" "}
+              {selectedOccurrences.length === 1 ? "class" : "classes"}
+            </Badge>
+          </header>
+
+          <div className="flex-1 overflow-auto p-2">
+            {selectedOccurrences.length === 0 ? (
+              <div className="flex h-full flex-col items-center justify-center gap-2 px-4 py-8 text-center">
+                <IconCalendarEvent
+                  size={28}
+                  className="text-muted-foreground"
+                  aria-hidden
+                />
+                <div className="text-[13px] text-muted-foreground">
+                  No classes scheduled
+                </div>
+                <div className="text-[11px] text-muted-foreground">
+                  Pick another day from the calendar
+                </div>
+              </div>
+            ) : (
+              <ul className="flex flex-col gap-2">
+                {selectedOccurrences.map((o) => {
+                  const booked = data.bookingCounts[o.id] ?? 0;
+                  const full = booked >= o.capacity;
+                  const cancelled = o.status === "cancelled";
+                  return (
+                    <li key={o.id}>
+                      <Card
+                        className={cn(
+                          "border-border/50 bg-background/60 p-3",
+                          cancelled && "opacity-50",
+                        )}
+                      >
+                        <CardContent className="flex flex-col gap-2 p-0">
                           <div className="flex items-center justify-between gap-2">
                             <span className="text-[12px] font-semibold tabular-nums">
                               {formatTime(o.startsAt)}
+                              <span className="text-muted-foreground">
+                                {" – "}
+                                {formatTime(o.endsAt)}
+                              </span>
                             </span>
                             <span
                               className={cn(
-                                "text-[10px] tabular-nums",
+                                "text-[11px] tabular-nums",
                                 full
                                   ? "text-amber-600 dark:text-amber-400"
                                   : "text-muted-foreground",
@@ -258,10 +499,10 @@ export default function GymosSchedule() {
                               {booked} / {o.capacity}
                             </span>
                           </div>
-                          <div className="mt-1 text-[13px] font-semibold">
+                          <div className="text-[13px] font-semibold">
                             {o.className ?? "Untitled class"}
                           </div>
-                          <div className="mt-1 flex items-center gap-1.5">
+                          <div className="flex flex-wrap items-center gap-1.5">
                             {o.category && (
                               <Badge
                                 variant="secondary"
@@ -271,30 +512,50 @@ export default function GymosSchedule() {
                               </Badge>
                             )}
                             {o.room && (
-                              <span className="text-[10px] text-muted-foreground">
-                                · {o.room}
+                              <span className="text-[11px] text-muted-foreground">
+                                {o.room}
                               </span>
                             )}
-                            <span className="ml-auto text-[10px] text-muted-foreground">
-                              {o.durationMin ?? "?"}min
+                            <span className="text-[11px] text-muted-foreground">
+                              · {o.durationMin ?? "?"}min
                             </span>
+                            {cancelled && (
+                              <Badge
+                                variant="outline"
+                                className="ml-auto h-4 px-1.5 text-[9px] uppercase"
+                              >
+                                Cancelled
+                              </Badge>
+                            )}
+                            {!cancelled && (
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant={full ? "outline" : "default"}
+                                disabled={full}
+                                onClick={() => openBookDialog(o.id)}
+                                className="ml-auto h-6 px-2 text-[11px]"
+                              >
+                                {full ? "Full" : "Book"}
+                              </Button>
+                            )}
                           </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </section>
-              );
-            })}
+                        </CardContent>
+                      </Card>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
           </div>
-        )}
+        </section>
       </main>
 
       {/* ─── Booking dialog ───────────────────────────────────────────── */}
       <Dialog
         open={dialogOpen}
         onOpenChange={(open) => {
-          if (!open) setParams({});
+          if (!open) closeBookDialog();
         }}
       >
         <DialogContent className="sm:max-w-md">
@@ -325,6 +586,7 @@ export default function GymosSchedule() {
 
               <Form method="post" className="space-y-4">
                 <input type="hidden" name="occurrenceId" value={occ.id} />
+                <input type="hidden" name="returnTo" value={returnTo} />
 
                 <div className="space-y-2">
                   <label
@@ -351,7 +613,7 @@ export default function GymosSchedule() {
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => setParams({})}
+                    onClick={closeBookDialog}
                   >
                     Discard
                   </Button>
