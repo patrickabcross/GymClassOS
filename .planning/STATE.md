@@ -194,8 +194,8 @@ None tracked as TODOs; everything is in the roadmap / requirements.
 
 ## Session Continuity
 
-Last session: 2026-05-25T22:18:26.931Z
-Stopped at: Completed P1b.1-05 (templates dialog + send-template action)
+Last session: 2026-05-26 (P1b.1 live-fix wave + P1c draft)
+Stopped at: P1b.1 live-accepted; P1c (Public Site Integrations) drafted in ROADMAP; user shutting down
 Resume file: None
 
 ### Resume Notes — Next Session Quick-Start
@@ -204,74 +204,81 @@ Resume file: None
 
 ```bash
 cd C:/Users/dimet/hustle
-git log --oneline -10              # see what shipped this session
-cat .planning/STATE.md             # see this file
-cat .planning/ROADMAP.md           # full demo sprint + production v1 plan
+git log --oneline -20              # see the live-fix wave + P1c draft commits
+cat .planning/STATE.md             # this file
+cat .planning/ROADMAP.md           # full plan including new P1c entry
+cat .planning/phases/P1b.1-customer-pilot-enablement/P1b.1-LIVE-ACCEPTANCE.md   # what was accepted + carry-over items
 ```
 
-**Boot the framework locally:**
+**Live deployment state:**
+
+- Staff-web: `https://gym-class-os.vercel.app` (Vercel, auto-deploys from `master`)
+- Worker + edge-webhooks: Fly app `gymos-edge-webhooks` (two processes inside one app — `services/worker/` + `services/edge-webhooks/`)
+- Neon project: `gymos-demo` (id `billowing-sun-51091059`)
+- Demo data: 260 members / 423 class occurrences / 4,162 bookings / 200 active subs / 90 conversations / 453 messages (seeded via `pnpm --filter @gymos/staff-web db:seed-demo`)
+- ANTHROPIC_API_KEY: stored in `app_secrets` table (saved via in-app Settings → API Keys), NOT in Vercel env
+- WHATSAPP_* keys: registered in the framework secret UI (saved in `app_secrets`) but the WORKER still reads from `process.env.WHATSAPP_*` — see WhatsApp deep-wire workstream below
+
+**Three parallel next-up tracks:**
+
+#### 1. WhatsApp integration deep wire
+
+Goal: in-app Settings UI becomes the single source of truth for Meta credentials (today the worker still needs `fly secrets set`).
 
 ```bash
-pnpm --filter mail dev             # Vite SSR on :8081 (port 8080 taken on this machine)
+# Files that need to migrate from process.env to readAppSecret:
+services/worker/src/domain/sendMessage.ts       # outbound send
+services/edge-webhooks/src/...                  # inbound webhook signature verification + verify-token
 
-# → open http://localhost:8081/gymos
+# After migration, drop the per-service Fly secrets and rely on app_secrets only.
 
-# → click any conversation; member context panel renders on the right
-
-# → typing a reply persists to Neon but doesn't call Meta yet
-
+# Open: P1b-09 (WA-08 template sync cron) — fetch real approved templates
+# from Meta and replace the seeded 5 stub rows in whatsapp_templates.
 ```
 
-**Vercel deploy (the unfinished D0.5):**
+Then end-to-end test:
+1. In `/gymos`, open a conversation with an opted-in member whose phone you control
+2. Templates → `hello_world` → Send template
+3. Phone receives the message, message status moves `queued → sent → delivered → read`
+4. Also test the worker chokepoint: send free-text to a conversation with `last_inbound_at` >24h ago, expect status to land at `failed` with errorCode `WINDOW_EXPIRED`
+
+Full setup instructions in `.planning/phases/P1b.1-customer-pilot-enablement/P1b.1-WHATSAPP-SETUP.md`.
+
+#### 2. Mobile app (member surface)
+
+Goal: ship an EAS preview build under the customer's existing Apple Developer Account so they can hand the member experience to a real test cohort.
 
 ```bash
+# Where it lives: packages/mobile-app/ (Expo 55 + RN 0.83.9 + Expo Router)
 
-# From templates/mail/:
+# Resume D2-06 Task 4 — in-app agent demo. Plan:
+cat .planning/phases/D2-member-mobile-app-calorie-counter-agent-days-4-7/D2-06-*-PLAN.md
 
-cd templates/mail
-vercel link                                              # interactive — pick gymos-demo or create
-
-# Set env vars in Vercel dashboard OR via CLI:
-
-vercel env add DATABASE_URL                              # paste pooled Neon URL
-vercel env add BETTER_AUTH_SECRET                        # generate or paste from .env.local
-vercel env add BETTER_AUTH_URL                           # the Vercel preview URL
-vercel env add NITRO_PRESET production                   # set to "vercel"
-
-# Mail template has netlify.toml — may need vercel.json to override.
-
-# Nitro presets: https://nitro.unjs.io/deploy/providers/vercel
-
-vercel deploy --prod
+# Boot for local dev:
+pnpm --filter @gymos/staff-web dev           # :8081 (the API the mobile app talks to)
+cd packages/mobile-app
+pnpm exec expo start --tunnel --port 19000 --clear
+$env:EXPO_PUBLIC_API_BASE="http://<laptop-LAN-IP>:8081"
+# → scan the QR with Expo Go on a phone
 ```
 
-Likely needs a `vercel.json` at templates/mail/ root:
+EAS build then: `cd packages/mobile-app && pnpm exec eas build --platform ios --profile preview` (customer's Apple Developer Account creds needed).
 
-```json
-{
-  "buildCommand": "cd ../.. && pnpm install && pnpm --filter mail build",
-  "outputDirectory": ".vercel/output",
-  "framework": null,
-  "env": { "NITRO_PRESET": "vercel" }
-}
+#### 3. P1c — Public Site Integrations (drafted, not yet planned)
+
+Forms fork + `/embed/schedule` booking widget for `doyouhustle.co.uk`. Run when ready:
+
+```bash
+/gsd:plan-phase P1c
 ```
 
-**Pick up D1 surfaces (after Vercel deploy):**
+Scope sketch is in `.planning/ROADMAP.md` under "Phase P1c"; pick which sub-plans to plan first. Forms fork is small (~1-2 days); embed widget is ~1-2 weeks but the real commercial unlock vs Mindbody/Bsport.
 
-1. **Schedule view** — copy the pattern from `templates/mail/app/routes/gymos.tsx`; new file `gymos.schedule.tsx`; query `class_occurrences` + join `class_definitions`; render as week grid. The 7 seeded occurrences cover Sun May 18 → Fri May 22.
-2. **Members directory** — `gymos.members.tsx` (list) + `gymos.members.$id.tsx` (profile). Profile shows bookings + passes + recent food + conversation link.
-3. **Booking action** — let coach book a member into an occurrence from /gymos/members/:id. Demo-grade SELECT + INSERT (no atomic capacity check yet).
+**Three Plan-08 criteria carry-over (from `P1b.1-LIVE-ACCEPTANCE.md`):**
 
-**Pick up D2 (member mobile app):**
-
-1. Inspect `packages/mobile-app/` — what's already there
-2. Fork via copy or in-place mods. Configure Expo Go.
-3. Wire member auth (stub for demo) + booking screen + calorie counter (OFF API) + agent chat
-4. Get an Expo Go QR code in front of the customer
-
-**Pick up Production v1 (weeks 2-9):**
-
-After demo lands and customer feedback comes back, run P0 audit → P1a data foundation → P1b webhook spine → P2 full product. See ROADMAP.md.
+1. Real WhatsApp send against the verified WABA (rolls into workstream 1)
+2. Worker chokepoint rejecting out-of-window free-text against the LIVE deployment (rolls into workstream 1)
+3. Negative auth test — non-allowlisted Google account lands on `/access-denied` (needs a second Google account to walk)
 
 ### Files Touched This Session
 

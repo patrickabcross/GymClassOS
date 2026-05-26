@@ -16,23 +16,29 @@ Coaches and studio managers run their entire day from one inbox-and-schedule sur
 
 <!-- Shipped and confirmed valuable. -->
 
-(None yet — ship to validate)
+- [x] **Workspace bootstrapped from `BuilderIO/agent-native` fork** — Mail template copied to `apps/staff-web/`, Calendar pattern adapted for schedule, member app forks `packages/mobile-app/`. *Validated in Phase D0 (2026-05-17).*
+- [x] **`apps/staff-web` deployed to Vercel** — Better-auth + Neon Postgres connected, agent reads `ANTHROPIC_API_KEY` from `app_secrets` (in-app Settings UI is the source of truth). *Validated in Phase P1b.1 (2026-05-26, live-accepted).*
+- [x] **Drizzle schema migrated to Neon** — gym_members, conversations, messages, class_definitions, class_occurrences, bookings, passes, pass_debits, whatsapp_templates, whatsapp_opt_in, stripe_customers/subscriptions/payments, secrets, webhook_events, agent_sessions, food_items, food_entries — all live in `gymos-demo`. *Validated through D0 → P1b.*
+- [x] **Staff back-office surfaces** — `/gymos` WhatsApp inbox with member context panel (differentiator), `/gymos/schedule` month-grid calendar, `/gymos/members` + detail, `/gymos/payments`, `/gymos/analytics` (Fill Rate / Cancellation / Pass Utilisation + MRR / Net Growth / ARPM / Drop-in Revenue using Hustle's published prices), `/gymos/settings/integrations`. *Validated in Phase P1b.1 (2026-05-26).*
+- [x] **Gym-aware right-rail agent** — 5 gym actions (`list-fill-rate`, `list-classes`, `list-members`, `list-renewals`, `list-at-risk-members`) + `list-revenue` registered as `defineAction` LLM tools; gym systemPrompt forbids email vocabulary. *Validated in Phase P1b.1 (2026-05-26).*
+- [x] **Customer Pilot Enablement** — auth allowlist, `/access-denied` branded denial page, sign-out, Templates dialog (WhatsApp template send through worker chokepoint), demo seed of 3 months of activity (260 members / 423 classes / 4,162 bookings / 200 active subs). *Validated in Phase P1b.1 (2026-05-26, live-accepted in lieu of formal walkthrough).*
+- [x] **Webhook + worker spine** — `services/edge-webhooks/` (Hono receiver, Stripe + WhatsApp signature verification) + `services/worker/` (pg-boss subscriber, sendMessage chokepoint with opt-in / 24h-window / template-approved gates). *Validated in Phase P1b (8/9 plans, 2026-05-23).*
 
 ### Active
 
 <!-- Current scope. Building toward these. The detailed REQ-IDs live in REQUIREMENTS.md. -->
 
-**Demo Sprint (Week 1, by ~2026-05-24) — prototype quality for signed customer's first look:**
+**Next-up — three parallel workstreams (post-P1b.1):**
 
-- [ ] Workspace bootstrapped from `BuilderIO/agent-native` fork with: Mail template copied to staff WhatsApp inbox surface, Calendar template copied to schedule surface, member PWA shell skeleton
-- [ ] Hello-world `apps/staff-web` deployed to Vercel (Better-auth + Neon Postgres connected)
-- [ ] Drizzle schema migrated to Neon with the core entities (members, conversations, messages, class_definitions, class_occurrences, bookings, passes, pass_debits, food_items, food_entries, agent_sessions, webhook_events)
-- [ ] Staff can log in to the back-office and see: a populated inbox (Mail-template adapted), a populated weekly schedule (Calendar-template adapted), member directory, basic payments view
-- [ ] Member can log in to the PWA on their phone (URL, install-to-home-screen) and: browse classes, book one, view their pass balance, log a meal (search or barcode), chat with the in-app agent
-- [ ] In-app member agent has 2-3 working tools end-to-end: `book_class`, `log_food_nl`, `greet` (others stubbed)
-- [ ] At least one inbound WhatsApp message round-trips into the inbox (signature verified)
-- [ ] At least one outbound WhatsApp message sends from the inbox (24h window respected)
-- [ ] At least one Stripe Checkout link generated, paid (test mode), and reflected in member profile
+- [ ] **WhatsApp integration deep wire** — migrate `services/worker/` + `services/edge-webhooks/` to read Meta credentials from `app_secrets` (so the in-app Settings UI is the single source of truth, not `fly secrets set`); wire **P1b-09** WA-08 template sync cron so real approved Meta templates replace the seeded stubs; end-to-end test of outbound send + inbound delivery/read callbacks against the verified WABA
+- [ ] **Mobile app (member surface)** — resume D2 work (Task 4 of in-app agent was pending; D2-06 verification deferred); harden the Expo fork against iteration that landed during the staff-web pilot fixes; cut an EAS preview build under the customer's existing Apple Developer Account
+- [ ] **P1c — Public Site Integrations (drafted, not yet planned)** — fork agent-native's `templates/forms/` for embeddable lead-capture / signup forms whose submissions land in `/gymos` as conversations; ship public `/embed/schedule` booking widget for `doyouhustle.co.uk` (anonymous Stripe Checkout + pass binding via P1b-07 reducer); cross-origin `postMessage` callbacks. The real commercial unlock vs Mindbody/Bsport. Run `/gsd:plan-phase P1c` when ready
+
+**Carry-over from P1b.1 live-acceptance (three Plan-08 criteria not formally walked):**
+
+- [ ] Real WhatsApp send against the verified WABA (rolls into WhatsApp deep wire)
+- [ ] Worker chokepoint out-of-window rejection against the LIVE deployment (rolls into WhatsApp deep wire)
+- [ ] Negative auth test — non-allowlisted Google account lands on `/access-denied` (needs a second Google account)
 
 **Production v1 (Weeks 2–9, ship by ~2026-07-15) — harden + extend the demo:**
 
@@ -144,4 +150,6 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-17 — major scope revision (Demo Sprint + Production v1 two-milestone shape; mobile = PWA not native; Stripe direct restricted-key; calorie counter in v1; pg-boss replaces BullMQ/Redis). See PLATFORM-VISION.md for the reconciliation log.*
+*Last updated: 2026-05-26 — P1b.1 Customer Pilot Enablement live-accepted on `gym-class-os.vercel.app` after iterative live-fix wave; P1c Public Site Integrations drafted (forms fork + `/embed/schedule` booking widget); validated requirements section refreshed from "(None yet)" to the shipped surfaces; next-up workstreams: WhatsApp deep wire + Mobile EAS build + P1c plan-phase.*
+
+*Earlier: 2026-05-17 — major scope revision (Demo Sprint + Production v1 two-milestone shape; mobile = native Expo not PWA; Stripe direct restricted-key; calorie counter in v1; pg-boss replaces BullMQ/Redis). See PLATFORM-VISION.md for the reconciliation log.*
