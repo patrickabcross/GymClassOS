@@ -189,7 +189,7 @@ The production milestone is structured as 4 phases (preserving the prior coarse-
 - **Better-auth for non-Google customer accounts** — staff-web has only seen Google OAuth in the demo path. Plan-phase decides email/password vs. email magic-link and verifies Better-auth's email transport.
 - **Agent action surface drift.** If `apps/staff-web/actions/` lacks the actions the new gymos AGENTS.md describes, the agent will hallucinate. Plan-phase verifies action inventory before writing AGENTS.md.
 
-**Plans:** 2/8 plans executed
+**Plans:** 8/8 — phase live-accepted 2026-05-26
 
 - [x] P1b.1-01-bare-gymos-layout-PLAN.md — Strip email chrome from /gymos/* (AppLayout early-return for /gymos paths) and add Analytics tab to GymosTopNav (INBX-01, INBX-02)
 - [x] P1b.1-02-auth-allowlist-access-denied-PLAN.md — CUSTOMER_ALLOWED_EMAILS env allowlist hook in auth.ts + branded /access-denied route (AUTH-01)
@@ -198,7 +198,11 @@ The production milestone is structured as 4 phases (preserving the prior coarse-
 - [x] P1b.1-05-templates-dialog-PLAN.md — Templates picker dialog beside Send in gymos._index.tsx reply form, routes through enqueueOutboundWhatsApp with type:'template' payload (WA-05, WA-06, WA-07)
 - [x] P1b.1-06-analytics-route-PLAN.md — /gymos/analytics route with Fill Rate / Cancellation Rate / Pass Utilisation metric cards (INBX-01)
 - [x] P1b.1-07-gym-agent-surface-PLAN.md — Rewrite agent-chat.ts systemPrompt + replace apps/staff-web/AGENTS.md with gym version (AGENT-04, AGENT-05)
-- [ ] P1b.1-08-end-to-end-verification-PLAN.md — Manual walkthrough of 6 ROADMAP success criteria + negative auth test, recorded in VERIFICATION.md (all phase REQ-IDs)
+- [~] P1b.1-08-end-to-end-verification-PLAN.md — Live-accepted 2026-05-26 in lieu of formal walkthrough. VERIFICATION.md scaffold remains as reference but user signed off in-situ after a wave of live-fixes (sign-out button, month-grid calendar, members detail link, MRR/net-growth analytics cards, agent provider wiring, env-vars→app_secrets fallback, Gmail-scope sign-in fix, Builder.io card removal). See `.planning/phases/P1b.1-customer-pilot-enablement/P1b.1-LIVE-ACCEPTANCE.md`.
+
+**▶ Next up (post-P1b.1):**
+1. **WhatsApp integration deep wire** — migrate `services/worker/` and `services/edge-webhooks/` to read Meta credentials from `app_secrets` (so the in-app Settings UI is the single source of truth, not `fly secrets set`); wire WA-08 template sync cron to replace seeded stubs with real Meta approvals; end-to-end test of outbound send + inbound delivery/read callbacks against the verified WABA.
+2. **Mobile app (member surface)** — resume D2 work (Task 4 of in-app agent was pending; D2-06 verification deferred); cut an EAS preview build under the customer's existing Apple Developer Account so the studio can hand the member experience to a real test cohort.
 
 ### Phase P2: Staff + Member Product Surfaces (~3–4 weeks)
 
@@ -234,14 +238,19 @@ Demo Sprint runs first (D0 → D1 → D2 over 7 days). Production v1 runs after 
 | Milestone / Phase | Requirements | Status | Completed |
 |---|---|---|---|
 | **Demo Sprint** | | | |
-| D0. Fork + Schema + Deploys | 5 | Not started | - |
-| D1. Staff Surfaces Adapted | 12 | Not started | - |
-| D2. Member PWA + Calorie + Agent | 3/6 | In Progress|  |
+| D0. Fork + Schema + Deploys | 5 | ✓ Complete | 2026-05-17 |
+| D1. Staff Surfaces Adapted | 12 | ✓ Complete | 2026-05-19 |
+| D2. Member PWA + Calorie + Agent | 3/6 | ◐ In Progress (Task 4 + EAS build outstanding) | partial |
 | **Production v1** | | | |
 | P0. Audit & De-Risk | 6 | Not started | - |
 | P1a. Data Foundation, Auth & Deploy | 19 | Not started | - |
-| P1b. Webhook + Worker Spine | 18 | In Progress (1/9 plans) | P1b-01 (2026-05-20) |
+| P1b. Webhook + Worker Spine | 18 | ◐ 8/9 plans (P1b-09 WA-08 template sync still open — rolls into Next-up WhatsApp work) | 8/9 by 2026-05-23 |
+| **P1b.1. Customer Pilot Enablement** | 8 | ✓ **Live-accepted** | **2026-05-26** (8/8 plans + live-fix wave) |
 | P2. Staff + Member Product Surfaces | 50+ | Not started | - |
+
+**Active workstreams (next up):**
+- **WhatsApp deep wire** — migrate worker + edge-webhooks credentials from `process.env` to `app_secrets`; wire WA-08 template sync; live test against verified WABA
+- **Mobile app** — finish D2-06 Task 4 + cut EAS build for customer's Apple Developer Account
 
 **Coverage:** 130 v1 requirements mapped across two milestones (31 demo + 99 production).
 

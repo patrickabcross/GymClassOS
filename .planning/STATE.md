@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: awaiting-user-verification
-stopped_at: P1b.1-08 scaffold committed — awaiting user walkthrough of VERIFICATION.md
-last_updated: "2026-05-25T23:00:00.000Z"
-last_activity: 2026-05-25
+status: phase-live-accepted
+stopped_at: P1b.1 accepted on the live site after iterative live-fixes (sign-out, calendar, analytics, agent config, etc.); formal Plan 08 walkthrough skipped in favour of in-situ acceptance
+last_updated: "2026-05-26T00:00:00.000Z"
+last_activity: 2026-05-26
 progress:
   total_phases: 8
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 8
-  completed_plans: 7
-  percent: 30
+  completed_plans: 8
+  percent: 35
 ---
 
 # Project State
@@ -25,17 +25,19 @@ Requirements: `.planning/REQUIREMENTS.md` (130 reqs across 20 categories — see
 
 **Core value:** Coaches and studio managers run their entire day from one inbox-and-schedule surface (WhatsApp + class bookings + member context). Members book, pay, and log activity / nutrition from a native iOS/Android Expo app (forked from agent-native's `packages/mobile-app`) that includes an in-app coaching agent.
 
-**Current focus:** Phase P1b.1-customer-pilot-enablement — Customer Pilot Enablement
+**Current focus:** ▶ **Next up — two parallel tracks:**
+1. **WhatsApp integration deep wire** — migrate `services/worker/` and `services/edge-webhooks/` to read Meta credentials from `app_secrets` (not `process.env`) so the in-app Settings UI is the single source of truth; wire the WA-08 template sync cron so real approved Meta templates replace the seeded stubs; full end-to-end test of outbound send + inbound delivery/read callbacks against the verified WABA.
+2. **Mobile app (member surface)** — resume D2 work (Task 4 of in-app agent was pending; D2-06 verification deferred); harden the Expo fork against the iteration that landed during the staff-web pilot fixes; cut an EAS preview build under the customer's existing Apple Developer Account.
 
 ## Current Position
 
-Milestone: Demo Sprint (1 of 2) — Week 1 (by ~2026-05-24)
-Phase: P1b.1-customer-pilot-enablement (Customer Pilot Enablement) — EXECUTING
-Plan: 8 of 8 (at human-verify checkpoint)
-Status: VERIFICATION.md scaffold committed; awaiting user walkthrough of 7-criteria script
-Last activity: 2026-05-25
+Milestone: Demo Sprint (1 of 2) — Week 1 (target ~2026-05-24 — slipped to 2026-05-26 with live-fix wave)
+Phase: P1b.1-customer-pilot-enablement (Customer Pilot Enablement) — ✓ LIVE-ACCEPTED
+Plan: 8 of 8 (live-accepted in lieu of formal Plan 08 walkthrough)
+Status: Customer pilot is on production at gym-class-os.vercel.app with seeded demo data; user has accepted the surface as "working well enough" after the 2026-05-25/26 live-fix wave (calendar schedule, members detail link, analytics with Hustle prices, sign-out button, agent provider config, env-vars→app_secrets fallback, Gmail-scope sign-in bug, Builder.io removal). VERIFICATION.md scaffold remains as a reference but the formal 7-criteria walkthrough was bypassed because in-situ live acceptance covered the same ground.
+Last activity: 2026-05-26
 
-Progress: Demo Sprint [███░░░░░░░] ~30%
+Progress: Demo Sprint [█████░░░░░] ~50% (P1b.1 closed; D2 mobile-app Task 4 + EAS build still open)
 
 ### Demo Sprint detail
 
