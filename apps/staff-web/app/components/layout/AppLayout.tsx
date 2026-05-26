@@ -60,6 +60,7 @@ import type { Label } from "@shared/types";
 import { toast } from "sonner";
 
 import { AccountFilterContext } from "@/hooks/use-account-filter";
+import { GymosBuilderCardSuppressor } from "@/components/gymos/GymosBuilderCardSuppressor";
 import { useHeaderTitle, useHeaderActions } from "./HeaderActions";
 import { useQueuedDraftCount } from "@/hooks/use-draft-queue";
 import { appApiPath } from "@/lib/api-path";
@@ -130,20 +131,29 @@ export function AppLayout({ children }: AppLayoutProps) {
 
   // Gymos paths skip email chrome entirely — AgentSidebar wrap only.
   // gymos.tsx provides GymosTopNav + Outlet inside `children`.
+  //
+  // The `data-gymos-agent-sidebar` attribute scopes the
+  // GymosBuilderCardSuppressor stylesheet (see component file for why).
+  // Wrapping in a flex shell keeps the AgentSidebar layout intact — without
+  // a flex container the wrapper would block the AgentSidebar's internal
+  // flex row layout and the sidebar would not sit beside the content.
   if (location.pathname.startsWith("/gymos")) {
     return (
-      <AgentSidebar
-        position="right"
-        defaultOpen={!isMobile}
-        emptyStateText="Ask me anything about your gym"
-        suggestions={[
-          "Provide renewal numbers",
-          "Which classes haven't been filled in the last week?",
-          "Which customers should I reach out to?",
-        ]}
-      >
-        {children}
-      </AgentSidebar>
+      <div data-gymos-agent-sidebar className="flex flex-1 min-w-0 min-h-0">
+        <GymosBuilderCardSuppressor />
+        <AgentSidebar
+          position="right"
+          defaultOpen={!isMobile}
+          emptyStateText="Ask me anything about your gym"
+          suggestions={[
+            "Provide renewal numbers",
+            "Which classes haven't been filled in the last week?",
+            "Which customers should I reach out to?",
+          ]}
+        >
+          {children}
+        </AgentSidebar>
+      </div>
     );
   }
 
