@@ -229,9 +229,22 @@ export async function exchangeCode(
     scope: tokenResponse.scope,
   };
 
-  // Determine the email address for this account
-  const profile = await gmailGetProfile(tokens.access_token);
-  const email = profile.emailAddress;
+  // GymClassOS fork: identity-only scopes (profile + email) mean we can't call
+  // gmailGetProfile here — Gmail's /users/me/profile requires gmail.readonly,
+  // which we deliberately do not request (see SCOPES). Use the standard OpenID
+  // Connect userinfo endpoint, which works with the userinfo.email scope we
+  // already have. If we ever re-add Gmail scopes upstream, we can revert this.
+  const userinfoRes = await fetch(
+    "https://www.googleapis.com/oauth2/v2/userinfo",
+    { headers: { Authorization: `Bearer ${tokens.access_token}` } },
+  );
+  if (!userinfoRes.ok) {
+    throw new Error(
+      `Failed to fetch user info from Google (${userinfoRes.status}): ${await userinfoRes.text().catch(() => "")}`,
+    );
+  }
+  const userinfo = (await userinfoRes.json()) as { email?: string };
+  const email = userinfo.email;
   if (!email) throw new Error("Google returned no email address");
 
   await saveOAuthTokens(
