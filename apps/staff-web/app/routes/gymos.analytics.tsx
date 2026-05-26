@@ -1,11 +1,10 @@
-// GymClassOS Analytics — P1b.1-06.
+// GymClassOS Analytics — P1b.1-06 + P1b.1-livefix (business metrics).
 //
-// Read-only operational dashboard showing three metrics over 7d/30d windows:
-//   - Fill Rate: booked seats vs capacity across non-cancelled past occurrences
-//   - Cancellation Rate: cancelled bookings vs total bookings created in window
-//   - Pass Utilisation: active passes with ≥1 debit vs total active passes
+// Read-only operational dashboard, two sections:
+//   Activity   — Fill Rate, Cancellation Rate, Pass Utilisation
+//   Business   — MRR, Drop-in Revenue (30d), Net Growth (30d), ARPM
 //
-// Loader fans all five queries out in parallel via Promise.all per UI-SPEC.
+// Loader fans every query out in parallel via Promise.all per UI-SPEC.
 // All metrics degrade gracefully — "No data yet" / "–" when the window is empty.
 //
 // Deviations from PLAN.md (auto-applied):
@@ -23,6 +22,8 @@
 //     (the second-largest body size, see card.tsx CardTitle). The analytics
 //     metric labels need text-[12px] uppercase per UI-SPEC §3, so we render the
 //     label in a plain <div> inside CardHeader rather than via CardTitle.
+//   - Rule 1 (livefix): seed productName is "10-Pack" (capital P) at
+//     seed-demo-data.ts:460,487 — match casing exactly when filtering passes.
 //
 // Requirements covered: INBX-01 (analytics tab destination, no longer 404).
 //
@@ -43,6 +44,30 @@ import type { LoaderFunctionArgs } from "react-router";
 export function meta() {
   return [{ title: "GymClassOS — Analytics" }];
 }
+
+// ─── Pricing constants ──────────────────────────────────────────────────────
+//
+// Source: https://www.doyouhustle.co.uk/join (fetched 2026-05-25).
+// All values in minor units (pence) so MRR / drop-in math stays integer
+// throughout — divide by 100 only at the render boundary.
+//
+// Tier mapping:
+//   plan_monthly_unlimited → £85 / month  (Unlimited Class Membership)
+//   plan_drop_in_10        → £44 / month  (Limited Class Membership, ~1-2/wk)
+//                                          treated as the closest "subscription"
+//                                          equivalent for revenue purposes —
+//                                          the seed uses this plan_id for the
+//                                          non-unlimited sub cohort, so map it
+//                                          to the published Limited tier price.
+//   Drop-in (per class)    → £10
+//   10-pack bundle         → £10 × 10 = £100 (sticker price; no bundle
+//                                          discount published on the join page)
+const PRICES = {
+  unlimited: 8500, // pence — £85/mo Unlimited Class Membership
+  limited: 4400, // pence — £44/mo Limited Class Membership (1-2 cls/wk)
+  dropIn: 1000, // pence — £10 per drop-in class
+  tenPack: 10000, // pence — £100 per 10-pack (10 × £10, sticker; no bundle discount published)
+} as const;
 
 // ─── Loader ──────────────────────────────────────────────────────────────────
 
@@ -163,15 +188,135 @@ export async function loader({ request: _request }: LoaderFunctionArgs) {
     };
   }
 
+  // ─── Helper: MRR + active subscriber breakdown ─────────────────────────
+  //
+  // MRR = SUM(price for each non-terminal sub) where price is mapped from
+  // plan_id. Treat 'active', 'trialing', 'past_due' as revenue-bearing —
+  // past_due is still on the books and Stripe will retry the charge.
+  //
+  // Plan tier mapping comes from seed-demo-data.ts:740-742 which writes
+  // `plan_monthly_unlimited` and `plan_drop_in_10`. Unknown plans default to
+  // the Limited tier (the cheaper of the two known options) so MRR doesn't
+  // over-state on bad data.
+  //
+  // guard:allow-unscoped — single-tenant gym tables.
+  async function mrr() {
+    const rows = await db
+      .select({
+        planId: schema.stripeSubscriptions.planId,
+        count: sql<number>`COUNT(*)`,
+      })
+      .from(schema.stripeSubscriptions)
+      .where(
+        sql`${schema.stripeSubscriptions.status} IN ('active', 'trialing', 'past_due')`,
+      )
+      .groupBy(schema.stripeSubscriptions.planId);
+
+    let mrrPence = 0;
+    let activeSubs = 0;
+    let unlimitedCount = 0;
+    let limitedCount = 0;
+    for (const r of rows) {
+      const c = Number(r.count ?? 0);
+      activeSubs += c;
+      if (r.planId === "plan_monthly_unlimited") {
+        mrrPence += c * PRICES.unlimited;
+        unlimitedCount += c;
+      } else {
+        // plan_drop_in_10 + any unknown plan → Limited tier (£44)
+        mrrPence += c * PRICES.limited;
+        limitedCount += c;
+      }
+    }
+    return { mrrPence, activeSubs, unlimitedCount, limitedCount };
+  }
+
+  // ─── Helper: Drop-in revenue (30d) ──────────────────────────────────────
+  //
+  // 10-Pack purchases sold in the last 30d × PRICES.tenPack.
+  // Seed inserts `productName: "10-Pack"` (capital P, seed-demo-data.ts:460,487)
+  // — match case exactly.
+  //
+  // guard:allow-unscoped — single-tenant gym tables.
+  async function dropInRevenue30d() {
+    const [r] = await db
+      .select({
+        packsSold: sql<number>`COUNT(*)`,
+      })
+      .from(schema.passes)
+      .where(
+        and(
+          eq(schema.passes.source, "purchase"),
+          eq(schema.passes.productName, "10-Pack"),
+          gte(schema.passes.createdAt, thirtyDaysAgo),
+        ),
+      );
+    const packsSold = Number(r?.packsSold ?? 0);
+    return {
+      packsSold,
+      revenuePence: packsSold * PRICES.tenPack,
+    };
+  }
+
+  // ─── Helper: Net membership growth (30d) ────────────────────────────────
+  //
+  // Acquired = COUNT(gym_members) where created_at within last 30d.
+  // Lost     = COUNT(stripe_subscriptions) where status='canceled' AND
+  //            updated_at within last 30d. (No archived_at on gym_members;
+  //            sub cancellation is the cleanest churn proxy in the schema.)
+  // Net      = Acquired - Lost.
+  //
+  // guard:allow-unscoped — single-tenant gym tables.
+  async function netGrowth30d() {
+    const [acq] = await db
+      .select({ c: sql<number>`COUNT(*)` })
+      .from(schema.gymMembers)
+      .where(gte(schema.gymMembers.createdAt, thirtyDaysAgo));
+    const [lost] = await db
+      .select({ c: sql<number>`COUNT(*)` })
+      .from(schema.stripeSubscriptions)
+      .where(
+        and(
+          eq(schema.stripeSubscriptions.status, "canceled"),
+          gte(schema.stripeSubscriptions.updatedAt, thirtyDaysAgo),
+        ),
+      );
+    const acquired = Number(acq?.c ?? 0);
+    const lostCount = Number(lost?.c ?? 0);
+    return {
+      acquired,
+      lost: lostCount,
+      net: acquired - lostCount,
+    };
+  }
+
   // ─── Parallel fanout ────────────────────────────────────────────────────
-  const [fillRate7d, fillRate30d, cancRate7d, cancRate30d, passUtil] =
-    await Promise.all([
-      fillRate(sevenDaysAgo),
-      fillRate(thirtyDaysAgo),
-      cancellationRate(sevenDaysAgo),
-      cancellationRate(thirtyDaysAgo),
-      passUtilisation(),
-    ]);
+  const [
+    fillRate7d,
+    fillRate30d,
+    cancRate7d,
+    cancRate30d,
+    passUtil,
+    mrrData,
+    dropIn,
+    growth,
+  ] = await Promise.all([
+    fillRate(sevenDaysAgo),
+    fillRate(thirtyDaysAgo),
+    cancellationRate(sevenDaysAgo),
+    cancellationRate(thirtyDaysAgo),
+    passUtilisation(),
+    mrr(),
+    dropInRevenue30d(),
+    netGrowth30d(),
+  ]);
+
+  // ARPM derives from MRR / active subscribers — computed in JS so we don't
+  // run a 7th query just to divide two integers.
+  const arpmPence =
+    mrrData.activeSubs > 0
+      ? Math.round(mrrData.mrrPence / mrrData.activeSubs)
+      : null;
 
   return {
     fillRate7d,
@@ -179,6 +324,10 @@ export async function loader({ request: _request }: LoaderFunctionArgs) {
     cancRate7d,
     cancRate30d,
     passUtil,
+    mrr: mrrData,
+    dropIn,
+    growth,
+    arpmPence,
   };
 }
 
@@ -189,16 +338,30 @@ function formatPct(pct: number | null): string {
   return pct === null ? "–" : `${pct}%`;
 }
 
+function formatGbp(pence: number | null): string {
+  if (pence === null) return "–";
+  // £ + thousands-separated whole pounds. Drop pence for headline figures —
+  // analytics is for orientation, not invoicing.
+  const pounds = Math.round(pence / 100);
+  return `£${pounds.toLocaleString("en-GB")}`;
+}
+
+function formatSignedNumber(n: number): string {
+  if (n > 0) return `+${n}`;
+  // Negative numbers carry their own minus sign; zero renders plain.
+  return String(n);
+}
+
 // MetricCard variants:
-//   - default: 7d / 30d comparison (two stacked value rows + badges)
+//   - default:  7d / 30d comparison (two stacked value rows + badges)
 //   - snapshot: single primary value with no badge split — used for
-//     point-in-time metrics like Pass Utilisation where there is no
-//     window comparison to make. Avoids the "30d duplicates 7d" visual
-//     bug (UI-REVIEW fix #7).
+//               point-in-time metrics like Pass Utilisation, MRR, ARPM,
+//               Net Growth, Drop-in Revenue
 type MetricCardProps = {
   label: string;
   primaryValue: string;
   primaryContext: string;
+  primaryTone?: "default" | "muted";
 } & (
   | {
       variant?: "default";
@@ -215,6 +378,13 @@ type MetricCardProps = {
 function MetricCard(props: MetricCardProps) {
   const { label, primaryValue, primaryContext } = props;
   const isSnapshot = props.variant === "snapshot";
+  const primaryTone = props.primaryTone ?? "default";
+  // UI-SPEC §3 typography: primary value is 14px semibold ("Heading / section"
+  // role); only colour varies. Stick to semantic tokens — no raw hex.
+  const primaryClass =
+    primaryTone === "muted"
+      ? "text-sm font-semibold text-muted-foreground"
+      : "text-sm font-semibold";
   return (
     <Card
       role="region"
@@ -228,7 +398,7 @@ function MetricCard(props: MetricCardProps) {
       </CardHeader>
       <CardContent className="p-0 flex flex-col gap-3 mt-3">
         <div className="flex items-baseline gap-2">
-          <div className="text-sm font-semibold">{primaryValue}</div>
+          <div className={primaryClass}>{primaryValue}</div>
           {!isSnapshot && (
             <Badge variant="outline" className="text-[10px] px-1.5 py-0">
               7d
@@ -261,6 +431,12 @@ function MetricCard(props: MetricCardProps) {
 export default function GymosAnalytics() {
   const data = useLoaderData<typeof loader>();
 
+  // Net growth tone: positive = default emphasis, negative = muted (no
+  // bespoke destructive colour — UI-SPEC reserves destructive for failed
+  // actions, not "we lost some members").
+  const netTone: "default" | "muted" =
+    data.growth.net < 0 ? "muted" : "default";
+
   return (
     <div className="flex flex-col gap-6 p-4">
       <div>
@@ -269,47 +445,104 @@ export default function GymosAnalytics() {
           Last 7 days · Last 30 days
         </p>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <MetricCard
-          label="Fill Rate"
-          primaryValue={formatPct(data.fillRate7d.pct)}
-          primaryContext={
-            data.fillRate7d.occurrenceCount === 0
-              ? "No data yet"
-              : `${data.fillRate7d.booked} of ${data.fillRate7d.capacity} seats across ${data.fillRate7d.occurrenceCount} classes`
-          }
-          secondaryValue={formatPct(data.fillRate30d.pct)}
-          secondaryContext={
-            data.fillRate30d.occurrenceCount === 0
-              ? "No data yet"
-              : `${data.fillRate30d.booked} of ${data.fillRate30d.capacity} seats across ${data.fillRate30d.occurrenceCount} classes`
-          }
-        />
-        <MetricCard
-          label="Cancellation Rate"
-          primaryValue={formatPct(data.cancRate7d.pct)}
-          primaryContext={
-            data.cancRate7d.total === 0
-              ? "No data yet"
-              : `${data.cancRate7d.cancelled} of ${data.cancRate7d.total} bookings`
-          }
-          secondaryValue={formatPct(data.cancRate30d.pct)}
-          secondaryContext={
-            data.cancRate30d.total === 0
-              ? "No data yet"
-              : `${data.cancRate30d.cancelled} of ${data.cancRate30d.total} bookings`
-          }
-        />
-        <MetricCard
-          variant="snapshot"
-          label="Pass Utilisation"
-          primaryValue={formatPct(data.passUtil.pct)}
-          primaryContext={
-            data.passUtil.totalActive === 0
-              ? "No data yet"
-              : `${data.passUtil.withDebit} of ${data.passUtil.totalActive} active passes used · snapshot`
-          }
-        />
+
+      {/* ─── Activity section ───────────────────────────────────────── */}
+      <div className="flex flex-col gap-3">
+        <h2 className="text-sm font-semibold">Activity</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <MetricCard
+            label="Fill Rate"
+            primaryValue={formatPct(data.fillRate7d.pct)}
+            primaryContext={
+              data.fillRate7d.occurrenceCount === 0
+                ? "No data yet"
+                : `${data.fillRate7d.booked} of ${data.fillRate7d.capacity} seats across ${data.fillRate7d.occurrenceCount} classes`
+            }
+            secondaryValue={formatPct(data.fillRate30d.pct)}
+            secondaryContext={
+              data.fillRate30d.occurrenceCount === 0
+                ? "No data yet"
+                : `${data.fillRate30d.booked} of ${data.fillRate30d.capacity} seats across ${data.fillRate30d.occurrenceCount} classes`
+            }
+          />
+          <MetricCard
+            label="Cancellation Rate"
+            primaryValue={formatPct(data.cancRate7d.pct)}
+            primaryContext={
+              data.cancRate7d.total === 0
+                ? "No data yet"
+                : `${data.cancRate7d.cancelled} of ${data.cancRate7d.total} bookings`
+            }
+            secondaryValue={formatPct(data.cancRate30d.pct)}
+            secondaryContext={
+              data.cancRate30d.total === 0
+                ? "No data yet"
+                : `${data.cancRate30d.cancelled} of ${data.cancRate30d.total} bookings`
+            }
+          />
+          <MetricCard
+            variant="snapshot"
+            label="Pass Utilisation"
+            primaryValue={formatPct(data.passUtil.pct)}
+            primaryContext={
+              data.passUtil.totalActive === 0
+                ? "No data yet"
+                : `${data.passUtil.withDebit} of ${data.passUtil.totalActive} active passes used · snapshot`
+            }
+          />
+        </div>
+      </div>
+
+      {/* ─── Business section ───────────────────────────────────────── */}
+      <div className="flex flex-col gap-3">
+        <h2 className="text-sm font-semibold">Business</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <MetricCard
+            variant="snapshot"
+            label="Monthly Recurring Revenue"
+            primaryValue={formatGbp(data.mrr.mrrPence)}
+            primaryContext={
+              data.mrr.activeSubs === 0
+                ? "No active subscribers"
+                : `${data.mrr.activeSubs} active subscribers · ${data.mrr.unlimitedCount} unlimited · ${data.mrr.limitedCount} limited`
+            }
+          />
+          <MetricCard
+            variant="snapshot"
+            label="Drop-in Revenue (30d)"
+            primaryValue={formatGbp(data.dropIn.revenuePence)}
+            primaryContext={
+              data.dropIn.packsSold === 0
+                ? "No 10-packs sold in last 30 days"
+                : `${data.dropIn.packsSold} 10-packs sold`
+            }
+          />
+          <MetricCard
+            variant="snapshot"
+            label="Net Growth (30d)"
+            primaryValue={formatSignedNumber(data.growth.net)}
+            primaryTone={netTone}
+            primaryContext={
+              data.growth.acquired === 0 && data.growth.lost === 0
+                ? "No data yet"
+                : `${data.growth.acquired} joined · ${data.growth.lost} left`
+            }
+          />
+          <MetricCard
+            variant="snapshot"
+            label="Avg Revenue Per Member"
+            primaryValue={
+              data.arpmPence === null
+                ? "–"
+                : `${formatGbp(data.arpmPence)} / month`
+            }
+            primaryContext={
+              data.mrr.activeSubs === 0
+                ? "No active subscribers"
+                : `Across ${data.mrr.activeSubs} active subscribers`
+            }
+          />
+        </div>
       </div>
     </div>
   );
