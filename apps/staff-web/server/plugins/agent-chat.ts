@@ -1,4 +1,5 @@
 import "../onboarding.js";
+import "../register-secrets.js";
 import {
   createAgentChatPlugin,
   loadActionsFromStaticRegistry,
