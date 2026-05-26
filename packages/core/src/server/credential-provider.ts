@@ -77,9 +77,20 @@ export function readDeployCredentialEnv(key: string): string | undefined {
  * single-tenant contexts. In hosted production with a shared database, every
  * signed-in user needs their own user/org/workspace credential so one deploy
  * key does not silently power another tenant's chat.
+ *
+ * GymClassOS fork: AGENT_NATIVE_SINGLE_TENANT=true opts a deploy into the
+ * single-tenant model (one Vercel project per customer, one Neon project per
+ * customer — no cross-tenant risk because there is exactly one tenant per
+ * deploy). When set, the deploy-level env-var fallback is honoured even for
+ * authenticated requests in production. Upstream multi-tenant SaaS behaviour
+ * is unchanged when the flag is absent.
  */
 export function isDeployCredentialFallbackAllowed(): boolean {
   if (process.env.NODE_ENV !== "production") return true;
+  // GymClassOS fork: single-tenant-per-deploy override.
+  if (/^(1|true)$/i.test(process.env.AGENT_NATIVE_SINGLE_TENANT ?? "")) {
+    return true;
+  }
   return isLocalDatabase();
 }
 
