@@ -25,9 +25,10 @@ Requirements: `.planning/REQUIREMENTS.md` (130 reqs across 20 categories — see
 
 **Core value:** Coaches and studio managers run their entire day from one inbox-and-schedule surface (WhatsApp + class bookings + member context). Members book, pay, and log activity / nutrition from a native iOS/Android Expo app (forked from agent-native's `packages/mobile-app`) that includes an in-app coaching agent.
 
-**Current focus:** ▶ **Next up — two parallel tracks:**
+**Current focus:** ▶ **Next up — three parallel tracks:**
 1. **WhatsApp integration deep wire** — migrate `services/worker/` and `services/edge-webhooks/` to read Meta credentials from `app_secrets` (not `process.env`) so the in-app Settings UI is the single source of truth; wire the WA-08 template sync cron so real approved Meta templates replace the seeded stubs; full end-to-end test of outbound send + inbound delivery/read callbacks against the verified WABA.
 2. **Mobile app (member surface)** — resume D2 work (Task 4 of in-app agent was pending; D2-06 verification deferred); harden the Expo fork against the iteration that landed during the staff-web pilot fixes; cut an EAS preview build under the customer's existing Apple Developer Account.
+3. **P1c — Public Site Integrations (drafted)** — fork agent-native's `templates/forms/` for embeddable lead-capture / signup forms, plus ship a public `/embed/schedule` booking widget so visitors on `doyouhustle.co.uk` can book classes + buy Stripe Checkout passes without signing into GymOS. The real commercial unlock vs Mindbody/Bsport. Phase drafted in ROADMAP.md; run `/gsd:plan-phase P1c` when ready to schedule against the timeline.
 
 ## Current Position
 

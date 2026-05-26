@@ -204,6 +204,39 @@ The production milestone is structured as 4 phases (preserving the prior coarse-
 1. **WhatsApp integration deep wire** — migrate `services/worker/` and `services/edge-webhooks/` to read Meta credentials from `app_secrets` (so the in-app Settings UI is the single source of truth, not `fly secrets set`); wire WA-08 template sync cron to replace seeded stubs with real Meta approvals; end-to-end test of outbound send + inbound delivery/read callbacks against the verified WABA.
 2. **Mobile app (member surface)** — resume D2 work (Task 4 of in-app agent was pending; D2-06 verification deferred); cut an EAS preview build under the customer's existing Apple Developer Account so the studio can hand the member experience to a real test cohort.
 
+### Phase P1c: Public Site Integrations (~2–3 weeks — DRAFT, not yet planned)
+
+**Goal:** Productize the pilot for *visitors* — people who land on the studio's marketing site (`doyouhustle.co.uk`) but haven't signed in to anything. Two surfaces:
+
+1. **Forms app fork** — copy `templates/forms/` into `apps/forms/` (or `apps/staff-web/features/forms/` — decided at plan time). Studios build their own lead-capture / trial-signup / contact / membership-inquiry forms in the staff back-office, embed them on the marketing site with a `<script>` snippet, and submissions land in Neon as conversations (showing up in `/gymos`) or in a dedicated `/gymos/leads` queue. ~1–2 days lift.
+2. **Schedule + booking embed widget** — public route `/embed/schedule` (and possibly `/embed/book/:occurrenceId`) renderable in an `<iframe>` or via a hosted `<script>` snippet that mounts a widget. Visitor sees the live class schedule, clicks a slot, completes Stripe Checkout (drop-in or 10-pack purchase) without signing into GymOS. Cross-origin `postMessage` for "I just booked" callbacks so the host site can react (analytics, redirect, etc.). ~1–2 weeks lift — the real commercial unlock; most boutique studios pay Mindbody/Bsport mainly for this widget.
+
+**Scope (subject to plan-phase refinement):**
+
+- **P1c-01 — Fork forms template into the workspace.** Following the same boundary discipline as `apps/staff-web/`: `apps/forms/` (standalone) or `apps/staff-web/features/forms/` (co-located). Plan-phase picks based on whether the customer wants forms editor in the same login as staff-web.
+- **P1c-02 — Forms submission → conversations queue.** Submitted form data POSTs to a public action; server creates / upserts a `gym_members` row keyed by email or phone; opens a `conversations` row in `status='lead'`; appears in `/gymos` (or a sibling `/gymos/leads` tab — UI decision).
+- **P1c-03 — Public `/embed/schedule` route.** Reads the same `class_occurrences` data as the staff schedule but with anonymous access (no auth gate). Server-rendered HTML for SEO; minimal JS for click → booking flow. Themeable via URL params (`?accent=#000&radius=8`).
+- **P1c-04 — Anonymous booking flow + Stripe Checkout.** Visitor picks a slot → enters name+email+phone → server creates pending `gym_members` + `bookings` row → redirects to Stripe Checkout → webhook (`P1b-07` reducer) creates a pass + binds it to the booking on success. Capacity check lives in the worker (atomic — see PITFALL #3).
+- **P1c-05 — Cross-origin embed plumbing.** `<script src="https://gym-class-os.vercel.app/embed.js">` snippet that injects a styled iframe; `postMessage` API for `booking:completed` and `booking:cancelled` callbacks; sample integration doc for `doyouhustle.co.uk`.
+- **P1c-06 — End-to-end test.** Embed the widget on a throwaway page, complete a real booking + Stripe Checkout from a clean browser, verify pass appears in `/gymos/members/{id}` + lead conversation appears in `/gymos`.
+
+**Requirements:** New (to be added to REQUIREMENTS.md at plan-phase): FORMS-01..FORMS-04, EMBED-01..EMBED-06. PITFALL #3 (atomic capacity) is in scope; PITFALL #4 (pass-balance race) is in scope for the Checkout webhook reducer.
+
+**Depends on:**
+- P1b-07 Stripe webhook reducer (✓ shipped — needed for Checkout→pass binding)
+- P1b-06 sendMessage chokepoint (✓ shipped — booking confirmation WhatsApp message will route through it)
+- The deferred P1c work below can start in parallel with the WhatsApp deep wire + Mobile app workstreams, OR stack after them — see plan-phase
+
+**Risks:**
+- **Cross-origin auth model for the embed.** Visitor isn't logged in; submission must be safe against bots (rate limit + maybe lightweight CAPTCHA on POST). Decision at plan-phase: full anonymous + Stripe-anti-fraud, or require email-verification before booking.
+- **Theming / brand fit.** Studio brand likely doesn't match GymClassOS defaults. Plan-phase decides theming scope: URL params only, or full CSS-variable injection.
+- **Capacity races at scale.** Embed widget might surface a class as "1 spot left" to multiple visitors simultaneously; PITFALL #3 atomic capacity check must hold under the anonymous flow too.
+- **Stripe Checkout vs. embedded Payment Element.** Checkout is faster to ship; embedded element looks more integrated. Plan-phase picks; Checkout is the safer demo default.
+
+**Plans:** 0/6 — DRAFT only. Run `/gsd:plan-phase P1c` when ready to schedule against the timeline.
+
+---
+
 ### Phase P2: Staff + Member Product Surfaces (~3–4 weeks)
 
 **Goal:** Production-quality versions of every surface the demo showed, plus the surfaces the demo skipped. Coach runs a full day from staff-web; member runs their fitness life from the PWA.
@@ -246,11 +279,13 @@ Demo Sprint runs first (D0 → D1 → D2 over 7 days). Production v1 runs after 
 | P1a. Data Foundation, Auth & Deploy | 19 | Not started | - |
 | P1b. Webhook + Worker Spine | 18 | ◐ 8/9 plans (P1b-09 WA-08 template sync still open — rolls into Next-up WhatsApp work) | 8/9 by 2026-05-23 |
 | **P1b.1. Customer Pilot Enablement** | 8 | ✓ **Live-accepted** | **2026-05-26** (8/8 plans + live-fix wave) |
+| **P1c. Public Site Integrations** | TBD | ◌ Drafted (0/6 plans) — `/gsd:plan-phase P1c` to schedule | - |
 | P2. Staff + Member Product Surfaces | 50+ | Not started | - |
 
 **Active workstreams (next up):**
 - **WhatsApp deep wire** — migrate worker + edge-webhooks credentials from `process.env` to `app_secrets`; wire WA-08 template sync; live test against verified WABA
 - **Mobile app** — finish D2-06 Task 4 + cut EAS build for customer's Apple Developer Account
+- **Public site integrations (P1c — drafted, not yet planned)** — fork agent-native's forms template + ship `/embed/schedule` booking widget for `doyouhustle.co.uk`; the real commercial unlock vs Mindbody/Bsport — run `/gsd:plan-phase P1c` when ready
 
 **Coverage:** 130 v1 requirements mapped across two milestones (31 demo + 99 production).
 
