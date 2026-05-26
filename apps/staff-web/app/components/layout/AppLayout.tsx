@@ -60,7 +60,6 @@ import type { Label } from "@shared/types";
 import { toast } from "sonner";
 
 import { AccountFilterContext } from "@/hooks/use-account-filter";
-import { GymosBuilderCardSuppressor } from "@/components/gymos/GymosBuilderCardSuppressor";
 import { useHeaderTitle, useHeaderActions } from "./HeaderActions";
 import { useQueuedDraftCount } from "@/hooks/use-draft-queue";
 import { appApiPath } from "@/lib/api-path";
@@ -132,15 +131,20 @@ export function AppLayout({ children }: AppLayoutProps) {
   // Gymos paths skip email chrome entirely — AgentSidebar wrap only.
   // gymos.tsx provides GymosTopNav + Outlet inside `children`.
   //
-  // The `data-gymos-agent-sidebar` attribute scopes the
-  // GymosBuilderCardSuppressor stylesheet (see component file for why).
+  // The `data-gymos-agent-sidebar` attribute is kept as a stable CSS hook
+  // for any future scoped overrides. We previously mounted a
+  // GymosBuilderCardSuppressor here as defence-in-depth against the
+  // framework's "Connect Builder" empty-state card, but the suppressor
+  // selector matched the framework's normal empty-state container
+  // (chips + composer) and killed the agent input. ANTHROPIC_API_KEY is
+  // now set on Vercel so the framework's missing-LLM gate closes
+  // naturally and no client-side hiding is needed.
   // Wrapping in a flex shell keeps the AgentSidebar layout intact — without
   // a flex container the wrapper would block the AgentSidebar's internal
   // flex row layout and the sidebar would not sit beside the content.
   if (location.pathname.startsWith("/gymos")) {
     return (
       <div data-gymos-agent-sidebar className="flex flex-1 min-w-0 min-h-0">
-        <GymosBuilderCardSuppressor />
         <AgentSidebar
           position="right"
           defaultOpen={!isMobile}
