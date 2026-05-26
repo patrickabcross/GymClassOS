@@ -16,6 +16,10 @@ import {
   readCorsAllowedOrigins,
 } from "./cors-origins.js";
 import { isEnvVarWriteAllowed } from "./env-var-writes.js";
+// GymClassOS fork: fallback writer that persists env-var POSTs to app_secrets
+// (per-user, or per-org for org-scoped registered secrets) when the deployment-
+// wide env-var gate is closed. See env-vars-fallback.ts for the full rationale.
+import { writeEnvVarsAsAppSecrets } from "./env-vars-fallback.js";
 
 export interface EnvKeyConfig {
   /** Environment variable name (e.g. "HUBSPOT_ACCESS_TOKEN") */
@@ -268,16 +272,6 @@ export function createServer(
     router.post(
       "/_agent-native/env-vars",
       defineEventHandler(async (event: H3Event) => {
-        // Env vars are deployment-wide globals — see isEnvVarWriteAllowed
-        // above. Disable the endpoint on any multi-tenant deploy.
-        if (!isEnvVarWriteAllowed()) {
-          setResponseStatus(event, 403);
-          return {
-            error:
-              "env-vars endpoint disabled on multi-tenant deployments. Use saveCredential(key, value, { userEmail, orgId, scope: 'org' }) to store per-org credentials.",
-          };
-        }
-
         const body = await readBody(event);
         const { vars } = body as {
           vars?: Array<{ key: string; value: string }>;
@@ -294,6 +288,20 @@ export function createServer(
         if (filtered.length === 0) {
           setResponseStatus(event, 400);
           return { error: "No recognized env keys in request" };
+        }
+
+        // GymClassOS fork: when the env-var write gate is closed (production
+        // multi-tenant), fall back to writing per-user / per-org rows in
+        // app_secrets so the legacy UI surfaces that still POST here keep
+        // working without any client changes. Unauthenticated callers still
+        // get the original 403.
+        if (!isEnvVarWriteAllowed()) {
+          const result = await writeEnvVarsAsAppSecrets(event, filtered);
+          if (result.ok === false) {
+            setResponseStatus(event, result.status);
+            return { error: result.error };
+          }
+          return { saved: result.saved };
         }
 
         // Write to .env file

@@ -111,6 +111,10 @@ import {
 import { registerBuiltinEngines } from "../agent/engine/builtin.js";
 import { getOrgContext } from "../org/context.js";
 import { isEnvVarWriteAllowed } from "./env-var-writes.js";
+// GymClassOS fork: fallback writer for the duplicate env-vars POST handler
+// mounted on the alternate router. See env-vars-fallback.ts for the
+// full rationale (mirrors the route in create-server.ts).
+import { writeEnvVarsAsAppSecrets } from "./env-vars-fallback.js";
 import { llmConnectionTrackingProperties } from "../shared/llm-connection.js";
 import { mountBrowserSessionRoutes } from "../browser-sessions/routes.js";
 
@@ -1722,16 +1726,17 @@ export function createCoreRoutesPlugin(
           // Env vars are deployment-wide globals, not per-tenant. On any
           // shared-DB multi-tenant deploy, allowing authenticated users to
           // write here lets one tenant overwrite Stripe / OpenAI / Sentry
-          // keys for every other tenant. Disable the endpoint outside of
-          // local-dev SQLite or an explicit single-tenant opt-in, and
-          // direct callers to the per-org credential store instead.
-          if (!isEnvVarWriteAllowed()) {
-            setResponseStatus(event, 403);
-            return {
-              error:
-                "env-vars endpoint disabled on multi-tenant deployments. Use saveCredential(key, value, { userEmail, orgId, scope: 'org' }) to store per-org credentials.",
-            };
-          }
+          // keys for every other tenant. Disable the deployment-wide write
+          // path outside of local-dev SQLite or an explicit single-tenant
+          // opt-in.
+          //
+          // GymClassOS fork: instead of 403-ing, fall back to a per-user (or
+          // per-org for org-scoped registered secrets) app_secrets write when
+          // the gate is closed. The four legacy UI surfaces that POST here
+          // (ApiKeySettings, OnboardingPanel, SettingsPanel LLM and Email
+          // sections) keep working in production with no client changes.
+          // Unauthenticated callers still get the original 403.
+          const fallbackToAppSecrets = !isEnvVarWriteAllowed();
 
           const body = await readBody(event);
           const { vars } = body as {
@@ -1768,6 +1773,19 @@ export function createCoreRoutesPlugin(
                 ? "Env values must be non-empty — refusing to clear a saved key"
                 : "No recognized env keys in request",
             };
+          }
+
+          // GymClassOS fork: route to app_secrets fallback when the env-var
+          // write gate is closed (production multi-tenant). The success
+          // response shape matches the deploy-wide path so existing
+          // `if (res.ok)` client checks work unchanged.
+          if (fallbackToAppSecrets) {
+            const result = await writeEnvVarsAsAppSecrets(event, filtered);
+            if (result.ok === false) {
+              setResponseStatus(event, result.status);
+              return { error: result.error };
+            }
+            return { saved: result.saved };
           }
 
           // Write to .env file. When inside a workspace, write to the
