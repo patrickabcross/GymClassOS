@@ -71,6 +71,51 @@ After the next Vercel redeploy:
 
 If `AGENT_NATIVE_SINGLE_TENANT=true` is still set on the Vercel project from iteration 1, removing it is safe (no longer referenced anywhere).
 
+## Iteration 3 (2026-05-26): /_agent-native/env-vars POST now routes to app_secrets in production
+
+Iteration 2 only fixed the "API Keys & Connections" panel (the SecretsSection, which posts to `/_agent-native/secrets/:key`). The customer reported a fresh 403 while saving in Settings → **LLM** (a different panel) — and the same gap exists in three other framework UIs:
+
+| UI surface                                                              | Posts to                       |
+|-------------------------------------------------------------------------|--------------------------------|
+| `packages/core/src/client/components/ApiKeySettings.tsx:73`             | `/_agent-native/env-vars`      |
+| `packages/core/src/client/onboarding/OnboardingPanel.tsx:584`           | `/_agent-native/env-vars`      |
+| `packages/core/src/client/settings/SettingsPanel.tsx:728` (LLM save)    | `/_agent-native/env-vars`      |
+| `packages/core/src/client/settings/SettingsPanel.tsx:1372` (Email save) | `/_agent-native/env-vars`      |
+
+All four go through `isEnvVarWriteAllowed()`, which (correctly) refuses deployment-wide env writes in production. So all four 403'd.
+
+### Fix
+
+Patch the two POST handlers — `packages/core/src/server/create-server.ts:268` and `packages/core/src/server/core-routes-plugin.ts:1718` — so that when the gate is closed AND the caller is authenticated, the body is persisted via `writeAppSecret` instead of being rejected. For each `{ key, value }`:
+
+- If the key is in the registered-secrets registry with `scope: "org"` AND the user is owner/admin of an active org → write at org scope.
+- Otherwise → write per-user (`scope: "user"`, `scopeId: session.email`).
+
+This mirrors the scope-resolution logic that `packages/core/src/secrets/routes.ts → handleWrite` already uses for `/_agent-native/secrets/:key`. Unauthenticated callers still get the original 403 — the safety property only changed for sign-in-required UI flows.
+
+`isEnvVarWriteAllowed()` itself is **not modified**. It still correctly reports whether deployment-wide `process.env` / `.env` writes are allowed (false in production, by design). The fix is purely about what the handlers do _instead_ of giving up.
+
+### Why this is the right shape
+
+- Zero client-side changes. All four UI surfaces already check `if (res.ok)` and re-fetch — the success response shape (`{ saved: [...] }`) is preserved.
+- Same storage layer as iteration 2 (`app_secrets` table, AES-256-GCM encrypted). `getOwnerApiKey()` and `resolveSecret()` find the values on the next request.
+- The framework's correctness invariant — "no tenant can overwrite another tenant's deploy-wide env vars" — is preserved because we never write to `process.env` from this path anymore. Cross-tenant blast radius is exactly the same as the SecretsSection save flow.
+
+### Files
+
+- **New:** `packages/core/src/server/env-vars-fallback.ts` — shared helper that resolves the session + (optionally) org context and calls `writeAppSecret` per key. Returns a discriminated-union result so both handlers can apply it to the H3 response uniformly.
+- **Modified (with `// GymClassOS fork:` fence comments for merge visibility):**
+  - `packages/core/src/server/create-server.ts` — router-style handler.
+  - `packages/core/src/server/core-routes-plugin.ts` — h3-app-style handler (alternate router, used by Nitro plugin path).
+
+### Scope decision
+
+Same as iteration 2's `register-secrets.ts`: default to `scope: "user"`. The org-scope branch fires only when the saved key is in the registered-secrets registry AND has `scope: "org"` AND the caller has owner/admin role. None of the staff-web's currently-registered secrets ship at org scope (pilot has 1-2 staff per studio, no org-provisioning UX), so in practice every save lands at user scope today. Revisit when AUTH-02 introduces org-based ACL.
+
+### After the next Vercel redeploy
+
+The customer can paste a key in **any** of the four settings inputs — LLM Required section, API Keys & Connections, Onboarding panel, Email Provider — and the save returns 200. The key persists encrypted in `app_secrets` and is picked up by the agent on the next request.
+
 ## Verification
 
 - `pnpm --filter @agent-native/core build` — exit 0
