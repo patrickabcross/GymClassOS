@@ -37,7 +37,7 @@ import {
 import { useState } from "react";
 import { eq, desc, sql, inArray } from "drizzle-orm";
 import { nanoid } from "nanoid";
-import { IconPointFilled } from "@tabler/icons-react";
+import { IconPointFilled, IconMessage } from "@tabler/icons-react";
 import { getDb, schema } from "../../server/db";
 import { enqueueOutboundWhatsApp } from "@/lib/queue-client";
 import { Button } from "@/components/ui/button";
@@ -531,10 +531,38 @@ export default function GymosInbox() {
       </aside>
 
       {/* ─── Message thread (center) ────────────────────────────────────── */}
-      <main className="flex-1 flex flex-col overflow-hidden">
+      <main className="flex-1 flex flex-col overflow-hidden min-w-0">
         {!data.selectedConversation ? (
-          <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">
-            Select a conversation to start
+          // Empty-state — replaces the bare "Select a conversation to start"
+          // placeholder. Coaches landing on /gymos with no thread selected
+          // should see something actionable: friendly framing + a clear hint
+          // that the left rail is where conversations live, plus a quick
+          // jump-into-the-first-thread affordance when there are any.
+          <div className="flex-1 flex flex-col items-center justify-center px-6 py-12 text-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted mb-4">
+              <IconMessage className="h-5 w-5 text-muted-foreground" aria-hidden />
+            </div>
+            <h2 className="text-sm font-semibold text-foreground mb-1">
+              No conversation selected
+            </h2>
+            <p className="text-[12px] text-muted-foreground max-w-[320px] mb-5">
+              Pick a thread from the left to read it, reply, and see the
+              member's pass balance, next class, and recent nutrition.
+            </p>
+            {data.conversations.length > 0 ? (
+              <Link
+                to={`/gymos?conversation=${data.conversations[0].id}`}
+                preventScrollReset
+                className="inline-flex items-center gap-1.5 rounded-md bg-foreground px-3 py-1.5 text-[12px] font-semibold text-background hover:opacity-90 transition"
+              >
+                Open most recent conversation
+              </Link>
+            ) : (
+              <p className="text-[12px] text-muted-foreground italic">
+                No conversations yet — they appear here as members message your
+                WhatsApp number.
+              </p>
+            )}
           </div>
         ) : (
           <>
