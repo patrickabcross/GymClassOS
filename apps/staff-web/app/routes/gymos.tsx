@@ -18,10 +18,18 @@ export function meta() {
 }
 
 export default function GymosLayout() {
+  // IMPORTANT: do NOT use `w-screen` / `h-screen` here. This component is
+  // wrapped by `<AgentSidebar>` (see apps/staff-web/app/components/layout/
+  // AppLayout.tsx) which lays out as a flex row: [content (flex-1) | sidebar].
+  // Claiming `w-screen` makes the gym surface ignore the sidebar's width and
+  // overflow the viewport horizontally — the AgentSidebar then visually overlays
+  // the right edge of the content and the page gets a bottom horizontal
+  // scrollbar. `h-full w-full min-w-0` lets the surface fill the available
+  // flex cell (which AgentSidebar sizes correctly).
   return (
-    <div className="flex flex-col h-screen w-screen bg-background text-foreground">
+    <div className="flex flex-col h-full w-full min-w-0 bg-background text-foreground">
       <GymosTopNav />
-      <div className="flex-1 min-h-0 overflow-hidden">
+      <div className="flex-1 min-h-0 min-w-0 overflow-hidden">
         <Outlet />
       </div>
     </div>
