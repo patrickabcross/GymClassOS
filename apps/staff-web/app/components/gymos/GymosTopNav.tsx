@@ -28,6 +28,8 @@ export function GymosTopNav() {
   const isMembers = path.startsWith("/gymos/members");
   const isPayments = path.startsWith("/gymos/payments");
   const isAnalytics = path.startsWith("/gymos/analytics");
+  // 260531-n7i Task 3: Campaigns tab (missed-session re-engagement).
+  const isCampaigns = path.startsWith("/gymos/campaigns");
   // P1b-08: Settings → Integrations (Stripe key rotation).
   const isSettings = path.startsWith("/gymos/settings");
 
@@ -64,17 +66,16 @@ export function GymosTopNav() {
       <Link to="/gymos/analytics" className={tabClass(isAnalytics)}>
         Analytics
       </Link>
+      <Link to="/gymos/campaigns" className={tabClass(isCampaigns)}>
+        Campaigns
+      </Link>
       <Link
         to="/gymos/settings/integrations"
         className={cn(tabClass(isSettings), "ml-auto")}
       >
         Settings
       </Link>
-      <button
-        type="button"
-        onClick={handleSignOut}
-        className={tabClass(false)}
-      >
+      <button type="button" onClick={handleSignOut} className={tabClass(false)}>
         Sign out
       </button>
     </nav>
