@@ -55,14 +55,16 @@ Note: `GymosTopNav.tsx:34` uses `px-2.5 py-1` (10px) on existing tabs — this i
 
 ## Typography
 
-These sizes match existing gymos routes. Do not introduce new sizes — use only these four.
+The four sizes below govern all conversational/list/form chrome across every `/gymos/*` surface. The Analytics dashboard additionally introduces a Display / metric size for KPI hero values to establish operational hierarchy — that size is **scoped to `/gymos/analytics` only** and does not apply to any other gymos surface.
 
 | Role | Size | Weight | Line Height | Usage |
 |------|------|--------|-------------|-------|
 | Body / messages | 13px | 400 (regular) | 1.5 | Conversation message text, form inputs, dialog body |
 | Label / meta | 12px | 400 (regular) | 1.4 | Conversation list previews, member context values, analytics sub-labels |
 | Caption / badge | 10–11px | 400 (regular) | 1.3 | Timestamps (`text-[10px]`), unread badge counts, window-state badges, error bubbles (`text-[11px]`) |
-| Heading / section | 14px | 600 (semibold) | 1.2 | Panel headers (`text-sm font-semibold`), dialog titles, analytics metric primary values, access-denied brand wordmark |
+| Heading / section | 14px | 600 (semibold) | 1.2 | Panel headers (`text-sm font-semibold`), dialog titles, access-denied brand wordmark |
+| Display / metric | 30px (`text-3xl`) | 600 (semibold) | 1.1 | Analytics KPI hero values (Fill Rate, Pass Utilisation, Drop-in Revenue, Net Growth, ARPM) on `/gymos/analytics` only |
+| Display / hero | 36px (`text-4xl`) | 600 (semibold) | 1.05 | Single most-important analytics KPI (Monthly Recurring Revenue) — `/gymos/analytics` only |
 
 Weights declared: regular (400) and semibold (600) only. Do not use 500 (medium) or 700 (bold) in new gymos surfaces — they are not used in existing gymos components.
 
@@ -357,7 +359,7 @@ No third-party registries declared. Registry vetting gate: not applicable.
 | Issue | Fix applied |
 |-------|------------|
 | Dimension 1 — "Cancel" is BLOCK-listed generic label | Replaced with "Discard draft" in both Surface Spec dialog footer description and Copywriting Contract table |
-| Dimension 4 — `text-2xl` (24px) was undeclared 5th font size | Replaced with `text-sm font-semibold` (14px) in analytics metric card Surface Spec; Typography table "Heading / section" role now explicitly lists "analytics metric primary values" |
+| Dimension 4 — `text-2xl` (24px) was undeclared 5th font size | Replaced with `text-sm font-semibold` (14px) in analytics metric card Surface Spec at the time of the 2026-05-25 checker pass. **Deliberately reversed on 2026-05-31 (260531-kbm):** the downgrade eliminated all visual hierarchy on the analytics dashboard, making KPI values indistinguishable from labels. The replacement is the new Display / metric role (`text-3xl`/`text-4xl` — see Typography table above), which is now explicitly declared and scoped to `/gymos/analytics` only. Future checker passes must not re-flag `text-3xl` or `text-4xl` in `gymos.analytics.tsx` as undeclared sizes — they are now authorized by this spec. |
 | Dimension 5 — `px-2.5` (10px) is not a multiple of 4 | Removed from Spacing exceptions table; added explanatory note that this is pre-existing `GymosTopNav.tsx:34` code not introduced or reaffirmed by this phase |
 | Dimension 4 — Surface Spec §4 wordmark declared 16px (undeclared 5th size) | Replaced with 14px Heading/section role (`text-sm font-semibold`) in §4 wordmark line; Typography table "Heading / section" usage column updated to include "access-denied brand wordmark" |
 
