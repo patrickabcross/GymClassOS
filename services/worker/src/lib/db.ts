@@ -64,6 +64,9 @@ export const conversations = pgTable("conversations", {
 });
 
 // WA-07: WhatsApp opt-in evidence (added Plan 06 — sendMessage gate read).
+// WA-09/WA-10: opted_out_at added (additive, nullable) — optInGate checks
+// this column: row must exist AND opted_out_at IS NULL for hasOptIn = true.
+// KEEP THIS FILE IN SYNC with apps/staff-web/server/db/schema.ts whatsappOptIn.
 export const whatsappOptIn = pgTable("whatsapp_opt_in", {
   memberId: text("member_id").primaryKey(),
   optedInAt: text("opted_in_at")
@@ -74,6 +77,7 @@ export const whatsappOptIn = pgTable("whatsapp_opt_in", {
   source: text("source", {
     enum: ["inbound_reply", "manual_admin", "import"],
   }).notNull(),
+  optedOutAt: text("opted_out_at"), // WA-09/WA-10: nullable — set when member opts out
 });
 
 // WA-08: WhatsApp templates synced from Meta (added Plan 06 — sendMessage gate read).

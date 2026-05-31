@@ -15,23 +15,28 @@ const messageInsertChain = {
 const conversationInsertChain = {
   values: vi.fn().mockResolvedValue(undefined),
 };
+// opt-in INSERT chain: values → onConflictDoNothing (no .returning)
+const optInInsertChain = {
+  values: vi.fn().mockReturnThis(),
+  onConflictDoNothing: vi.fn().mockResolvedValue(undefined),
+};
 const updateChain = {
   set: vi.fn().mockReturnThis(),
   where: vi.fn().mockResolvedValue(undefined),
 };
 
-let insertCallSequence: ("conversation" | "message")[] = [];
+// Insert call sequence: controls which chain is returned per insert call.
+// "conversation" | "message" | "optIn"
+let insertCallSequence: ("conversation" | "message" | "optIn")[] = [];
 const mockDb = {
   select: vi.fn().mockReturnValue(selectChain),
-  insert: vi.fn().mockImplementation((table: any) => {
+  insert: vi.fn().mockImplementation((_table: any) => {
     // table identity is mocked — we route by call order rather than introspection.
-    // First insert call on the messages table chain uses onConflictDoNothing.
-    // Conversation upsert (when no existing conv) uses the plain chain.
     // The test sequences below control which call goes to which chain.
     const next = insertCallSequence.shift() ?? "message";
-    return next === "conversation"
-      ? conversationInsertChain
-      : messageInsertChain;
+    if (next === "conversation") return conversationInsertChain;
+    if (next === "optIn") return optInInsertChain;
+    return messageInsertChain;
   }),
   update: vi.fn().mockReturnValue(updateChain),
 };
@@ -52,6 +57,9 @@ vi.mock("../lib/db.js", () => ({
       channel: { name: "channel" },
       id: { name: "id" },
     },
+    whatsappOptIn: {
+      memberId: { name: "member_id" },
+    },
   },
 }));
 
@@ -64,6 +72,8 @@ describe("upsertConversationAndMessage", () => {
     messageInsertChain.onConflictDoNothing.mockClear();
     messageInsertChain.returning.mockReset();
     conversationInsertChain.values.mockClear();
+    optInInsertChain.values.mockClear();
+    optInInsertChain.onConflictDoNothing.mockClear();
     updateChain.set.mockClear();
     updateChain.where.mockClear();
     mockDb.insert.mockClear();
@@ -90,7 +100,7 @@ describe("upsertConversationAndMessage", () => {
     selectChain.then
       .mockResolvedValueOnce({ id: "mem_1", phoneE164: "+447700900000" }) // member found
       .mockResolvedValueOnce(null); // no existing conversation
-    insertCallSequence = ["conversation", "message"];
+    insertCallSequence = ["conversation", "message", "optIn"];
     messageInsertChain.returning.mockResolvedValueOnce([{ id: "msg_new" }]); // INSERT messages OK
     const result = await upsertConversationAndMessage(
       mockDb as any,
@@ -110,7 +120,7 @@ describe("upsertConversationAndMessage", () => {
     selectChain.then
       .mockResolvedValueOnce({ id: "mem_2", phoneE164: "+447700900001" })
       .mockResolvedValueOnce({ id: "conv_existing", unreadCount: 3 });
-    insertCallSequence = ["message"];
+    insertCallSequence = ["message", "optIn"];
     messageInsertChain.returning.mockResolvedValueOnce([{ id: "msg_y" }]);
     await upsertConversationAndMessage(
       mockDb as any,
@@ -152,7 +162,7 @@ describe("upsertConversationAndMessage", () => {
     selectChain.then
       .mockResolvedValueOnce({ id: "mem_4", phoneE164: "+447700900003" })
       .mockResolvedValueOnce({ id: "conv_existing_2", unreadCount: 2 });
-    insertCallSequence = ["message"];
+    insertCallSequence = ["message", "optIn"];
     messageInsertChain.returning.mockResolvedValueOnce([{ id: "msg_z" }]);
     await upsertConversationAndMessage(
       mockDb as any,
@@ -169,5 +179,57 @@ describe("upsertConversationAndMessage", () => {
     const setCall =
       updateChain.set.mock.calls[updateChain.set.mock.calls.length - 1][0];
     expect(setCall.unreadCount).toBe(3);
+  });
+
+  // WA-09: opt-in auto-capture tests
+  it("WA-09: first inbound inserts one whatsapp_opt_in row with source=inbound_reply", async () => {
+    selectChain.then
+      .mockResolvedValueOnce({ id: "mem_5", phoneE164: "+447700900004" }) // member found
+      .mockResolvedValueOnce({ id: "conv_new", unreadCount: 0 }); // existing conversation
+    insertCallSequence = ["message", "optIn"];
+    messageInsertChain.returning.mockResolvedValueOnce([{ id: "msg_optin" }]);
+    const result = await upsertConversationAndMessage(
+      mockDb as any,
+      {
+        id: "wamid_first",
+        from: "447700900004",
+        type: "text",
+        text: { body: "hello first time" },
+      },
+      '{"raw":"hello first time"}',
+    );
+    expect(result.processed).toBe(true);
+    // optIn INSERT must have been called with source='inbound_reply'
+    expect(optInInsertChain.values).toHaveBeenCalledWith(
+      expect.objectContaining({
+        memberId: "mem_5",
+        evidenceMessageId: "wamid_first",
+        source: "inbound_reply",
+      }),
+    );
+    // onConflictDoNothing must be called (idempotency — never clears existing opt-out)
+    expect(optInInsertChain.onConflictDoNothing).toHaveBeenCalled();
+  });
+
+  it("WA-09: duplicate-wamid path does NOT call the opt-in insert", async () => {
+    selectChain.then
+      .mockResolvedValueOnce({ id: "mem_6", phoneE164: "+447700900005" }) // member found
+      .mockResolvedValueOnce({ id: "conv_dup2", unreadCount: 0 }); // existing conversation
+    insertCallSequence = ["message"]; // only message insert — no optIn if wamid is duplicate
+    messageInsertChain.returning.mockResolvedValueOnce([]); // ON CONFLICT → duplicate_wamid
+    const result = await upsertConversationAndMessage(
+      mockDb as any,
+      {
+        id: "wamid_dup",
+        from: "447700900005",
+        type: "text",
+        text: { body: "dup" },
+      },
+      "{}",
+    );
+    expect(result.processed).toBe(false);
+    expect(result.reason).toBe("duplicate_wamid");
+    // opt-in INSERT must NOT have been attempted on the duplicate path
+    expect(optInInsertChain.values).not.toHaveBeenCalled();
   });
 });

@@ -8,33 +8,34 @@ You are the AI assistant for GymClassOS, a boutique fitness studio management pl
 
 ## Data Sources (Neon Postgres tables)
 
-| Table | Contents |
-|-------|----------|
-| `gym_members` | Member profiles — id, name, phone_e164, email, created_at |
-| `class_definitions` | Class catalog — id, name (e.g. "Yoga"), duration_min, default_capacity |
-| `class_occurrences` | Individual class instances — id, definition_id, starts_at, capacity, status (scheduled/cancelled/completed) |
-| `bookings` | Who booked what — id, occurrence_id, member_id, status (booked/attended/no_show/cancelled), booked_at |
-| `passes` | Pass grants — id, member_id, granted (credits), expires_at (active = NULL or future). No status column; "active" is derived from expires_at. |
-| `pass_debits` | Pass-balance ledger — id, pass_id, amount, created_at. Balance = SUM(granted) − SUM(debited). Never chain-join through this. |
-| `stripe_subscriptions` | Active recurring memberships — id, member_id, status, current_period_end |
-| `conversations` + `messages` | WhatsApp inbox threads |
-| `whatsapp_templates` | Approved WhatsApp message templates (status: pending/approved/rejected/...) |
-| `whatsapp_opt_in` | Per-member opt-in evidence for WhatsApp messaging |
+| Table                        | Contents                                                                                                                                     |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `gym_members`                | Member profiles — id, name, phone_e164, email, created_at                                                                                    |
+| `class_definitions`          | Class catalog — id, name (e.g. "Yoga"), duration_min, default_capacity                                                                       |
+| `class_occurrences`          | Individual class instances — id, definition_id, starts_at, capacity, status (scheduled/cancelled/completed)                                  |
+| `bookings`                   | Who booked what — id, occurrence_id, member_id, status (booked/attended/no_show/cancelled), booked_at                                        |
+| `passes`                     | Pass grants — id, member_id, granted (credits), expires_at (active = NULL or future). No status column; "active" is derived from expires_at. |
+| `pass_debits`                | Pass-balance ledger — id, pass_id, amount, created_at. Balance = SUM(granted) − SUM(debited). Never chain-join through this.                 |
+| `stripe_subscriptions`       | Active recurring memberships — id, member_id, status, current_period_end                                                                     |
+| `conversations` + `messages` | WhatsApp inbox threads                                                                                                                       |
+| `whatsapp_templates`         | Approved WhatsApp message templates (status: pending/approved/rejected/...)                                                                  |
+| `whatsapp_opt_in`            | Per-member opt-in evidence for WhatsApp messaging                                                                                            |
 
 ## Agent Actions (LLM tools)
 
 These are the tools available via `defineAction` in `apps/staff-web/actions/`. Each is both an HTTP GET endpoint at `/_agent-native/actions/<name>` and an LLM tool call.
 
-| Tool | Use For | Returns |
-|------|---------|---------|
-| `list-fill-rate` | "Which classes are not filling up?" / fill-rate analytics over a trailing window | Array of `{occurrenceId, className, startsAt, capacity, booked, fillPct}` |
-| `list-renewals` | "Provide renewal numbers" / retention figures | `{activeSubscriptions, expiringPasses7d, expiringPasses30d, subscriptionsRenewingNext30d, asOf}` |
-| `list-revenue` | "What's our MRR?" / "are we net positive?" / drop-in revenue / ARPM / net growth | `{mrrPence, mrrPounds, activeSubscribers, unlimitedCount, limitedCount, dropInRevenuePence30d, dropInRevenuePounds30d, tenPacksSold30d, arpmPence, arpmPounds, acquired30d, lost30d, net30d, asOf}` |
-| `list-at-risk-members` | "Which customers should I reach out to?" / churn outreach | Array of `{memberId, name, phoneE164, lastAttendedAt, bookingCount30d, earliestPassExpiry}` |
-| `list-classes` | Supporting context — what classes the gym offers | Array of class definitions with occurrence counts |
-| `list-members` | Supporting context — gym member roster, optional name/phone filter | Array of member rows |
-| `view-screen` | See what's on the user's current screen | Framework-provided |
-| `navigate` | Take the user to a specific gymos route | Framework-provided |
+| Tool                       | Use For                                                                                                                               | Returns                                                                                                                                                                                             |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `list-fill-rate`           | "Which classes are not filling up?" / fill-rate analytics over a trailing window                                                      | Array of `{occurrenceId, className, startsAt, capacity, booked, fillPct}`                                                                                                                           |
+| `list-renewals`            | "Provide renewal numbers" / retention figures                                                                                         | `{activeSubscriptions, expiringPasses7d, expiringPasses30d, subscriptionsRenewingNext30d, asOf}`                                                                                                    |
+| `list-revenue`             | "What's our MRR?" / "are we net positive?" / drop-in revenue / ARPM / net growth                                                      | `{mrrPence, mrrPounds, activeSubscribers, unlimitedCount, limitedCount, dropInRevenuePence30d, dropInRevenuePounds30d, tenPacksSold30d, arpmPence, arpmPounds, acquired30d, lost30d, net30d, asOf}` |
+| `list-at-risk-members`     | "Which customers should I reach out to?" / churn outreach                                                                             | Array of `{memberId, name, phoneE164, lastAttendedAt, bookingCount30d, earliestPassExpiry}`                                                                                                         |
+| `list-classes`             | Supporting context — what classes the gym offers                                                                                      | Array of class definitions with occurrence counts                                                                                                                                                   |
+| `list-members`             | Supporting context — gym member roster, optional name/phone filter                                                                    | Array of member rows                                                                                                                                                                                |
+| `send-template-to-members` | Batch-send an approved WhatsApp template to a set of members (campaign fan-out). One queued job per member via the worker chokepoint. | `{queued, conversationsCreated, failed}`                                                                                                                                                            |
+| `view-screen`              | See what's on the user's current screen                                                                                               | Framework-provided                                                                                                                                                                                  |
+| `navigate`                 | Take the user to a specific gymos route                                                                                               | Framework-provided                                                                                                                                                                                  |
 
 ## System Prompt
 

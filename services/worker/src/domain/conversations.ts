@@ -119,5 +119,29 @@ export async function upsertConversationAndMessage(
     return { processed: false, reason: "duplicate_wamid" };
   }
 
+  // 4. WA-09: auto-capture opt-in on first inbound.
+  //    onConflictDoNothing(member_id) makes it idempotent:
+  //    - If no opt-in row exists → creates one (source='inbound_reply').
+  //    - If a row already exists (any source) → no-op; never overwrites.
+  //    - If the member is opted-out (opted_out_at IS SET) → no-op; the existing
+  //      row is preserved unchanged. Re-opt-in is a manual_admin action, not
+  //      implied by an inbound (onConflictDoNothing preserves opted_out_at).
+  //
+  //    DEFERRED: STOP-keyword auto-detection from inbound text is deferred.
+  //    The opt-out WRITE PATH (opted_out_at column) and gate (optInGate.ts)
+  //    are in place; a future plan can parse the body for "STOP" and call
+  //    db.update(whatsappOptIn).set({ optedOutAt: now }).where(eq(memberId, ...)).
+  //
+  //    guard:allow-unscoped — webhook processor
+  await db
+    .insert(schema.whatsappOptIn)
+    .values({
+      memberId: member.id,
+      evidenceMessageId: externalId,
+      evidencePayload: rawPayload,
+      source: "inbound_reply",
+    })
+    .onConflictDoNothing({ target: schema.whatsappOptIn.memberId });
+
   return { processed: true };
 }

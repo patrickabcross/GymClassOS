@@ -335,6 +335,11 @@ export const webhookEvents = table("webhook_events", {
 
 // WA-07: WhatsApp opt-in evidence. Sender layer refuses any outbound to a
 // member without a row in this table.
+// WA-09/WA-10: opt-out marker (additive, nullable) — opted_out_at set means
+// the member has opted out; the worker optInGate refuses sends even when an
+// opt-in row exists. Write path: set opted_out_at = now() (manual_admin or
+// future keyword auto-detection). Re-opt-in requires a manual_admin action,
+// not implied by an inbound (onConflictDoNothing in conversations.ts).
 export const whatsappOptIn = table("whatsapp_opt_in", {
   memberId: text("member_id").primaryKey(), // FK gym_members.id
   optedInAt: text("opted_in_at").notNull().default(now()),
@@ -343,6 +348,7 @@ export const whatsappOptIn = table("whatsapp_opt_in", {
   source: text("source", {
     enum: ["inbound_reply", "manual_admin", "import"],
   }).notNull(),
+  optedOutAt: text("opted_out_at"), // WA-09/WA-10: nullable — set when member opts out
 });
 
 // WA-08: WhatsApp templates synced from Meta daily. Sender layer gates
