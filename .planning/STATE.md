@@ -196,9 +196,9 @@ None tracked as TODOs; everything is in the roadmap / requirements.
 
 ## Session Continuity
 
-Last session: 2026-05-26 (P1b.1 live-fix wave + P1c draft)
-Stopped at: P1b.1 live-accepted; P1c (Public Site Integrations) drafted in ROADMAP; user shutting down
-Resume file: None
+Last session: 2026-05-31 (analytics redesign + missed-session campaign + P1c planning kickoff)
+Stopped at: Mid `/gsd:plan-phase P1c` — phase dir created, chose "answer key decisions now", PAUSED before answering the 4 plan-time decisions (see P1c subsection below). Resuming in the morning of 2026-06-01.
+Resume file: None — pick up at the P1c decisions in section #3 below
 
 ### Resume Notes — Next Session Quick-Start
 
@@ -266,15 +266,30 @@ $env:EXPO_PUBLIC_API_BASE="http://<laptop-LAN-IP>:8081"
 
 EAS build then: `cd packages/mobile-app && pnpm exec eas build --platform ios --profile preview` (customer's Apple Developer Account creds needed).
 
-#### 3. P1c — Public Site Integrations (drafted, not yet planned)
+#### 3. P1c — Public Site Integrations (PLANNING IN PROGRESS — resume here)
 
-Forms fork + `/embed/schedule` booking widget for `doyouhustle.co.uk`. Run when ready:
+**▶ THIS IS WHERE TO PICK UP IN THE MORNING.**
 
+Goal: replace the customer's GoHighLevel-on-site footprint. Confirmed (2026-05-31) the studio uses GHL on `doyouhustle.co.uk` for exactly two jobs:
+1. **Lead-capture forms** → covered by forking agent-native's `templates/forms/` (it's the right primitive, not overkill; small ~1–2 day lift) + wiring submissions into `gym_members` + a `status='lead'` conversation in `/gymos` so leads land in the inbox and the new WhatsApp campaign tooling can follow up.
+2. **Class booking + payment** → CANNOT be done with forms; needs the separate `/embed/schedule` widget + anonymous booking + Stripe Checkout (~1–2 weeks; the real commercial unlock vs Mindbody/Bsport).
+
+**State of the plan-phase run:**
+- Phase dir created: `.planning/phases/P1c-public-site-integrations/` (empty — no CONTEXT/RESEARCH/PLAN yet)
+- No CONTEXT.md yet. Chose to "answer key decisions now" inline, then PAUSED before answering.
+
+**The 4 plan-time decisions to make (mull these overnight), from ROADMAP "Phase P1c" Risks:**
+1. **Forms location** — `apps/forms/` standalone app vs `apps/staff-web/features/forms/` co-located (depends on whether the forms editor should live behind the same staff-web login).
+2. **Anonymous booking auth model** — full anonymous + Stripe anti-fraud vs require email-verification before booking.
+3. **Theming / brand fit** — URL-param theming only (`?accent=&radius=`) vs full CSS-variable injection to match the studio brand.
+4. **Stripe approach** — hosted Checkout (faster to ship, safer demo default) vs embedded Payment Element (more integrated look).
+Plus: **forms embed mechanism** — the template only ships an iframe / hosted `/f/:slug` page; P1c needs a real `<script>` snippet (P1c-05 in the draft).
+
+**To resume:**
 ```bash
 /gsd:plan-phase P1c
 ```
-
-Scope sketch is in `.planning/ROADMAP.md` under "Phase P1c"; pick which sub-plans to plan first. Forms fork is small (~1-2 days); embed widget is ~1-2 weeks but the real commercial unlock vs Mindbody/Bsport.
+It will detect the existing phase dir; re-pick "answer key decisions now" (or just tell Claude the 4 answers above), it writes CONTEXT.md, then research → plan → verify. Full scope sketch (P1c-01..06) is in `.planning/ROADMAP.md` under "Phase P1c".
 
 **Three Plan-08 criteria carry-over (from `P1b.1-LIVE-ACCEPTANCE.md`):**
 
