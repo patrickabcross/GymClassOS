@@ -36,7 +36,7 @@ Milestone: Demo Sprint (1 of 2) — Week 1 (target ~2026-05-24 — slipped to 20
 Phase: P1b.1-customer-pilot-enablement (Customer Pilot Enablement) — ✓ LIVE-ACCEPTED
 Plan: 8 of 8 (live-accepted in lieu of formal Plan 08 walkthrough)
 Status: Customer pilot is on production at gym-class-os.vercel.app with seeded demo data; user has accepted the surface as "working well enough" after the 2026-05-25/26 live-fix wave (calendar schedule, members detail link, analytics with Hustle prices, sign-out button, agent provider config, env-vars→app_secrets fallback, Gmail-scope sign-in bug, Builder.io removal). VERIFICATION.md scaffold remains as a reference but the formal 7-criteria walkthrough was bypassed because in-situ live acceptance covered the same ground.
-Last activity: 2026-05-26
+Last activity: 2026-05-31 - Completed quick task 260531-kbm: Redesign /gymos/analytics dashboard for stronger visual hierarchy with display sizes
 
 Progress: Demo Sprint [█████░░░░░] ~50% (P1b.1 closed; D2 mobile-app Task 4 + EAS build still open)
 
@@ -184,6 +184,7 @@ None tracked as TODOs; everything is in the roadmap / requirements.
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 260524-r8f | Fix staff-web OAuth: redirect Mail routes to /gymos, remove Mail account hook, narrow Google scopes | 2026-05-24 | 1c60a41e | [260524-r8f-fix-staff-web-oauth-redirect-mail-routes](./quick/260524-r8f-fix-staff-web-oauth-redirect-mail-routes/) |
+| 260531-kbm | Redesign /gymos/analytics dashboard for stronger visual hierarchy with display sizes | 2026-05-31 | 3d082eb7 | [260531-kbm-redesign-gymos-analytics-dashboard-for-s](./quick/260531-kbm-redesign-gymos-analytics-dashboard-for-s/) |
 | Phase P1b.1-customer-pilot-enablement P01 | 7min | 2 tasks | 2 files |
 | Phase P1b.1-customer-pilot-enablement P02 | 25min | 2 tasks | 3 files |
 | Phase P1b.1-customer-pilot-enablement P03 | 15min | 3 tasks | 3 files |
