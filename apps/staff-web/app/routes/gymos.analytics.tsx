@@ -1,4 +1,4 @@
-// GymClassOS Analytics — P1b.1-06 + P1b.1-livefix (business metrics).
+// GymClassOS Analytics — P1b.1-06 + P1b.1-livefix (business metrics) + 260531-kbm redesign.
 //
 // Read-only operational dashboard, two sections:
 //   Activity   — Fill Rate, Cancellation Rate, Pass Utilisation
@@ -24,6 +24,17 @@
 //     label in a plain <div> inside CardHeader rather than via CardTitle.
 //   - Rule 1 (livefix): seed productName is "10-Pack" (capital P) at
 //     seed-demo-data.ts:460,487 — match casing exactly when filtering passes.
+//   - Rule 1 (260531-kbm redesign): KPI primary values are now rendered at
+//     Display / metric size — `text-3xl font-semibold` (~30px, weight 600) for all
+//     cards, and `text-4xl font-semibold` (~36px, weight 600) for MRR (the single
+//     most-important Business KPI). This reverses the 2026-05-25 UI-SPEC checker
+//     downgrade from text-2xl → text-sm and is the authorized successor per the
+//     updated Typography section in P1b.1-UI-SPEC.md. The new Display / metric
+//     role is scoped to /gymos/analytics only — all other gymos surfaces continue
+//     using the 4-size 10–14px scale. Direction-aware trend indicators
+//     (IconTrendingUp / IconTrendingDown / IconMinus) are shown on the two
+//     7d→30d comparison cards (Fill Rate and Cancellation Rate) only: emerald for
+//     a genuinely-good direction, muted for neutral/bad — never destructive red.
 //
 // Requirements covered: INBX-01 (analytics tab destination, no longer 404).
 //
@@ -39,6 +50,11 @@ import { and, eq, gte, lt, ne, sql } from "drizzle-orm";
 import { getDb, schema } from "../../server/db";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import {
+  IconTrendingUp,
+  IconTrendingDown,
+  IconMinus,
+} from "@tabler/icons-react";
 import type { LoaderFunctionArgs } from "react-router";
 
 export function meta() {
@@ -352,26 +368,125 @@ function formatSignedNumber(n: number): string {
   return String(n);
 }
 
+// ─── Trend indicator ────────────────────────────────────────────────────────
+//
+// Only Fill Rate and Cancellation Rate have a 7d→30d comparison.
+// Direction is metric-specific:
+//   trendGoodWhen="up"   → Fill Rate (higher is better)
+//   trendGoodWhen="down" → Cancellation Rate (lower is better)
+//
+// Colour rules (per UI-SPEC and plan trend_indicator_rules):
+//   Genuinely-good direction → text-emerald-600 dark:text-emerald-400
+//   Neutral/flat or bad      → text-muted-foreground
+//   NEVER text-destructive   — UI-SPEC reserves destructive for failed actions.
+
+type TrendDirection = "up" | "down" | "flat";
+
+function computeTrend(
+  primaryPct: number | null,
+  secondaryPct: number | null,
+): TrendDirection | null {
+  if (primaryPct === null || secondaryPct === null) return null;
+  const delta = primaryPct - secondaryPct;
+  if (delta > 0) return "up";
+  if (delta < 0) return "down";
+  return "flat";
+}
+
+function formatTrendLabel(
+  primaryPct: number | null,
+  secondaryPct: number | null,
+): string {
+  if (primaryPct === null || secondaryPct === null) return "";
+  const delta = primaryPct - secondaryPct;
+  if (delta === 0) return "flat vs 30d";
+  const sign = delta > 0 ? "+" : "";
+  return `${sign}${delta}pts vs 30d`;
+}
+
+type TrendIndicatorProps = {
+  primaryPct: number | null;
+  secondaryPct: number | null;
+  trendGoodWhen: "up" | "down";
+};
+
+function TrendIndicator({
+  primaryPct,
+  secondaryPct,
+  trendGoodWhen,
+}: TrendIndicatorProps) {
+  const direction = computeTrend(primaryPct, secondaryPct);
+  if (direction === null) return null;
+
+  // flat is never "good" — it gets muted colour
+  const isGood =
+    direction === "flat"
+      ? false
+      : trendGoodWhen === "up"
+        ? direction === "up"
+        : direction === "down";
+
+  const colorClass = isGood
+    ? "text-emerald-600 dark:text-emerald-400"
+    : "text-muted-foreground";
+
+  const label = formatTrendLabel(primaryPct, secondaryPct);
+
+  return (
+    <div className={`flex items-center gap-1 ${colorClass}`}>
+      {direction === "up" && (
+        <IconTrendingUp size={14} aria-hidden className="shrink-0" />
+      )}
+      {direction === "down" && (
+        <IconTrendingDown size={14} aria-hidden className="shrink-0" />
+      )}
+      {direction === "flat" && (
+        <IconMinus size={14} aria-hidden className="shrink-0" />
+      )}
+      <span className="text-[11px]">{label}</span>
+    </div>
+  );
+}
+
+// ─── MetricCard ─────────────────────────────────────────────────────────────
+//
 // MetricCard variants:
-//   - default:  7d / 30d comparison (two stacked value rows + badges)
+//   - default:  7d / 30d comparison (two stacked value rows + badges + trend)
 //   - snapshot: single primary value with no badge split — used for
 //               point-in-time metrics like Pass Utilisation, MRR, ARPM,
 //               Net Growth, Drop-in Revenue
+//
+// Typography (260531-kbm redesign — Display / metric role, analytics-only):
+//   Label (top)   : text-[12px] uppercase tracking-wide text-muted-foreground
+//   Primary value : text-3xl font-semibold (text-4xl for optional hero card)
+//   Context (sub) : text-[12px] text-muted-foreground
+//   30d secondary : text-sm font-semibold text-muted-foreground (baseline)
+
 type MetricCardProps = {
   label: string;
   primaryValue: string;
   primaryContext: string;
   primaryTone?: "default" | "muted";
+  /** Promote to text-4xl hero size (use for the single most-important KPI only). */
+  heroSize?: boolean;
 } & (
   | {
       variant?: "default";
       secondaryValue: string;
       secondaryContext: string;
+      /** Raw pct values from loader for trend delta computation (no recompute). */
+      primaryPct: number | null;
+      secondaryPct: number | null;
+      /** Direction in which an improvement is good for this metric. */
+      trendGoodWhen: "up" | "down";
     }
   | {
       variant: "snapshot";
       secondaryValue?: never;
       secondaryContext?: never;
+      primaryPct?: never;
+      secondaryPct?: never;
+      trendGoodWhen?: never;
     }
 );
 
@@ -379,24 +494,29 @@ function MetricCard(props: MetricCardProps) {
   const { label, primaryValue, primaryContext } = props;
   const isSnapshot = props.variant === "snapshot";
   const primaryTone = props.primaryTone ?? "default";
-  // UI-SPEC §3 typography: primary value is 14px semibold ("Heading / section"
-  // role); only colour varies. Stick to semantic tokens — no raw hex.
+  const heroSize = props.heroSize ?? false;
+
+  // Display / metric role — the KPI value is the visual hero of the card.
+  // text-4xl opt-in for the single most-important card (MRR).
+  const sizeClass = heroSize ? "text-4xl" : "text-3xl";
   const primaryClass =
     primaryTone === "muted"
-      ? "text-sm font-semibold text-muted-foreground"
-      : "text-sm font-semibold";
+      ? `${sizeClass} font-semibold text-muted-foreground leading-none`
+      : `${sizeClass} font-semibold leading-none`;
+
   return (
     <Card
       role="region"
       aria-label={label}
-      className="p-4 border-border/50 bg-card/40"
+      className="p-5 border-border/50 bg-card/40"
     >
-      <CardHeader className="pb-2 p-0 flex flex-row items-center justify-between space-y-0">
+      <CardHeader className="pb-0 p-0 flex flex-row items-center justify-between space-y-0">
         <div className="text-[12px] uppercase tracking-wide text-muted-foreground font-normal">
           {label}
         </div>
       </CardHeader>
-      <CardContent className="p-0 flex flex-col gap-3 mt-3">
+      <CardContent className="p-0 flex flex-col gap-2 mt-4">
+        {/* Primary (7d) value — the visual hero */}
         <div className="flex items-baseline gap-2">
           <div className={primaryClass}>{primaryValue}</div>
           {!isSnapshot && (
@@ -405,13 +525,26 @@ function MetricCard(props: MetricCardProps) {
             </Badge>
           )}
         </div>
-        <div className="text-[12px] text-muted-foreground">
+        {/* Primary context */}
+        <div className="text-[12px] text-muted-foreground leading-snug">
           {primaryContext}
         </div>
+
+        {/* Default variant: trend indicator + 30d baseline */}
         {!isSnapshot && (
           <>
-            <div className="flex items-baseline gap-2 mt-1">
-              <div className="text-sm font-semibold">{props.secondaryValue}</div>
+            {/* Trend row — only rendered when both pcts are non-null */}
+            <TrendIndicator
+              primaryPct={props.primaryPct}
+              secondaryPct={props.secondaryPct}
+              trendGoodWhen={props.trendGoodWhen}
+            />
+
+            {/* 30d secondary — baseline reference, visually subordinate to 7d hero */}
+            <div className="flex items-baseline gap-2 mt-2 pt-2 border-t border-border/30">
+              <div className="text-sm font-semibold text-muted-foreground">
+                {props.secondaryValue}
+              </div>
               <Badge variant="outline" className="text-[10px] px-1.5 py-0">
                 30d
               </Badge>
@@ -438,7 +571,7 @@ export default function GymosAnalytics() {
     data.growth.net < 0 ? "muted" : "default";
 
   return (
-    <div className="flex flex-col gap-6 p-4">
+    <div className="flex flex-col gap-8 p-5">
       <div>
         <h1 className="text-sm font-semibold">Analytics</h1>
         <p className="text-[11px] text-muted-foreground">
@@ -458,12 +591,15 @@ export default function GymosAnalytics() {
                 ? "No data yet"
                 : `${data.fillRate7d.booked} of ${data.fillRate7d.capacity} seats across ${data.fillRate7d.occurrenceCount} classes`
             }
+            primaryPct={data.fillRate7d.pct}
             secondaryValue={formatPct(data.fillRate30d.pct)}
             secondaryContext={
               data.fillRate30d.occurrenceCount === 0
                 ? "No data yet"
                 : `${data.fillRate30d.booked} of ${data.fillRate30d.capacity} seats across ${data.fillRate30d.occurrenceCount} classes`
             }
+            secondaryPct={data.fillRate30d.pct}
+            trendGoodWhen="up"
           />
           <MetricCard
             label="Cancellation Rate"
@@ -473,12 +609,15 @@ export default function GymosAnalytics() {
                 ? "No data yet"
                 : `${data.cancRate7d.cancelled} of ${data.cancRate7d.total} bookings`
             }
+            primaryPct={data.cancRate7d.pct}
             secondaryValue={formatPct(data.cancRate30d.pct)}
             secondaryContext={
               data.cancRate30d.total === 0
                 ? "No data yet"
                 : `${data.cancRate30d.cancelled} of ${data.cancRate30d.total} bookings`
             }
+            secondaryPct={data.cancRate30d.pct}
+            trendGoodWhen="down"
           />
           <MetricCard
             variant="snapshot"
@@ -497,8 +636,10 @@ export default function GymosAnalytics() {
       <div className="flex flex-col gap-3">
         <h2 className="text-sm font-semibold">Business</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {/* MRR gets text-4xl hero size — the single most-important Business KPI */}
           <MetricCard
             variant="snapshot"
+            heroSize
             label="Monthly Recurring Revenue"
             primaryValue={formatGbp(data.mrr.mrrPence)}
             primaryContext={
