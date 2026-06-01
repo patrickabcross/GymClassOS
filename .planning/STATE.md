@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed P1c-05-embed-schedule-widget-PLAN.md
-last_updated: "2026-06-01T13:51:26.878Z"
+stopped_at: Completed P1c-06-embed-js-snippet-postmessage-PLAN.md
+last_updated: "2026-06-01T13:57:32.840Z"
 last_activity: 2026-06-01
 progress:
   total_phases: 9
@@ -35,7 +35,7 @@ Requirements: `.planning/REQUIREMENTS.md` (130 reqs across 20 categories — see
 
 Milestone: Demo Sprint (1 of 2) — Week 1 (target ~2026-05-24 — slipped to 2026-05-26 with live-fix wave)
 Phase: P1c (Public Site Integrations) — EXECUTING
-Plan: 5 of 7 complete (P1c-01, P1c-02, P1c-03 done; next up P1c-04)
+Plan: 6 of 7 complete (P1c-01, P1c-02, P1c-03 done; next up P1c-04)
 Status: Ready to execute
 Last activity: 2026-06-01
 
@@ -166,6 +166,8 @@ Decisions are logged in `PROJECT.md` Key Decisions table. Recent ones affecting 
 - [Phase P1c-public-site-integrations]: P1c-02: THIS plan owns ALL P1c public-route plumbing — auth.ts (publicPaths += /f, /api/forms/public, /api/submit, /embed; allowlistHandler skip block extended) + 00-public-cors.ts (CORS before auth, OPTIONS→204, PUBLIC_EMBED_PREFIXES). P1c-04/05/06 must NOT edit auth.ts/00-public-cors.ts (parallel-edit conflict avoidance). /f/:slug routed at explicit Nitro path server/routes/f/[...slug].get.ts so it doesn't collide with the staff-web app catch-all. Rate limit 60/15min/IP in-memory Map (effective on Fly single machine; Vercel-KV upgrade caveat in FORMS.md). Public anonymous endpoints do NOT wrap in runWithRequestContext; gym tables carry guard:allow-unscoped (single-tenant).
 - [Phase P1c-public-site-integrations]: P1c-04: RR v7 loader/action (Path B) for forms routes — staff-web has no useForms hooks; AgentToggleButton/ShareButton/VisibilityBadge stripped (pilot single-tenant); default inbox excludes leads (ne filter); two filter chips in header; tsconfig features/**/* added
 - [Phase P1c-public-site-integrations]: P1c-05: forms.id=schedule-enquiry (stable PK+slug); schedule query: classOccurrences innerJoin classDefinitions status=scheduled+startsAt>=now; zero new runtime deps; occurrenceId rides in data{} JSON through submissions.ts
+- [Phase P1c-public-site-integrations]: P1c-06: BASE origin baked into IIFE at request time via buildEmbedScript(baseOrigin) factory; safeBase sanitiser rejects non-http(s) values before interpolation; ev.origin !== BASE is first statement in message handler (RESEARCH Pitfall 6)
+- [Phase P1c-public-site-integrations]: P1c-06: Checkpoint Task 2 (human-verify) auto-approved — NitroViteError dev-server constraint; runtime verification deferred to P1c-07 on live Vercel deploy
 
 ### Pending Todos
 
@@ -211,11 +213,12 @@ None tracked as TODOs; everything is in the roadmap / requirements.
 | Phase P1c-public-site-integrations P02 | 10min | 4 tasks | 18 files |
 | Phase P1c-public-site-integrations P04 | 25 | 2 tasks | 8 files |
 | Phase P1c-public-site-integrations P05 | 8 | 2 tasks | 4 files |
+| Phase P1c-public-site-integrations P06 | 3 | 1 tasks | 2 files |
 
 ## Session Continuity
 
-Last session: 2026-06-01T13:51:26.870Z
-Stopped at: Completed P1c-05-embed-schedule-widget-PLAN.md
+Last session: 2026-06-01T13:57:32.832Z
+Stopped at: Completed P1c-06-embed-js-snippet-postmessage-PLAN.md
 Resume file: None
 
 ### Resume Notes — Next Session Quick-Start
