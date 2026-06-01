@@ -8,12 +8,28 @@ vi.mock("../lib/env.js", () => ({
     STRIPE_WEBHOOK_SECRET: "whsec_x",
     WHATSAPP_VERIFY_TOKEN: "demo_token",
     WHATSAPP_APP_SECRET: "demo_secret",
+    PGCRYPTO_MASTER_KEY: "test-master-key-1234567890abcdef",
     DATABASE_URL: "postgres://x",
     DATABASE_URL_UNPOOLED: "postgres://x",
     GIT_SHA: "test",
     NODE_ENV: "test",
     PORT: 3001,
   }),
+}));
+
+// Mock the secrets module so tests don't hit the DB.
+// Returns the env-fallback values directly (same values the env mock provides).
+vi.mock("../lib/secrets.js", () => ({
+  getWhatsAppVerifyToken: vi.fn().mockResolvedValue("demo_token"),
+  getWhatsAppAppSecret: vi.fn().mockResolvedValue("demo_secret"),
+  _resetSecretsCacheForTests: vi.fn(),
+  readSecret: vi.fn().mockResolvedValue(null),
+}));
+
+// Mock DB so getDb() doesn't attempt a real Neon connection.
+vi.mock("../lib/db.js", () => ({
+  getDb: vi.fn().mockReturnValue({}),
+  _resetDbForTests: vi.fn(),
 }));
 
 // vi.mock is hoisted above all imports; mock fns must be hoisted with vi.hoisted

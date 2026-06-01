@@ -10,12 +10,14 @@ const EnvSchema = z.object({
       message:
         "DATABASE_URL_UNPOOLED must not include -pooler (PITFALL #1 — unpooled URL is required for pg-boss / long-running connections)",
     }),
+  // pgcrypto master key — required for DB-first secret reads via pgp_sym_decrypt
+  PGCRYPTO_MASTER_KEY: z.string().min(16),
   // Stripe
   STRIPE_SECRET_KEY: z
     .string()
     .regex(/^(sk|rk)_(test|live)_/, "Must be sk_/rk_ key"),
   STRIPE_WEBHOOK_SECRET: z.string().regex(/^whsec_/),
-  // WhatsApp
+  // WhatsApp — retained as env fallback; DB-first via secrets table preferred
   WHATSAPP_VERIFY_TOKEN: z.string().min(8),
   WHATSAPP_APP_SECRET: z.string().min(8),
   // Optional

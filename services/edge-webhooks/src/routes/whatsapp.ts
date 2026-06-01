@@ -1,18 +1,22 @@
 import { Hono } from "hono";
 import { verifySignature } from "@gymos/whatsapp";
 import { enqueueInboundWhatsApp } from "@gymos/queue";
-import { getEnv } from "../lib/env.js";
 import { insertWebhookEvent } from "../lib/idempotency.js";
+import {
+  getWhatsAppVerifyToken,
+  getWhatsAppAppSecret,
+} from "../lib/secrets.js";
+import { getDb } from "../lib/db.js";
 
 export const whatsappRoutes = new Hono();
 
 // GET — Meta verify_token handshake (called once at webhook registration)
-whatsappRoutes.get("/whatsapp", (c) => {
-  const env = getEnv();
+whatsappRoutes.get("/whatsapp", async (c) => {
   const mode = c.req.query("hub.mode");
   const token = c.req.query("hub.verify_token");
   const challenge = c.req.query("hub.challenge");
-  if (mode === "subscribe" && token === env.WHATSAPP_VERIFY_TOKEN) {
+  const verifyToken = await getWhatsAppVerifyToken(getDb());
+  if (mode === "subscribe" && token === verifyToken) {
     return c.text(challenge ?? "", 200);
   }
   return c.text("Forbidden", 403);
@@ -20,21 +24,23 @@ whatsappRoutes.get("/whatsapp", (c) => {
 
 // POST — inbound messages + status updates
 whatsappRoutes.post("/whatsapp", async (c) => {
-  const env = getEnv();
-
   // 1. RAW BODY FIRST (PITFALL #9) — never c.req.json() and never
   //    crypto.createHmac before this line. Line-order enforced by plan
   //    acceptance grep: A (await c.req.text()) < B (verifySignature(...)).
   const raw = await c.req.text();
   const sigHeader = c.req.header("x-hub-signature-256") ?? "";
 
-  // 2. Verify HMAC via @gymos/whatsapp adapter (uses crypto.createHmac
+  // 2. Resolve app secret DB-first (TTL-cached — safe to await after raw read,
+  //    NOT before, per PITFALL #9 raw-body-first discipline).
+  const appSecret = await getWhatsAppAppSecret(getDb());
+
+  // 3. Verify HMAC via @gymos/whatsapp adapter (uses crypto.createHmac
   //    internally — AFTER raw body read).
-  if (!verifySignature(raw, sigHeader, env.WHATSAPP_APP_SECRET)) {
+  if (!verifySignature(raw, sigHeader, appSecret)) {
     return c.text("Bad signature", 401);
   }
 
-  // 3. Parse JSON (safe AFTER verify).
+  // 4. Parse JSON (safe AFTER verify).
   let payload: unknown;
   try {
     payload = JSON.parse(raw);
@@ -42,7 +48,7 @@ whatsappRoutes.post("/whatsapp", async (c) => {
     return c.text("Bad JSON", 400);
   }
 
-  // 4. Persist + enqueue each item (idempotent on (provider, external_id)).
+  // 5. Persist + enqueue each item (idempotent on (provider, external_id)).
   //    Receiver does NO business logic — worker handles materialisation.
   //    HIGH #6: enqueue STRUCTURED payloads (kind: 'message' | 'status').
   const entries = (payload as { entry?: unknown[] })?.entry ?? [];
