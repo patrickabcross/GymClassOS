@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed P1c-06-embed-js-snippet-postmessage-PLAN.md
-last_updated: "2026-06-01T13:57:32.840Z"
+stopped_at: Completed P1c-07-e2e-smoke-test-PLAN.md
+last_updated: "2026-06-01T14:08:46.244Z"
 last_activity: 2026-06-01
 progress:
   total_phases: 9
@@ -35,7 +35,7 @@ Requirements: `.planning/REQUIREMENTS.md` (130 reqs across 20 categories — see
 
 Milestone: Demo Sprint (1 of 2) — Week 1 (target ~2026-05-24 — slipped to 2026-05-26 with live-fix wave)
 Phase: P1c (Public Site Integrations) — EXECUTING
-Plan: 6 of 7 complete (P1c-01, P1c-02, P1c-03 done; next up P1c-04)
+Plan: 7 of 7 complete (P1c-01, P1c-02, P1c-03 done; next up P1c-04)
 Status: Ready to execute
 Last activity: 2026-06-01
 
@@ -168,6 +168,8 @@ Decisions are logged in `PROJECT.md` Key Decisions table. Recent ones affecting 
 - [Phase P1c-public-site-integrations]: P1c-05: forms.id=schedule-enquiry (stable PK+slug); schedule query: classOccurrences innerJoin classDefinitions status=scheduled+startsAt>=now; zero new runtime deps; occurrenceId rides in data{} JSON through submissions.ts
 - [Phase P1c-public-site-integrations]: P1c-06: BASE origin baked into IIFE at request time via buildEmbedScript(baseOrigin) factory; safeBase sanitiser rejects non-http(s) values before interpolation; ev.origin !== BASE is first statement in message handler (RESEARCH Pitfall 6)
 - [Phase P1c-public-site-integrations]: P1c-06: Checkpoint Task 2 (human-verify) auto-approved — NitroViteError dev-server constraint; runtime verification deferred to P1c-07 on live Vercel deploy
+- [Phase P1c-public-site-integrations]: P1c-07: Part C (Checkout->pass) DEFERRED not FAILED — studio Stripe restricted key not configured; code verified at unit level; re-verify when studio Stripe setup complete
+- [Phase P1c-public-site-integrations]: P1c-07: Name-extraction heuristic gap — submissions.ts matches 'name'/'first name' labels only; seeded form uses 'Your name' so first_name saves as 'Lead' not actual name; funnel functional; recommended fix: broaden heuristic or update seed label
 
 ### Pending Todos
 
@@ -214,11 +216,12 @@ None tracked as TODOs; everything is in the roadmap / requirements.
 | Phase P1c-public-site-integrations P04 | 25 | 2 tasks | 8 files |
 | Phase P1c-public-site-integrations P05 | 8 | 2 tasks | 4 files |
 | Phase P1c-public-site-integrations P06 | 3 | 1 tasks | 2 files |
+| Phase P1c-public-site-integrations P07 | 8min | 1 tasks | 1 files |
 
 ## Session Continuity
 
-Last session: 2026-06-01T13:57:32.832Z
-Stopped at: Completed P1c-06-embed-js-snippet-postmessage-PLAN.md
+Last session: 2026-06-01T14:08:46.233Z
+Stopped at: Completed P1c-07-e2e-smoke-test-PLAN.md
 Resume file: None
 
 ### Resume Notes — Next Session Quick-Start

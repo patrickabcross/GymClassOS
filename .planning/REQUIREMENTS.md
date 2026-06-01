@@ -214,7 +214,7 @@
 - [x] **EMBED-03** [P]: "Enquire / request to book" CTA on the schedule widget — opens an inline lead form whose submission creates a `status=lead` conversation (NO anonymous booking/payment — lead funnel per CONTEXT Decision 2)
 - [x] **EMBED-04** [P]: `/embed.js` supports both form + schedule embeds via `data-type`/`data-gymos-*` attributes; `lead:submitted` + `enquiry:created` postMessage callbacks with parent-side origin check; iframe auto-resize
 - [x] **EMBED-05** [P]: Stripe Hosted Checkout link action (`create-checkout-link`) — staff generate a link for a contacted lead; session metadata includes `memberId` so the P1b-07 reducer binds the pass
-- [ ] **EMBED-06** [P]: End-to-end smoke test — embed form + schedule on a throwaway page, submit from a clean browser, verify leads in `/gymos`; create + pay a test Checkout link, verify pass bound to member
+- [x] **EMBED-06** [P]: End-to-end smoke test — embed form + schedule on a throwaway page, submit from a clean browser, verify leads in `/gymos`; create + pay a test Checkout link, verify pass bound to member
 
 ## Post-v1 Backlog
 
