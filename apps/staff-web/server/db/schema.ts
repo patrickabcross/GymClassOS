@@ -138,7 +138,7 @@ export const conversations = table("conversations", {
   channel: text("channel", { enum: ["whatsapp"] })
     .notNull()
     .default("whatsapp"),
-  status: text("status", { enum: ["open", "closed", "snoozed"] })
+  status: text("status", { enum: ["open", "closed", "snoozed", "lead"] })
     .notNull()
     .default("open"),
   unreadCount: integer("unread_count").notNull().default(0),
@@ -417,4 +417,20 @@ export const secrets = table("secrets", {
   ciphertext: text("ciphertext").notNull(), // pgp_sym_encrypt(value, master_key)
   updatedAt: text("updated_at").notNull().default(now()),
   lastUsedAt: text("last_used_at"),
+});
+
+// ---------------------------------------------------------------------------
+// P1c additions (2026-06-01) — Public Site Integrations (lead funnel).
+// Additive only. form_submissions stores public form/enquiry responses so the
+// forms builder can list responses without joining through messages.
+// ---------------------------------------------------------------------------
+export const formSubmissions = table("form_submissions", {
+  id: text("id").primaryKey(),
+  formId: text("form_id").notNull(),
+  memberId: text("member_id"), // FK gym_members.id — set after lead upsert
+  conversationId: text("conversation_id"), // FK conversations.id
+  data: text("data").notNull(), // JSON: field responses
+  submittedAt: text("submitted_at").notNull().default(now()),
+  ip: text("ip"),
+  submitterEmail: text("submitter_email"),
 });
