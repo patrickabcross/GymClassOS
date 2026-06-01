@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed P1c-01-schema-lead-migration-PLAN.md (0003 migration applied + verified live on gymos-demo Neon)
-last_updated: "2026-06-01T12:27:59.036Z"
+stopped_at: Completed P1c-03-checkout-link-action-PLAN.md
+last_updated: "2026-06-01T12:33:51.477Z"
 last_activity: 2026-06-01
 progress:
   total_phases: 9
@@ -35,7 +35,7 @@ Requirements: `.planning/REQUIREMENTS.md` (130 reqs across 20 categories — see
 
 Milestone: Demo Sprint (1 of 2) — Week 1 (target ~2026-05-24 — slipped to 2026-05-26 with live-fix wave)
 Phase: P1c (Public Site Integrations) — EXECUTING
-Plan: 2 of 7
+Plan: 3 of 7
 Status: Ready to execute
 Last activity: 2026-06-01
 
@@ -156,6 +156,8 @@ Decisions are logged in `PROJECT.md` Key Decisions table. Recent ones affecting 
 - [Phase P1b.1-customer-pilot-enablement]: P1b.1-05: fetcher.submit targets action='/gymos' explicitly so the dialog can fire from inside the existing reply <Form> without action-routing collision.
 - [Phase P1c-public-site-integrations]: P1c-01: conversations.status had NO pre-existing CHECK constraint (plain text col) — migration 0003 ADDED a new conversations_status_check (open/closed/snoozed/lead); DROP IF EXISTS was a no-op
 - [Phase P1c-public-site-integrations]: P1c-01: 0003 lead-funnel migration applied directly to gymos-demo Neon via Neon MCP (not runMigrations); dedup DELETE removed 0 rows (no duplicate emails/phones in seed)
+- [Phase P1c-public-site-integrations]: P1c-03: Staff-web Stripe client created fresh in apps/staff-web/server/lib/stripe.ts (not cross-imported from worker); reads pgcrypto-encrypted key from secrets table; pins apiVersion 2026-04-22.dahlia
+- [Phase P1c-public-site-integrations]: P1c-03: create-checkout-link NOT in agent system prompt — pilot read-only posture; staff invokes from UI only; AGENTS.md documents when to add it
 
 ### Pending Todos
 
@@ -197,11 +199,12 @@ None tracked as TODOs; everything is in the roadmap / requirements.
 | Phase P1b.1-customer-pilot-enablement P06 | 5min | 1 tasks | 1 files |
 | Phase P1b.1-customer-pilot-enablement PP05 | 6min | 2 tasks | 2 files |
 | Phase P1c-public-site-integrations P01 | 25min | 3 tasks | 2 files |
+| Phase P1c-public-site-integrations P03 | 8 | 2 tasks | 3 files |
 
 ## Session Continuity
 
-Last session: 2026-06-01T12:27:50.079Z
-Stopped at: Completed P1c-01-schema-lead-migration-PLAN.md (0003 migration applied + verified live on gymos-demo Neon)
+Last session: 2026-06-01T12:33:51.466Z
+Stopped at: Completed P1c-03-checkout-link-action-PLAN.md
 Resume file: None
 
 ### Resume Notes — Next Session Quick-Start

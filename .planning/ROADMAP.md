@@ -235,7 +235,7 @@ The production milestone is structured as 4 phases (preserving the prior coarse-
 
 **Requirements (registered 2026-06-01):** FORMS-01..04, EMBED-01..06 (10 [P] reqs — now in REQUIREMENTS.md).
 
-**Plans:** 7 plans (planned 2026-06-01) in 5 waves. Lead-funnel model (CONTEXT.md Decision 2 — NOT anonymous self-serve). Forms co-located in apps/staff-web/features/forms/.
+**Plans:** 2/7 plans executed
 - [ ] P1c-01-PLAN.md (wave 0) — additive lead schema migration: conversations.status 'lead' CHECK, gym_members email/phone partial-unique, conversations (member_id,channel) unique, form_submissions table
 - [ ] P1c-02-PLAN.md (wave 1) — fork templates/forms → features/forms; lead-upsert submission handler; CORS + auth publicPaths + UK phone E.164 normaliser [FORMS-01, FORMS-03]
 - [ ] P1c-03-PLAN.md (wave 1) — create-checkout-link action (Stripe hosted Checkout w/ metadata.memberId for the P1b-07 reducer) [EMBED-05]
