@@ -175,10 +175,14 @@ export const submitLeadForm = defineEventHandler(async (event: H3Event) => {
     const { fieldId, operator, value: condValue } = field.conditional;
     const fieldVal = String(data[fieldId] ?? "");
     switch (operator) {
-      case "equals": return fieldVal === condValue;
-      case "not_equals": return fieldVal !== condValue;
-      case "contains": return fieldVal.includes(condValue);
-      default: return true;
+      case "equals":
+        return fieldVal === condValue;
+      case "not_equals":
+        return fieldVal !== condValue;
+      case "contains":
+        return fieldVal.includes(condValue);
+      default:
+        return true;
     }
   }
 
@@ -216,12 +220,23 @@ export const submitLeadForm = defineEventHandler(async (event: H3Event) => {
       email = val;
     } else if (
       field.type === "text" &&
-      (labelLower.includes("phone") || labelLower.includes("mobile") || labelLower.includes("tel"))
+      (labelLower.includes("phone") ||
+        labelLower.includes("mobile") ||
+        labelLower.includes("tel"))
     ) {
       phone = val;
     } else if (
       field.type === "text" &&
-      (labelLower.includes("first name") || labelLower === "name")
+      // Match any name-like label (e.g. "Name", "Your name", "Full name",
+      // "First name") via the whole word "name", excluding non-person-name
+      // fields. "username"/"nickname" lack a \bname\b boundary so are already
+      // safe; "last name" is handled by the branch below.
+      /\bname\b/.test(labelLower) &&
+      !labelLower.includes("last name") &&
+      !labelLower.includes("surname") &&
+      !labelLower.includes("user") &&
+      !labelLower.includes("business") &&
+      !labelLower.includes("company")
     ) {
       const parts = val.trim().split(/\s+/);
       firstName = parts[0] ?? "Lead";
@@ -273,7 +288,9 @@ export const submitLeadForm = defineEventHandler(async (event: H3Event) => {
   // This matches the (db as any).execute(sql`...`) pattern used throughout staff-web
   // (P1b-08 decision: raw SQL against Neon Postgres via db.execute).
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const db2 = db as any as { execute: (q: unknown) => Promise<{ rows: unknown[] }> };
+  const db2 = db as any as {
+    execute: (q: unknown) => Promise<{ rows: unknown[] }>;
+  };
 
   if (email) {
     await db2.execute(sql`
@@ -285,10 +302,14 @@ export const submitLeadForm = defineEventHandler(async (event: H3Event) => {
         updated_at = NOW()
     `);
     // Re-select the canonical id — the upsert may have updated an EXISTING row (id != memberId).
-    const { rows: [existingMember] } = await db2.execute(
-      sql`SELECT id FROM gym_members WHERE email = ${email} LIMIT 1`
+    const {
+      rows: [existingMember],
+    } = await db2.execute(
+      sql`SELECT id FROM gym_members WHERE email = ${email} LIMIT 1`,
     );
-    resolvedMemberId = ((existingMember as Record<string, unknown>)?.id as string | undefined) ?? memberId;
+    resolvedMemberId =
+      ((existingMember as Record<string, unknown>)?.id as string | undefined) ??
+      memberId;
   } else if (phoneE164) {
     await db2.execute(sql`
       INSERT INTO gym_members (id, first_name, phone_e164, marketing_consent, created_at, updated_at)
@@ -297,10 +318,14 @@ export const submitLeadForm = defineEventHandler(async (event: H3Event) => {
         first_name = EXCLUDED.first_name, updated_at = NOW()
     `);
     // Re-select the canonical id — the upsert may have updated an EXISTING row (id != memberId).
-    const { rows: [existingMember] } = await db2.execute(
-      sql`SELECT id FROM gym_members WHERE phone_e164 = ${phoneE164} LIMIT 1`
+    const {
+      rows: [existingMember],
+    } = await db2.execute(
+      sql`SELECT id FROM gym_members WHERE phone_e164 = ${phoneE164} LIMIT 1`,
     );
-    resolvedMemberId = ((existingMember as Record<string, unknown>)?.id as string | undefined) ?? memberId;
+    resolvedMemberId =
+      ((existingMember as Record<string, unknown>)?.id as string | undefined) ??
+      memberId;
   }
   // If neither email nor phone, resolvedMemberId stays as the fresh nanoid (anonymous lead)
 
@@ -317,10 +342,13 @@ export const submitLeadForm = defineEventHandler(async (event: H3Event) => {
       updated_at = NOW()
   `);
   // Re-select the canonical conversation id by (member_id, channel).
-  const { rows: [convRow] } = await db2.execute(
-    sql`SELECT id FROM conversations WHERE member_id = ${resolvedMemberId} AND channel = 'whatsapp' LIMIT 1`
+  const {
+    rows: [convRow],
+  } = await db2.execute(
+    sql`SELECT id FROM conversations WHERE member_id = ${resolvedMemberId} AND channel = 'whatsapp' LIMIT 1`,
   );
-  const resolvedConvId = ((convRow as Record<string, unknown>)?.id as string | undefined) ?? convId;
+  const resolvedConvId =
+    ((convRow as Record<string, unknown>)?.id as string | undefined) ?? convId;
 
   // -------------------------------------------------------------------
   // 11. Insert messages note so coach sees lead context in /gymos
