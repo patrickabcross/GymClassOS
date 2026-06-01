@@ -110,3 +110,10 @@ None introduced in this plan. Pre-existing deferred items from P1c:
 ---
 *Phase: P1c-public-site-integrations*
 *Completed: 2026-06-01*
+
+## Self-Check: PASSED
+
+- FOUND: `.planning/phases/P1c-public-site-integrations/P1c-E2E-RESULTS.md`
+- FOUND: `.planning/phases/P1c-public-site-integrations/P1c-07-e2e-smoke-test-SUMMARY.md`
+- FOUND: commit `df2e0353` (task commit — E2E results document)
+- FOUND: commit `74f6a07e` (metadata commit — SUMMARY + STATE + ROADMAP + REQUIREMENTS)
