@@ -37,6 +37,14 @@ const authPlugin = createAuthPlugin({
     // Branded access-denied page must be reachable without a session so the
     // post-sign-out redirect from the allowlist hook below lands cleanly.
     "/access-denied",
+    // P1c additions — public marketing-site integrations (lead-capture forms + schedule widget).
+    // These paths are CORS-open and require no staff session.
+    // IMPORTANT: Only these 4 specific prefixes are public — do NOT widen
+    // /_agent-native/* or /api/* beyond what is listed here.
+    "/f",                 // public SSR form pages (GET /f/:slug)
+    "/api/forms/public",  // public form metadata GET (used by embed.js)
+    "/api/submit",        // public form POST — anonymous lead upsert only
+    "/embed",             // /embed/schedule (P1c-05) and /embed.js (P1c-06)
   ],
 });
 
@@ -85,7 +93,13 @@ const allowlistHandler = defineEventHandler(async (event) => {
     pathname.startsWith("/login") ||
     pathname.startsWith("/signup") ||
     pathname === "/__manifest" ||
-    pathname.includes(".")
+    pathname.includes(".") ||
+    // P1c additions — public marketing-site integration paths (must mirror publicPaths above).
+    // These are anonymous surfaces that must not be intercepted by the email allowlist.
+    pathname.startsWith("/f/") ||
+    pathname.startsWith("/api/forms/public") ||
+    pathname.startsWith("/api/submit") ||
+    pathname.startsWith("/embed")
   ) {
     return;
   }
