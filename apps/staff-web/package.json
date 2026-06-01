@@ -16,7 +16,8 @@
     "db:push": "drizzle-kit push",
     "db:generate": "drizzle-kit generate",
     "db:seed-templates": "tsx server/db/seeds/seed-whatsapp-templates.ts",
-    "db:seed-demo": "tsx server/db/seeds/seed-demo-data.ts"
+    "db:seed-demo": "tsx server/db/seeds/seed-demo-data.ts",
+    "db:seed-enquiry-form": "tsx server/db/seeds/seed-enquiry-form.ts"
   },
   "gymos": {
     "forbiddenDependencies": [
