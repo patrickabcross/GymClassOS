@@ -301,6 +301,25 @@ Demo Sprint runs first (D0 → D1 → D2 over 7 days). Production v1 runs after 
 
 ---
 
+## Backlog
+
+Unsequenced parking lot (999.x). Promote with `/gsd:review-backlog` when ready.
+
+### Phase 999.1: `@gymos/shared-types` contract package for the mobile↔backend API/schema seam (BACKLOG)
+
+**Goal:** Formalize the mobile↔backend contract as a real package boundary. Today `packages/mobile-app` consumes the `/api/m/*` routes (8 routes in `apps/staff-web/app/routes/api.m.*.tsx`) and the `apps/staff-web` Drizzle schema/types via workspace/relative imports + convention. Extract the shared request/response types (and relevant Drizzle-derived types) into a versioned package both `apps/staff-web` and `packages/mobile-app` depend on — or generate a typed client from the route contracts.
+
+**Why:** (a) catches backend↔mobile contract drift at compile time *now*, and (b) is the prerequisite that turns SEED-001 (extracting the mobile app into its own repo) into a mechanical move-and-rewire instead of a rearchitecture.
+
+**Requirements:** TBD
+**Plans:** 0 plans
+**Scope:** Medium (a focused phase). Not urgent — do before any mobile repo split; candidate for P0-audit or P2. Related: `SEED-001-extract-mobile-app-own-repo`.
+
+Plans:
+- [ ] TBD (promote with /gsd:review-backlog when ready)
+
+---
+
 *Roadmap created: 2026-05-17*
 *Revised: 2026-05-17 — major restructure (Demo Sprint + Production v1 two-milestone shape; mobile = PWA; Stripe direct; calorie counter in v1)*
 *Revised: 2026-05-19 — D2 plan list registered (6 plans), success criteria realigned to native Expo flow (was inherited PWA wording), MEMBR-06 dropped from D2 (PWA manifest is N/A for native Expo Go; rolled into P1a EAS work)*
