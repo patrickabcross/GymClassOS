@@ -233,7 +233,16 @@ The production milestone is structured as 4 phases (preserving the prior coarse-
 - **Capacity races at scale.** Embed widget might surface a class as "1 spot left" to multiple visitors simultaneously; PITFALL #3 atomic capacity check must hold under the anonymous flow too.
 - **Stripe Checkout vs. embedded Payment Element.** Checkout is faster to ship; embedded element looks more integrated. Plan-phase picks; Checkout is the safer demo default.
 
-**Plans:** 0/6 — DRAFT only. Run `/gsd:plan-phase P1c` when ready to schedule against the timeline.
+**Requirements (registered 2026-06-01):** FORMS-01..04, EMBED-01..06 (10 [P] reqs — now in REQUIREMENTS.md).
+
+**Plans:** 7 plans (planned 2026-06-01) in 5 waves. Lead-funnel model (CONTEXT.md Decision 2 — NOT anonymous self-serve). Forms co-located in apps/staff-web/features/forms/.
+- [ ] P1c-01-PLAN.md (wave 0) — additive lead schema migration: conversations.status 'lead' CHECK, gym_members email/phone partial-unique, conversations (member_id,channel) unique, form_submissions table
+- [ ] P1c-02-PLAN.md (wave 1) — fork templates/forms → features/forms; lead-upsert submission handler; CORS + auth publicPaths + UK phone E.164 normaliser [FORMS-01, FORMS-03]
+- [ ] P1c-03-PLAN.md (wave 1) — create-checkout-link action (Stripe hosted Checkout w/ metadata.memberId for the P1b-07 reducer) [EMBED-05]
+- [ ] P1c-04-PLAN.md (wave 2) — staff forms builder at /gymos/forms + Forms tab + /gymos?filter=leads inbox filter [FORMS-02]
+- [ ] P1c-05-PLAN.md (wave 2) — SSR /embed/schedule widget + URL-param theming + enquire→lead CTA + seeded enquiry form [EMBED-01, EMBED-02, EMBED-03]
+- [ ] P1c-06-PLAN.md (wave 3) — /embed.js <script> snippet (origin-checked postMessage relay + iframe auto-resize) [FORMS-04, EMBED-04]
+- [ ] P1c-07-PLAN.md (wave 4) — end-to-end smoke test: embed → lead → Checkout → pass [EMBED-06]
 
 ---
 
@@ -279,7 +288,7 @@ Demo Sprint runs first (D0 → D1 → D2 over 7 days). Production v1 runs after 
 | P1a. Data Foundation, Auth & Deploy | 19 | Not started | - |
 | P1b. Webhook + Worker Spine | 18 | ◐ 8/9 plans (P1b-09 WA-08 template sync still open — rolls into Next-up WhatsApp work) | 8/9 by 2026-05-23 |
 | **P1b.1. Customer Pilot Enablement** | 8 | ✓ **Live-accepted** | **2026-05-26** (8/8 plans + live-fix wave) |
-| **P1c. Public Site Integrations** | TBD | ◌ Drafted (0/6 plans) — `/gsd:plan-phase P1c` to schedule | - |
+| **P1c. Public Site Integrations** | 10 | ◐ Planned (7 plans, 5 waves) — `/gsd:execute-phase P1c` to run | - |
 | P2. Staff + Member Product Surfaces | 50+ | Not started | - |
 
 **Active workstreams (next up):**

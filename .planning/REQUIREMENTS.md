@@ -203,6 +203,19 @@
 - [ ] **SET-02** [P]: Admin can view Stripe connection status (restricted-key validity check) + key rotation UI
 - [ ] **SET-03** [P]: Admin can view system health (queue depth, recent webhook errors, recent send failures)
 
+### Public Site Integrations (P1c — forms fork + embed widgets, lead funnel)
+
+- [ ] **FORMS-01** [P]: Fork `templates/forms/` into `apps/staff-web/features/forms/` (co-located, no new deployable) — copy schema, builder pages, field renderer, public-form SSR, submission handler; adapt to staff-web `getDb()`/auth
+- [ ] **FORMS-02** [P]: Forms builder UI at `/gymos/forms` (staff-only) — create, edit, publish, archive forms; view responses
+- [ ] **FORMS-03** [P]: Public form submission → lead upsert — POST `/api/submit/:id` (public, CORS-open) upserts `gym_members` by email/phone, opens a `status=lead` conversation, writes a form_submissions + messages note
+- [ ] **FORMS-04** [P]: `<script>` embed snippet at `/embed.js` injects a styled iframe for any `/f/:slug` form; `lead:submitted` postMessage callback to the parent page
+- [ ] **EMBED-01** [P]: Server-rendered public `/embed/schedule` route — reads `class_occurrences` anonymously (no auth), returns HTML with inline CSS + URL-param theming
+- [ ] **EMBED-02** [P]: URL-param theming (`?accent` hex + `?radius` px) injected as sanitised CSS custom properties on `/embed/schedule` and `/f/:slug` (injection-safe)
+- [ ] **EMBED-03** [P]: "Enquire / request to book" CTA on the schedule widget — opens an inline lead form whose submission creates a `status=lead` conversation (NO anonymous booking/payment — lead funnel per CONTEXT Decision 2)
+- [ ] **EMBED-04** [P]: `/embed.js` supports both form + schedule embeds via `data-type`/`data-gymos-*` attributes; `lead:submitted` + `enquiry:created` postMessage callbacks with parent-side origin check; iframe auto-resize
+- [ ] **EMBED-05** [P]: Stripe Hosted Checkout link action (`create-checkout-link`) — staff generate a link for a contacted lead; session metadata includes `memberId` so the P1b-07 reducer binds the pass
+- [ ] **EMBED-06** [P]: End-to-end smoke test — embed form + schedule on a throwaway page, submit from a clean browser, verify leads in `/gymos`; create + pay a test Checkout link, verify pass bound to member
+
 ## Post-v1 Backlog
 
 Captured but not in v1 scope. No "v2" or "v3" labels — these become the next milestone whenever v1 ships.
@@ -307,8 +320,8 @@ Populated by the roadmapper when ROADMAP.md is created. Demo-Sprint vs Productio
 | **Total v1** | **25** | **99** | **6** | **130** |
 
 **Demo Sprint scope:** 25 [D] requirements + the 6 [D+P] (start as stub) = ~31 things to deliver in week 1.
-**Production v1 scope:** 99 [P] requirements + harden the 6 [D+P] = 105 things to deliver in weeks 2–9.
-**Total v1:** 130 requirements across 20 categories.
+**Production v1 scope:** 109 [P] requirements + harden the 6 [D+P] = 115 things to deliver in weeks 2–9 (+10 from P1c public-site integrations, added 2026-06-01).
+**Total v1:** 140 requirements across 21 categories (P1c Public Site Integrations added 2026-06-01).
 
 (Detailed phase mapping table is in ROADMAP.md.)
 
