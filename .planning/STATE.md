@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: phase-live-accepted
-stopped_at: P1b.1 accepted on the live site after iterative live-fixes (sign-out, calendar, analytics, agent config, etc.); formal Plan 08 walkthrough skipped in favour of in-situ acceptance
-last_updated: "2026-05-26T00:00:00.000Z"
-last_activity: 2026-05-26
+status: executing
+stopped_at: Completed P1c-01-schema-lead-migration-PLAN.md (0003 migration applied + verified live on gymos-demo Neon)
+last_updated: "2026-06-01T12:27:59.036Z"
+last_activity: 2026-06-01
 progress:
-  total_phases: 8
+  total_phases: 9
   completed_phases: 1
   total_plans: 8
-  completed_plans: 8
-  percent: 35
+  completed_plans: 10
+  percent: 50
 ---
 
 # Project State
@@ -25,7 +25,8 @@ Requirements: `.planning/REQUIREMENTS.md` (130 reqs across 20 categories — see
 
 **Core value:** Coaches and studio managers run their entire day from one inbox-and-schedule surface (WhatsApp + class bookings + member context). Members book, pay, and log activity / nutrition from a native iOS/Android Expo app (forked from agent-native's `packages/mobile-app`) that includes an in-app coaching agent.
 
-**Current focus:** ▶ **Next up — three parallel tracks:**
+**Current focus:** Phase P1c — Public Site Integrations
+
 1. **WhatsApp integration deep wire** — migrate `services/worker/` and `services/edge-webhooks/` to read Meta credentials from `app_secrets` (not `process.env`) so the in-app Settings UI is the single source of truth; wire the WA-08 template sync cron so real approved Meta templates replace the seeded stubs; full end-to-end test of outbound send + inbound delivery/read callbacks against the verified WABA.
 2. **Mobile app (member surface)** — resume D2 work (Task 4 of in-app agent was pending; D2-06 verification deferred); harden the Expo fork against the iteration that landed during the staff-web pilot fixes; cut an EAS preview build under the customer's existing Apple Developer Account.
 3. **P1c — Public Site Integrations (drafted)** — fork agent-native's `templates/forms/` for embeddable lead-capture / signup forms, plus ship a public `/embed/schedule` booking widget so visitors on `doyouhustle.co.uk` can book classes + buy Stripe Checkout passes without signing into GymOS. The real commercial unlock vs Mindbody/Bsport. Phase drafted in ROADMAP.md; run `/gsd:plan-phase P1c` when ready to schedule against the timeline.
@@ -33,10 +34,10 @@ Requirements: `.planning/REQUIREMENTS.md` (130 reqs across 20 categories — see
 ## Current Position
 
 Milestone: Demo Sprint (1 of 2) — Week 1 (target ~2026-05-24 — slipped to 2026-05-26 with live-fix wave)
-Phase: P1b.1-customer-pilot-enablement (Customer Pilot Enablement) — ✓ LIVE-ACCEPTED
-Plan: 8 of 8 (live-accepted in lieu of formal Plan 08 walkthrough)
-Status: Customer pilot is on production at gym-class-os.vercel.app with seeded demo data; user has accepted the surface as "working well enough" after the 2026-05-25/26 live-fix wave (calendar schedule, members detail link, analytics with Hustle prices, sign-out button, agent provider config, env-vars→app_secrets fallback, Gmail-scope sign-in bug, Builder.io removal). VERIFICATION.md scaffold remains as a reference but the formal 7-criteria walkthrough was bypassed because in-situ live acceptance covered the same ground.
-Last activity: 2026-05-31 - Completed quick task 260531-n7i (FULL, Verified): core missed-session re-engagement campaign — opt-in capture + opt-out gate, send-template-to-members batch action, /gymos/campaigns UI
+Phase: P1c (Public Site Integrations) — EXECUTING
+Plan: 2 of 7
+Status: Ready to execute
+Last activity: 2026-06-01
 
 Progress: Demo Sprint [█████░░░░░] ~50% (P1b.1 closed; D2 mobile-app Task 4 + EAS build still open)
 
@@ -153,6 +154,8 @@ Decisions are logged in `PROJECT.md` Key Decisions table. Recent ones affecting 
 - [Phase P1b.1-customer-pilot-enablement]: P1b.1-05: TemplatesDialog uses @/ path alias (not ~/ as plan said) — apps/staff-web/tsconfig.json only configures @/* paths; same alias every existing staff-web component uses. Plan instructions overridden by project convention per CLAUDE.md.
 - [Phase P1b.1-customer-pilot-enablement]: P1b.1-05: Pitfall 3 resolved without action-handler guard — sdk-impl Object.values({}) returns [] for hello_world (0 vars), Meta accepts empty components array. No extra code needed.
 - [Phase P1b.1-customer-pilot-enablement]: P1b.1-05: fetcher.submit targets action='/gymos' explicitly so the dialog can fire from inside the existing reply <Form> without action-routing collision.
+- [Phase P1c-public-site-integrations]: P1c-01: conversations.status had NO pre-existing CHECK constraint (plain text col) — migration 0003 ADDED a new conversations_status_check (open/closed/snoozed/lead); DROP IF EXISTS was a no-op
+- [Phase P1c-public-site-integrations]: P1c-01: 0003 lead-funnel migration applied directly to gymos-demo Neon via Neon MCP (not runMigrations); dedup DELETE removed 0 rows (no duplicate emails/phones in seed)
 
 ### Pending Todos
 
@@ -193,12 +196,13 @@ None tracked as TODOs; everything is in the roadmap / requirements.
 | Phase P1b.1-customer-pilot-enablement P07 | 12min | 2 tasks | 2 files |
 | Phase P1b.1-customer-pilot-enablement P06 | 5min | 1 tasks | 1 files |
 | Phase P1b.1-customer-pilot-enablement PP05 | 6min | 2 tasks | 2 files |
+| Phase P1c-public-site-integrations P01 | 25min | 3 tasks | 2 files |
 
 ## Session Continuity
 
-Last session: 2026-05-31 (analytics redesign + missed-session campaign + P1c planning kickoff)
-Stopped at: Mid `/gsd:plan-phase P1c` — phase dir created, chose "answer key decisions now", PAUSED before answering the 4 plan-time decisions (see P1c subsection below). Resuming in the morning of 2026-06-01.
-Resume file: None — pick up at the P1c decisions in section #3 below
+Last session: 2026-06-01T12:27:50.079Z
+Stopped at: Completed P1c-01-schema-lead-migration-PLAN.md (0003 migration applied + verified live on gymos-demo Neon)
+Resume file: None
 
 ### Resume Notes — Next Session Quick-Start
 
@@ -228,17 +232,22 @@ cat .planning/phases/P1b.1-customer-pilot-enablement/P1b.1-LIVE-ACCEPTANCE.md   
 Goal: in-app Settings UI becomes the single source of truth for Meta credentials (today the worker still needs `fly secrets set`).
 
 ```bash
+
 # Files that need to migrate from process.env to readAppSecret:
+
 services/worker/src/domain/sendMessage.ts       # outbound send
 services/edge-webhooks/src/...                  # inbound webhook signature verification + verify-token
 
 # After migration, drop the per-service Fly secrets and rely on app_secrets only.
 
 # Open: P1b-09 (WA-08 template sync cron) — fetch real approved templates
+
 # from Meta and replace the seeded 5 stub rows in whatsapp_templates.
+
 ```
 
 Then end-to-end test:
+
 1. In `/gymos`, open a conversation with an opted-in member whose phone you control
 2. Templates → `hello_world` → Send template
 3. Phone receives the message, message status moves `queued → sent → delivered → read`
@@ -251,17 +260,22 @@ Full setup instructions in `.planning/phases/P1b.1-customer-pilot-enablement/P1b
 Goal: ship an EAS preview build under the customer's existing Apple Developer Account so they can hand the member experience to a real test cohort.
 
 ```bash
+
 # Where it lives: packages/mobile-app/ (Expo 55 + RN 0.83.9 + Expo Router)
 
 # Resume D2-06 Task 4 — in-app agent demo. Plan:
+
 cat .planning/phases/D2-member-mobile-app-calorie-counter-agent-days-4-7/D2-06-*-PLAN.md
 
 # Boot for local dev:
+
 pnpm --filter @gymos/staff-web dev           # :8081 (the API the mobile app talks to)
 cd packages/mobile-app
 pnpm exec expo start --tunnel --port 19000 --clear
 $env:EXPO_PUBLIC_API_BASE="http://<laptop-LAN-IP>:8081"
+
 # → scan the QR with Expo Go on a phone
+
 ```
 
 EAS build then: `cd packages/mobile-app && pnpm exec eas build --platform ios --profile preview` (customer's Apple Developer Account creds needed).
@@ -271,24 +285,30 @@ EAS build then: `cd packages/mobile-app && pnpm exec eas build --platform ios --
 **▶ THIS IS WHERE TO PICK UP IN THE MORNING.**
 
 Goal: replace the customer's GoHighLevel-on-site footprint. Confirmed (2026-05-31) the studio uses GHL on `doyouhustle.co.uk` for exactly two jobs:
+
 1. **Lead-capture forms** → covered by forking agent-native's `templates/forms/` (it's the right primitive, not overkill; small ~1–2 day lift) + wiring submissions into `gym_members` + a `status='lead'` conversation in `/gymos` so leads land in the inbox and the new WhatsApp campaign tooling can follow up.
 2. **Class booking + payment** → CANNOT be done with forms; needs the separate `/embed/schedule` widget + anonymous booking + Stripe Checkout (~1–2 weeks; the real commercial unlock vs Mindbody/Bsport).
 
 **State of the plan-phase run:**
+
 - Phase dir created: `.planning/phases/P1c-public-site-integrations/` (empty — no CONTEXT/RESEARCH/PLAN yet)
 - No CONTEXT.md yet. Chose to "answer key decisions now" inline, then PAUSED before answering.
 
 **The 4 plan-time decisions to make (mull these overnight), from ROADMAP "Phase P1c" Risks:**
+
 1. **Forms location** — `apps/forms/` standalone app vs `apps/staff-web/features/forms/` co-located (depends on whether the forms editor should live behind the same staff-web login).
 2. **Anonymous booking auth model** — full anonymous + Stripe anti-fraud vs require email-verification before booking.
 3. **Theming / brand fit** — URL-param theming only (`?accent=&radius=`) vs full CSS-variable injection to match the studio brand.
 4. **Stripe approach** — hosted Checkout (faster to ship, safer demo default) vs embedded Payment Element (more integrated look).
+
 Plus: **forms embed mechanism** — the template only ships an iframe / hosted `/f/:slug` page; P1c needs a real `<script>` snippet (P1c-05 in the draft).
 
 **To resume:**
+
 ```bash
 /gsd:plan-phase P1c
 ```
+
 It will detect the existing phase dir; re-pick "answer key decisions now" (or just tell Claude the 4 answers above), it writes CONTEXT.md, then research → plan → verify. Full scope sketch (P1c-01..06) is in `.planning/ROADMAP.md` under "Phase P1c".
 
 **Three Plan-08 criteria carry-over (from `P1b.1-LIVE-ACCEPTANCE.md`):**
