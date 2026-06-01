@@ -288,13 +288,14 @@ Demo Sprint runs first (D0 → D1 → D2 over 7 days). Production v1 runs after 
 | P1a. Data Foundation, Auth & Deploy | 19 | Not started | - |
 | P1b. Webhook + Worker Spine | 18 | ◐ 8/9 plans (P1b-09 WA-08 template sync still open — rolls into Next-up WhatsApp work) | 8/9 by 2026-05-23 |
 | **P1b.1. Customer Pilot Enablement** | 8 | ✓ **Live-accepted** | **2026-05-26** (8/8 plans + live-fix wave) |
-| **P1c. Public Site Integrations** | 10 | ◐ Planned (7 plans, 5 waves) — `/gsd:execute-phase P1c` to run | - |
+| **P1c. Public Site Integrations** | 10 | ✓ **Complete** (7/7 plans; lead funnel verified live on deploy; Stripe Checkout deferred to studio Stripe setup) | **2026-06-01** |
 | P2. Staff + Member Product Surfaces | 50+ | Not started | - |
 
 **Active workstreams (next up):**
-- **WhatsApp deep wire** — migrate worker + edge-webhooks credentials from `process.env` to `app_secrets`; wire WA-08 template sync; live test against verified WABA
+- **WhatsApp deep wire** — migrate worker + edge-webhooks credentials from `process.env` to `app_secrets`; wire WA-08 template sync (P1b-09); live test against verified WABA
 - **Mobile app** — finish D2-06 Task 4 + cut EAS build for customer's Apple Developer Account
-- **Public site integrations (P1c — drafted, not yet planned)** — fork agent-native's forms template + ship `/embed/schedule` booking widget for `doyouhustle.co.uk`; the real commercial unlock vs Mindbody/Bsport — run `/gsd:plan-phase P1c` when ready
+- **Studio Stripe setup** — restricted key + Products tagged with pack keywords (`10-pack`/`5-pack`/`drop-in`); unblocks D1-03 payments AND the P1c Checkout-link → pass loop (customer task)
+- ✓ **Public site integrations (P1c — SHIPPED 2026-06-01)** — forked agent-native's forms template + `/embed/schedule` widget + `/embed.js` snippet live on `gym-class-os.vercel.app`; lead funnel (form → `/gymos` lead) verified end-to-end. GHL lead-capture replaced; booking-payment loop pending studio Stripe setup.
 
 **Coverage:** 130 v1 requirements mapped across two milestones (31 demo + 99 production).
 
@@ -303,5 +304,6 @@ Demo Sprint runs first (D0 → D1 → D2 over 7 days). Production v1 runs after 
 *Roadmap created: 2026-05-17*
 *Revised: 2026-05-17 — major restructure (Demo Sprint + Production v1 two-milestone shape; mobile = PWA; Stripe direct; calorie counter in v1)*
 *Revised: 2026-05-19 — D2 plan list registered (6 plans), success criteria realigned to native Expo flow (was inherited PWA wording), MEMBR-06 dropped from D2 (PWA manifest is N/A for native Expo Go; rolled into P1a EAS work)*
+*Revised: 2026-06-01 — P1c Public Site Integrations planned (7 plans) + executed + verified live on deploy → marked Complete. Migrations 0003+0004 applied to gymos-demo Neon. FORMS-01..04 + EMBED-01..06 added (140 reqs total). Checkout-link + visual-browser checks deferred (studio Stripe setup / dev-server NitroViteError).*
 *Out of v1 scope: Native mobile (v1.x), HealthKit, Coach View with health context, CRM campaigns + segments, Knowledge Base, Operational Reporting, bsport-migration productisation, A2A. See REQUIREMENTS.md §Post-v1 Backlog and PLATFORM-VISION.md.*
 

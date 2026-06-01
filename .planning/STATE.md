@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: Completed P1c-07-e2e-smoke-test-PLAN.md
-last_updated: "2026-06-01T14:08:46.244Z"
+status: phase-complete
+stopped_at: P1c Public Site Integrations complete (7/7 plans, verified live on deploy 2026-06-01); awaiting next-phase selection
+last_updated: "2026-06-01T15:09:00.115Z"
 last_activity: 2026-06-01
 progress:
   total_phases: 9
@@ -34,8 +34,8 @@ Requirements: `.planning/REQUIREMENTS.md` (130 reqs across 20 categories — see
 ## Current Position
 
 Milestone: Demo Sprint (1 of 2) — Week 1 (target ~2026-05-24 — slipped to 2026-05-26 with live-fix wave)
-Phase: P1c (Public Site Integrations) — EXECUTING
-Plan: 7 of 7 complete (P1c-01, P1c-02, P1c-03 done; next up P1c-04)
+Phase: P1c
+Plan: Not started
 Status: Ready to execute
 Last activity: 2026-06-01
 
