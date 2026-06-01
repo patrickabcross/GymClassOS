@@ -207,7 +207,7 @@
 
 - [x] **FORMS-01** [P]: Fork `templates/forms/` into `apps/staff-web/features/forms/` (co-located, no new deployable) — copy schema, builder pages, field renderer, public-form SSR, submission handler; adapt to staff-web `getDb()`/auth
 - [ ] **FORMS-02** [P]: Forms builder UI at `/gymos/forms` (staff-only) — create, edit, publish, archive forms; view responses
-- [ ] **FORMS-03** [P]: Public form submission → lead upsert — POST `/api/submit/:id` (public, CORS-open) upserts `gym_members` by email/phone, opens a `status=lead` conversation, writes a form_submissions + messages note
+- [x] **FORMS-03** [P]: Public form submission → lead upsert — POST `/api/submit/:id` (public, CORS-open) upserts `gym_members` by email/phone, opens a `status=lead` conversation, writes a form_submissions + messages note
 - [ ] **FORMS-04** [P]: `<script>` embed snippet at `/embed.js` injects a styled iframe for any `/f/:slug` form; `lead:submitted` postMessage callback to the parent page
 - [ ] **EMBED-01** [P]: Server-rendered public `/embed/schedule` route — reads `class_occurrences` anonymously (no auth), returns HTML with inline CSS + URL-param theming
 - [ ] **EMBED-02** [P]: URL-param theming (`?accent` hex + `?radius` px) injected as sanitised CSS custom properties on `/embed/schedule` and `/f/:slug` (injection-safe)
