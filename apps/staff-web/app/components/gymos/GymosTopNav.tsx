@@ -30,6 +30,8 @@ export function GymosTopNav() {
   const isAnalytics = path.startsWith("/gymos/analytics");
   // 260531-n7i Task 3: Campaigns tab (missed-session re-engagement).
   const isCampaigns = path.startsWith("/gymos/campaigns");
+  // P1c-04: Forms builder tab.
+  const isForms = path.startsWith("/gymos/forms");
   // P1b-08: Settings → Integrations (Stripe key rotation).
   const isSettings = path.startsWith("/gymos/settings");
 
@@ -68,6 +70,9 @@ export function GymosTopNav() {
       </Link>
       <Link to="/gymos/campaigns" className={tabClass(isCampaigns)}>
         Campaigns
+      </Link>
+      <Link to="/gymos/forms" className={tabClass(isForms)}>
+        Forms
       </Link>
       <Link
         to="/gymos/settings/integrations"

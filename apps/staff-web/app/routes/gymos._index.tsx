@@ -35,9 +35,14 @@ import {
   Link,
 } from "react-router";
 import { useState } from "react";
-import { eq, desc, sql, inArray } from "drizzle-orm";
+import { eq, ne, desc, sql, inArray } from "drizzle-orm";
 import { nanoid } from "nanoid";
-import { IconPointFilled, IconMessage } from "@tabler/icons-react";
+import {
+  IconPointFilled,
+  IconMessage,
+  IconUsers,
+  IconInbox,
+} from "@tabler/icons-react";
 import { getDb, schema } from "../../server/db";
 import { enqueueOutboundWhatsApp } from "@/lib/queue-client";
 import { Button } from "@/components/ui/button";
@@ -56,9 +61,15 @@ export function meta() {
 export async function loader({ request }: LoaderFunctionArgs) {
   const url = new URL(request.url);
   const selectedId = url.searchParams.get("conversation");
+  // P1c-04 leads filter: ?filter=leads shows status='lead' conversations;
+  // default (no param or any other value) shows non-lead statuses so the inbox
+  // stays focused and leads don't clutter the working inbox.
+  const filter = url.searchParams.get("filter");
+  const isLeadsView = filter === "leads";
   const db = getDb();
 
   // List of conversations + the member each one is with
+  // guard:allow-unscoped — coach inbox shows all conversations in the studio
   const conversationsRows = await db
     .select({
       id: schema.conversations.id,
@@ -77,6 +88,11 @@ export async function loader({ request }: LoaderFunctionArgs) {
     .leftJoin(
       schema.gymMembers,
       eq(schema.conversations.memberId, schema.gymMembers.id),
+    )
+    .where(
+      isLeadsView
+        ? eq(schema.conversations.status, "lead")
+        : ne(schema.conversations.status, "lead"),
     )
     .orderBy(desc(schema.conversations.updatedAt));
 
@@ -261,6 +277,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     windowStateByConvId: windowMap,
     optInByMemberId,
     templates,
+    isLeadsView,
   };
 }
 
@@ -438,6 +455,7 @@ export default function GymosInbox() {
   const data = useLoaderData<typeof loader>();
   const [params] = useSearchParams();
   const selectedId = params.get("conversation");
+  const { isLeadsView } = data;
   const [reply, setReply] = useState("");
 
   const selectedWs = data.selectedConversation
@@ -454,14 +472,43 @@ export default function GymosInbox() {
       <aside className="w-[320px] shrink-0 border-r border-border/50 flex flex-col bg-card/30">
         <header className="px-4 py-3 border-b border-border/50">
           <div className="flex items-center justify-between">
-            <h1 className="text-sm font-semibold">WhatsApp Inbox</h1>
+            <h1 className="text-sm font-semibold">
+              {isLeadsView ? "Leads" : "WhatsApp Inbox"}
+            </h1>
             <Badge variant="outline" className="text-[10px] h-5">
               {data.conversations.length}
             </Badge>
           </div>
-          <p className="text-[11px] text-muted-foreground mt-0.5">
-            All member conversations
-          </p>
+          {/* P1c-04: Inbox / Leads filter chips — minimal, progressive disclosure.
+              Default shows non-lead conversations; Leads chip shows status='lead'. */}
+          <div className="flex items-center gap-1 mt-2">
+            <Link
+              to="/gymos"
+              preventScrollReset
+              className={cn(
+                "inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] transition",
+                !isLeadsView
+                  ? "bg-accent text-foreground font-semibold"
+                  : "text-muted-foreground hover:bg-accent/40 hover:text-foreground",
+              )}
+            >
+              <IconInbox size={10} aria-hidden />
+              Inbox
+            </Link>
+            <Link
+              to="/gymos?filter=leads"
+              preventScrollReset
+              className={cn(
+                "inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] transition",
+                isLeadsView
+                  ? "bg-accent text-foreground font-semibold"
+                  : "text-muted-foreground hover:bg-accent/40 hover:text-foreground",
+              )}
+            >
+              <IconUsers size={10} aria-hidden />
+              Leads
+            </Link>
+          </div>
         </header>
         <div className="flex-1 overflow-y-auto">
           {data.conversations.map((c) => {
@@ -540,7 +587,10 @@ export default function GymosInbox() {
           // jump-into-the-first-thread affordance when there are any.
           <div className="flex-1 flex flex-col items-center justify-center px-6 py-12 text-center">
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted mb-4">
-              <IconMessage className="h-5 w-5 text-muted-foreground" aria-hidden />
+              <IconMessage
+                className="h-5 w-5 text-muted-foreground"
+                aria-hidden
+              />
             </div>
             <h2 className="text-sm font-semibold text-foreground mb-1">
               No conversation selected
