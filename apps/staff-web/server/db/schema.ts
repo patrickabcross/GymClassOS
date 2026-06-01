@@ -424,6 +424,11 @@ export const secrets = table("secrets", {
 // Additive only. form_submissions stores public form/enquiry responses so the
 // forms builder can list responses without joining through messages.
 // ---------------------------------------------------------------------------
+
+// Re-export the forked forms feature schema so schema.forms / schema.responses
+// resolve through the existing getDb()/schema barrel.
+export * from "./forms-schema.js";
+
 export const formSubmissions = table("form_submissions", {
   id: text("id").primaryKey(),
   formId: text("form_id").notNull(),

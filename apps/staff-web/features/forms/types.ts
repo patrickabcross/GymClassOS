@@ -1,0 +1,106 @@
+// ---------------------------------------------------------------------------
+// Form field types
+// ---------------------------------------------------------------------------
+
+export type FormFieldType =
+  | "text"
+  | "email"
+  | "number"
+  | "textarea"
+  | "select"
+  | "multiselect"
+  | "checkbox"
+  | "radio"
+  | "date"
+  | "rating"
+  | "scale";
+
+export interface ConditionalRule {
+  fieldId: string;
+  operator: "equals" | "not_equals" | "contains";
+  value: string;
+}
+
+export interface FieldValidation {
+  min?: number;
+  max?: number;
+  pattern?: string;
+  message?: string;
+}
+
+export interface FormField {
+  id: string;
+  type: FormFieldType;
+  label: string;
+  placeholder?: string;
+  description?: string;
+  required: boolean;
+  options?: string[];
+  validation?: FieldValidation;
+  conditional?: ConditionalRule;
+  width?: "full" | "half";
+}
+
+// ---------------------------------------------------------------------------
+// Integrations
+// ---------------------------------------------------------------------------
+
+export type IntegrationType = "webhook" | "slack" | "discord" | "google-sheets";
+
+export interface FormIntegration {
+  id: string;
+  type: IntegrationType;
+  name: string;
+  enabled: boolean;
+  url: string;
+}
+
+// ---------------------------------------------------------------------------
+// Form settings
+// ---------------------------------------------------------------------------
+
+export interface FormSettings {
+  submitText?: string;
+  successMessage?: string;
+  redirectUrl?: string;
+  showProgressBar?: boolean;
+  integrations?: FormIntegration[];
+  /**
+   * Origins permitted to POST submissions cross-origin (e.g. from embedded
+   * feedback popovers). Empty/unset = allow any origin (back-compat).
+   * Each entry is a full origin like "https://app.example.com".
+   */
+  allowedOrigins?: string[];
+}
+
+// ---------------------------------------------------------------------------
+// Form
+// ---------------------------------------------------------------------------
+
+export interface Form {
+  id: string;
+  title: string;
+  description?: string;
+  slug: string;
+  fields: FormField[];
+  settings: FormSettings;
+  status: "draft" | "published" | "closed";
+  /** Effective role of the current user on this form. */
+  role?: "owner" | "viewer" | "editor" | "admin";
+  responseCount?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ---------------------------------------------------------------------------
+// Form response
+// ---------------------------------------------------------------------------
+
+export interface FormResponse {
+  id: string;
+  formId: string;
+  data: Record<string, unknown>;
+  submittedAt: string;
+  /** Email of the submitter when known (claimed by the client; not verified). */
+  submitterEmail?: string | null;
+}
