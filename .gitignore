@@ -87,3 +87,4 @@ templates/*/.env.local
 templates/*/.env.*.local
 test-reports/
 *.tsbuildinfo
+.claude/settings.local.json
