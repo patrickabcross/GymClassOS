@@ -229,9 +229,9 @@ export async function renderPublicFormHtml(
   const pathname = url.split("?")[0];
   const searchStr = url.includes("?") ? url.slice(url.indexOf("?")) : "";
   const slugOrId = decodeURIComponent(pathname.replace(/^\/f\//, ""));
-  const form = slugOrId ? await getFormBySlugOrId(slugOrId) : null;
+  const formData = slugOrId ? await getFormBySlugOrId(slugOrId) : null;
 
-  if (!form) {
+  if (!formData) {
     return { html: notFoundPage(), status: 404 };
   }
 
@@ -240,7 +240,7 @@ export async function renderPublicFormHtml(
   const accent = sanitizeHexColor(searchParams.get("accent"));
   const radius = sanitizeIntPx(searchParams.get("radius"));
 
-  return { html: renderFormPage(form, accent, radius), status: 200 };
+  return { html: renderFormPage(formData as { id: string; title: string; description?: string | null; fields: FormField[]; settings: FormSettings }, accent, radius), status: 200 };
 }
 
 // ---------------------------------------------------------------------------
