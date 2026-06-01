@@ -34,8 +34,38 @@ These are the tools available via `defineAction` in `apps/staff-web/actions/`. E
 | `list-classes`             | Supporting context — what classes the gym offers                                                                                      | Array of class definitions with occurrence counts                                                                                                                                                   |
 | `list-members`             | Supporting context — gym member roster, optional name/phone filter                                                                    | Array of member rows                                                                                                                                                                                |
 | `send-template-to-members` | Batch-send an approved WhatsApp template to a set of members (campaign fan-out). One queued job per member via the worker chokepoint. | `{queued, conversationsCreated, failed}`                                                                                                                                                            |
+| `create-checkout-link`     | Generate a Stripe hosted Checkout URL for a contacted lead to buy a pass/membership; send the URL via WhatsApp                        | `{url, sessionId, productName}`                                                                                                                                                                     |
 | `view-screen`              | See what's on the user's current screen                                                                                               | Framework-provided                                                                                                                                                                                  |
 | `navigate`                 | Take the user to a specific gymos route                                                                                               | Framework-provided                                                                                                                                                                                  |
+
+### Stripe Product setup (pilot configuration — studio Stripe dashboard task)
+
+For `create-checkout-link` to result in pass credits being granted, the Stripe
+Product's **description** must contain one of the keywords that the P1b-07
+reducer (`services/worker/src/domain/stripeReducers/checkout-session-completed.ts`)
+matches inside `passCreditsForLineItem()`:
+
+| Keyword in product description | Pass credits granted on `checkout.session.completed` |
+| ------------------------------ | ---------------------------------------------------- |
+| `10-pack` or `10 pack`         | 10 credits                                           |
+| `5-pack` or `5 pack`           | 5 credits                                            |
+| `drop-in` or `1-class`         | 1 credit                                             |
+| anything else                  | **0 credits — payment recorded but NO pass granted** |
+
+**Pitfall 7 mitigation:** If the studio creates a Stripe Product without one of
+these keywords (e.g. description is "Yoga class pack"), the
+`checkout.session.completed` webhook event will record the payment row in the
+`payments` table but the P1b-07 reducer will skip pass creation entirely —
+`passCreditsForLineItem()` returns `null` and the INSERT is skipped. The member
+pays but gets no credits and no pass in the system. This is a studio Stripe
+dashboard configuration step, not a code change.
+
+**Pilot-agent posture:** `create-checkout-link` is a staff-initiated mutation
+invoked from the UI during a contacted-lead flow (e.g. after sending a WhatsApp
+template). Per the pilot's read-only agent posture it is **not** listed in the
+agent system prompt's tool list — coaches call it from the UI only. Add it to
+the system prompt only if/when the studio explicitly wants the agent to send
+Checkout links autonomously.
 
 ## System Prompt
 
