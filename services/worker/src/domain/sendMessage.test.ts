@@ -14,6 +14,17 @@ const sendText = vi.fn();
 const sendTemplate = vi.fn();
 vi.mock("@gymos/whatsapp", () => ({ sendText, sendTemplate }));
 
+// Mock the secrets readers so creds are resolved without a real DB call.
+// The creds object injected should be a stable fixture for call assertions.
+vi.mock("../lib/secrets.js", () => ({
+  getWhatsAppAccessToken: vi.fn().mockResolvedValue("wa_test_token"),
+  getWhatsAppPhoneNumberId: vi.fn().mockResolvedValue("11111111"),
+  getWhatsAppBusinessAccountId: vi.fn().mockResolvedValue("waba_test"),
+  getStripeSecretKey: vi.fn().mockResolvedValue("rk_test_mock"),
+  readSecret: vi.fn().mockResolvedValue(null),
+  writeSecret: vi.fn().mockResolvedValue(undefined),
+}));
+
 // Mock the local db schema mirror — selectChain ends at .limit(1) which
 // resolves a rows array; updateChain.where() resolves undefined.
 const selectChain: {
@@ -45,6 +56,8 @@ vi.mock("../lib/db.js", () => ({
 const { sendMessage } = await import("./sendMessage.js");
 const { NoOptInError, WindowExpiredError, TemplateNotApprovedError } =
   await import("../lib/errors.js");
+
+const TEST_CREDS = { accessToken: "wa_test_token", phoneNumberId: "11111111" };
 
 describe("sendMessage chokepoint (D-10)", () => {
   beforeEach(() => {
@@ -113,12 +126,16 @@ describe("sendMessage chokepoint (D-10)", () => {
       db: mockDb as any,
     });
     expect(result.externalId).toBe("wamid_sent_abc");
-    expect(sendTemplate).toHaveBeenCalledWith({
-      to: "447700900000",
-      name: "class_reminder",
-      vars: { 1: "Yoga" },
-      language: "en_US",
-    });
+    // Adapter receives the payload args + injected creds as 2nd arg
+    expect(sendTemplate).toHaveBeenCalledWith(
+      {
+        to: "447700900000",
+        name: "class_reminder",
+        vars: { 1: "Yoga" },
+        language: "en_US",
+      },
+      TEST_CREDS,
+    );
     // isInWindow should NOT have been consulted (template path)
     expect(isInWindow).not.toHaveBeenCalled();
   });
@@ -158,10 +175,11 @@ describe("sendMessage chokepoint (D-10)", () => {
       db: mockDb as any,
     });
     expect(result.externalId).toBe("wamid_OK");
-    expect(sendText).toHaveBeenCalledWith({
-      to: "447700900000",
-      body: "hello",
-    });
+    // Adapter receives payload args + injected creds as 2nd arg
+    expect(sendText).toHaveBeenCalledWith(
+      { to: "447700900000", body: "hello" },
+      TEST_CREDS,
+    );
     // Two updates: messages.status='sent' + conversations.last_outbound_at
     const setArgs = updateChain.set.mock.calls.map((c) => c[0]);
     expect(

@@ -70,3 +70,51 @@ export async function getStripeSecretKey(
     "No Stripe key available — neither secrets.stripe_restricted_key nor env STRIPE_SECRET_KEY is set",
   );
 }
+
+/**
+ * Resolve the WhatsApp Cloud API access token.
+ * Priority: secrets.whatsapp_access_token → env WHATSAPP_ACCESS_TOKEN → throw.
+ * Rotation-capable via the in-app Settings UI.
+ */
+export async function getWhatsAppAccessToken(
+  db: ReturnType<typeof getDb>,
+): Promise<string> {
+  const fromDb = await readSecret("whatsapp_access_token", db);
+  if (fromDb) return fromDb;
+  const env = getEnv();
+  if (env.WHATSAPP_ACCESS_TOKEN) return env.WHATSAPP_ACCESS_TOKEN;
+  throw new Error(
+    "No WhatsApp access token available — neither secrets.whatsapp_access_token nor env WHATSAPP_ACCESS_TOKEN is set",
+  );
+}
+
+/**
+ * Resolve the WhatsApp phone number ID.
+ * Priority: secrets.whatsapp_phone_number_id → env WHATSAPP_PHONE_NUMBER_ID → throw.
+ */
+export async function getWhatsAppPhoneNumberId(
+  db: ReturnType<typeof getDb>,
+): Promise<string> {
+  const fromDb = await readSecret("whatsapp_phone_number_id", db);
+  if (fromDb) return fromDb;
+  const env = getEnv();
+  if (env.WHATSAPP_PHONE_NUMBER_ID) return env.WHATSAPP_PHONE_NUMBER_ID;
+  throw new Error(
+    "No WhatsApp phone number ID available — neither secrets.whatsapp_phone_number_id nor env WHATSAPP_PHONE_NUMBER_ID is set",
+  );
+}
+
+/**
+ * Resolve the WhatsApp Business Account ID (WABA ID).
+ * Priority: secrets.whatsapp_business_account_id → env WHATSAPP_BUSINESS_ACCOUNT_ID → null.
+ * Returns null (not throw) because it is OPTIONAL — the templates-sync handler
+ * already guards on absence and logs+skips cleanly.
+ */
+export async function getWhatsAppBusinessAccountId(
+  db: ReturnType<typeof getDb>,
+): Promise<string | null> {
+  const fromDb = await readSecret("whatsapp_business_account_id", db);
+  if (fromDb) return fromDb;
+  const env = getEnv();
+  return env.WHATSAPP_BUSINESS_ACCOUNT_ID ?? null;
+}

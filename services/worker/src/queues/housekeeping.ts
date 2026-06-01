@@ -1,8 +1,11 @@
 import type { PgBoss } from "pg-boss";
 import { getDb } from "../lib/db.js";
-import { getEnv } from "../lib/env.js";
 import { getLogger } from "../lib/logger.js";
 import { syncWhatsAppTemplates } from "../domain/syncTemplates.js";
+import {
+  getWhatsAppAccessToken,
+  getWhatsAppBusinessAccountId,
+} from "../lib/secrets.js";
 
 const TEMPLATES_SYNC_QUEUE = "templates-sync";
 
@@ -28,20 +31,19 @@ export async function registerHousekeeping(boss: PgBoss): Promise<void> {
 
   // Register the consumer FIRST so the schedule has a claim destination.
   await boss.work(TEMPLATES_SYNC_QUEUE, async () => {
-    const env = getEnv();
-    if (!env.WHATSAPP_BUSINESS_ACCOUNT_ID) {
+    const db = getDb();
+    const wabaId = await getWhatsAppBusinessAccountId(db);
+    if (!wabaId) {
       log.warn(
-        "[templates-sync] WHATSAPP_BUSINESS_ACCOUNT_ID not set; skipping. " +
-          "Set it as a Fly secret to enable nightly Meta template sync.",
+        "[templates-sync] whatsapp_business_account_id not configured; skipping. " +
+          "Save it via the in-app Settings → Integrations or set WHATSAPP_BUSINESS_ACCOUNT_ID " +
+          "as a Fly secret to enable nightly Meta template sync.",
       );
       return;
     }
     try {
-      const result = await syncWhatsAppTemplates(
-        env.WHATSAPP_ACCESS_TOKEN,
-        env.WHATSAPP_BUSINESS_ACCOUNT_ID,
-        getDb(),
-      );
+      const accessToken = await getWhatsAppAccessToken(db);
+      const result = await syncWhatsAppTemplates(accessToken, wabaId, db);
       log.info(result, "[templates-sync] completed");
     } catch (err) {
       log.error({ err }, "[templates-sync] failed — will retry next cron tick");

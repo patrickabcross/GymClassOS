@@ -10,6 +10,10 @@ import {
 import { hasOptIn } from "./gates/optInGate.js";
 import { isInWindow } from "./gates/windowGate.js";
 import { isTemplateApproved } from "./gates/templateGate.js";
+import {
+  getWhatsAppAccessToken,
+  getWhatsAppPhoneNumberId,
+} from "../lib/secrets.js";
 
 export type SendMessagePayload =
   | { type: "text"; body: string }
@@ -101,23 +105,34 @@ export async function sendMessage(
     }
   }
 
-  // 6. Call adapter — STRIP leading + from E.164 per Meta's API contract.
+  // 6. Resolve creds DB-first (WA-05, rotation-capable) — once per send,
+  //    before the adapter call block so both sendText and sendTemplate use the
+  //    same resolved values.
+  const creds = {
+    accessToken: await getWhatsAppAccessToken(db),
+    phoneNumberId: await getWhatsAppPhoneNumberId(db),
+  };
+
+  // 7. Call adapter — STRIP leading + from E.164 per Meta's API contract.
   const to = member.phoneE164.replace(/^\+/, "");
   let externalId: string;
   try {
     if (payload.type === "text") {
-      const result = await sendText({ to, body: payload.body });
+      const result = await sendText({ to, body: payload.body }, creds);
       externalId = result.messageId;
     } else {
       // SendTemplateArgs.language is Zod-defaulted to "en_US"; explicit
       // fallback keeps the type checker happy without changing runtime
       // semantics (the Zod parse inside the adapter applies the same default).
-      const result = await sendTemplate({
-        to,
-        name: payload.name,
-        vars: payload.vars,
-        language: payload.language ?? "en_US",
-      });
+      const result = await sendTemplate(
+        {
+          to,
+          name: payload.name,
+          vars: payload.vars,
+          language: payload.language ?? "en_US",
+        },
+        creds,
+      );
       externalId = result.messageId;
     }
   } catch (err: unknown) {
@@ -140,7 +155,7 @@ export async function sendMessage(
     throw err; // 5xx — let pg-boss retry
   }
 
-  // 7. Mark sent.
+  // 8. Mark sent.
   // guard:allow-unscoped — worker writes own state
   await db
     .update(schema.messages)
@@ -151,7 +166,7 @@ export async function sendMessage(
     })
     .where(eq(schema.messages.id, messageId));
 
-  // 8. Update last_outbound_at (analytics; no behaviour gate uses it).
+  // 9. Update last_outbound_at (analytics; no behaviour gate uses it).
   if (conversation) {
     // guard:allow-unscoped — worker writes own state
     await db

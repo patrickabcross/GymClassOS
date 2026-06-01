@@ -15,3 +15,14 @@ export const SendTemplateArgs = z.object({
 export type SendTemplateArgs = z.infer<typeof SendTemplateArgs>;
 
 export type SendResult = { messageId: string };
+
+/**
+ * Optional creds injection for sendText/sendTemplate.
+ * When provided, the adapter uses these values instead of process.env.
+ * This lets the worker resolve creds DB-first (rotation-capable) and pass
+ * them in, while the env-default path is preserved for backward compatibility.
+ */
+export type WhatsAppCreds = {
+  accessToken: string;
+  phoneNumberId: string;
+};
