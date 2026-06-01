@@ -126,7 +126,7 @@ browser and records the results.
 
 **Record**
 16. The executor writes `.planning/phases/P1c-public-site-integrations/P1c-E2E-RESULTS.md` with a
-    pass/fail line for each of Parts A, B, C, the member id + conversation ids observed, the
+    `PASS`/`FAIL` line for EACH of Parts A, B, C, the member id + conversation ids observed, the
     Stripe test session id, the final pass row, and any deviations.
 
 Confirm Parts A, B, and C all pass, or describe which step failed.
@@ -143,34 +143,37 @@ Confirm Parts A, B, and C all pass, or describe which step failed.
   </read_first>
   <action>
 Write `.planning/phases/P1c-public-site-integrations/P1c-E2E-RESULTS.md` capturing the
-checkpoint walk. Include:
+checkpoint walk. Each of Part A, Part B, Part C MUST carry an explicit `PASS` (or `FAIL`)
+outcome marker — not just the section heading. Include:
 - A header with date + the services-under-test (staff-web build, worker, Stripe mode).
-- **Part A — embedded form lead:** PASS/FAIL, the form slug, the created member id + conversation
-  id, confirmation the phone normalised to E.164, confirmation the `lead:submitted` CustomEvent
-  fired on the host page.
-- **Part B — schedule enquiry lead:** PASS/FAIL, the occurrenceId carried in form_submissions.data,
-  confirmation `enquiry:created` fired.
-- **Part C — Checkout → pass:** PASS/FAIL, the Stripe test session id, the granted pass row
+- **Part A — embedded form lead:** `PASS`/`FAIL`, the form slug, the created member id +
+  conversation id, confirmation the phone normalised to E.164, confirmation the `lead:submitted`
+  CustomEvent fired on the host page.
+- **Part B — schedule enquiry lead:** `PASS`/`FAIL`, the occurrenceId carried in
+  form_submissions.data, confirmation `enquiry:created` fired.
+- **Part C — Checkout → pass:** `PASS`/`FAIL`, the Stripe test session id, the granted pass row
   (id, member_id, granted, product_name), confirmation the reducer bound it via metadata.memberId.
 - A "GHL replacement" summary line: does the studio now have (1) embeddable lead forms and
   (2) a public schedule + enquiry that both feed /gymos, plus a staff Checkout link that grants
   passes? Yes/No + caveats.
-- Any deviations/known-issues for follow-up (e.g. in-memory rate-limit not yet added,
+- Any deviations/known-issues for follow-up (e.g. in-memory rate-limit not durable on Vercel,
   Turnstile not wired, capacity check deferred to P2).
   </action>
   <verify>
-    <automated>node -e "const s=require('fs').readFileSync('.planning/phases/P1c-public-site-integrations/P1c-E2E-RESULTS.md','utf8'); for(const m of ['Part A','Part B','Part C','lead:submitted','enquiry:created']){if(!s.includes(m)){console.error('MISSING '+m);process.exit(1)}} console.log('OK')"</automated>
+    <automated>node -e "const s=require('fs').readFileSync('.planning/phases/P1c-public-site-integrations/P1c-E2E-RESULTS.md','utf8'); for(const m of ['Part A','Part B','Part C','PASS','lead:submitted','enquiry:created']){if(!s.includes(m)){console.error('MISSING '+m);process.exit(1)}} console.log('OK')"</automated>
   </verify>
   <acceptance_criteria>
     - `.planning/phases/P1c-public-site-integrations/P1c-E2E-RESULTS.md` exists
-    - Contains Part A, Part B, Part C sections each with a PASS/FAIL marker
+    - Contains Part A, Part B, Part C sections each with an explicit `PASS`/`FAIL` outcome marker (not just the heading)
+    - Each of Part A, Part B, Part C contains the word `PASS` (i.e. the outcome was recorded, not just the section present)
     - Contains the strings `lead:submitted` and `enquiry:created`
     - Contains the Stripe test session id and the granted pass row observed in Part C
     - Contains a "GHL replacement" yes/no summary line
     - The verify node script prints `OK`
   </acceptance_criteria>
   <done>
-The end-to-end behaviour is recorded with pass/fail per part and concrete ids, closing the phase.
+The end-to-end behaviour is recorded with an explicit PASS/FAIL outcome per part and concrete
+ids, closing the phase.
   </done>
 </task>
 
@@ -180,7 +183,7 @@ The end-to-end behaviour is recorded with pass/fail per part and concrete ids, c
 - Embedded form submission from a clean cross-origin browser creates a lead in /gymos
 - Embedded schedule enquiry creates a lead carrying the occurrenceId
 - A test-mode Checkout link → paid → pass granted + bound to the member (P1b-07)
-- Results recorded in P1c-E2E-RESULTS.md
+- Results recorded in P1c-E2E-RESULTS.md with a PASS/FAIL outcome per part
 </verification>
 
 <success_criteria>

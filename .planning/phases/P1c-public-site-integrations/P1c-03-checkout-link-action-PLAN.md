@@ -3,7 +3,7 @@ phase: P1c-public-site-integrations
 plan: 03
 type: execute
 wave: 1
-depends_on: []
+depends_on: ["P1c-01"]
 files_modified:
   - apps/staff-web/actions/create-checkout-link.ts
   - apps/staff-web/AGENTS.md
@@ -14,6 +14,7 @@ must_haves:
     - "Staff can generate a Stripe hosted Checkout URL for a known member by calling create-checkout-link with memberId + priceId"
     - "The created Checkout session carries metadata.memberId so the P1b-07 reducer binds the resulting pass to that member on checkout.session.completed"
     - "Calling the action with an empty memberId is rejected by Zod before any Stripe call"
+    - "AGENTS.md documents that the Stripe Product/Price description must contain `10-pack`, `5-pack`, or `drop-in` for the P1b-07 reducer to grant pass credits on `checkout.session.completed` (Pitfall 7 mitigation)."
   artifacts:
     - path: "apps/staff-web/actions/create-checkout-link.ts"
       provides: "Stripe hosted Checkout link generation for a contacted lead"
@@ -174,11 +175,13 @@ session with metadata.memberId so the P1b-07 reducer can grant + bind the pass.
 ```
 | `create-checkout-link` | Generate a Stripe hosted Checkout URL for a contacted lead to buy a pass/membership; send the URL via WhatsApp | `{url, sessionId, productName}` |
 ```
-2. Add a short "Stripe Product setup (pilot config)" note under the actions table stating: for a
-   purchased pass to grant credits, the Stripe Price's product DESCRIPTION must contain one of the
-   keywords the P1b-07 reducer matches: `10-pack`, `5-pack`, or `drop-in`/`1-class`. Otherwise the
-   payment records but no pass is granted (Pitfall 7 / Open Question 4). This is a studio Stripe
-   dashboard configuration step, not code.
+2. Add a short "Stripe Product setup (pilot config)" note under the actions table. This note MUST
+   be written into `apps/staff-web/AGENTS.md` (it is the must_haves truth for this plan). State
+   verbatim that: for a purchased pass to grant credits, the Stripe Price's product DESCRIPTION
+   must contain one of the keywords the P1b-07 reducer matches: `10-pack`, `5-pack`, or
+   `drop-in`/`1-class`. Otherwise `checkout.session.completed` records the payment but the P1b-07
+   reducer grants NO pass credits (Pitfall 7 / Open Question 4). This is a studio Stripe dashboard
+   configuration step, not code.
 3. Keep the read-only-for-pilot framing consistent: note that `create-checkout-link` is a
    staff-initiated mutation invoked from the UI / a contacted-lead flow, and (per the pilot's
    read-only agent posture) is NOT named in the agent system prompt's tool list unless/until the
@@ -187,16 +190,17 @@ session with metadata.memberId so the P1b-07 reducer can grant + bind the pass.
 Run `npx prettier --write apps/staff-web/AGENTS.md`.
   </action>
   <verify>
-    <automated>node -e "const s=require('fs').readFileSync('apps/staff-web/AGENTS.md','utf8'); if(!s.includes('create-checkout-link')){console.error('action row missing');process.exit(1)} if(!/10-pack|5-pack|drop-in/.test(s)){console.error('keyword note missing');process.exit(1)} console.log('OK')"</automated>
+    <automated>node -e "const s=require('fs').readFileSync('apps/staff-web/AGENTS.md','utf8'); if(!s.includes('create-checkout-link')){console.error('action row missing');process.exit(1)} if(!/10-pack/.test(s)||!/5-pack/.test(s)||!/drop-in/.test(s)){console.error('keyword note missing');process.exit(1)} if(!/checkout\.session\.completed/.test(s)){console.error('reducer-trigger note missing');process.exit(1)} console.log('OK')"</automated>
   </verify>
   <acceptance_criteria>
     - `apps/staff-web/AGENTS.md` contains a `create-checkout-link` row in the Agent Actions table
-    - AGENTS.md contains the Stripe Product description-keyword note mentioning `10-pack`, `5-pack`, and `drop-in`/`1-class`
+    - AGENTS.md contains the Stripe Product description-keyword note mentioning ALL of `10-pack`, `5-pack`, and `drop-in`/`1-class`
+    - AGENTS.md note explicitly ties the keyword requirement to the P1b-07 reducer granting pass credits on `checkout.session.completed` (Pitfall 7 mitigation)
     - The verify node script prints `OK`
   </acceptance_criteria>
   <done>
-The action is documented and the studio's Stripe Product keyword requirement is recorded so the
-pass-grant binding works at Checkout time.
+The action is documented and the studio's Stripe Product keyword requirement is recorded in
+apps/staff-web/AGENTS.md so the pass-grant binding works at Checkout time.
   </done>
 </task>
 
@@ -205,7 +209,7 @@ pass-grant binding works at Checkout time.
 <verification>
 - create-checkout-link action typechecks and sets metadata.memberId
 - Empty memberId/priceId rejected by Zod
-- AGENTS.md documents the action + the Stripe Product keyword requirement
+- AGENTS.md documents the action + the Stripe Product keyword requirement (Pitfall 7)
 </verification>
 
 <success_criteria>

@@ -10,6 +10,7 @@ files_modified:
   - apps/staff-web/features/forms/lib/validate-fields.ts
   - apps/staff-web/features/forms/lib/public-form-ssr.ts
   - apps/staff-web/features/forms/lib/normalize-phone.ts
+  - apps/staff-web/features/forms/lib/rate-limit.ts
   - apps/staff-web/features/forms/handlers/forms.ts
   - apps/staff-web/features/forms/handlers/submissions.ts
   - apps/staff-web/server/db/forms-schema.ts
@@ -28,10 +29,14 @@ must_haves:
     - "An OPTIONS preflight to /api/submit/:id returns 204 (not a 302 redirect to login)"
     - "GET /f/:slug returns a self-contained HTML form page without requiring authentication"
     - "A UK phone like '07721 123456' is stored as '+447721123456' so the WhatsApp conversation can match it"
+    - "More than ~60 submissions in 15 minutes from one IP are rejected with HTTP 429 (Decision 2 rate-limit)"
   artifacts:
     - path: "apps/staff-web/features/forms/handlers/submissions.ts"
       provides: "Gym lead-upsert submission handler (replaces upstream generic responses insert)"
       contains: "status: \"lead\""
+    - path: "apps/staff-web/features/forms/lib/rate-limit.ts"
+      provides: "Per-IP in-memory submission rate limiter (60 req / 15 min)"
+      contains: "429"
     - path: "apps/staff-web/server/middleware/00-public-cors.ts"
       provides: "CORS middleware running before auth guard for public embed routes"
       contains: "Access-Control-Allow-Origin"
@@ -69,7 +74,7 @@ P1c. Most form-rendering hard work is already done upstream; the value here is t
 gym lead pipeline + the cross-origin plumbing.
 
 Output: forked forms feature slice, lead-upsert handler, public SSR + submit routes, CORS
-middleware, auth publicPaths extension, UK phone normaliser.
+middleware, auth publicPaths extension, UK phone normaliser, per-IP rate limiter.
 </objective>
 
 <execution_context>
@@ -202,9 +207,9 @@ through the schema barrel, and the SSR renderer emits gym-branded postMessage ev
   </done>
 </task>
 
-<task type="auto" tdd="true">
-  <name>Task 2: Lead-upsert submission handler + UK phone normaliser</name>
-  <files>apps/staff-web/features/forms/handlers/submissions.ts, apps/staff-web/features/forms/lib/normalize-phone.ts, apps/staff-web/server/routes/api/submit/[id].post.ts, apps/staff-web/server/routes/api/forms/public/[...slug].get.ts, apps/staff-web/server/routes/f/[...slug].get.ts</files>
+<task type="tdd">
+  <name>Task 2: Lead-upsert submission handler + UK phone normaliser + per-IP rate limit</name>
+  <files>apps/staff-web/features/forms/handlers/submissions.ts, apps/staff-web/features/forms/lib/normalize-phone.ts, apps/staff-web/features/forms/lib/rate-limit.ts, apps/staff-web/server/routes/api/submit/[id].post.ts, apps/staff-web/server/routes/api/forms/public/[...slug].get.ts, apps/staff-web/server/routes/f/[...slug].get.ts</files>
   <behavior>
     - normalizePhone('07721 123456') === '+447721123456'
     - normalizePhone('447721123456') === '+447721123456'
@@ -213,16 +218,22 @@ through the schema barrel, and the SSR renderer emits gym-branded postMessage ev
     - submitLeadForm with a honeypot (_hp non-empty) returns { success: true, id: "" } and writes NO rows
     - submitLeadForm with valid name+email+phone: gym_members upserted (1 row), conversations upserted with status='lead' (1 row), form_submissions row written
     - submitLeadForm called twice with same email: still 1 member, 1 conversation (idempotent via ON CONFLICT)
+    - submitLeadForm called twice with same EXISTING email: the conversations insert references the EXISTING member id (the upsert hit an existing row), NOT the freshly-generated nanoid — i.e. no FK mismatch
+    - rate limiter: the 61st call within the 15-minute window from one IP key returns a 429-signalling result; a call from a different IP key is not throttled
   </behavior>
   <read_first>
     - templates/forms/server/handlers/submissions.ts — copy the ENTIRE pre-persistence pipeline verbatim (honeypot _hp, time _t with MIN_FILL_TIME_MS=500, MAX_PAYLOAD_BYTES, per-field MAX_FIELD_LENGTH, conditional-visibility isFieldVisible, required-field validation, field-id whitelist, captcha via verifyCaptcha). Only the tail (the `db.insert(schema.responses)` + appStatePut + fireIntegrations block) is replaced.
     - apps/staff-web/server/db/schema.ts — gymMembers / conversations / messages / formSubmissions column names + the messageType enum (NO 'form_submission' value — use 'text')
     - apps/staff-web/server/db/forms-schema.ts (from Task 1) — the forks `forms` table (load published form by id)
-    - .planning/phases/P1c-public-site-integrations/P1c-public-site-RESEARCH.md §"Pattern 2" (the exact upsert SQL) + §"Code Examples" lead-upsert outline + Pitfall 8 (phone normalisation)
+    - .planning/phases/P1c-public-site-integrations/P1c-public-site-RESEARCH.md §"Pattern 2" (the exact upsert SQL) + §"Code Examples" lead-upsert outline + Pitfall 8 (phone normalisation) + the rate-limit recommendation (~60 req / 15 min / IP)
+    - .planning/phases/P1c-public-site-integrations/P1c-CONTEXT.md Decision 2 — "rate-limit + lightweight bot protection" is LOCKED
     - templates/forms/server/routes/api/submit/[id].post.ts + templates/forms/server/routes/api/forms/public/[...slug].get.ts + templates/forms/server/routes/[...page].get.ts — the route-wiring shapes to mirror
     - services/worker/src/domain/sendMessage.ts — the `db.execute(sql`...`)` raw-SQL pattern for ON CONFLICT against Neon Postgres
   </read_first>
   <action>
+RED→GREEN: write the colocated tests for normalize-phone + rate-limit FIRST (they must fail
+against an empty/missing implementation), then implement to green.
+
 1. **Create `apps/staff-web/features/forms/lib/normalize-phone.ts`** (RESEARCH Pitfall 8):
 ```typescript
 export function normalizePhone(raw: string): string | null {
@@ -240,20 +251,58 @@ export function normalizePhone(raw: string): string | null {
    Add a colocated test `normalize-phone.test.ts` next to it covering the behavior cases above
    (vitest — `apps/staff-web` already has a vitest setup per other tests).
 
-2. **Create `apps/staff-web/features/forms/handlers/submissions.ts`** — export `submitLeadForm`.
+2. **Create `apps/staff-web/features/forms/lib/rate-limit.ts`** — a per-IP in-memory sliding/fixed
+   window limiter (Decision 2 LOCKS "rate-limit + lightweight bot protection"; the honeypot covers
+   bots, this covers flooding). RESEARCH recommends ~60 req / 15 min / IP. Example:
+```typescript
+const WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+const MAX_HITS = 60;
+const hits = new Map<string, { count: number; resetAt: number }>();
+
+/** Returns true if the request is ALLOWED, false if the IP has exceeded the window. */
+export function checkRateLimit(ipKey: string, now = Date.now()): boolean {
+  if (!ipKey) return true; // unknown IP → don't hard-block (fail open)
+  const entry = hits.get(ipKey);
+  if (!entry || now >= entry.resetAt) {
+    hits.set(ipKey, { count: 1, resetAt: now + WINDOW_MS });
+    return true;
+  }
+  if (entry.count >= MAX_HITS) return false;
+  entry.count += 1;
+  return true;
+}
+```
+   Add a colocated test `rate-limit.test.ts`: the 61st call within the window returns false; a
+   different IP key returns true; advancing `now` past `resetAt` resets the window.
+   **CAVEAT (note in FORMS.md + the SUMMARY):** Vercel serverless may not retain this in-memory
+   `Map` across function invocations (each cold start is a fresh module), so this is best-effort
+   flood protection for the pilot. If flooding materialises, upgrade to **Vercel KV** (a shared
+   store) as the durable rate-limit backend. Staff-web currently runs on Fly (single always-on
+   machine) per STATE.md, where the in-memory Map IS effective — the Vercel caveat applies only if
+   the app is moved to Vercel serverless functions.
+
+3. **Create `apps/staff-web/features/forms/handlers/submissions.ts`** — export `submitLeadForm`.
    Copy the upstream pre-persistence pipeline verbatim from `templates/forms/server/handlers/submissions.ts`
    (steps load-form → honeypot → time-check → captcha → field-whitelist → required-field validation).
+   **Before** the pipeline runs, enforce the rate limit: derive the IP key from the request
+   (`x-forwarded-for` first hop, else the socket remote address) and call `checkRateLimit(ipKey)`;
+   if it returns false, return HTTP 429 (`setResponseStatus(event, 429)` and return
+   `{ success: false, error: "rate_limited" }`) BEFORE touching the DB.
    Replace the persistence tail with:
    - Extract `email` and `phone` from `data` by matching the form's field definitions: a field of
      `type === "email"` provides email; a field whose `type` is `text`/`tel` and whose `label`
      (lowercased) includes "phone"/"mobile"/"tel" provides phone. Also accept a field labelled
      "name"/"first name" for `firstName` (default `"Lead"` if none).
    - `const phoneE164 = phone ? normalizePhone(phone) : null;`
-   - Upsert the member (raw SQL via `db.execute(sql`...`)` per the worker pattern). Use email as
-     the conflict target when present, else phone:
+   - Upsert the member (raw SQL via `db.execute(sql`...`)` per the worker pattern), THEN re-select
+     the canonical id by the natural key used. **The re-select MUST be inside this code block** —
+     the upsert may have hit an EXISTING row whose id != the freshly-generated `memberId`, so the
+     conversation/form_submissions inserts MUST use the re-selected `resolvedMemberId`, never the
+     raw `nanoid()`. Use email as the conflict target when present, else phone:
      ```typescript
      // guard:allow-unscoped — gym domain tables are single-tenant; lead upsert by natural key.
      const memberId = nanoid();
+     let resolvedMemberId = memberId;
      if (email) {
        await db.execute(sql`
          INSERT INTO gym_members (id, first_name, last_name, email, phone_e164, marketing_consent, created_at, updated_at)
@@ -263,6 +312,11 @@ export function normalizePhone(raw: string): string | null {
            phone_e164 = COALESCE(EXCLUDED.phone_e164, gym_members.phone_e164),
            updated_at = NOW()
        `);
+       // Re-select the canonical id — the upsert may have updated an EXISTING row (id != memberId).
+       const { rows: [existing] } = await db.execute(
+         sql`SELECT id FROM gym_members WHERE email = ${email} LIMIT 1`
+       );
+       resolvedMemberId = (existing?.id as string | undefined) ?? memberId;
      } else if (phoneE164) {
        await db.execute(sql`
          INSERT INTO gym_members (id, first_name, phone_e164, marketing_consent, created_at, updated_at)
@@ -270,11 +324,17 @@ export function normalizePhone(raw: string): string | null {
          ON CONFLICT (phone_e164) WHERE phone_e164 IS NOT NULL DO UPDATE SET
            first_name = EXCLUDED.first_name, updated_at = NOW()
        `);
+       // Re-select the canonical id — the upsert may have updated an EXISTING row (id != memberId).
+       const { rows: [existing] } = await db.execute(
+         sql`SELECT id FROM gym_members WHERE phone_e164 = ${phoneE164} LIMIT 1`
+       );
+       resolvedMemberId = (existing?.id as string | undefined) ?? memberId;
      }
      ```
-     Then re-select the member id by the natural key used (email or phone) so subsequent inserts
-     reference the canonical id (the upsert may have hit an existing row whose id != memberId).
-   - Upsert the conversation (status='lead', only resurrect from 'closed'):
+     (Adjust the `db.execute` result-shape destructuring — `.rows` vs array — to match the live
+     Neon driver return type the worker's sendMessage.ts uses; the LOAD-BEARING requirement is that
+     `resolvedMemberId` is the natural-key re-select, not the raw nanoid.)
+   - Upsert the conversation (status='lead', only resurrect from 'closed'), then re-select its id:
      ```typescript
      const convId = nanoid();
      await db.execute(sql`
@@ -284,12 +344,16 @@ export function normalizePhone(raw: string): string | null {
          status = CASE WHEN conversations.status = 'closed' THEN 'lead' ELSE conversations.status END,
          updated_at = NOW()
      `);
+     // Re-select the canonical conversation id by (member_id, channel).
+     const { rows: [conv] } = await db.execute(
+       sql`SELECT id FROM conversations WHERE member_id = ${resolvedMemberId} AND channel = 'whatsapp' LIMIT 1`
+     );
+     const resolvedConvId = (conv?.id as string | undefined) ?? convId;
      ```
-     Re-select the conversation id by `(member_id, channel)`.
    - Insert a `messages` row so the coach sees the lead context: direction='in',
      messageType='text' (NOT a new enum value), status='delivered',
      body=`New lead via form "${form.title}": ${summarised field values}`,
-     payload=JSON.stringify({ kind: 'form_submission', formId: id, data }).
+     payload=JSON.stringify({ kind: 'form_submission', formId: id, data }). Use `resolvedConvId`.
    - Insert a `form_submissions` row (id=responseId=nanoid(), formId=id, memberId=resolvedMemberId,
      conversationId=resolvedConvId, data=JSON.stringify(data), ip, submitterEmail=email).
    - Also insert into `responses` (the forks table) so the builder's responses view works — same
@@ -299,7 +363,7 @@ export function normalizePhone(raw: string): string | null {
    - Return `{ success: true, id: responseId }`.
    - Do NOT wrap in `runWithRequestContext` (RESEARCH anti-pattern — endpoint is anonymous).
 
-3. **Wire the public routes** (mirror upstream route shapes):
+4. **Wire the public routes** (mirror upstream route shapes):
    - `apps/staff-web/server/routes/api/submit/[id].post.ts`:
      `export { submitLeadForm as default } from "../../../../features/forms/handlers/submissions.js";`
    - `apps/staff-web/server/routes/api/forms/public/[...slug].get.ts`: copy the upstream public
@@ -310,17 +374,23 @@ export function normalizePhone(raw: string): string | null {
      `/f/*` specifically and NOT intercept the main app catch-all — place it at the explicit
      `server/routes/f/[...slug].get.ts` path so Nitro routes `/f/*` here directly.
 
-Run `pnpm --filter @gymos/staff-web test -- normalize-phone` then `pnpm --filter @gymos/staff-web typecheck`.
+Run `pnpm --filter @gymos/staff-web test -- normalize-phone rate-limit` then `pnpm --filter @gymos/staff-web typecheck`.
   </action>
   <verify>
-    <automated>cd apps/staff-web && pnpm test -- normalize-phone && pnpm typecheck</automated>
+    <automated>cd apps/staff-web && pnpm test -- normalize-phone rate-limit && pnpm typecheck</automated>
   </verify>
   <acceptance_criteria>
     - `apps/staff-web/features/forms/lib/normalize-phone.ts` exists; exports `normalizePhone`; contains `+44`
     - `apps/staff-web/features/forms/lib/normalize-phone.test.ts` exists with the 5 behavior cases; the test run passes
+    - `apps/staff-web/features/forms/lib/rate-limit.ts` exists; exports `checkRateLimit`; contains the window/max constants (15 min / 60)
+    - `apps/staff-web/features/forms/lib/rate-limit.test.ts` exists; the 61st-call-returns-false and different-IP-allowed cases pass
     - `apps/staff-web/features/forms/handlers/submissions.ts` exists; exports `submitLeadForm`
+    - submissions.ts calls `checkRateLimit` and returns/sets HTTP `429` when the limit is exceeded, BEFORE any DB write
     - submissions.ts contains literal `'lead'` (the conversation status) and `ON CONFLICT (member_id, channel)`
     - submissions.ts contains `ON CONFLICT (email)` AND `ON CONFLICT (phone_e164)`
+    - submissions.ts re-selects the canonical member id after EACH upsert: grep finds `SELECT id FROM gym_members WHERE email` AND `SELECT id FROM gym_members WHERE phone_e164` (both re-selects present, not just narrated)
+    - submissions.ts uses a `resolvedMemberId` variable for the conversations + form_submissions inserts (NOT the raw `nanoid()` memberId)
+    - submissions.ts re-selects the conversation id (`SELECT id FROM conversations WHERE member_id`) and uses `resolvedConvId` for the messages + form_submissions inserts
     - submissions.ts contains the honeypot check `_hp` and the time check `_t` (copied from upstream)
     - submissions.ts contains a `guard:allow-unscoped` marker comment
     - submissions.ts does NOT contain `appStatePut` or `fireIntegrations` or `runWithRequestContext`
@@ -331,8 +401,9 @@ Run `pnpm --filter @gymos/staff-web test -- normalize-phone` then `pnpm --filter
   </acceptance_criteria>
   <done>
 POST /api/submit/:id upserts a member + a status='lead' conversation + writes form_submissions
-and a messages note; duplicate submissions are idempotent; UK phones are E.164-normalised;
-the honeypot silently drops bots.
+and a messages note; duplicate submissions are idempotent and re-select the canonical existing
+member/conversation ids (no FK mismatch); UK phones are E.164-normalised; the honeypot silently
+drops bots; per-IP flooding (>60/15min) is rejected with 429.
   </done>
 </task>
 
@@ -436,7 +507,9 @@ CORS ordering only manifest at runtime).
    Expect: a conversation with status='lead', a gym_members row with `phone_e164 = '+447721123456'`,
    and a form_submissions row linking them.
 5. **Submit the SAME email twice** — re-run step 4 with the same email. Confirm the member count
-   and lead-conversation count did NOT increase (idempotent upsert).
+   and lead-conversation count did NOT increase (idempotent upsert), AND the form_submissions
+   `member_id`/`conversation_id` of the second submission point at the SAME ids as the first
+   (the re-select bound to the existing member, no FK mismatch / orphan id).
 6. Open `http://localhost:8081/gymos` and confirm the lead conversation appears in the inbox list.
 
 Confirm all six checks pass, or describe failures.
@@ -448,11 +521,12 @@ Confirm all six checks pass, or describe failures.
 
 <verification>
 - normalize-phone unit tests pass
+- rate-limit unit tests pass (429 after 60/15min/IP)
 - typecheck passes
 - OPTIONS preflight on /api/submit returns 204 (CORS before auth)
 - /f/:slug serves a public form with no auth
 - A real submission creates a member + status='lead' conversation + form_submissions row
-- Duplicate submissions are idempotent
+- Duplicate submissions are idempotent and re-bind to the existing member id
 - Lead appears in /gymos
 </verification>
 
@@ -461,12 +535,15 @@ Confirm all six checks pass, or describe failures.
 2. Public form submission upserts gym_members + status='lead' conversation (FORMS-03)
 3. CORS + auth plumbing live for all P1c public routes (no downstream plan touches auth.ts)
 4. UK phone numbers normalised to E.164 so WhatsApp follow-up matches
+5. Per-IP flooding rejected with 429 (Decision 2 rate-limit + bot protection)
 </success_criteria>
 
 <output>
 After completion, create `.planning/phases/P1c-public-site-integrations/P1c-02-forms-fork-lead-submission-SUMMARY.md` documenting:
 - Which upstream files were copied vs adapted (and what was stripped — sharing? integrations?)
 - The exact ON CONFLICT targets used and whether raw SQL or onConflictDo* was used
+- How the canonical member/conversation ids are re-selected after each upsert (the FK-safety fix)
+- The rate-limit window/max chosen + the Vercel-KV upgrade caveat (in-memory Map not durable on Vercel serverless)
 - Confirmation templates/forms/ is unmodified (fork boundary preserved)
 - The messageType value used for the lead note (should be 'text', not a new enum value)
 - Whether the f/:slug route required special Nitro routing to avoid the app catch-all

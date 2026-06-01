@@ -285,7 +285,12 @@ executor performs these steps using the Neon MCP, then asks you to confirm:
    (Informational — the migration handles dupes either way.)
 
 3. **Apply 0003** statement-by-statement via `mcp__Neon__run_sql_transaction` (same pattern as
-   the P1b-02 SUMMARY documents for applying 0001 directly).
+   the P1b-02 SUMMARY documents for applying 0001 directly). **AUDIT REQUIREMENT:** the dedup
+   `DELETE FROM gym_members` (statement 2) may remove rows. Capture how many rows it deleted
+   (the statement's affected-row count, or re-run the step-2 duplicate query before/after to
+   compute it). **If ANY rows are deleted, the deleted count MUST be recorded in the
+   P1c-01 SUMMARY** for audit (e.g. "dedup DELETE removed N gym_members rows: <ids>"). A clean
+   seed should delete 0 rows.
 
 4. **Verify each change landed:**
    ```sql
@@ -304,9 +309,10 @@ executor performs these steps using the Neon MCP, then asks you to confirm:
    Expect: the lead INSERT succeeds (no CHECK violation), all three index names returned,
    `form_submissions` regclass non-null.
 
-Confirm the four verification queries all returned the expected results.
+Confirm the four verification queries all returned the expected results, and report the
+dedup DELETE row count (0 expected).
   </how-to-verify>
-  <resume-signal>Type "migration applied" once the four verification queries pass, or describe any failure.</resume-signal>
+  <resume-signal>Type "migration applied" once the four verification queries pass (and the dedup delete count is recorded), or describe any failure.</resume-signal>
 </task>
 
 </tasks>
@@ -316,6 +322,7 @@ Confirm the four verification queries all returned the expected results.
 - Drizzle schema typechecks with the 'lead' enum value + formSubmissions export
 - The migration is applied to gymos-demo Neon and verified: lead status accepted, three unique indexes present, form_submissions table exists
 - The actual CHECK constraint name was confirmed before the DROP/ADD
+- The dedup DELETE row count was recorded in the SUMMARY (0 expected)
 </verification>
 
 <success_criteria>
@@ -329,7 +336,7 @@ Confirm the four verification queries all returned the expected results.
 <output>
 After completion, create `.planning/phases/P1c-public-site-integrations/P1c-01-schema-lead-migration-SUMMARY.md` documenting:
 - The actual CHECK constraint name found (was it conversations_status_check?)
-- How many email-duplicate rows the dedup DELETE removed (0 expected for clean seed)
+- How many email-duplicate rows the dedup DELETE removed (0 expected for clean seed) — REQUIRED for audit
 - Confirmation the three unique indexes + form_submissions table exist in Neon
 - The Neon MCP statement-by-statement application method used (mirrors P1b-02)
 </output>
