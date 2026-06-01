@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed P1c-02-forms-fork-lead-submission-PLAN.md
-last_updated: "2026-06-01T13:19:58.764Z"
+stopped_at: Completed P1c-04-forms-builder-and-leads-inbox-PLAN.md
+last_updated: "2026-06-01T13:40:36.308Z"
 last_activity: 2026-06-01
 progress:
   total_phases: 9
@@ -35,8 +35,8 @@ Requirements: `.planning/REQUIREMENTS.md` (130 reqs across 20 categories — see
 
 Milestone: Demo Sprint (1 of 2) — Week 1 (target ~2026-05-24 — slipped to 2026-05-26 with live-fix wave)
 Phase: P1c (Public Site Integrations) — EXECUTING
-Plan: 3 of 7 complete (P1c-01, P1c-02, P1c-03 done; next up P1c-04)
-Status: Ready to execute next plan
+Plan: 4 of 7 complete (P1c-01, P1c-02, P1c-03 done; next up P1c-04)
+Status: Ready to execute
 Last activity: 2026-06-01
 
 **P1c-WIDE VERIFICATION CONSTRAINT (accumulated context — read before executing P1c-04/05/06):** The local `agent-native dev` server cannot boot (`NitroViteError: Vite environment "nitro" is unavailable` → 503 on server routes) — same class of issue as the Vercel/Netlify Nitro-bundling crash; staff-web only runs reliably on Fly. So NO P1c plan can run a local HTTP walkthrough. Verify the SUBSTANCE by replaying the handler/action SQL against the live `gymos-demo` Neon DB via Neon MCP (and clean up test rows), OR defer runtime checks (CORS preflight 204 ordering, route mounting, honeypot/rate-limit over HTTP, `/gymos` rendering) to the P1c-07 e2e smoke test. P1c-02 was verified this way (lead upsert replayed twice → 1 member / 1 lead conversation / 2 FK-safe submissions — checker's canonical-id re-select BLOCKER confirmed working).
@@ -164,6 +164,7 @@ Decisions are logged in `PROJECT.md` Key Decisions table. Recent ones affecting 
 - [Phase P1c-public-site-integrations]: P1c-03: create-checkout-link NOT in agent system prompt — pilot read-only posture; staff invokes from UI only; AGENTS.md documents when to add it
 - [Phase P1c-public-site-integrations]: P1c-02: templates/forms/ forked into apps/staff-web/features/forms/ (fork boundary in FORMS.md; templates/forms/ untouched). Lead upsert uses raw db.execute(sql`... ON CONFLICT ...`) NOT Drizzle onConflictDo* — targets P1c-01 partial unique indexes (email/phone_e164) + conversations(member_id,channel). LOAD-BEARING FK-safety: re-SELECT canonical id after EACH upsert (member by email/phone, conversation by member_id+channel) and bind downstream FKs to resolvedMemberId/resolvedConvId — the fresh nanoid is INSERT-candidate only, discarded when ON CONFLICT hits an existing row (no orphan FK). messageType='text' for the lead note (payload JSON holds form context; no new enum value → no migration). appStatePut + fireIntegrations dropped (the status='lead' conversation IS the notification).
 - [Phase P1c-public-site-integrations]: P1c-02: THIS plan owns ALL P1c public-route plumbing — auth.ts (publicPaths += /f, /api/forms/public, /api/submit, /embed; allowlistHandler skip block extended) + 00-public-cors.ts (CORS before auth, OPTIONS→204, PUBLIC_EMBED_PREFIXES). P1c-04/05/06 must NOT edit auth.ts/00-public-cors.ts (parallel-edit conflict avoidance). /f/:slug routed at explicit Nitro path server/routes/f/[...slug].get.ts so it doesn't collide with the staff-web app catch-all. Rate limit 60/15min/IP in-memory Map (effective on Fly single machine; Vercel-KV upgrade caveat in FORMS.md). Public anonymous endpoints do NOT wrap in runWithRequestContext; gym tables carry guard:allow-unscoped (single-tenant).
+- [Phase P1c-public-site-integrations]: P1c-04: RR v7 loader/action (Path B) for forms routes — staff-web has no useForms hooks; AgentToggleButton/ShareButton/VisibilityBadge stripped (pilot single-tenant); default inbox excludes leads (ne filter); two filter chips in header; tsconfig features/**/* added
 
 ### Pending Todos
 
@@ -207,11 +208,12 @@ None tracked as TODOs; everything is in the roadmap / requirements.
 | Phase P1c-public-site-integrations P01 | 25min | 3 tasks | 2 files |
 | Phase P1c-public-site-integrations P03 | 8 | 2 tasks | 3 files |
 | Phase P1c-public-site-integrations P02 | 10min | 4 tasks | 18 files |
+| Phase P1c-public-site-integrations P04 | 25 | 2 tasks | 8 files |
 
 ## Session Continuity
 
-Last session: 2026-06-01T13:19:58.753Z
-Stopped at: Completed P1c-02-forms-fork-lead-submission-PLAN.md
+Last session: 2026-06-01T13:40:36.297Z
+Stopped at: Completed P1c-04-forms-builder-and-leads-inbox-PLAN.md
 Resume file: None
 
 ### Resume Notes — Next Session Quick-Start
