@@ -96,6 +96,40 @@ export async function loader({ request }: LoaderFunctionArgs) {
     )
     .orderBy(desc(schema.conversations.updatedAt));
 
+  // Resolve the selected conversation by id, INDEPENDENT of the active list
+  // filter. A lead lives only in the leads list (status='lead'); clicking it
+  // navigates with ?conversation=<id>, and if ?filter=leads isn't carried the
+  // default list query excludes it — so finding the selection inside the list
+  // failed and the thread silently bounced back to the inbox. Look it up
+  // directly so any conversation opens regardless of which list is showing.
+  let selectedRow = selectedId
+    ? (conversationsRows.find((c) => c.id === selectedId) ?? null)
+    : null;
+  if (selectedId && !selectedRow) {
+    selectedRow = await db
+      .select({
+        id: schema.conversations.id,
+        memberId: schema.conversations.memberId,
+        status: schema.conversations.status,
+        unreadCount: schema.conversations.unreadCount,
+        lastInboundAt: schema.conversations.lastInboundAt,
+        lastOutboundAt: schema.conversations.lastOutboundAt,
+        lastMessagePreview: schema.conversations.lastMessagePreview,
+        updatedAt: schema.conversations.updatedAt,
+        firstName: schema.gymMembers.firstName,
+        lastName: schema.gymMembers.lastName,
+        phoneE164: schema.gymMembers.phoneE164,
+      })
+      .from(schema.conversations)
+      .leftJoin(
+        schema.gymMembers,
+        eq(schema.conversations.memberId, schema.gymMembers.id),
+      )
+      .where(eq(schema.conversations.id, selectedId))
+      .limit(1)
+      .then((r) => r[0] ?? null);
+  }
+
   // ─── Window state + opt-in fan-out (P1b-08 / D-19 / D-20) ──────────────
   //
   // whatsapp_window_state is a Drizzle-managed VIEW (Plan 02) — not exported
@@ -103,10 +137,22 @@ export async function loader({ request }: LoaderFunctionArgs) {
   // materialised mirror so the value is always fresh against
   // conversations.last_inbound_at.
 
-  const conversationIds = conversationsRows.map((c) => c.id);
-  const memberIds = conversationsRows
-    .map((c) => c.memberId)
-    .filter((m): m is string => Boolean(m));
+  // Include the selected conversation (which may be a lead outside the list) in
+  // the window-state + opt-in fan-out so the open thread shows correct state.
+  const conversationIds = Array.from(
+    new Set([
+      ...conversationsRows.map((c) => c.id),
+      ...(selectedRow ? [selectedRow.id] : []),
+    ]),
+  );
+  const memberIds = Array.from(
+    new Set(
+      [
+        ...conversationsRows.map((c) => c.memberId),
+        ...(selectedRow ? [selectedRow.memberId] : []),
+      ].filter((m): m is string => Boolean(m)),
+    ),
+  );
 
   const windowMap: Record<
     string,
@@ -173,8 +219,8 @@ export async function loader({ request }: LoaderFunctionArgs) {
   let memberStats: any = null;
   let upcomingBooking: any = null;
 
-  if (selectedId) {
-    selectedConversation = conversationsRows.find((c) => c.id === selectedId);
+  if (selectedRow) {
+    selectedConversation = selectedRow;
 
     if (selectedConversation) {
       selectedMessages = await db
@@ -543,7 +589,7 @@ export default function GymosInbox() {
             return (
               <Link
                 key={c.id}
-                to={`/gymos?conversation=${c.id}`}
+                to={`/gymos?conversation=${c.id}${data.isLeadsView ? "&filter=leads" : ""}`}
                 preventScrollReset
                 className={cn(
                   "block px-4 py-3 border-b border-border/30 hover:bg-accent/40 transition",
