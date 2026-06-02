@@ -37,8 +37,16 @@ whatsappRoutes.post("/whatsapp", async (c) => {
   // 3. Verify HMAC via @gymos/whatsapp adapter (uses crypto.createHmac
   //    internally — AFTER raw body read).
   if (!verifySignature(raw, sigHeader, appSecret)) {
+    console.warn(
+      `[whatsapp] POST signature check FAILED — sigHeaderPresent=${Boolean(
+        sigHeader,
+      )} bodyLen=${raw.length} appSecretSet=${Boolean(appSecret)}`,
+    );
     return c.text("Bad signature", 401);
   }
+  console.log(
+    `[whatsapp] POST signature OK — bodyLen=${raw.length}, processing entries`,
+  );
 
   // 4. Parse JSON (safe AFTER verify).
   let payload: unknown;
@@ -52,6 +60,7 @@ whatsappRoutes.post("/whatsapp", async (c) => {
   //    Receiver does NO business logic — worker handles materialisation.
   //    HIGH #6: enqueue STRUCTURED payloads (kind: 'message' | 'status').
   const entries = (payload as { entry?: unknown[] })?.entry ?? [];
+  console.log(`[whatsapp] payload parsed — entries=${entries.length}`);
   for (const entry of entries as Array<{ changes?: unknown[] }>) {
     const changes = entry?.changes ?? [];
     for (const change of changes as Array<{ value?: unknown }>) {
