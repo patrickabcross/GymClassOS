@@ -13,6 +13,7 @@
 
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
+import { QUEUE_NAMES } from "@gymos/queue";
 import { getBoss } from "./boss.js";
 import { getEnv } from "./lib/env.js";
 import { getLogger } from "./lib/logger.js";
@@ -31,6 +32,27 @@ async function main() {
 
   await boss.start();
   log.info("[pgboss] started — schema migration auto-applied");
+
+  // pg-boss v12 requires a queue to exist before work()/schedule()/send().
+  // The worker owns the pgboss schema, so create every queue here on boot —
+  // idempotently — before registering consumers. This also unblocks the
+  // staff-web send() path (outbound/inbound) which would otherwise fail
+  // against a non-existent queue.
+  for (const q of [
+    QUEUE_NAMES.INBOUND_WHATSAPP,
+    QUEUE_NAMES.OUTBOUND_WHATSAPP,
+    QUEUE_NAMES.STRIPE_EVENT,
+    QUEUE_NAMES.CLASS_REMINDER,
+    "templates-sync",
+  ]) {
+    try {
+      await boss.createQueue(q);
+    } catch (err) {
+      // createQueue is effectively idempotent; tolerate "already exists".
+      log.warn({ err, queue: q }, "[pgboss] createQueue (continuing)");
+    }
+  }
+  log.info("[pgboss] queues ensured");
 
   // Queue registrations — one boss.work() per line. Plan 06 + Plan 07 add
   // outbound-whatsapp + stripe-event registrations alongside this one before

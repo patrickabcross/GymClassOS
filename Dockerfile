@@ -16,7 +16,13 @@ COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
 COPY services/edge-webhooks/package.json services/edge-webhooks/
 COPY services/worker/package.json services/worker/
 COPY packages/ packages/
-RUN pnpm install --frozen-lockfile \
+# --ignore-scripts: skip the repo-root postinstall, which builds framework
+# packages (migrate/pinpoint/scheduling/dispatch) that are NOT part of this
+# filtered install and would fail (their tsc isn't installed). We build exactly
+# what the services need (core, queue, whatsapp) explicitly in the build stage.
+# Nothing in the service graph needs a native postinstall (pg/pg-boss/hono are
+# pure JS), so skipping install scripts is safe here.
+RUN pnpm install --frozen-lockfile --ignore-scripts \
     --filter "@gymos/edge-webhooks..." \
     --filter "@gymos/worker..."
 
@@ -25,6 +31,11 @@ FROM deps AS build
 COPY services/edge-webhooks/ services/edge-webhooks/
 COPY services/worker/ services/worker/
 COPY packages/ packages/
+# Build workspace deps to dist (plain tsc) BEFORE the services. edge-webhooks
+# imports @agent-native/core; both services import @gymos/queue + @gymos/whatsapp.
+RUN pnpm --filter @agent-native/core build
+RUN pnpm --filter @gymos/whatsapp build
+RUN pnpm --filter @gymos/queue build
 RUN pnpm --filter @gymos/edge-webhooks build
 RUN pnpm --filter @gymos/worker build
 
