@@ -288,6 +288,28 @@ export async function loader({ request }: LoaderFunctionArgs) {
 // renders immediately. Worker flips status to 'sent' (+ external_id) or
 // 'failed' (+ error_code) as it processes.
 
+// Best-effort enqueue. The outbound pipeline (pg-boss on the unpooled Neon
+// endpoint -> Fly worker -> Meta) is not stood up in every environment yet:
+// getBoss() throws if DATABASE_URL_UNPOOLED is unset, and the worker may not be
+// running. We still want the optimistic 'queued' message row to persist and the
+// UI to update, so a missing/unconfigured queue must NOT 500 the send. When the
+// worker pipeline is live, enqueue succeeds and delivery proceeds normally; the
+// queued row is the source of truth either way (worker flips status to
+// sent/delivered/failed). Errors are logged loudly so this never hides a real
+// queue outage silently.
+async function enqueueBestEffort(
+  args: Parameters<typeof enqueueOutboundWhatsApp>[0],
+): Promise<void> {
+  try {
+    await enqueueOutboundWhatsApp(args);
+  } catch (err) {
+    console.warn(
+      `[gymos] outbound enqueue skipped (queue not configured/unavailable) for message ${args.messageId}:`,
+      err instanceof Error ? err.message : err,
+    );
+  }
+}
+
 export async function action({ request }: ActionFunctionArgs) {
   const formData = await request.formData();
   const intent = String(formData.get("_intent") ?? "send-text");
@@ -362,7 +384,7 @@ export async function action({ request }: ActionFunctionArgs) {
     // placeholders) flow through as `vars: {}` — the @gymos/whatsapp
     // sdk-impl maps Object.values({}) -> [] and Meta accepts an empty
     // components array, so no extra guard is needed here.
-    await enqueueOutboundWhatsApp({
+    await enqueueBestEffort({
       messageId,
       memberId: conv.memberId,
       payload: {
@@ -409,7 +431,7 @@ export async function action({ request }: ActionFunctionArgs) {
 
   // Hand the job to pg-boss (-> worker -> sendMessage chokepoint -> Meta v23).
   // No direct Meta Graph API call here per D-11 / WA-05.
-  await enqueueOutboundWhatsApp({
+  await enqueueBestEffort({
     messageId,
     memberId: conv.memberId,
     payload: { type: "text", body },
@@ -690,6 +712,7 @@ export default function GymosInbox() {
 
             <Form
               method="post"
+              action="/gymos/compose"
               className="border-t border-border/50 px-5 py-3 bg-card/30"
             >
               <input

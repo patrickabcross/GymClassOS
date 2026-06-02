@@ -156,13 +156,11 @@ export function TemplatesDialog({
     fd.set("conversationId", conversationId);
     fd.set("templateName", selected.name);
     fd.set("vars", JSON.stringify(vars));
-    // Submit to the index route's action. The `action` lives in
-    // gymos._index.tsx, which shares the URL "/gymos" with its parent layout
-    // (gymos.tsx). React Router resolves a submission to the deepest
-    // *path-owning* route — that's the layout, which has NO action — so a bare
-    // "/gymos" throws "Route routes/gymos does not have an action". The
-    // `?index` param disambiguates and targets the index route's action.
-    fetcher.submit(fd, { method: "post", action: "/gymos?index" });
+    // Submit to the /gymos/compose resource route (a path-owning route that
+    // re-exports the send action). We can't target the /gymos *index* action:
+    // single-fetch POSTs to "/gymos.data?index" 404 on this Nitro+Vercel build.
+    // Path-owning routes work (same reason gymos.forms.$id submits cleanly).
+    fetcher.submit(fd, { method: "post", action: "/gymos/compose" });
     toast.success("Template queued");
     setOpen(false);
     resetState();
