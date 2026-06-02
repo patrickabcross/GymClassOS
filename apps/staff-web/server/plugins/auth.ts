@@ -26,6 +26,13 @@ const authPlugin = createAuthPlugin({
     ],
   },
   publicPaths: [
+    // Public marketing pages — homepage + privacy policy (SSR via
+    // server/routes/index.get.ts + privacy.get.ts). The privacy policy is the
+    // Meta app's required Privacy Policy URL. matchesPathList normalizes "/" to
+    // an exact-only match (it never prefix-matches the bare root), so listing
+    // "/" here makes ONLY the root public — not the whole app.
+    "/",
+    "/privacy",
     // Mobile-app server routes — each gates itself via requireDemoMember
     // (DEMO_MODE + X-Demo-Member-Id). Prefix match covers
     // /api/m/members/list, /api/m/profile, /api/m/schedule, /api/m/bookings,
@@ -41,10 +48,10 @@ const authPlugin = createAuthPlugin({
     // These paths are CORS-open and require no staff session.
     // IMPORTANT: Only these 4 specific prefixes are public — do NOT widen
     // /_agent-native/* or /api/* beyond what is listed here.
-    "/f",                 // public SSR form pages (GET /f/:slug)
-    "/api/forms/public",  // public form metadata GET (used by embed.js)
-    "/api/submit",        // public form POST — anonymous lead upsert only
-    "/embed",             // /embed/schedule (P1c-05) and /embed.js (P1c-06)
+    "/f", // public SSR form pages (GET /f/:slug)
+    "/api/forms/public", // public form metadata GET (used by embed.js)
+    "/api/submit", // public form POST — anonymous lead upsert only
+    "/embed", // /embed/schedule (P1c-05) and /embed.js (P1c-06)
   ],
 });
 
@@ -85,6 +92,8 @@ const allowlistHandler = defineEventHandler(async (event) => {
     pathname.startsWith("/_agent-native/google/") ||
     pathname.startsWith("/_better_auth") ||
     pathname.startsWith("/_") ||
+    pathname === "/" ||
+    pathname === "/privacy" ||
     pathname.startsWith("/api/m") ||
     pathname.startsWith("/pick-member") ||
     pathname.startsWith("/webhooks/") ||
