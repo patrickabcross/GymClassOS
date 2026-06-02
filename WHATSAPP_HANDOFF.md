@@ -1,43 +1,49 @@
-# WhatsApp Send/Receive — Handoff (2026-06-02)
+# WhatsApp Send/Receive — Handoff (updated 2026-06-02 EOD)
 
-**Goal for next session:** send AND receive WhatsApp messages from the GymClassOS platform (the `/gymos` inbox).
+**Goal:** send AND receive WhatsApp messages in the GymClassOS `/gymos` inbox.
 
-## TL;DR status
+## TL;DR — where we actually are
 
-The whole pipeline is **deployed and healthy**. The only thing standing between us and *receiving* is a Meta App Dashboard webhook config (user-side). *Sending* needs the staff-web redeploy to pick up one env var, plus awareness of WhatsApp's opt-in/24h-window rules.
+The Fly pipeline is deployed, healthy, and now has **request logging**. Receiving is blocked on a **Meta app/WABA wiring problem we fully diagnosed today** (not a code problem):
 
-## What's COMPLETE ✅
+- The first customer's (Hustle) WhatsApp number is **managed by GoHighLevel / LeadConnector** (they're the full-control partner; payment is on **HighLevel Inc.'s credit line**). That's why normal "assign access" is greyed out for everyone including the business owner (Bobby).
+- The **Myütik business** has *partial* partner access to the Hustle WABA. Myütik owns **two apps**: the **GymClassOS** app (App ID `1638609197193795`, whose secrets are on Fly → our webhook) and a **separate "Myütik" app** the user is building (its own webhook, different project).
+- The number got connected to the **Myütik app**, so inbound messages route to *that* app's webhook, **not** GymClassOS's. `webhook_events` is still **0** — Meta has never POSTed to our Fly endpoint.
 
-- **Fly app `gymos-edge-webhooks` is live** (region `iad`, one app, two processes):
-  - `web` (Hono receiver) ×2 — healthy; `GET https://gymos-edge-webhooks.fly.dev/healthz` → 200.
-  - `worker` (pg-boss) — healthy; boots clean, **pg-boss schema auto-created**, all queues created on boot, template-sync scheduled.
-- **Made the services deployable** (they never were): `@gymos/queue` + `@gymos/whatsapp` now have a `tsc` build → `dist` + exports→dist (added to repo-root `postinstall` so staff-web/Vercel keeps building them); Dockerfile installs `--ignore-scripts` and builds core/queue/whatsapp/services with tsc; worker creates all pg-boss queues before `work()/schedule()` (v12 requirement); worker health-check port fixed 3002→3001. Committed: `597c4882` (+ port fix earlier).
-- **Credentials wired.** The 4 WhatsApp creds were saved via the agent gear panel into `app_secrets` (scope `user`, scope_id `support@myutik.com`, AES-256-GCM keyed by `SHA256(BETTER_AUTH_SECRET)` — local `.env.local` secret matches prod). I decrypted them and set them as **Fly secrets** on `gymos-edge-webhooks`: `WHATSAPP_APP_SECRET`, `WHATSAPP_VERIFY_TOKEN`, `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, plus `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `PGCRYPTO_MASTER_KEY`, and placeholder `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET`.
-- **Meta verify handshake tested LIVE = PASS** with the real verify token (decrypted in-process; the token on Fly matches what the user configured).
-- **Vercel:** added `DATABASE_URL_UNPOOLED` to staff-web prod env (needed for staff-web → pg-boss enqueue). Takes effect on next staff-web deploy.
-- UI fixes shipped earlier today (separate from pipeline): campaigns 500, template-send routing, lead conversations opening, Members search + lead/first-purchase dates, forms Embed popover.
+**The fix (morning task): subscribe the GymClassOS app (NOT the Myütik app) to the Hustle WABA, point its webhook at our Fly URL.** Nothing on Fly changes — Fly already holds the GymClassOS app's secrets.
 
-## What's REMAINING ⏳
+## Verified state (all green except the wiring)
 
-### To RECEIVE (user-side — Meta App Dashboard, can't be done from code)
-developers.facebook.com → app → WhatsApp → Configuration → Webhooks:
-1. Callback URL: `https://gymos-edge-webhooks.fly.dev/webhooks/whatsapp`
-2. Verify token: the one saved in the gear panel (matches Fly).
-3. Verify & Save (will succeed — tested).
-4. Subscribe to the **`messages`** field; ensure the number is subscribed to the app.
-Then message the business number → should land in `/gymos` within seconds.
+- **Fly `gymos-edge-webhooks`** — version 3, 2× web + 1× worker, all checks passing. `GET /healthz` → 200.
+- **Request logging is LIVE** (added today): every non-health request logs `[req] METHOD /path -> status`; the WhatsApp POST handler logs `[whatsapp] POST signature OK|FAILED` and `payload parsed — entries=N`. Confirmed working (saw our own probe `[req] GET /webhooks/whatsapp -> 403`).
+- **Fly secrets** — all 9 present (GymClassOS app's `WHATSAPP_APP_SECRET` / `WHATSAPP_VERIFY_TOKEN` / `WHATSAPP_ACCESS_TOKEN` / `WHATSAPP_PHONE_NUMBER_ID` + DB + pgcrypto + Stripe placeholders).
+- **Verify token** (decrypted from `app_secrets`, matches Fly): `gymos_wa_verify_n_1aboNIv5uM1Z4GJCbGUVmW_i2u-vb7`. GET handshake against Fly with this token returns the challenge (200).
+- **Meta app GymClassOS is published / Live.**
+- **Neon `gymos-demo`** = `billowing-sun-51091059`. `webhook_events` = 0 (decisive: no inbound has ever reached us). conversations/messages tables hold seed data only.
 
-### To SEND (from the inbox)
-- Confirm staff-web has redeployed since `DATABASE_URL_UNPOOLED` was added (so `enqueueOutboundWhatsApp` works instead of best-effort-swallowing).
-- WhatsApp rules: a free-form text reply only works inside the 24h window AND with an opt-in row; otherwise must use an approved template. For the demo, easiest is to first message the business number from a phone (opens the 24h window + the inbound creates the conversation), then reply from the inbox.
-- Approved templates: check `whatsapp_templates` table (worker `templates-sync` cron will populate from Meta nightly; can trigger sooner if needed).
+## Morning task — wire the RIGHT app (do all of this in the GymClassOS app)
 
-## Key facts / commands for next session
-- Neon project: `gymos-demo` = `billowing-sun-51091059`, single branch `main`.
-- Deploy: `flyctl deploy --config services/edge-webhooks/fly.toml --dockerfile Dockerfile --remote-only .` (run from repo root).
-- Logs: `flyctl logs -a gymos-edge-webhooks --machine <id>`; status: `flyctl status -a gymos-edge-webhooks`.
-- Health: `curl https://gymos-edge-webhooks.fly.dev/healthz`.
-- **First action next session: VERIFY current state** (`flyctl status`, confirm staff-web picked up the env) before changing anything — don't assume.
+1. **developers.facebook.com → GymClassOS app → WhatsApp → API Setup.** Check whether the **HUSTLE GYM** WABA + phone number now appears in the dropdown (Myütik business has partner access, GymClassOS app lives in Myütik, so it *should*). Select it.
+2. **GymClassOS app → WhatsApp → Configuration → Webhooks:** callback `https://gymos-edge-webhooks.fly.dev/webhooks/whatsapp`, verify token `gymos_wa_verify_n_1aboNIv5uM1Z4GJCbGUVmW_i2u-vb7`, Save → subscribe **`messages`**.
+3. **In the separate Myütik app, unsubscribe the Hustle WABA** so the gym's messages stop flowing into that other project (otherwise both apps receive them).
+4. Send a test message → watch it route to GymClassOS app → our Fly webhook → `/gymos`.
 
-## Debugging the first real message (if inbound doesn't show)
-Tail both processes while sending a test message. Inbound flow: Meta → `web` POST `/webhooks/whatsapp` (HMAC verify via `WHATSAPP_APP_SECRET`) → `webhook_events` dedup + enqueue `inbound-whatsapp` → `worker` `services/worker/src/queues/inbound-whatsapp.ts` → `services/worker/src/domain/conversations.ts` upserts conversation + message → appears in inbox. Check: signature 401 = app-secret mismatch; nothing in `web` logs = Meta not pointed/subscribed; enqueued but no worker action = worker/queue issue.
+**If the WABA does NOT appear in the GymClassOS app's API Setup dropdown:** Myütik's *partial* access isn't enough to attach it to a second app → back to the LeadConnector/HighLevel control gate. Escalation options then: get LeadConnector/HighLevel to grant fuller control, OR **use the GymClassOS app's own free WhatsApp test number** (API Setup auto-provisions one — fully under our control, zero GHL entanglement) just to demo the pipeline. If we use the test number, repoint Fly's `WHATSAPP_PHONE_NUMBER_ID` (+ token) to it.
+
+## Send-side caveat (after receiving works)
+
+`WHATSAPP_ACCESS_TOKEN` on Fly must have access to whatever WABA we end up using. If it doesn't, *receiving* will work but *sending* 401s. Fix: generate a **System User token in Myütik** with access to the (shared) WABA, update the Fly secret, then test a send from the inbox.
+
+## How to watch / debug (commands)
+
+- Tail while testing: `flyctl logs -a gymos-edge-webhooks` then grep for `[req] POST` / `[whatsapp]`. (On Windows Git Bash, `export MSYS_NO_PATHCONV=1` before curling bare `/` paths.)
+- Inbound flow: Meta → `web` POST `/webhooks/whatsapp` (HMAC via `WHATSAPP_APP_SECRET`) → `webhook_events` dedup + enqueue `inbound-whatsapp` → `worker` `services/worker/src/queues/inbound-whatsapp.ts` → `services/worker/src/domain/conversations.ts` upserts conversation + message → inbox.
+- Diagnosis from logs: **no `[req] POST`** = Meta isn't pointed at us (wrong app subscribed). **`signature FAILED`** = Fly `WHATSAPP_APP_SECRET` ≠ the subscribed app's secret. **`signature OK` but no DB row** = worker/queue issue.
+- Redeploy edge-webhooks: `flyctl deploy --config services/edge-webhooks/fly.toml --dockerfile Dockerfile --remote-only .` (from repo root).
+- Decrypt an `app_secrets` value: AES-256-GCM, key = `SHA256(BETTER_AUTH_SECRET)` (in `apps/staff-web/.env.local`), format `v1:iv:ct:tag`.
+
+## Also shipped today (separate from the WhatsApp wiring)
+
+- **Public homepage (`/`) + privacy policy (`/privacy`)** on staff-web — needed for Meta (Privacy Policy URL). Self-contained SSR Nitro routes (`apps/staff-web/features/marketing/lib/marketing-ssr.ts` + `server/routes/index.get.ts` + `privacy.get.ts`), made public via `server/plugins/auth.ts` publicPaths + allowlist skip. GymClassOS-branded, contact `patrickabcross@outlook.com`. Verified locally (both 200, real HTML); typecheck passes. **Once deployed:** homepage `https://gym-class-os.vercel.app/`, privacy `https://gym-class-os.vercel.app/privacy` → put the privacy URL in Meta App → Settings → Basic. NOTE: `/` now shows the homepage instead of auto-redirecting to `/gymos`; staff click "Open app".
+- **Backlog items added** (commit `c682feb7`): 999.2 (dedicated GymClassOS Meta business + verification — start now, slow) and 999.3 (transfer app into it + build WhatsApp Embedded Signup for self-onboarding studio #2+).
+- **Idea parked (not yet backlogged):** multi-agent "different agent per stage of the customer journey" (lead-nurture / booking / retention). Application-layer, independent of Meta plumbing.
