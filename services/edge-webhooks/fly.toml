@@ -52,9 +52,15 @@ primary_region = 'iad'
     hard_limit = 200
     soft_limit = 100
 
+# Worker health-check service. internal_port MUST match the port the worker
+# process actually listens on. The global [env] sets PORT=3001 for ALL
+# processes (fly.toml has no per-process env), and the worker binds its
+# /healthz admin server to env.PORT — i.e. 3001. The previous 3002 here never
+# matched, so the worker health check could never pass. The worker runs on its
+# own machine, so reusing 3001 does not collide with the web process.
 [[services]]
   protocol = 'tcp'
-  internal_port = 3002
+  internal_port = 3001
   auto_stop_machines = 'off'
   auto_start_machines = true
   min_machines_running = 1
