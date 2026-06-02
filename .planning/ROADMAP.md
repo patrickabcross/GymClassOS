@@ -318,6 +318,36 @@ Unsequenced parking lot (999.x). Promote with `/gsd:review-backlog` when ready.
 Plans:
 - [ ] TBD (promote with /gsd:review-backlog when ready)
 
+### Phase 999.2: Dedicated GymClassOS Meta Business portfolio + business verification (BACKLOG)
+
+**Goal:** Stand up a dedicated "GymClassOS" Meta Business portfolio and complete its business verification, separate from the current "Myütik" business that owns the WhatsApp app (app ID `1638609197193795`).
+
+**Why:** Vertical-SaaS-factory model wants one clean, verified business portfolio per product (separate apps, system users, billing, audit). Business verification is a prerequisite for WhatsApp **Embedded Signup** and is done once per business. Verification takes **days** of Meta review, so creating the portfolio + starting verification is the one piece worth doing early/in parallel — it is non-destructive and does not touch the live app or the demo path.
+
+**Context:** Surfaced 2026-06-02 while connecting the first customer (Hustle). Hustle's WhatsApp number lives in a different Meta business than the app, forcing a cross-business WABA partner-share gated behind Hustle's billing manager. Pairs with 999.3.
+
+**Requirements:** TBD
+**Plans:** 0 plans
+**Scope:** Small/ops (mostly Meta dashboard + verification docs). Do NOT migrate the app here — that's 999.3, after the demo.
+
+Plans:
+- [ ] TBD (promote with /gsd:review-backlog when ready)
+
+### Phase 999.3: Transfer app to GymClassOS business + WhatsApp Embedded Signup for self-onboarding (BACKLOG)
+
+**Goal:** After the first-customer demo is working: (a) transfer the GymClassOS app from the Myütik business into the new GymClassOS business (App Dashboard → Settings → Advanced → change business — a **transfer, not recreate**, which generally preserves the app ID + app secret so Fly secrets keep working; verify before relying on it), then re-test the WhatsApp webhook + Fly secrets; (b) build WhatsApp **Embedded Signup** (Tech Provider flow) so studio #2+ can self-onboard their own WABA via a Meta login flow.
+
+**Why:** Replaces the manual cross-business partner-share + billing-admin dance hit with Hustle. Embedded Signup is the correct, scalable onboarding path for additional studios and is the payoff for the verified business portfolio in 999.2.
+
+**Context:** Surfaced 2026-06-02. Depends on 999.2 (verified GymClassOS business) being done first; sequence after Milestone 1 demo is live.
+
+**Requirements:** TBD
+**Plans:** 0 plans
+**Scope:** Medium (app transfer is ops + re-test; Embedded Signup is a real feature — Tech Provider config, signup UI, token capture, per-studio secret wiring).
+
+Plans:
+- [ ] TBD (promote with /gsd:review-backlog when ready)
+
 ---
 
 *Roadmap created: 2026-05-17*
