@@ -41,6 +41,7 @@ import {
   IconPlus,
   IconChevronDown,
   IconCopy,
+  IconCode,
   IconArrowUp,
   IconArrowDown,
   IconArrowsSort,
@@ -259,6 +260,10 @@ export default function GymosFormBuilder() {
   const [selectedFieldId, setSelectedFieldId] = useState<string | null>(null);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [copied, setCopied] = useState(false);
+  const [embedCopied, setEmbedCopied] = useState(false);
+  // Origin is only known client-side (builder is a logged-in CSR page). Default
+  // to the prod origin so the snippet is still correct if read before hydration.
+  const [origin, setOrigin] = useState("https://gym-class-os.vercel.app");
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">(
     "idle",
   );
@@ -276,6 +281,10 @@ export default function GymosFormBuilder() {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [selectedFieldId]);
+
+  useEffect(() => {
+    setOrigin(window.location.origin);
+  }, []);
 
   useEffect(
     () => () => {
@@ -407,6 +416,19 @@ export default function GymosFormBuilder() {
     toast.success("Link copied to clipboard");
   }
 
+  const publicUrl = `${origin}/f/${initialForm.slug}`;
+  // Paste this on the studio's marketing site. embed.js injects an
+  // auto-resizing iframe for [data-gymos-form="<slug>"] (see
+  // features/forms/lib/embed-snippet.ts).
+  const embedSnippet = `<div data-gymos-form="${initialForm.slug}"></div>\n<script src="${origin}/embed.js" async></script>`;
+
+  function copyEmbed() {
+    navigator.clipboard.writeText(embedSnippet);
+    setEmbedCopied(true);
+    setTimeout(() => setEmbedCopied(false), 2000);
+    toast.success("Embed code copied");
+  }
+
   const selectedField = localFields.find((f) => f.id === selectedFieldId);
 
   return (
@@ -469,30 +491,84 @@ export default function GymosFormBuilder() {
               <TooltipContent>Preview published form</TooltipContent>
             </Tooltip>
           )}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span className="inline-flex">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={copyShareLink}
-                  disabled={currentStatus !== "published"}
-                >
-                  {copied ? (
-                    <IconCheck className="h-4 w-4" />
-                  ) : (
-                    <IconCopy className="h-4 w-4" />
-                  )}
-                </Button>
-              </span>
-            </TooltipTrigger>
-            <TooltipContent>
-              {currentStatus === "published"
-                ? "Copy public form link"
-                : "Publish before copying the public link"}
-            </TooltipContent>
-          </Tooltip>
+          <Popover>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    disabled={currentStatus !== "published"}
+                    aria-label="Share or embed form"
+                  >
+                    <IconCode className="h-4 w-4" />
+                  </Button>
+                </PopoverTrigger>
+              </TooltipTrigger>
+              <TooltipContent>
+                {currentStatus === "published"
+                  ? "Share or embed this form"
+                  : "Publish before sharing or embedding"}
+              </TooltipContent>
+            </Tooltip>
+            <PopoverContent align="end" className="w-96 space-y-4">
+              {/* Public link */}
+              <div className="space-y-1.5">
+                <p className="text-xs font-medium">Public link</p>
+                <div className="flex gap-1.5">
+                  <Input
+                    readOnly
+                    value={publicUrl}
+                    onFocus={(e) => e.currentTarget.select()}
+                    className="h-8 text-xs font-mono"
+                  />
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8 shrink-0"
+                    onClick={copyShareLink}
+                    aria-label="Copy public link"
+                  >
+                    {copied ? (
+                      <IconCheck className="h-4 w-4" />
+                    ) : (
+                      <IconCopy className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+
+              {/* Embed snippet */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-medium">Embed on your website</p>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 gap-1 px-1.5 text-[11px]"
+                    onClick={copyEmbed}
+                  >
+                    {embedCopied ? (
+                      <IconCheck className="h-3.5 w-3.5" />
+                    ) : (
+                      <IconCopy className="h-3.5 w-3.5" />
+                    )}
+                    {embedCopied ? "Copied" : "Copy"}
+                  </Button>
+                </div>
+                <pre className="rounded-md bg-muted p-2.5 text-[11px] leading-relaxed font-mono whitespace-pre-wrap break-all">
+                  {embedSnippet}
+                </pre>
+                <p className="text-[11px] text-muted-foreground">
+                  Paste this just before{" "}
+                  <code className="font-mono">&lt;/body&gt;</code> on your site.
+                  The form auto-resizes to fit. Lock it to your domain under{" "}
+                  <strong>Settings → Allowed origins</strong>.
+                </p>
+              </div>
+            </PopoverContent>
+          </Popover>
           <Button
             size="sm"
             className="text-xs"
