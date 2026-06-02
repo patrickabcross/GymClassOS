@@ -99,10 +99,7 @@ function getBodyText(componentsJson: string): string {
   }
 }
 
-function renderPreview(
-  bodyText: string,
-  vars: Record<string, string>,
-): string {
+function renderPreview(bodyText: string, vars: Record<string, string>): string {
   return bodyText.replace(/\{\{(\d+)\}\}/g, (_, n: string) =>
     vars[n] && vars[n].trim().length > 0 ? vars[n] : `{{${n}}}`,
   );
@@ -159,10 +156,13 @@ export function TemplatesDialog({
     fd.set("conversationId", conversationId);
     fd.set("templateName", selected.name);
     fd.set("vars", JSON.stringify(vars));
-    // Submit to the current route's action (/gymos). Optimistic: close +
-    // toast immediately; the redirect from action will trigger a loader
-    // re-fetch and the new queued bubble renders on the next render pass.
-    fetcher.submit(fd, { method: "post", action: "/gymos" });
+    // Submit to the index route's action. The `action` lives in
+    // gymos._index.tsx, which shares the URL "/gymos" with its parent layout
+    // (gymos.tsx). React Router resolves a submission to the deepest
+    // *path-owning* route — that's the layout, which has NO action — so a bare
+    // "/gymos" throws "Route routes/gymos does not have an action". The
+    // `?index` param disambiguates and targets the index route's action.
+    fetcher.submit(fd, { method: "post", action: "/gymos?index" });
     toast.success("Template queued");
     setOpen(false);
     resetState();
