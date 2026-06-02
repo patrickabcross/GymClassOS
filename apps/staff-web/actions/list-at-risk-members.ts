@@ -30,9 +30,7 @@ export default defineAction({
     const inactiveCutoff = new Date(
       now.getTime() - inactiveDays * 86400000,
     ).toISOString();
-    const thirtyDaysAgo = new Date(
-      now.getTime() - 30 * 86400000,
-    ).toISOString();
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 86400000).toISOString();
     const passSoonCutoff = new Date(
       now.getTime() + 14 * 86400000,
     ).toISOString();
@@ -45,6 +43,11 @@ export default defineAction({
     //
     // guard:allow-unscoped — single-tenant gym tables (no ownableColumns) per
     // P1b.1-RESEARCH.md §6 "no unscoped queries" exemption.
+    // NOTE: the correlated subqueries reference the outer member id as the
+    // LITERAL "gym_members"."id" — NOT ${schema.gymMembers.id}. Drizzle drops
+    // the table qualifier for single-table FROM queries (bare "id"), which is
+    // ambiguous inside these subqueries (bookings/class_occurrences/passes also
+    // have an "id") → Postgres 42702. Keep the qualifier literal.
     const rows = await db
       .select({
         memberId: schema.gymMembers.id,
@@ -54,16 +57,16 @@ export default defineAction({
         lastAttendedAt: sql<string | null>`(
           SELECT MAX(co.starts_at) FROM bookings b
           JOIN class_occurrences co ON co.id = b.occurrence_id
-          WHERE b.member_id = ${schema.gymMembers.id} AND b.status = 'attended'
+          WHERE b.member_id = "gym_members"."id" AND b.status = 'attended'
         )`,
         bookingCount30d: sql<number>`(
           SELECT COUNT(*) FROM bookings b
-          WHERE b.member_id = ${schema.gymMembers.id}
+          WHERE b.member_id = "gym_members"."id"
             AND b.booked_at >= ${thirtyDaysAgo}
         )`,
         earliestPassExpiry: sql<string | null>`(
           SELECT MIN(p.expires_at) FROM passes p
-          WHERE p.member_id = ${schema.gymMembers.id}
+          WHERE p.member_id = "gym_members"."id"
             AND p.expires_at IS NOT NULL
             AND p.expires_at >= ${nowIso}
         )`,

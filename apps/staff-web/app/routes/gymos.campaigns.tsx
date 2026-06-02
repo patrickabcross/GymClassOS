@@ -106,6 +106,13 @@ export async function loader(_args: LoaderFunctionArgs) {
   //    are replicated here to keep this route self-contained per the PLAN.md
   //    fallback decision. A packages/db/ extraction in Plan 09 will de-duplicate.)
   //    guard:allow-unscoped — single-tenant gym tables
+  //
+  //    NOTE: the correlated subqueries reference the outer member id as the
+  //    LITERAL "gym_members"."id" — NOT ${schema.gymMembers.id}. Drizzle drops
+  //    the table qualifier for single-table FROM queries, emitting a bare "id";
+  //    inside these subqueries bookings/class_occurrences/passes also have an
+  //    "id", so a bare "id" raises Postgres 42702 "column reference is
+  //    ambiguous" (this 500'd the page). Keep the qualifier literal.
   const memberRows = await db
     .select({
       memberId: schema.gymMembers.id,
@@ -114,11 +121,11 @@ export async function loader(_args: LoaderFunctionArgs) {
       phoneE164: schema.gymMembers.phoneE164,
       lastAttendedAt: sql<
         string | null
-      >`(SELECT MAX(co.starts_at) FROM bookings b JOIN class_occurrences co ON co.id = b.occurrence_id WHERE b.member_id = ${schema.gymMembers.id} AND b.status = 'attended')`,
-      bookingCount30d: sql<number>`(SELECT COUNT(*) FROM bookings b WHERE b.member_id = ${schema.gymMembers.id} AND b.booked_at >= ${thirtyDaysAgo})`,
+      >`(SELECT MAX(co.starts_at) FROM bookings b JOIN class_occurrences co ON co.id = b.occurrence_id WHERE b.member_id = "gym_members"."id" AND b.status = 'attended')`,
+      bookingCount30d: sql<number>`(SELECT COUNT(*) FROM bookings b WHERE b.member_id = "gym_members"."id" AND b.booked_at >= ${thirtyDaysAgo})`,
       earliestPassExpiry: sql<
         string | null
-      >`(SELECT MIN(p.expires_at) FROM passes p WHERE p.member_id = ${schema.gymMembers.id} AND p.expires_at IS NOT NULL AND p.expires_at >= ${nowIso})`,
+      >`(SELECT MIN(p.expires_at) FROM passes p WHERE p.member_id = "gym_members"."id" AND p.expires_at IS NOT NULL AND p.expires_at >= ${nowIso})`,
     })
     .from(schema.gymMembers)
     .limit(200); // over-fetch; filter below
