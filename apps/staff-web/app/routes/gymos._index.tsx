@@ -7,13 +7,17 @@
 // are fetched client-side via useActionQuery inside the section components (Plan 05).
 // The three fast single-tenant Drizzle SELECTs keep TTFB low (no fan-out queries here).
 //
-// Scaffold: Plan 05 replaces the data-noticeboard-* placeholder divs with live
-// AiTodayStrip / BoardCard grid / TasksSection components.
+// P3-05: AiTodayStrip / BoardCard grid / TasksSection wired in.
 //
-// Requirements backed: SC-1 (structural foundation — /gymos is the noticeboard).
+// Requirements backed: SC-1 (board renders), SC-2 (computed subheadings via
+// client-side useActionQuery), SC-3 (persisted notes render), SC-4 (tasks +
+// completable), SC-5 (approve/reject gated by AlertDialog for sends).
 import { useLoaderData } from "react-router";
 import { eq, asc } from "drizzle-orm";
 import { getDb, schema } from "../../server/db";
+import { AiTodayStrip } from "@/components/gymos/Noticeboard/AiTodayStrip";
+import { BoardCard } from "@/components/gymos/Noticeboard/BoardCard";
+import { TasksSection } from "@/components/gymos/Noticeboard/TasksSection";
 
 export function meta() {
   return [{ title: "GymClassOS — Home" }];
@@ -42,17 +46,37 @@ export async function loader() {
 
 export default function Noticeboard() {
   const { notes, tasks, proposals } = useLoaderData<typeof loader>();
+
+  const noteFor = (section: string) =>
+    notes.find((n) => n.section === section) ?? null;
+  const aiTodayNote = noteFor("ai_today");
+
   return (
     <div className="flex flex-col gap-4 p-6 h-full overflow-y-auto bg-muted/40">
-      {/* AiTodayStrip — Plan 05 */}
-      <div data-noticeboard-ai-today className="min-h-[44px]" />
-      {/* Section cards — Plan 05 fills with <BoardCard /> */}
-      <div
-        className="grid grid-cols-1 sm:grid-cols-2 gap-4 xl:grid-cols-4"
-        data-noticeboard-cards
-      />
-      {/* Tasks — Plan 05 */}
-      <div data-noticeboard-tasks />
+      <AiTodayStrip note={aiTodayNote} pendingCount={proposals.length} />
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 xl:grid-cols-4">
+        <BoardCard
+          section="inbox"
+          note={noteFor("inbox")}
+          proposals={proposals}
+        />
+        <BoardCard
+          section="schedule"
+          note={noteFor("schedule")}
+          proposals={proposals}
+        />
+        <BoardCard
+          section="members"
+          note={noteFor("members")}
+          proposals={proposals}
+        />
+        <BoardCard
+          section="revenue"
+          note={noteFor("revenue")}
+          proposals={proposals}
+        />
+      </div>
+      <TasksSection tasks={tasks} />
     </div>
   );
 }
