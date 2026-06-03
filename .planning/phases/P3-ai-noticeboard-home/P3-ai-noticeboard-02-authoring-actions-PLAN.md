@@ -294,7 +294,7 @@ export default defineAction({
 - Each query carries a guard:allow-unscoped marker (single-tenant gym/dashboard tables).
 - upsert-section-note proven to upsert (single row per section) via Neon replay; create/complete-task proven via Neon replay; all test rows cleaned up.
 - VERIFICATION CONSTRAINT honored: no local HTTP. Actions are exercised by replaying their SQL against gymos-demo Neon + tsc. True over-HTTP invocation + agent tool-calling is deferred to the Plan 06 e2e smoke on the live Vercel deploy.
-- NOTE: these actions are auto-registered by the Vite plugin into .generated/actions-registry.js on the next dev/build — no manual registration. The agent will only CALL them once the system prompt names them (Plan 05).
+- NOTE: these actions are auto-registered by the Vite plugin into .generated/actions-registry.js on the next dev/build — no manual registration. The agent will only CALL them once the system prompt names them (Plan 06).
 </verification>
 
 <success_criteria>

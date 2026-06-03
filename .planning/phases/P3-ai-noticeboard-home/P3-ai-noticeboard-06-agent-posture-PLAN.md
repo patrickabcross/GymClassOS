@@ -128,7 +128,7 @@ Edit `apps/staff-web/AGENTS.md`:
 6. Remove any remaining "read-only" / "Agent CANNOT send WhatsApp" phrasing so the doc matches the shipped behavior. Keep the "Forbidden Vocabulary" + "Adding a New Gym Action" + "Conventions Inherited" sections intact.
   </action>
   <verify>
-    <automated>MISSING — doc file; verify via grep assertions below (no test applicable).</automated>
+    <automated>grep -q "upsert-section-note" apps/staff-web/AGENTS.md && grep -q "propose-action" apps/staff-web/AGENTS.md && grep -q "approve-proposal" apps/staff-web/AGENTS.md && grep -q "list-inbox-summary" apps/staff-web/AGENTS.md && ! grep -qi "read-only for the pilot" apps/staff-web/AGENTS.md && ! grep -qi "What the Agent CANNOT Do" apps/staff-web/AGENTS.md && grep -q "Forbidden Vocabulary" apps/staff-web/AGENTS.md</automated>
   </verify>
   <acceptance_criteria>
     - apps/staff-web/AGENTS.md contains "upsert-section-note", "create-task", "complete-task", "propose-action", "approve-proposal", "list-inbox-summary"

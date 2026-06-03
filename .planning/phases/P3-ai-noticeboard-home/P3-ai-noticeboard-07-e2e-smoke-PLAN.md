@@ -3,7 +3,7 @@ phase: P3-ai-noticeboard-home
 plan: 07
 type: execute
 wave: 5
-depends_on: [01, 04, 05, 06]
+depends_on: [01, 02, 03, 04, 05, 06]
 files_modified:
   - .planning/phases/P3-ai-noticeboard-home/P3-ai-noticeboard-E2E-RESULTS.md
 autonomous: false
@@ -101,6 +101,7 @@ SC-5 (round-trip works AND gate holds):
   1. In Chat, ask: "Recommend a win-back WhatsApp to lapsing members using the hello_world template." Confirm the agent calls propose-action (actionName=send-template-to-members) and a pending proposal appears in the Members (or Inbox) card's proposal zone with a rationale + "Approve" + "Dismiss proposal".
   2. Click "Approve" → confirm the AlertDialog opens with the verbatim copy: title "Send [N] WhatsApp messages?", body mentioning the template name + "Messages that are out of window or not opted-in will be skipped by the worker. This action cannot be undone."
   3. Click "Send messages" → proposal zone shows loading then disappears; a toast "Sent to [N] members." appears. Via Neon, confirm dashboard_proposals.status='executed' for that row, and messages rows were enqueued (status='queued').
+  3a. GATE-PROOF PRECONDITION (set up a guaranteed-failing target before step 4): via Neon MCP against gymos-demo, confirm a usable test subject exists — at least one gym_members row with NO matching whatsapp_opt_in row, OR at least one conversations.last_inbound_at older than 24h. If NEITHER exists, INSERT a throwaway test member with no whatsapp_opt_in row (note its id), use it as the gate-proof target in step 4, and DELETE that test member (and any rows it created) afterward. Record the cleanup explicitly in P3-ai-noticeboard-E2E-RESULTS.md.
   4. GATE PROOF (the security invariant): pick a target member who is OUT OF WINDOW (last_inbound_at > 24h ago) or has NO whatsapp_opt_in row. Propose + approve a NON-template free-text-equivalent path to that member (or inspect the worker outcome for the batch in step 3). Via Neon, confirm that member's message lands status='failed' with error_code in (WINDOW_EXPIRED, NO_OPT_IN) — i.e. the worker rejected it. NO Meta send for that member. This proves one-click approve did NOT bypass the gates.
   5. Dismiss test: propose another action, click "Dismiss proposal" → zone collapses; Neon shows status='rejected' with rejected_at set.
 

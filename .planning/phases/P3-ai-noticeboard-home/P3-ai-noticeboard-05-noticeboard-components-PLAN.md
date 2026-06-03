@@ -157,6 +157,7 @@ Card structure (UI-SPEC exact):
     - BoardCard.tsx contains useActionQuery for each of: "list-inbox-summary", "list-fill-rate", "list-renewals", "list-at-risk-members", "list-revenue"
     - BoardCard.tsx contains useActionMutation("approve-proposal" and useActionMutation("reject-proposal"
     - BoardCard.tsx contains the verbatim AlertDialog title pattern "Send" + "WhatsApp messages?" and description "will be skipped by the worker. This action cannot be undone."
+    - BoardCard.tsx parses the stored proposal params (contains "JSON.parse(" against proposal.paramsJson) and reads both "memberIds" (e.g. memberIds.length) and "templateName" from the parsed object to populate the AlertDialog title/description — the dialog must NOT be satisfiable by static hardcoded strings
     - BoardCard.tsx uses a plain <div className="text-xs uppercase tracking-wider font-semibold text-muted-foreground"> for the label and does NOT use <CardTitle>
     - BoardCard.tsx uses Skeleton for loading and a Tooltip-wrapped "—" for metric error
     - BoardCard.tsx revenue branch renders MRR with "text-2xl font-semibold"
