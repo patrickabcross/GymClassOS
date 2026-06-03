@@ -7,7 +7,8 @@
 // (that's why gymos.forms.$id submits cleanly). So the inbox composer <Form>
 // and the TemplatesDialog submit here instead of to the /gymos index route.
 //
-// The action implementation itself lives in gymos._index.tsx (optimistic insert
+// The action implementation itself lives in gymos.inbox.tsx (optimistic insert
 // + best-effort enqueue) and is re-exported so there is a single source of
-// truth for the send logic.
-export { action } from "./gymos._index";
+// truth for the send logic. Updated from gymos._index → gymos.inbox in P3-04
+// when the inbox was relocated to /gymos/inbox.
+export { action } from "./gymos.inbox";
