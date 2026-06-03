@@ -2,12 +2,12 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: phase-complete
-stopped_at: P1c Public Site Integrations complete (7/7 plans, verified live on deploy 2026-06-01); awaiting next-phase selection
-last_updated: "2026-06-01T15:09:00.115Z"
-last_activity: 2026-06-01
+status: executing
+stopped_at: Completed P3-ai-noticeboard-home-01-dashboard-storage-PLAN.md
+last_updated: "2026-06-03T15:56:43.922Z"
+last_activity: 2026-06-03
 progress:
-  total_phases: 9
+  total_phases: 13
   completed_phases: 1
   total_plans: 8
   completed_plans: 10
@@ -25,7 +25,7 @@ Requirements: `.planning/REQUIREMENTS.md` (130 reqs across 20 categories — see
 
 **Core value:** Coaches and studio managers run their entire day from one inbox-and-schedule surface (WhatsApp + class bookings + member context). Members book, pay, and log activity / nutrition from a native iOS/Android Expo app (forked from agent-native's `packages/mobile-app`) that includes an in-app coaching agent.
 
-**Current focus:** Phase P1c — Public Site Integrations
+**Current focus:** Phase P3-ai-noticeboard — home
 
 1. **WhatsApp integration deep wire** — migrate `services/worker/` and `services/edge-webhooks/` to read Meta credentials from `app_secrets` (not `process.env`) so the in-app Settings UI is the single source of truth; wire the WA-08 template sync cron so real approved Meta templates replace the seeded stubs; full end-to-end test of outbound send + inbound delivery/read callbacks against the verified WABA.
 2. **Mobile app (member surface)** — resume D2 work (Task 4 of in-app agent was pending; D2-06 verification deferred); harden the Expo fork against the iteration that landed during the staff-web pilot fixes; cut an EAS preview build under the customer's existing Apple Developer Account.
@@ -34,10 +34,10 @@ Requirements: `.planning/REQUIREMENTS.md` (130 reqs across 20 categories — see
 ## Current Position
 
 Milestone: Demo Sprint (1 of 2) — Week 1 (target ~2026-05-24 — slipped to 2026-05-26 with live-fix wave)
-Phase: P1c
-Plan: Not started
+Phase: P3-ai-noticeboard (home) — EXECUTING
+Plan: 2 of 7
 Status: Ready to execute
-Last activity: 2026-06-03 - Completed quick task 260603-gxh: GoHighLevel contacts CSV importer (gym_members + whatsapp_opt_in, dry-run default)
+Last activity: 2026-06-03
 
 **P1c-WIDE VERIFICATION CONSTRAINT (accumulated context — read before executing P1c-04/05/06):** The local `agent-native dev` server cannot boot (`NitroViteError: Vite environment "nitro" is unavailable` → 503 on server routes) — same class of issue as the Vercel/Netlify Nitro-bundling crash; staff-web only runs reliably on Fly. So NO P1c plan can run a local HTTP walkthrough. Verify the SUBSTANCE by replaying the handler/action SQL against the live `gymos-demo` Neon DB via Neon MCP (and clean up test rows), OR defer runtime checks (CORS preflight 204 ordering, route mounting, honeypot/rate-limit over HTTP, `/gymos` rendering) to the P1c-07 e2e smoke test. P1c-02 was verified this way (lead upsert replayed twice → 1 member / 1 lead conversation / 2 FK-safe submissions — checker's canonical-id re-select BLOCKER confirmed working).
 
@@ -171,6 +171,8 @@ Decisions are logged in `PROJECT.md` Key Decisions table. Recent ones affecting 
 - [Phase P1c-public-site-integrations]: P1c-06: Checkpoint Task 2 (human-verify) auto-approved — NitroViteError dev-server constraint; runtime verification deferred to P1c-07 on live Vercel deploy
 - [Phase P1c-public-site-integrations]: P1c-07: Part C (Checkout->pass) DEFERRED not FAILED — studio Stripe restricted key not configured; code verified at unit level; re-verify when studio Stripe setup complete
 - [Phase P1c-public-site-integrations]: P1c-07: Name-extraction heuristic gap — submissions.ts matches 'name'/'first name' labels only; seeded form uses 'Your name' so first_name saves as 'Lead' not actual name; funnel functional; recommended fix: broaden heuristic or update seed label
+- [Phase P3-ai-noticeboard-home]: Three dedicated tables over application_state for dashboard state (typed queries, ORDER BY, WHERE filtering, process-restart durable)
+- [Phase P3-ai-noticeboard-home]: dashboard_notes UNIQUE on section enables upsert-by-section-key — ON CONFLICT (section) DO UPDATE replaces note atomically
 
 ### Pending Todos
 
@@ -220,11 +222,12 @@ None tracked as TODOs; everything is in the roadmap / requirements.
 | Phase P1c-public-site-integrations P05 | 8 | 2 tasks | 4 files |
 | Phase P1c-public-site-integrations P06 | 3 | 1 tasks | 2 files |
 | Phase P1c-public-site-integrations P07 | 8min | 1 tasks | 1 files |
+| Phase P3-ai-noticeboard-home P01 | 428 | 2 tasks | 2 files |
 
 ## Session Continuity
 
-Last session: 2026-06-01T14:08:46.233Z
-Stopped at: Completed P1c-07-e2e-smoke-test-PLAN.md
+Last session: 2026-06-03T15:56:43.902Z
+Stopped at: Completed P3-ai-noticeboard-home-01-dashboard-storage-PLAN.md
 Resume file: None
 
 ### Resume Notes — Next Session Quick-Start
