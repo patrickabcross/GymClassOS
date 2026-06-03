@@ -301,12 +301,12 @@ The production milestone is structured as 4 phases (preserving the prior coarse-
 
 **UI hint:** yes
 
-**Plans:** 7 plans
+**Plans:** 3/7 plans executed
 
 Plans:
 - [x] P3-ai-noticeboard-01-dashboard-storage-PLAN.md (wave 1) — additive migration 0005 (dashboard_notes/tasks/proposals) applied to gymos-demo Neon + Drizzle schema exports [SC-3, SC-4, SC-5]
 - [x] P3-ai-noticeboard-02-authoring-actions-PLAN.md (wave 2) — list-inbox-summary + upsert-section-note + create-task + complete-task actions [SC-2, SC-3, SC-4]
-- [ ] P3-ai-noticeboard-03-propose-approve-handshake-PLAN.md (wave 2) — propose-action + approve-proposal (allowlist + re-validate, gates intact) + reject-proposal [SC-5]
+- [x] P3-ai-noticeboard-03-propose-approve-handshake-PLAN.md (wave 2) — propose-action + approve-proposal (allowlist + re-validate, gates intact) + reject-proposal [SC-5]
 - [ ] P3-ai-noticeboard-04-route-restructure-PLAN.md (wave 3) — move inbox to /gymos/inbox; noticeboard route loader scaffold; GymosTopNav Home+Inbox tabs [SC-1]
 - [ ] P3-ai-noticeboard-05-noticeboard-components-PLAN.md (wave 4) — AiTodayStrip + BoardCard (4 sections, computed metrics) + TasksSection wired to the route [SC-1, SC-2, SC-3, SC-4, SC-5]
 - [ ] P3-ai-noticeboard-06-agent-posture-PLAN.md (wave 3) — system prompt + AGENTS.md suggest-and-act rewrite + navigate vocabulary [SC-6]
@@ -330,7 +330,7 @@ Demo Sprint runs first (D0 → D1 → D2 over 7 days). Production v1 runs after 
 | **P1b.1. Customer Pilot Enablement** | 8 | ✓ **Live-accepted** | **2026-05-26** (8/8 plans + live-fix wave) |
 | **P1c. Public Site Integrations** | 10 | ✓ **Complete** (7/7 plans; lead funnel verified live on deploy; Stripe Checkout deferred to studio Stripe setup) | **2026-06-01** |
 | P2. Staff + Member Product Surfaces | 50+ | Not started | - |
-| P3. AI Noticeboard Home | 6 SC | Planned (7 plans, 2026-06-03) | - |
+| P3. AI Noticeboard Home | 3/7 | In Progress|  |
 
 **Active workstreams (next up):**
 - **WhatsApp deep wire** — migrate worker + edge-webhooks credentials from `process.env` to `app_secrets`; wire WA-08 template sync (P1b-09); live test against verified WABA

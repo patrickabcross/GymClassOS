@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed P3-ai-noticeboard-home-02-authoring-actions-PLAN.md
-last_updated: "2026-06-03T16:07:29.483Z"
+stopped_at: Completed P3-ai-noticeboard-home-03-propose-approve-handshake-PLAN.md
+last_updated: "2026-06-03T16:19:54.003Z"
 last_activity: 2026-06-03
 progress:
   total_phases: 13
@@ -35,7 +35,7 @@ Requirements: `.planning/REQUIREMENTS.md` (130 reqs across 20 categories — see
 
 Milestone: Demo Sprint (1 of 2) — Week 1 (target ~2026-05-24 — slipped to 2026-05-26 with live-fix wave)
 Phase: P3-ai-noticeboard (home) — EXECUTING
-Plan: 3 of 7
+Plan: 4 of 7
 Status: Ready to execute
 Last activity: 2026-06-03
 
@@ -176,6 +176,8 @@ Decisions are logged in `PROJECT.md` Key Decisions table. Recent ones affecting 
 - [Phase P3-ai-noticeboard-home]: conversations.unreadCount Drizzle export confirmed (unread_count column) — used in FILTER (WHERE unreadCount > 0) aggregate for list-inbox-summary
 - [Phase P3-ai-noticeboard-home]: upsert-section-note uses deterministic id=dnote_{section} to ensure ON CONFLICT (section) is unambiguous and never creates ghost rows
 - [Phase P3-ai-noticeboard-home]: complete-task updates by taskId only (no ownership check) — single-tenant guard:allow-unscoped pattern
+- [Phase P3-ai-noticeboard-home]: approve-proposal uses dynamic import + mod.default.schema.safeParse() before run() — stored JSON re-validated against target action's own Zod schema (Pitfall 2 prevention)
+- [Phase P3-ai-noticeboard-home]: ACTION_ALLOWLIST hardcoded in approve-proposal — only send-template-to-members and create-checkout-link may execute via proposal; worker chokepoint gates stay in force (no @gymos/whatsapp in staff-web)
 
 ### Pending Todos
 
@@ -227,11 +229,12 @@ None tracked as TODOs; everything is in the roadmap / requirements.
 | Phase P1c-public-site-integrations P07 | 8min | 1 tasks | 1 files |
 | Phase P3-ai-noticeboard-home P01 | 428 | 2 tasks | 2 files |
 | Phase P3-ai-noticeboard-home P02 | 440 | 3 tasks | 4 files |
+| Phase P3-ai-noticeboard-home P03 | 519 | 3 tasks | 3 files |
 
 ## Session Continuity
 
-Last session: 2026-06-03T16:07:29.463Z
-Stopped at: Completed P3-ai-noticeboard-home-02-authoring-actions-PLAN.md
+Last session: 2026-06-03T16:19:53.987Z
+Stopped at: Completed P3-ai-noticeboard-home-03-propose-approve-handshake-PLAN.md
 Resume file: None
 
 ### Resume Notes — Next Session Quick-Start
