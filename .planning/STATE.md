@@ -37,7 +37,7 @@ Milestone: Demo Sprint (1 of 2) — Week 1 (target ~2026-05-24 — slipped to 20
 Phase: P1c
 Plan: Not started
 Status: Ready to execute
-Last activity: 2026-06-01 - Completed quick task 260601-muh: migrate Meta WhatsApp credentials to pgcrypto-backed secrets table (DB-first + env fallback)
+Last activity: 2026-06-03 - Completed quick task 260603-gxh: GoHighLevel contacts CSV importer (gym_members + whatsapp_opt_in, dry-run default)
 
 **P1c-WIDE VERIFICATION CONSTRAINT (accumulated context — read before executing P1c-04/05/06):** The local `agent-native dev` server cannot boot (`NitroViteError: Vite environment "nitro" is unavailable` → 503 on server routes) — same class of issue as the Vercel/Netlify Nitro-bundling crash; staff-web only runs reliably on Fly. So NO P1c plan can run a local HTTP walkthrough. Verify the SUBSTANCE by replaying the handler/action SQL against the live `gymos-demo` Neon DB via Neon MCP (and clean up test rows), OR defer runtime checks (CORS preflight 204 ordering, route mounting, honeypot/rate-limit over HTTP, `/gymos` rendering) to the P1c-07 e2e smoke test. P1c-02 was verified this way (lead upsert replayed twice → 1 member / 1 lead conversation / 2 FK-safe submissions — checker's canonical-id re-select BLOCKER confirmed working).
 
@@ -204,6 +204,7 @@ None tracked as TODOs; everything is in the roadmap / requirements.
 | 260531-kbm | Redesign /gymos/analytics dashboard for stronger visual hierarchy with display sizes | 2026-05-31 | 3d082eb7 | — | [260531-kbm-redesign-gymos-analytics-dashboard-for-s](./quick/260531-kbm-redesign-gymos-analytics-dashboard-for-s/) |
 | 260531-n7i | Core missed-session re-engagement campaign: opt-in capture + opt-out gate, send-template-to-members batch action, /gymos/campaigns UI | 2026-05-31 | (merge of cc114b8f) | Verified | [260531-n7i-build-core-missed-session-re-engagement-](./quick/260531-n7i-build-core-missed-session-re-engagement-/) |
 | 260601-muh | Migrate Meta WhatsApp credentials in services/worker + services/edge-webhooks from process.env to pgcrypto-backed secrets table (DB-first + env fallback; edge-webhooks gets new reader + 60s TTL cache on inbound hot path; live WABA test deferred) | 2026-06-01 | a3948c35 | — | [260601-muh-migrate-meta-whatsapp-credentials-in-ser](./quick/260601-muh-migrate-meta-whatsapp-credentials-in-ser/) |
+| 260603-gxh | Build GoHighLevel contacts CSV importer (apps/staff-web/scripts/import-ghl-contacts.ts) — header auto-detect, E.164 phone normalize (UK +44), within-file + DB dedupe, dry-run default + --commit; marketing consent → whatsapp_opt_in (source='import'). User runs real dry-run against GHL export | 2026-06-03 | d255db06 | — | [260603-gxh-build-gohighlevel-contacts-csv-importer-](./quick/260603-gxh-build-gohighlevel-contacts-csv-importer-/) |
 | Phase P1b.1-customer-pilot-enablement P01 | 7min | 2 tasks | 2 files |
 | Phase P1b.1-customer-pilot-enablement P02 | 25min | 2 tasks | 3 files |
 | Phase P1b.1-customer-pilot-enablement P03 | 15min | 3 tasks | 3 files |
