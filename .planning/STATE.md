@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed P3-ai-noticeboard-home-01-dashboard-storage-PLAN.md
-last_updated: "2026-06-03T15:56:43.922Z"
+stopped_at: Completed P3-ai-noticeboard-home-02-authoring-actions-PLAN.md
+last_updated: "2026-06-03T16:07:29.483Z"
 last_activity: 2026-06-03
 progress:
   total_phases: 13
@@ -35,7 +35,7 @@ Requirements: `.planning/REQUIREMENTS.md` (130 reqs across 20 categories — see
 
 Milestone: Demo Sprint (1 of 2) — Week 1 (target ~2026-05-24 — slipped to 2026-05-26 with live-fix wave)
 Phase: P3-ai-noticeboard (home) — EXECUTING
-Plan: 2 of 7
+Plan: 3 of 7
 Status: Ready to execute
 Last activity: 2026-06-03
 
@@ -173,6 +173,9 @@ Decisions are logged in `PROJECT.md` Key Decisions table. Recent ones affecting 
 - [Phase P1c-public-site-integrations]: P1c-07: Name-extraction heuristic gap — submissions.ts matches 'name'/'first name' labels only; seeded form uses 'Your name' so first_name saves as 'Lead' not actual name; funnel functional; recommended fix: broaden heuristic or update seed label
 - [Phase P3-ai-noticeboard-home]: Three dedicated tables over application_state for dashboard state (typed queries, ORDER BY, WHERE filtering, process-restart durable)
 - [Phase P3-ai-noticeboard-home]: dashboard_notes UNIQUE on section enables upsert-by-section-key — ON CONFLICT (section) DO UPDATE replaces note atomically
+- [Phase P3-ai-noticeboard-home]: conversations.unreadCount Drizzle export confirmed (unread_count column) — used in FILTER (WHERE unreadCount > 0) aggregate for list-inbox-summary
+- [Phase P3-ai-noticeboard-home]: upsert-section-note uses deterministic id=dnote_{section} to ensure ON CONFLICT (section) is unambiguous and never creates ghost rows
+- [Phase P3-ai-noticeboard-home]: complete-task updates by taskId only (no ownership check) — single-tenant guard:allow-unscoped pattern
 
 ### Pending Todos
 
@@ -223,11 +226,12 @@ None tracked as TODOs; everything is in the roadmap / requirements.
 | Phase P1c-public-site-integrations P06 | 3 | 1 tasks | 2 files |
 | Phase P1c-public-site-integrations P07 | 8min | 1 tasks | 1 files |
 | Phase P3-ai-noticeboard-home P01 | 428 | 2 tasks | 2 files |
+| Phase P3-ai-noticeboard-home P02 | 440 | 3 tasks | 4 files |
 
 ## Session Continuity
 
-Last session: 2026-06-03T15:56:43.902Z
-Stopped at: Completed P3-ai-noticeboard-home-01-dashboard-storage-PLAN.md
+Last session: 2026-06-03T16:07:29.463Z
+Stopped at: Completed P3-ai-noticeboard-home-02-authoring-actions-PLAN.md
 Resume file: None
 
 ### Resume Notes — Next Session Quick-Start

@@ -305,7 +305,7 @@ The production milestone is structured as 4 phases (preserving the prior coarse-
 
 Plans:
 - [x] P3-ai-noticeboard-01-dashboard-storage-PLAN.md (wave 1) — additive migration 0005 (dashboard_notes/tasks/proposals) applied to gymos-demo Neon + Drizzle schema exports [SC-3, SC-4, SC-5]
-- [ ] P3-ai-noticeboard-02-authoring-actions-PLAN.md (wave 2) — list-inbox-summary + upsert-section-note + create-task + complete-task actions [SC-2, SC-3, SC-4]
+- [x] P3-ai-noticeboard-02-authoring-actions-PLAN.md (wave 2) — list-inbox-summary + upsert-section-note + create-task + complete-task actions [SC-2, SC-3, SC-4]
 - [ ] P3-ai-noticeboard-03-propose-approve-handshake-PLAN.md (wave 2) — propose-action + approve-proposal (allowlist + re-validate, gates intact) + reject-proposal [SC-5]
 - [ ] P3-ai-noticeboard-04-route-restructure-PLAN.md (wave 3) — move inbox to /gymos/inbox; noticeboard route loader scaffold; GymosTopNav Home+Inbox tabs [SC-1]
 - [ ] P3-ai-noticeboard-05-noticeboard-components-PLAN.md (wave 4) — AiTodayStrip + BoardCard (4 sections, computed metrics) + TasksSection wired to the route [SC-1, SC-2, SC-3, SC-4, SC-5]
