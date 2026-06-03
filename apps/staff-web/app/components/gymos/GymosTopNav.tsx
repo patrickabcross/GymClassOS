@@ -23,7 +23,8 @@ export function GymosTopNav() {
         ? "bg-accent text-foreground font-semibold"
         : "text-muted-foreground hover:bg-accent/40 hover:text-foreground",
     );
-  const isInbox = path === "/gymos";
+  const isHome = path === "/gymos";
+  const isInbox = path.startsWith("/gymos/inbox");
   const isSchedule = path.startsWith("/gymos/schedule");
   const isMembers = path.startsWith("/gymos/members");
   const isPayments = path.startsWith("/gymos/payments");
@@ -53,7 +54,10 @@ export function GymosTopNav() {
   return (
     <nav className="flex items-center gap-1 px-4 h-11 border-b border-border/50 bg-card/40 shrink-0">
       <span className="text-[12px] font-semibold mr-3">GymClassOS</span>
-      <Link to="/gymos" className={tabClass(isInbox)}>
+      <Link to="/gymos" className={tabClass(isHome)}>
+        Home
+      </Link>
+      <Link to="/gymos/inbox" className={tabClass(isInbox)}>
         Inbox
       </Link>
       <Link to="/gymos/schedule" className={tabClass(isSchedule)}>
