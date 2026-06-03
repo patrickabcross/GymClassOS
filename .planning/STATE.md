@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed P3-ai-noticeboard-home-06-agent-posture-PLAN.md
-last_updated: "2026-06-03T16:41:24.957Z"
+stopped_at: Completed P3-ai-noticeboard-home-05-noticeboard-components-PLAN.md
+last_updated: "2026-06-03T16:57:47.078Z"
 last_activity: 2026-06-03
 progress:
   total_phases: 13
@@ -35,7 +35,7 @@ Requirements: `.planning/REQUIREMENTS.md` (130 reqs across 20 categories — see
 
 Milestone: Demo Sprint (1 of 2) — Week 1 (target ~2026-05-24 — slipped to 2026-05-26 with live-fix wave)
 Phase: P3-ai-noticeboard (home) — EXECUTING
-Plan: 6 of 7
+Plan: 7 of 7
 Status: Ready to execute
 Last activity: 2026-06-03
 
@@ -182,6 +182,9 @@ Decisions are logged in `PROJECT.md` Key Decisions table. Recent ones affecting 
 - [Phase P3-ai-noticeboard-home]: gymos.compose.tsx re-export updated to gymos.inbox when _index lost its action export (Rule 3 auto-fix in P3-04)
 - [Phase P3-ai-noticeboard-home]: System prompt as tool gate: naming tools in the prompt is the actual unlock mechanism — Plans 02/03 added the action files; Plan 06 names them so the LLM will call them
 - [Phase P3-ai-noticeboard-home]: Gates-still-hold note appears in both agent-chat.ts and AGENTS.md: worker opt-in/24h-window/approved-template chokepoint still fires on every approve-proposal; one-click approve is not a bypass
+- [Phase P3-ai-noticeboard-home]: useSectionMetric calls all 4 metric hooks unconditionally then switches by section param (React rules of hooks)
+- [Phase P3-ai-noticeboard-home]: BoardCard receives full proposals array and filters internally by actionName — avoids parent knowing card-to-proposal mapping
+- [Phase P3-ai-noticeboard-home]: AlertDialog gate for send-template-to-members proposals; direct approve for create-checkout-link (reversible)
 
 ### Pending Todos
 
@@ -236,11 +239,12 @@ None tracked as TODOs; everything is in the roadmap / requirements.
 | Phase P3-ai-noticeboard-home P03 | 519 | 3 tasks | 3 files |
 | Phase P3-ai-noticeboard-home P04 | 556 | 3 tasks | 4 files |
 | Phase P3-ai-noticeboard-home P06 | 382 | 3 tasks | 3 files |
+| Phase P3-ai-noticeboard-home P05 | 671 | 3 tasks | 4 files |
 
 ## Session Continuity
 
-Last session: 2026-06-03T16:41:24.934Z
-Stopped at: Completed P3-ai-noticeboard-home-06-agent-posture-PLAN.md
+Last session: 2026-06-03T16:57:47.056Z
+Stopped at: Completed P3-ai-noticeboard-home-05-noticeboard-components-PLAN.md
 Resume file: None
 
 ### Resume Notes — Next Session Quick-Start
