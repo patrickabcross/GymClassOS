@@ -272,6 +272,35 @@ The production milestone is structured as 4 phases (preserving the prior coarse-
 
 **UI hint:** yes
 
+### Phase P3: AI Noticeboard Home (~1–2 weeks)
+
+**Goal:** Replace the `/gymos` post-login landing with an old-school noticeboard/bulletin-board dashboard (Polsia-style; fits the gym brand). A board of section cards is the first thing a coach/manager sees after login. The existing right-rail agent chat stays but gains the ability to **author** dashboard content — turning the agent from read-only Q&A into a human-in-the-loop operator that surfaces recommendations and recently-taken actions, and maintains a prioritized Tasks list.
+
+**Locked decisions (from discussion 2026-06-03 — fixed, do not relitigate):**
+1. **AI role = "Suggest + one-click act".** AI proposes an action (draft a win-back WhatsApp to lapsing members, promote an under-filled class); coach approves with one click; AI executes via the **existing** actions (`send-template-to-members`, `create-checkout-link`, `navigate`). Deliberate shift from the read-only pilot posture to human-in-the-loop. **CRITICAL:** existing WhatsApp compliance gates (opt-in + 24h window + approved-template, enforced at the worker chokepoint) MUST stay in force — one-click approve does NOT bypass them. Coach approves every send.
+2. **Progress subheadings = computed** from existing `list-*` actions wherever a real metric exists (`list-fill-rate`, `list-renewals`, `list-at-risk-members`, `list-revenue`, inbox unread/open counts); AI-written prose only fills gaps + section bodies.
+3. **V1 sections** = Inbox (WhatsApp), Schedule, Members, Revenue — PLUS an "AI today" status header strip (what the agent just did / is working on) and an AI-curated overall **Tasks** section (prioritized; each task can carry a one-click action).
+
+**Four-area scope (agent-native contract — all four required):**
+- **UI:** new noticeboard route + section cards (noticeboard aesthetic; shadcn primitives; Tabler icons; CSR via `ClientOnly` — logged-in page, SSR not required).
+- **Storage (SQL):** the agent now authors dashboard state → additive persistence for per-section AI notes + Tasks list + pending one-click action proposals (new tables e.g. `dashboard_notes` / `dashboard_tasks`, or `application_state`). Strictly additive migrations applied direct-to-Neon-via-MCP per the P1c `0001–0004` pattern (`db.ts` does NOT auto-run gymos migrations).
+- **Actions:** new `defineAction` ops for the agent to upsert section content, create/complete tasks, and the propose→approve→execute handshake (approve invokes existing send/checkout actions; gates intact).
+- **Skills/AGENTS.md:** update `apps/staff-web/AGENTS.md` to teach the board-authoring + suggest-and-act role; revise the now-outdated "read-only for pilot" / "Agent CANNOT send WhatsApp" notes to reflect the human-in-the-loop one-click model.
+
+**Success criteria:**
+1. `/gymos` post-login home renders the noticeboard with 4 section cards (Inbox, Schedule, Members, Revenue) + AI-today header + Tasks section
+2. Each section's progress subheading shows a real computed metric from the existing `list-*` actions (not placeholder text)
+3. The agent can populate a section body with a recommendation or recent-action note that persists in SQL and survives reload
+4. The agent can create/complete Tasks; coach sees them prioritized
+5. A propose→approve→execute round-trip works for at least one action (e.g. send-template-to-members), and the approve path is gated by the existing opt-in/24h/template checks at the worker — an out-of-window or no-opt-in send is still rejected
+6. `apps/staff-web/AGENTS.md` updated so the agent's documented posture matches the shipped suggest-and-act behavior
+
+**Constraints (carried into planning):** single-tenant (no `studio_id`); gym domain tables don't use `ownableColumns()` so no `accessFilter` on them; staff-web MUST NOT import `@gymos/whatsapp` (sends go through queue→worker chokepoint); local `agent-native dev` can't boot (Nitro/Vite) → verify by replaying SQL against `gymos-demo` Neon via MCP or defer to an e2e smoke (no local HTTP walkthrough).
+
+**Depends on:** P1b.1 (send-template-to-members + opt-in/template gates — both ✓), P1c (lead/conversation surfaces — ✓). Sequence after P2 product surfaces, or pull forward independently since it sits on already-shipped actions.
+
+**UI hint:** yes
+
 ## Progress
 
 **Execution Order:**
@@ -290,6 +319,7 @@ Demo Sprint runs first (D0 → D1 → D2 over 7 days). Production v1 runs after 
 | **P1b.1. Customer Pilot Enablement** | 8 | ✓ **Live-accepted** | **2026-05-26** (8/8 plans + live-fix wave) |
 | **P1c. Public Site Integrations** | 10 | ✓ **Complete** (7/7 plans; lead funnel verified live on deploy; Stripe Checkout deferred to studio Stripe setup) | **2026-06-01** |
 | P2. Staff + Member Product Surfaces | 50+ | Not started | - |
+| P3. AI Noticeboard Home | TBD | Not started (added 2026-06-03) | - |
 
 **Active workstreams (next up):**
 - **WhatsApp deep wire** — migrate worker + edge-webhooks credentials from `process.env` to `app_secrets`; wire WA-08 template sync (P1b-09); live test against verified WABA

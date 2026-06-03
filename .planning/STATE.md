@@ -88,6 +88,7 @@ Not started — Demo Sprint runs first. See ROADMAP.md for the 4 production phas
 ### Roadmap Evolution
 
 - Phase P1b.1 inserted after Phase P1b: Customer Pilot Enablement — strip email chrome from /gymos, rename Compose→Templates with real Meta Cloud API send, add Analytics tab, provision staff logins for signed customer, ground AgentSidebar in gym data instead of email actions (URGENT — customer waiting post-2026-05-25 demo)
+- Phase P3 added (2026-06-03) to Milestone 2 (Production v1), after P2: **AI Noticeboard Home** — replace `/gymos` landing with a Polsia-style noticeboard dashboard (Inbox/Schedule/Members/Revenue cards + AI-today header + AI-curated Tasks). Agent shifts from read-only to **suggest + one-click act** (coach approves; existing send/checkout actions execute; worker compliance gates stay in force). Computed progress subheadings from existing `list-*` actions; agent authors section notes + tasks persisted in SQL. Four-area scope (UI/SQL/actions/AGENTS.md). Not planned yet → `/gsd:plan-phase P3`.
 
 ### Decisions
 
