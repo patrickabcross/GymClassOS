@@ -439,3 +439,54 @@ export const formSubmissions = table("form_submissions", {
   ip: text("ip"),
   submitterEmail: text("submitter_email"),
 });
+
+// ---------------------------------------------------------------------------
+// P3: AI Noticeboard Home — dashboard state tables (migration 0005).
+// Applied directly to gymos-demo Neon (NOT runMigrations). Additive only.
+// ---------------------------------------------------------------------------
+
+// Per-section AI-authored notes (recommendation text, last-action summary).
+// UNIQUE(section) enables upsert-by-section-key via ON CONFLICT (section).
+export const dashboardNotes = table("dashboard_notes", {
+  id: text("id").primaryKey(),
+  section: text("section", {
+    enum: ["inbox", "schedule", "members", "revenue", "ai_today"],
+  }).notNull(),
+  body: text("body").notNull().default(""),
+  createdAt: text("created_at").notNull().default(now()),
+  updatedAt: text("updated_at").notNull().default(now()),
+});
+
+// AI-curated task list. priority: 1=high, 2=medium, 3=low.
+export const dashboardTasks = table("dashboard_tasks", {
+  id: text("id").primaryKey(),
+  title: text("title").notNull(),
+  body: text("body"),
+  priority: integer("priority").notNull().default(2), // 1=high, 2=medium, 3=low
+  status: text("status", { enum: ["open", "completed"] })
+    .notNull()
+    .default("open"),
+  proposalId: text("proposal_id"), // nullable FK to dashboardProposals.id
+  createdAt: text("created_at").notNull().default(now()),
+  completedAt: text("completed_at"),
+});
+
+// Pending one-click action proposals. action_name is allowlisted in approve-proposal.ts.
+export const dashboardProposals = table("dashboard_proposals", {
+  id: text("id").primaryKey(),
+  taskId: text("task_id"), // nullable FK to dashboardTasks.id
+  actionName: text("action_name", {
+    enum: ["send-template-to-members", "create-checkout-link"],
+  }).notNull(),
+  paramsJson: text("params_json").notNull().default("{}"),
+  rationale: text("rationale"),
+  status: text("status", {
+    enum: ["pending", "approved", "rejected", "executed"],
+  })
+    .notNull()
+    .default("pending"),
+  proposedAt: text("proposed_at").notNull().default(now()),
+  executedAt: text("executed_at"),
+  rejectedAt: text("rejected_at"),
+  resultJson: text("result_json"),
+});
