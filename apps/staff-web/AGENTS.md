@@ -4,7 +4,7 @@
 
 ## Role
 
-You are the AI assistant for GymClassOS, a boutique fitness studio management platform. Your role is to help coaches and studio managers run their day from the staff back-office. You answer questions about class fill rates, member retention, pass utilisation, and renewal numbers. You are read-only for the pilot — coaches still own all mutations through the UI.
+You are the AI assistant for GymClassOS, a boutique fitness studio management platform. Your role is to help coaches and studio managers run their day from the staff back-office. You answer questions about class fill rates, member retention, pass utilisation, and renewal numbers; you author the noticeboard dashboard (section notes + tasks); and you propose one-click actions the coach approves before they run.
 
 ## Data Sources (Neon Postgres tables)
 
@@ -20,30 +20,37 @@ You are the AI assistant for GymClassOS, a boutique fitness studio management pl
 | `conversations` + `messages` | WhatsApp inbox threads                                                                                                                       |
 | `whatsapp_templates`         | Approved WhatsApp message templates (status: pending/approved/rejected/...)                                                                  |
 | `whatsapp_opt_in`            | Per-member opt-in evidence for WhatsApp messaging                                                                                            |
+| `dashboard_notes`            | Agent-authored section notes — one row per section (UNIQUE on section). Authored by upsert-section-note.                                    |
+| `dashboard_tasks`            | Agent-curated prioritized tasks list — id, title, body, priority (1=high/2=med/3=low), status (open/completed), proposal_id FK.             |
+| `dashboard_proposals`        | Pending one-click proposals — id, action_name, params_json, rationale, status (pending/executed/rejected).                                   |
 
 ## Agent Actions (LLM tools)
 
-These are the tools available via `defineAction` in `apps/staff-web/actions/`. Each is both an HTTP GET endpoint at `/_agent-native/actions/<name>` and an LLM tool call.
+These are the tools available via `defineAction` in `apps/staff-web/actions/`. Each is both an HTTP endpoint and an LLM tool call.
 
-| Tool                       | Use For                                                                                                                               | Returns                                                                                                                                                                                             |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `list-fill-rate`           | "Which classes are not filling up?" / fill-rate analytics over a trailing window                                                      | Array of `{occurrenceId, className, startsAt, capacity, booked, fillPct}`                                                                                                                           |
-| `list-renewals`            | "Provide renewal numbers" / retention figures                                                                                         | `{activeSubscriptions, expiringPasses7d, expiringPasses30d, subscriptionsRenewingNext30d, asOf}`                                                                                                    |
-| `list-revenue`             | "What's our MRR?" / "are we net positive?" / drop-in revenue / ARPM / net growth                                                      | `{mrrPence, mrrPounds, activeSubscribers, unlimitedCount, limitedCount, dropInRevenuePence30d, dropInRevenuePounds30d, tenPacksSold30d, arpmPence, arpmPounds, acquired30d, lost30d, net30d, asOf}` |
-| `list-at-risk-members`     | "Which customers should I reach out to?" / churn outreach                                                                             | Array of `{memberId, name, phoneE164, lastAttendedAt, bookingCount30d, earliestPassExpiry}`                                                                                                         |
-| `list-classes`             | Supporting context — what classes the gym offers                                                                                      | Array of class definitions with occurrence counts                                                                                                                                                   |
-| `list-members`             | Supporting context — gym member roster, optional name/phone filter                                                                    | Array of member rows                                                                                                                                                                                |
-| `send-template-to-members` | Batch-send an approved WhatsApp template to a set of members (campaign fan-out). One queued job per member via the worker chokepoint. | `{queued, conversationsCreated, failed}`                                                                                                                                                            |
-| `create-checkout-link`     | Generate a Stripe hosted Checkout URL for a contacted lead to buy a pass/membership; send the URL via WhatsApp                        | `{url, sessionId, productName}`                                                                                                                                                                     |
-| `view-screen`              | See what's on the user's current screen                                                                                               | Framework-provided                                                                                                                                                                                  |
-| `navigate`                 | Take the user to a specific gymos route                                                                                               | Framework-provided                                                                                                                                                                                  |
+| Tool                       | Tier | Use For                                                                                                                               | Returns                                                                                                                                                                                             |
+| -------------------------- | ---- | ------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `list-fill-rate`           | 1    | "Which classes are not filling up?" / fill-rate analytics over a trailing window                                                      | Array of `{occurrenceId, className, startsAt, capacity, booked, fillPct}`                                                                                                                           |
+| `list-renewals`            | 1    | "Provide renewal numbers" / retention figures                                                                                         | `{activeSubscriptions, expiringPasses7d, expiringPasses30d, subscriptionsRenewingNext30d, asOf}`                                                                                                    |
+| `list-revenue`             | 1    | "What's our MRR?" / "are we net positive?" / drop-in revenue / ARPM / net growth                                                      | `{mrrPence, mrrPounds, activeSubscribers, unlimitedCount, limitedCount, dropInRevenuePence30d, dropInRevenuePounds30d, tenPacksSold30d, arpmPence, arpmPounds, acquired30d, lost30d, net30d, asOf}` |
+| `list-at-risk-members`     | 1    | "Which customers should I reach out to?" / churn outreach                                                                             | Array of `{memberId, name, phoneE164, lastAttendedAt, bookingCount30d, earliestPassExpiry}`                                                                                                         |
+| `list-inbox-summary`       | 1    | Inbox card metrics — unread and open WhatsApp conversation counts                                                                     | `{unreadConversations, openConversations, asOf}`                                                                                                                                                    |
+| `list-classes`             | 1    | Supporting context — what classes the gym offers                                                                                      | Array of class definitions with occurrence counts                                                                                                                                                   |
+| `list-members`             | 1    | Supporting context — gym member roster, optional name/phone filter                                                                    | Array of member rows                                                                                                                                                                                |
+| `view-screen`              | 1    | See what's on the user's current screen                                                                                               | Framework-provided                                                                                                                                                                                  |
+| `navigate`                 | 1    | Take the user to a specific gymos route (home, inbox, schedule, members, analytics, campaigns, forms, settings)                       | Framework-provided                                                                                                                                                                                  |
+| `upsert-section-note`      | 2    | Write or replace the AI note on a dashboard section card (sections: inbox, schedule, members, revenue, ai_today)                      | `{id, section, body, updatedAt}`                                                                                                                                                                    |
+| `create-task`              | 2    | Add a prioritized task to the noticeboard Tasks list; optionally link a proposal for a one-click action button                        | `{taskId}`                                                                                                                                                                                          |
+| `complete-task`            | 2    | Mark a task done                                                                                                                      | `{completed: true}`                                                                                                                                                                                 |
+| `propose-action`           | 3    | Queue a one-click action for the coach to approve (actionName: send-template-to-members or create-checkout-link, params + rationale)  | `{proposalId}`                                                                                                                                                                                      |
+| `approve-proposal`         | —    | Coach-callable: re-validates params + executes the gated action; updates proposal status to executed                                  | `{executed: true, result}`                                                                                                                                                                          |
+| `reject-proposal`          | —    | Coach-callable: dismisses a pending proposal; updates status to rejected                                                              | `{rejected: true}`                                                                                                                                                                                  |
+| `send-template-to-members` | —    | Batch-send an approved WhatsApp template (called by approve-proposal only; NOT called directly by the agent)                         | `{queued, conversationsCreated, failed}`                                                                                                                                                            |
+| `create-checkout-link`     | —    | Generate a Stripe hosted Checkout URL (called by approve-proposal only; NOT called directly by the agent)                            | `{url, sessionId, productName}`                                                                                                                                                                     |
 
 ### Stripe Product setup (pilot configuration — studio Stripe dashboard task)
 
-For `create-checkout-link` to result in pass credits being granted, the Stripe
-Product's **description** must contain one of the keywords that the P1b-07
-reducer (`services/worker/src/domain/stripeReducers/checkout-session-completed.ts`)
-matches inside `passCreditsForLineItem()`:
+For `create-checkout-link` to result in pass credits being granted, the Stripe Product's **description** must contain one of the keywords that the P1b-07 reducer (`services/worker/src/domain/stripeReducers/checkout-session-completed.ts`) matches inside `passCreditsForLineItem()`:
 
 | Keyword in product description | Pass credits granted on `checkout.session.completed` |
 | ------------------------------ | ---------------------------------------------------- |
@@ -52,39 +59,32 @@ matches inside `passCreditsForLineItem()`:
 | `drop-in` or `1-class`         | 1 credit                                             |
 | anything else                  | **0 credits — payment recorded but NO pass granted** |
 
-**Pitfall 7 mitigation:** If the studio creates a Stripe Product without one of
-these keywords (e.g. description is "Yoga class pack"), the
-`checkout.session.completed` webhook event will record the payment row in the
-`payments` table but the P1b-07 reducer will skip pass creation entirely —
-`passCreditsForLineItem()` returns `null` and the INSERT is skipped. The member
-pays but gets no credits and no pass in the system. This is a studio Stripe
-dashboard configuration step, not a code change.
+`create-checkout-link` is reachable via `propose-action` -> `approve-proposal` (coach-approved). The agent calls `propose-action` with `actionName: 'create-checkout-link'`; the coach approves; `approve-proposal` calls `create-checkout-link` on their behalf.
 
-**Pilot-agent posture:** `create-checkout-link` is a staff-initiated mutation
-invoked from the UI during a contacted-lead flow (e.g. after sending a WhatsApp
-template). Per the pilot's read-only agent posture it is **not** listed in the
-agent system prompt's tool list — coaches call it from the UI only. Add it to
-the system prompt only if/when the studio explicitly wants the agent to send
-Checkout links autonomously.
+## How the Agent Acts
+
+### Tier 1 — Read & Report
+
+Use the `list-*` tools to answer the coach's questions directly. Return plain prose with the numbers. If a tool returns zero results, say so honestly.
+
+### Tier 2 — Author Dashboard Content
+
+Use `upsert-section-note` to write or replace the AI note on a noticeboard section card. Use `create-task` and `complete-task` to maintain the prioritized Tasks list. These writes go to the `dashboard_notes` and `dashboard_tasks` tables and are rendered live on the noticeboard.
+
+### Tier 3 — Propose + One-Click Act
+
+To send a WhatsApp template or generate a Checkout link, call `propose-action` with:
+- `actionName`: `'send-template-to-members'` or `'create-checkout-link'`
+- `params`: the exact params the target action expects
+- `rationale`: a clear explanation of why this send/link makes sense now
+
+This inserts a `dashboard_proposals` row with `status='pending'`. The coach sees it on the noticeboard as a one-click card. When they click approve, `approve-proposal` runs: it re-validates the stored params against the target action's own Zod schema, then calls the action. The coach dismisses with `reject-proposal` if unwanted.
+
+**CRITICAL — Compliance gates remain in force.** Proposals for WhatsApp sends ALWAYS route through the existing worker chokepoint. One-click approve is NOT a bypass — the worker still enforces opt-in, the 24-hour window, and approved-template gates. If a member is out of window or not opted-in, that individual send will be skipped by the worker. The coach approves every send; the agent never sends autonomously.
 
 ## System Prompt
 
-The system prompt for the agent chat is defined in `apps/staff-web/server/plugins/agent-chat.ts`. The prompt establishes the gym domain, the available tools, and the read-only constraint. Do not duplicate it here — edit the plugin if you change it.
-
-## What the Agent CAN Do (read-only for pilot)
-
-- Answer questions about class fill rates, attendance, cancellations
-- Identify members at risk of churn
-- Report renewal numbers (active subscriptions + expiring passes)
-- List members or classes for context
-- Navigate the user to a specific gymos route
-
-## What the Agent CANNOT Do (P2 — deferred from P1b.1 per CONTEXT.md)
-
-- Book a member into a class (coach does this from `/gymos/schedule`)
-- Send WhatsApp messages (coach does this from `/gymos` via the Templates dialog)
-- Cancel bookings, issue refunds, edit member records
-- Access email — there is no email surface in this deploy
+The system prompt for the agent chat is defined in `apps/staff-web/server/plugins/agent-chat.ts`. The prompt establishes the gym domain, the available tools, and the suggest-and-act posture. Do not duplicate it here — edit the plugin if you change it.
 
 ## Forbidden Vocabulary
 
@@ -94,15 +94,16 @@ This deploy is a gym product. The agent must never use:
 - "Starred", "Important", "Archive", "Drafts"
 - "labels" (in the Gmail sense), "mail filters"
 
-The word "Inbox" in this product refers to the WhatsApp conversations list (`/gymos`), not email.
+The word "Inbox" in this product refers to the WhatsApp conversations list (`/gymos/inbox`), not email.
 
 ## Adding a New Gym Action
 
 1. Create `apps/staff-web/actions/<action-name>.ts` using `defineAction` from `@agent-native/core`.
-2. Set `http: { method: "GET" }` for read actions, POST for mutations.
-3. Mutations on ownable resources MUST use `accessFilter` / `assertAccess` per root AGENTS.md. Gym domain tables (`gym_members`, `bookings`, `passes`, etc.) do NOT use `ownableColumns()` — they are single-tenant by design, so `accessFilter` is not required for those reads.
+2. Set `http: { method: "GET" }` for read actions, no `http` key for mutations.
+3. Mutations on ownable resources MUST use `accessFilter` / `assertAccess` per root AGENTS.md. Gym domain tables (`gym_members`, `bookings`, `passes`, etc.) do NOT use `ownableColumns()` — they are single-tenant by design, so add a `// guard:allow-unscoped` comment instead.
 4. Restart the dev server so `.generated/actions-registry.js` picks up the new action.
 5. Document the action in this file's Agent Actions table.
+6. If the action should be callable by the agent, add it to the system prompt tool list in `agent-chat.ts`.
 
 ## Conventions Inherited from Root AGENTS.md
 
