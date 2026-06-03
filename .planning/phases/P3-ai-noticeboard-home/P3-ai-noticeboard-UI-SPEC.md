@@ -1,7 +1,7 @@
 ---
 phase: P3
 slug: ai-noticeboard-home
-status: draft
+status: approved
 shadcn_initialized: true
 preset: not applicable (components already installed)
 created: 2026-06-03
@@ -50,6 +50,8 @@ The "Polsia-style noticeboard" aesthetic is achieved through **layout metaphor a
 
 **Resolved rule:** The noticeboard character comes from the *spatial arrangement* and *tone of copy*, not from graphic embellishment. One off-white background layer, card borders at reduced opacity, and a left-border priority strip are the full extent of the "bulletin" aesthetic. Any PR that adds textures, gradient overlays, or shadow theatrics beyond `shadow-sm` violates this spec.
 
+**Visual hierarchy:** The AiTodayStrip at the top of the board is the primary focal point and is read first; the four-card grid below it is read second. The TasksSection anchors the bottom of the board and is read last.
+
 ---
 
 ## Spacing Scale
@@ -77,12 +79,12 @@ Source: Inter, already loaded. All sizes reference existing usage patterns in `g
 
 | Role | Tailwind | Size | Weight | Line Height | Usage |
 |------|----------|------|--------|-------------|-------|
-| Body | `text-sm` | 14px | 400 | 1.5 | Card AI note text, task body, standard prose |
-| Label | `text-xs uppercase tracking-wider` | 12px | 600 | 1.2 | Section card titles, board section headers (matches analytics precedent exactly: `text-[12px] uppercase`) |
-| Subheading / metric | `text-sm font-medium` | 14px | 500 | 1.4 | Computed metric line (e.g. "3 unread · 12 open") — distinct from AI body but not as heavy as a card title |
+| Body | `text-sm` | 14px | 400 | 1.5 | Card AI note text, task body, computed subheadings, standard prose |
+| Label | `text-xs uppercase tracking-wider` | 12px | 600 | 1.2 | Section card titles, board section headers, state pills, note timestamps — matches analytics precedent exactly: `text-[12px] uppercase` |
 | Metric value (primary) | `text-2xl font-semibold` | 24px | 600 | 1.2 | Single most important number per card (e.g. MRR `£1,105/mo`) |
-| AI today strip | `text-sm` | 14px | 400 | 1.5 | Status prose in the AI today strip |
-| AI today status label | `text-xs font-semibold` | 12px | 600 | 1.2 | "AI" label or idle/active state pill in the strip |
+| Section + task title | `text-sm font-semibold` | 14px | 600 | 1.4 | Task title lines, empty-state headings — same 14px as body but at semibold to anchor each row |
+
+**Exactly 4 sizes declared: 12px, 14px (weight 400), 14px (weight 600), 24px. Exactly 2 weights: 400 (regular) and 600 (semibold). No other size or weight is permitted anywhere in this phase.**
 
 **Constraint inherited from analytics precedent:** Do NOT use `<CardTitle>` from shadcn for section labels — it applies a font size that violates this spec. Use a plain `<div className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">` inside `<CardHeader>` instead.
 
@@ -122,7 +124,7 @@ All colors reference the existing `global.css` HSL token set. No new color varia
 |---------|------|
 | Primary CTA — approve proposal | "Approve" (verb only — the AlertDialog explains what will be approved) |
 | Primary CTA — complete task | "Mark done" |
-| Primary CTA — reject proposal | "Dismiss" (softer than "Reject" — avoids unnecessary alarm for routine dismissals) |
+| Primary CTA — reject proposal | "Dismiss proposal" (softer than "Reject" — avoids unnecessary alarm for routine dismissals) |
 | Destructive confirm — WhatsApp send | "Send [N] WhatsApp messages?" (AlertDialog title) |
 | Destructive confirm body | "This will send [templateName] to [N] member[s]. Messages that are out of window or not opted-in will be skipped by the worker. This action cannot be undone." |
 | Destructive confirm action button | "Send messages" |
@@ -201,26 +203,26 @@ Exact components to build for this phase:
 **Anatomy (top to bottom):**
 ```
 CardHeader:
-  [Section title label — 12px uppercase tracking-wider semibold muted]   [...overflow DropdownMenu]
-  [Computed subheading — 14px medium, metric values]
+  [Section title label — 12px uppercase tracking-wider semibold muted]   [...overflow DropdownMenu trigger: aria-label="More options"]
+  [Computed subheading — 14px regular (400) text-muted-foreground]
 
 CardContent:
   [AI note inset zone — bg-muted/40 rounded-md p-3, only if note exists]
     [AI body text — 14px italic text-foreground/80]
-    [note timestamp — text-[11px] text-muted-foreground mt-1]
+    [note timestamp — text-xs text-muted-foreground mt-1]
 
   [Pending proposal zone — only if proposal for this section exists]
     [Separator]
     [Proposal rationale — text-sm text-foreground/80]
-    [Approve button + Dismiss button]
+    [Approve button + Dismiss proposal button]
 ```
 
 **Card sizing:** `min-h-[160px]` — cards have a minimum height to prevent jarring reflows during loading
 **Card padding:** `p-4` (`CardHeader` + `CardContent` both use `p-4 pt-0` per shadcn default — do not override)
 **Section title:** plain `<div className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">` — NOT `<CardTitle>`
-**Overflow menu:** `<DropdownMenu>` trigger is `<Button variant="ghost" size="icon">` with `IconDots` (16px). Contains: "Navigate to [section]" (calls `navigate` action), "Refresh" (invalidates the relevant `useActionQuery` key).
+**Overflow menu:** `<DropdownMenu>` trigger is `<Button variant="ghost" size="icon" aria-label="More options">` with `IconDots` (16px). Contains: "Navigate to [section]" (calls `navigate` action), "Refresh" (invalidates the relevant `useActionQuery` key).
 **Approve button:** `<Button variant="default" size="sm">` + `IconCheck` icon (14px) — triggers AlertDialog for outbound/irreversible proposals, or directly calls `approve-proposal` for navigate-type proposals (no AlertDialog needed for non-destructive).
-**Dismiss button:** `<Button variant="ghost" size="sm" className="text-muted-foreground">` + `IconX` icon (14px) — calls `reject-proposal` action optimistically.
+**Dismiss proposal button:** `<Button variant="ghost" size="sm" className="text-muted-foreground">` + `IconX` icon (14px) — calls `reject-proposal` action optimistically.
 
 **Note inset zone:** Only renders when `note.body` is non-empty. If empty, shows the empty AI note copy as `text-sm text-muted-foreground` (no inset background, no italic — distinguish "agent wrote nothing" from "agent wrote something").
 
@@ -243,10 +245,10 @@ CardContent:
 ```
 div.flex.items-start.gap-3.py-3.min-h-[44px]:
   [Priority strip: border-l-4 {color} self-stretch w-0 mr-1]   ← visual left border, not a physical element; achieved via border-l-4 on the item div
-  [IconCircle / IconCircleCheck — 16px — complete toggle]
+  [IconCircle / IconCircleCheck — 16px — complete toggle, aria-label="Mark task complete"]
   div.flex-1:
-    [Task title — 14px font-medium]
-    [Task body — 13px text-muted-foreground mt-0.5, if non-empty, max 2 lines truncated with line-clamp-2]
+    [Task title — 14px font-semibold]
+    [Task body — text-sm text-muted-foreground mt-1, if non-empty, max 2 lines truncated with line-clamp-2]
   [Proposal action button — "Approve" Button variant="outline" size="sm" — only if task.proposalId is set]
 ```
 
@@ -255,12 +257,12 @@ div.flex.items-start.gap-3.py-3.min-h-[44px]:
 - `priority === 2`: `border-l-amber-400`
 - `priority === 3`: `border-l-border`
 
-**Complete toggle:** `IconCircle` (unfilled, 16px, `text-muted-foreground`) when open; `IconCircleCheck` (filled, 16px, `text-green-600`) when completed. Clicking triggers `complete-task` optimistically — the task item immediately animates `opacity-50 line-through` before server confirmation. On error, rolls back.
+**Complete toggle:** `IconCircle` (unfilled, 16px, `text-muted-foreground`) when open; `IconCircleCheck` (filled, 16px, `text-green-600`) when completed. Both render with `aria-label="Mark task complete"`. Clicking triggers `complete-task` optimistically — the task item immediately animates `opacity-50 line-through` before server confirmation. On error, rolls back.
 
 **Separator between tasks:** `<Separator />` between each task item — creates visual spacing without padding accumulation.
 
 **Empty state:** When `tasks.length === 0`, render the empty state copy inside a `div.py-8.text-center`:
-- Heading: `text-sm font-medium text-muted-foreground` — "No tasks yet"
+- Heading: `text-sm font-semibold text-muted-foreground` — "No tasks yet"
 - Body: `text-xs text-muted-foreground mt-1` — "The agent will create tasks here…"
 
 **No drag-to-reorder for V1.** Tasks render in SQL `ORDER BY priority ASC, created_at ASC` — sort is done server-side.
@@ -313,7 +315,7 @@ This is the most consequential interaction in Phase P3. The spec is precise and 
 1. Coach sees the proposal zone in the relevant BoardCard:
    - Rationale text (from `dashboard_proposals.rationale`) in `text-sm text-foreground/80`
    - "Approve" `Button variant="default" size="sm"` with `IconCheck` icon
-   - "Dismiss" `Button variant="ghost" size="sm"` with `IconX` icon
+   - "Dismiss proposal" `Button variant="ghost" size="sm"` with `IconX` icon
 
 2. Coach clicks "Approve" → triggers `<AlertDialog>` (NOT a custom modal). The AlertDialog is the confirmation gate for irreversible outbound actions.
 
@@ -372,7 +374,7 @@ The noticeboard uses a hybrid loading pattern: the route loader fetches persiste
 {isLoadingMetric ? (
   <Skeleton className="h-4 w-40 mt-1" />
 ) : (
-  <div className="text-sm font-medium text-muted-foreground mt-1">{computedSubheading}</div>
+  <div className="text-sm text-muted-foreground mt-1">{computedSubheading}</div>
 )}
 ```
 
@@ -390,7 +392,7 @@ If a `useActionQuery` call for a metric returns an error:
 {isErrorMetric ? (
   <Tooltip>
     <TooltipTrigger asChild>
-      <span className="text-sm font-medium text-muted-foreground cursor-help">—</span>
+      <span className="text-sm text-muted-foreground cursor-help">—</span>
     </TooltipTrigger>
     <TooltipContent>Metric unavailable. Refresh to retry.</TooltipContent>
   </Tooltip>
@@ -468,7 +470,7 @@ The noticeboard replaces the inbox as the `/gymos` index. The top-nav must be up
 The following questions are documented but do NOT block implementation. The spec's defaults apply unless the user overrides.
 
 1. **Should the `ai_today` strip show a "last updated" timestamp?**
-   Default decision: No timestamp on the strip. The note body can include temporal language ("Just now, I sent win-back messages to 4 members…"). Adding a timestamp label creates visual noise. Override: add `text-[11px] text-muted-foreground` timestamp right-aligned if the agent's note is > 30 min old.
+   Default decision: No timestamp on the strip. The note body can include temporal language ("Just now, I sent win-back messages to 4 members…"). Adding a timestamp label creates visual noise. Override: add `text-xs text-muted-foreground` timestamp right-aligned if the agent's note is > 30 min old.
 
 2. **Should completed tasks be shown with a strikethrough or hidden?**
    Default decision: Hide completed tasks from the tasks list (the query filters `status='open'`). A "Show completed" collapse/expand (`<Collapsible>`) can be added in P4 when the task list grows. Override: show all tasks with completed ones rendered at `opacity-40 line-through` at the bottom.
@@ -488,3 +490,5 @@ The following questions are documented but do NOT block implementation. The spec
 - [ ] Dimension 6 Registry Safety: PASS
 
 **Approval:** pending
+
+## UI-SPEC COMPLETE
