@@ -37,7 +37,7 @@ Milestone: Demo Sprint (1 of 2) — Week 1 (target ~2026-05-24 — slipped to 20
 Phase: P3-ai-noticeboard (home) — EXECUTING
 Plan: 7 of 7
 Status: Ready to execute
-Last activity: 2026-06-04 - Completed quick task 260604-fj3: MYÜTIK verify-echo branch (edge-webhooks)
+Last activity: 2026-06-04 - Completed quick task 260604-nwb: start publish-only pg-boss before send (edge-webhooks inbound 500)
 
 **P1c-WIDE VERIFICATION CONSTRAINT (accumulated context — read before executing P1c-04/05/06):** The local `agent-native dev` server cannot boot (`NitroViteError: Vite environment "nitro" is unavailable` → 503 on server routes) — same class of issue as the Vercel/Netlify Nitro-bundling crash; staff-web only runs reliably on Fly. So NO P1c plan can run a local HTTP walkthrough. Verify the SUBSTANCE by replaying the handler/action SQL against the live `gymos-demo` Neon DB via Neon MCP (and clean up test rows), OR defer runtime checks (CORS preflight 204 ordering, route mounting, honeypot/rate-limit over HTTP, `/gymos` rendering) to the P1c-07 e2e smoke test. P1c-02 was verified this way (lead upsert replayed twice → 1 member / 1 lead conversation / 2 FK-safe submissions — checker's canonical-id re-select BLOCKER confirmed working).
 
@@ -221,6 +221,7 @@ None tracked as TODOs; everything is in the roadmap / requirements.
 | 260601-muh | Migrate Meta WhatsApp credentials in services/worker + services/edge-webhooks from process.env to pgcrypto-backed secrets table (DB-first + env fallback; edge-webhooks gets new reader + 60s TTL cache on inbound hot path; live WABA test deferred) | 2026-06-01 | a3948c35 | — | [260601-muh-migrate-meta-whatsapp-credentials-in-ser](./quick/260601-muh-migrate-meta-whatsapp-credentials-in-ser/) |
 | 260603-gxh | Build GoHighLevel contacts CSV importer (apps/staff-web/scripts/import-ghl-contacts.ts) — header auto-detect, E.164 phone normalize (UK +44), within-file + DB dedupe, dry-run default + --commit; marketing consent → whatsapp_opt_in (source='import'). User runs real dry-run against GHL export | 2026-06-03 | d255db06 | — | [260603-gxh-build-gohighlevel-contacts-csv-importer-](./quick/260603-gxh-build-gohighlevel-contacts-csv-importer-/) |
 | 260604-fj3 | Add MYÜTIK verify-echo branch to edge-webhooks WhatsApp POST handler — authenticated `event:"verify"` → echo `{challenge}` so MYÜTIK (signs Meta-style with whatsapp_app_secret) completes its verify handshake; closes `challenge_not_echoed`. Needs manual `fly deploy` of gymos-edge-webhooks | 2026-06-04 | 9dabc513 | — | [260604-fj3-add-myutik-verify-echo-branch-to-edge-we](./quick/260604-fj3-add-myutik-verify-echo-branch-to-edge-we/) |
+| 260604-nwb | Fix pg-boss "Database not opened" 500 on edge-webhooks inbound — `@gymos/queue` boss made publish-only (supervise/schedule/migrate off) + idempotent `startBoss()`; enqueue path awaits it; web entrypoint warm-starts. First real MYÜTIK inbound exposed that the web process never started its boss (worker uses a separate one) | 2026-06-04 | 3dfd99d7 | — | [260604-nwb-fix-pg-boss-database-not-opened-in-edge-](./quick/260604-nwb-fix-pg-boss-database-not-opened-in-edge-/) |
 | Phase P1b.1-customer-pilot-enablement P01 | 7min | 2 tasks | 2 files |
 | Phase P1b.1-customer-pilot-enablement P02 | 25min | 2 tasks | 3 files |
 | Phase P1b.1-customer-pilot-enablement P03 | 15min | 3 tasks | 3 files |
