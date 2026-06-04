@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: "P3-ai-noticeboard-07-e2e-smoke: autonomous pre-checks done, awaiting push+deploy"
-last_updated: "2026-06-03T17:08:52.118Z"
-last_activity: 2026-06-03
+stopped_at: "WhatsApp inbound via MYÜTIK deployed + DB-validated (awaiting 1 real re-test); P3 Waves 1-4 done, Wave 5 e2e-smoke at checkpoint"
+last_updated: "2026-06-04"
+last_activity: 2026-06-04 - WhatsApp/MYÜTIK inbound fixes (fj3/nwb/op8) deployed; P3 Waves 1-4 executed
 progress:
   total_phases: 13
   completed_phases: 1
@@ -246,11 +246,72 @@ None tracked as TODOs; everything is in the roadmap / requirements.
 
 ## Session Continuity
 
-Last session: 2026-06-03T17:08:52.098Z
-Stopped at: P3-ai-noticeboard-07-e2e-smoke: autonomous pre-checks done, awaiting push+deploy
+Last session: 2026-06-04 (EOD)
+Stopped at: WhatsApp inbound via MYÜTIK live — deployed + DB-validated; awaiting one real re-test. P3 execution: Waves 1-4 done, Wave 5 (e2e-smoke) at checkpoint.
 Resume file: None
 
-### Resume Notes — Next Session Quick-Start
+### ▶ PICK UP HERE — 2026-06-04 EOD
+
+Two independent open tracks. Neither blocks the other.
+
+#### Track A — WhatsApp inbound via MYÜTIK (closest to done)
+
+MYÜTIK (customer's agentic messaging platform) relays inbound WhatsApp to the Fly
+receiver `https://gymos-edge-webhooks.fly.dev/webhooks/whatsapp`, Meta-style
+(signed `X-Hub-Signature-256`). Three fixes shipped + deployed today (quick tasks
+fj3 / nwb / op8). All deployed to Fly `gymos-edge-webhooks` via
+`fly deploy --config services/edge-webhooks/fly.toml --dockerfile Dockerfile --remote-only .`
+(from repo root; `--remote-only` builds the local tree — **no git push needed** to deploy).
+
+**THE ONE NEXT STEP:** send a fresh inbound from a real phone via MYÜTIK, then verify
+the chain landed:
+- `SELECT id, conversation_id, direction, status, left(body,40), created_at FROM messages ORDER BY created_at DESC LIMIT 5;` → a new `direction='in'` row
+- the sender's conversation now `status='open'` (promote-on-inbound)
+- pg-boss job `completed`: `SELECT name, state, retry_count, created_on FROM pgboss.job WHERE name='inbound-whatsapp' ORDER BY created_on DESC LIMIT 5;`
+- message appears in `/gymos/inbox` (Vercel staff-web)
+
+**Critical facts for resume:**
+- MYÜTIK must sign with the **app secret** `whatsapp_app_secret` =
+  `c36d2e8392ec5ab62c00e5859fbda05e` (sha256[:12]=`bac2db3b957c`) — NOT the verify
+  token (`gymos_wa_verify…vb7`). That mix-up was the `401 Bad signature` earlier.
+  The handler resolves it DB-first from `secrets.whatsapp_app_secret`.
+- Inbound `from` must be E.164 **digits, no `+`** (worker adds `+`, matches `gym_members.phoneE164`).
+- Self-test (inside the machine, signs with the handler's resolved secret) — reuse
+  the `fly ssh console -a gymos-edge-webhooks -C "... node --input-type=module"`
+  pattern from quick task fj3/nwb/op8 summaries.
+- Neon project `gymos-demo` id `billowing-sun-51091059`. Timestamps stored as TEXT
+  (ISO) — sort/compare lexicographically or cast `::timestamptz`.
+
+**Earlier failed inbound (12 msgs) are dead** — those pg-boss jobs exhausted retries
+and were never stored. Only NEW inbound after today's deploy will land.
+
+**Optional housekeeping (low priority):**
+- Stale `unread_count=12` on lead conversation `QQlzCss2O_L-c9dMbUM-g` — reset to real count.
+- Two identical partial unique indexes on `messages.external_id`
+  (`idx_messages_external_id` + `messages_external_id_unique`) — drop one (non-destructive).
+
+**Local commits NOT pushed to origin:** today's edge-webhooks/worker fixes
+(`9dabc513`, `3dfd99d7`, `6f70e2a1` + docs) are on local `master`, deployed to Fly
+but not on GitHub. `git push origin master` for backup when ready (does not affect
+Fly; will trigger a no-op Vercel rebuild).
+
+#### Track B — P3 AI Noticeboard execution (e2e checkpoint)
+
+`/gsd:execute-phase P3` ran Waves 1-4 (plans 01-06) — all complete + committed
+(`tsc` clean). Wave 5 = plan 07 e2e-smoke (`autonomous: false`) is **at a
+human-action checkpoint**: autonomous pre-checks passed (storage, security
+invariant, no chokepoint bypass), but the live click-path needs walking on the
+Vercel deploy. **Phase is NOT marked complete — verification intentionally held.**
+
+P3 staff-web code WAS pushed (`6a5a5bb5`) and is live at `https://gym-class-os.vercel.app`.
+To finish: walk the live board (noticeboard renders, 4 card metrics, agent authors
+a note/task, propose→approve→**gate proof** `NO_OPT_IN`, reject, "proposed not sent"
+transcript). Full walkthrough + Neon verification queries are in
+`.planning/phases/P3-ai-noticeboard-home/P3-ai-noticeboard-E2E-RESULTS.md` and the
+07 plan. Report `board-verified` / `e2e-passed` → finalize E2E-RESULTS + run verifier
++ `phase complete`. Resume with `/gsd:execute-phase P3` (skips the 6 done plans).
+
+### Resume Notes — Next Session Quick-Start (P1c — older, still valid)
 
 **Re-orient:**
 
