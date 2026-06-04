@@ -56,6 +56,16 @@ whatsappRoutes.post("/whatsapp", async (c) => {
     return c.text("Bad JSON", 400);
   }
 
+  // 4b. MYÜTIK verify handshake: a signed POST with body
+  //     {"event":"verify","challenge":"<uuid>"}. MYÜTIK substring-checks the
+  //     response body for the challenge, so echo it back. Authenticated — this
+  //     runs only after verifySignature passed. Harmless to Meta, which verifies
+  //     via the GET handshake above and never POSTs event:"verify".
+  if ((payload as { event?: string }).event === "verify") {
+    console.log("[whatsapp] MYÜTIK verify event — echoing challenge");
+    return c.json({ challenge: (payload as { challenge?: string }).challenge });
+  }
+
   // 5. Persist + enqueue each item (idempotent on (provider, external_id)).
   //    Receiver does NO business logic — worker handles materialisation.
   //    HIGH #6: enqueue STRUCTURED payloads (kind: 'message' | 'status').
