@@ -1,4 +1,4 @@
-import { getBoss } from "./boss.js";
+import { startBoss } from "./boss.js";
 import {
   QUEUE_NAMES,
   OutboundWhatsAppPayload,
@@ -15,7 +15,7 @@ export async function enqueueOutboundWhatsApp(
   args: OutboundWhatsAppPayload,
 ): Promise<string | null> {
   const data = OutboundWhatsAppPayload.parse(args);
-  const boss = getBoss();
+  const boss = await startBoss();
   return boss.send(QUEUE_NAMES.OUTBOUND_WHATSAPP, data, {
     singletonKey: `${QUEUE_NAMES.OUTBOUND_WHATSAPP}:${data.messageId}`,
     retryLimit: 3,
@@ -37,7 +37,7 @@ export async function enqueueInboundWhatsApp(
   args: InboundWhatsAppPayload,
 ): Promise<string | null> {
   const data = InboundWhatsAppPayload.parse(args);
-  const boss = getBoss();
+  const boss = await startBoss();
 
   // Per-variant singletonKey — see D-13 convention
   const singletonKey =
@@ -60,7 +60,7 @@ export async function enqueueStripeEvent(
   args: StripeEventPayload,
 ): Promise<string | null> {
   const data = StripeEventPayload.parse(args);
-  const boss = getBoss();
+  const boss = await startBoss();
   return boss.send(QUEUE_NAMES.STRIPE_EVENT, data, {
     singletonKey: `${QUEUE_NAMES.STRIPE_EVENT}:stripe_${data.eventId}`,
     retryLimit: 5,

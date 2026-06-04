@@ -4,7 +4,7 @@ export {
   enqueueStripeEvent,
   enqueueClassReminder,
 } from "./publish.js";
-export { getBoss, _resetBossForTests } from "./boss.js";
+export { getBoss, startBoss, _resetBossForTests } from "./boss.js";
 export {
   QUEUE_NAMES,
   OutboundWhatsAppPayload,
