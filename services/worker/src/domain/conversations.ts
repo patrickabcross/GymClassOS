@@ -1,4 +1,4 @@
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import type { getDb } from "../lib/db.js";
 import { schema } from "../lib/db.js";
@@ -87,6 +87,10 @@ export async function upsertConversationAndMessage(
     await db
       .update(schema.conversations)
       .set({
+        // Promote to the working inbox on any inbound: a 'lead' who actually
+        // messages is now a live conversation, and a closed/snoozed thread
+        // reactivates on reply. The inbox loader hides status='lead'.
+        status: "open",
         lastInboundAt: now,
         unreadCount: (conv.unreadCount ?? 0) + 1,
         lastMessagePreview: body ?? `(${messageType})`,
@@ -111,7 +115,15 @@ export async function upsertConversationAndMessage(
       payload: rawPayload,
       status: "delivered",
     })
-    .onConflictDoNothing({ target: schema.messages.externalId })
+    .onConflictDoNothing({
+      // The unique index on external_id is PARTIAL (WHERE external_id IS NOT
+      // NULL). Postgres can only infer a partial index for ON CONFLICT when the
+      // matching predicate is supplied — without it the insert throws 42P10
+      // ("no unique or exclusion constraint matching the ON CONFLICT
+      // specification"). Drizzle maps `where` to the conflict-target predicate.
+      target: schema.messages.externalId,
+      where: sql`${schema.messages.externalId} is not null`,
+    })
     .returning({ id: schema.messages.id });
 
   if (insertResult.length === 0) {
