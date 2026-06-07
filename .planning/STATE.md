@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: "WhatsApp inbound via MYÜTIK deployed + DB-validated (awaiting 1 real re-test); P3 Waves 1-4 done, Wave 5 e2e-smoke at checkpoint"
-last_updated: "2026-06-04"
-last_activity: 2026-06-04 - WhatsApp/MYÜTIK inbound fixes (fj3/nwb/op8) deployed; P3 Waves 1-4 executed
+stopped_at: "WhatsApp templates blocker diagnosed — going via MYÜTIK. Inbox send-404 fixed (needs Vercel redeploy); MYÜTIK templates endpoint specced for their dev. P3 Waves 1-4 done, Wave 5 e2e-smoke at checkpoint"
+last_updated: "2026-06-07"
+last_activity: 2026-06-07 - Fixed inbox send 404 ([...page].post.ts); diagnosed templates = stale demo data + Meta token lacks whatsapp scope (403 on real WABA 115640014972621); specced MYÜTIK templates endpoint
 progress:
   total_phases: 13
   completed_phases: 1
@@ -37,7 +37,7 @@ Milestone: Demo Sprint (1 of 2) — Week 1 (target ~2026-05-24 — slipped to 20
 Phase: P3-ai-noticeboard (home) — EXECUTING
 Plan: 7 of 7
 Status: Ready to execute
-Last activity: 2026-06-07 - Fixed [POST] /gymos/compose.data 404 (added [...page].post.ts SSR catch-all) — unblocks WhatsApp template/text send
+Last activity: 2026-06-07 - Diagnosed WhatsApp templates blocker (stale demo data; Meta token lacks whatsapp scope → 403 on real WABA 115640014972621); decided to route templates via MYÜTIK; specced their endpoint. Earlier today: fixed inbox send 404 ([...page].post.ts) + added MYUTIK_API_KEY settings input
 
 **P1c-WIDE VERIFICATION CONSTRAINT (accumulated context — read before executing P1c-04/05/06):** The local `agent-native dev` server cannot boot (`NitroViteError: Vite environment "nitro" is unavailable` → 503 on server routes) — same class of issue as the Vercel/Netlify Nitro-bundling crash; staff-web only runs reliably on Fly. So NO P1c plan can run a local HTTP walkthrough. Verify the SUBSTANCE by replaying the handler/action SQL against the live `gymos-demo` Neon DB via Neon MCP (and clean up test rows), OR defer runtime checks (CORS preflight 204 ordering, route mounting, honeypot/rate-limit over HTTP, `/gymos` rendering) to the P1c-07 e2e smoke test. P1c-02 was verified this way (lead upsert replayed twice → 1 member / 1 lead conversation / 2 FK-safe submissions — checker's canonical-id re-select BLOCKER confirmed working).
 
@@ -198,6 +198,8 @@ None tracked as TODOs; everything is in the roadmap / requirements.
 - **`NITRO_PRESET=vercel` + Mail's `netlify.toml`** — Mail template is preset for Netlify. Need to either set `NITRO_PRESET=vercel` in Vercel project env vars (and possibly add a `vercel.json`), OR deploy to Netlify instead. Decision deferred to next session.
 - **Better-auth Google OAuth not configured** — Mail's auth plugin is `googleOnly: true`. We bypassed by adding `/gymos` to `publicPaths` for the demo. Member-side auth (PWA login) will need either: flip `googleOnly: false` and use email/password, OR add WhatsApp-OTP, OR set up Google OAuth proper. Decision in P1a.
 - **WhatsApp send doesn't actually call Meta** — `/gymos` reply form persists to DB but doesn't call WhatsApp Cloud API. The single `sendMessage()` chokepoint with 24h-window + opt-in gate is Phase P1b work.
+- **WhatsApp templates are stale + Meta route is blocked (2026-06-07)** — the inbox picker shows demo templates synced 2026-05-25 from the *GymClassOS test WABA* (`hello_world` approved; `class_reminder`/`waitlist_offer`/`payment_failed`/`pass_expiring` pending, all `en_US`). The stored `WHATSAPP_ACCESS_TOKEN` is a GymClassOS **SYSTEM_USER** token (app `1638609197193795`) with scopes `ads_management, ads_read, business_management, public_profile` — **no `whatsapp_business_management`** — so Meta returns `403 (#200)` on the real Hustle WABA `115640014972621` (corrected today; the 400→403 shift confirms it's the right WABA). **Decision: route templates via MYÜTIK** (it holds a token with WhatsApp perms on that WABA). MYÜTIK dev to build `GET /api/channels/whatsapp/templates` (spec handed over); then repoint `services/worker/src/domain/syncTemplates.ts` at it. Full detail in `WHATSAPP_HANDOFF.md` (2026-06-07 section). Meta route stays a fallback **only if** the HUSTLE portfolio actually owns the WABA (assign asset + regenerate token with whatsapp scopes).
+- **Inbox send 404 fix needs deploy** — `apps/staff-web/server/routes/[...page].post.ts` (commit `6edc640d`) fixes the `POST /gymos/compose.data` 404 that broke template/text send. **Not yet live — needs a Vercel redeploy + manual retest** (send a template from `/gymos/inbox`).
 
 **Customer-facing blockers (Phase P0 of Production v1):**
 

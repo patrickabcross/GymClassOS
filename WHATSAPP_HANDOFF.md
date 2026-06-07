@@ -1,6 +1,31 @@
-# WhatsApp Send/Receive — Handoff (updated 2026-06-02 EOD)
+# WhatsApp Send/Receive — Handoff (updated 2026-06-07 EOD)
 
 **Goal:** send AND receive WhatsApp messages in the GymClassOS `/gymos` inbox.
+
+---
+
+## 2026-06-07 EOD — templates blocker diagnosed, going via MYÜTIK
+
+**Where we are now:** Inbound **works** (MYÜTIK relays Hustle inbound → our Fly webhook in Meta format; deployed + DB-validated 06-04, see fj3/nwb/op8). Today's work was the **send / templates** side.
+
+**Shipped today:**
+- **Inbox send was 404ing — fixed.** Sending a template (or text reply) from `/gymos/inbox` did `POST /gymos/compose.data` → `404 Cannot find any route matching [POST]`. Root cause: the Nitro SSR catch-all was mounted **GET-only** (`server/routes/[...page].get.ts`), so React-Router framework-mode action POSTs never reached the handler. Fix: added `apps/staff-web/server/routes/[...page].post.ts` (same method-agnostic `createH3SSRHandler`). Commit `6edc640d`. **Needs Vercel redeploy + retest.**
+- **MYÜTIK API key input** added to Settings → API Keys (gear button on the AI input) via `registerRequiredSecret('MYUTIK_API_KEY')`. Commit `c83da064`. User has already pasted the key (`app_secrets`, scope `support@myutik.com`).
+
+**The templates problem (diagnosed, not yet fixed):**
+- The templates shown in the inbox picker are **stale demo data** — synced **once on 2026-05-25** from the *GymClassOS test WABA*: `hello_world` (approved) + `class_reminder` / `waitlist_offer` / `payment_failed` / `pass_expiring` (all **pending**, all `en_US`). None are the Hustle account's. `hustle_followup_v1` (from the MYÜTIK send doc) isn't among them.
+- **Meta route is blocked by token scope, not the WABA id.** Decrypted `WHATSAPP_ACCESS_TOKEN` (app_secrets) and called Meta directly:
+  - `debug_token` → it's a **SYSTEM_USER** token for the **GymClassOS** app (`1638609197193795`), scopes = `ads_management, ads_read, business_management, public_profile` — **no `whatsapp_business_management`**.
+  - WABA id was corrected by the user to **`115640014972621`** (Hustle gym's real WABA). `GET /{waba}/message_templates` now returns **`403 (#200) permission denied`** (was `400 nonexisting field` when it pointed at the HUSTLE *business portfolio* `2484390155164803`). The 400→403 shift **confirms `115640014972621` is the real WABA** — the token just isn't authorized on it.
+  - To open the Meta route would need: (a) assign WABA `115640014972621` as an asset to the GymClassOS system user (full control), AND (b) regenerate that token **with `whatsapp_business_management` (+ `whatsapp_business_messaging`)** scopes, then rotate it into Settings. Only possible **if the HUSTLE portfolio actually owns/has the WABA** — likely it's GHL/LeadConnector-owned, so this may stay closed.
+- **Decision: expose templates via MYÜTIK instead.** MYÜTIK already holds a Meta token with WhatsApp permission on the Hustle WABA. Specced a new read endpoint for the MYÜTIK dev (see below).
+
+**Next session (in order):**
+1. **MYÜTIK dev builds `GET /api/channels/whatsapp/templates`** — thin proxy to Meta `GET /{WABA}/message_templates?fields=name,language,status,category,components`, resolving WABA from `phoneNumberId=302631896256150`, gated behind a new `whatsapp:read` key scope, returns `{ phoneNumberId, wabaId, templates:[{name,language,status,category,components}], paging }`. (Full spec was handed to the user.)
+2. **GymClassOS side:** repoint the template sync (`services/worker/src/domain/syncTemplates.ts`, currently hits Meta Graph) at the MYÜTIK endpoint using `MUTIK_API_KEY` + `phoneNumberId`; write results into `whatsapp_templates`. Then the inbox picker shows real Hustle templates and the send gate passes. (Offered to stage this; **not started** — awaiting endpoint.)
+3. **Send path** (GymOS → MYÜTIK campaigns/replies): wire outbound through `POST https://myutik.com/api/channels/whatsapp/send` with `phoneNumberId: "302631896256150"`, try-text-then-409→template. Still pending on the GymClassOS sender.
+
+---
 
 ## TL;DR — where we actually are
 
