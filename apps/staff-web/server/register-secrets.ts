@@ -114,7 +114,8 @@ registerRequiredSecret({
   label: "WhatsApp Phone Number ID",
   description:
     "Meta WhatsApp phone number ID — the FROM number for outbound. Find at Meta Business → WhatsApp → API Setup. Also set via `fly secrets set` on the Fly worker.",
-  docsUrl: "https://developers.facebook.com/docs/whatsapp/cloud-api/get-started",
+  docsUrl:
+    "https://developers.facebook.com/docs/whatsapp/cloud-api/get-started",
   scope: "user",
   kind: "api-key",
   required: true,
@@ -149,3 +150,28 @@ registerRequiredSecret({
 // Skipping registration for now to avoid an "unset required" onboarding step
 // the user can't action from the staff-web UI. Re-add as `required: false`
 // when the template-sync worker job is exposed from staff-web.
+
+// ─── MYÜTIK relay ────────────────────────────────────────────────────────────
+//
+// MYÜTIK (myutik.com) is the customer's WhatsApp relay. GymClassOS sends
+// outbound replies and campaigns THROUGH it instead of calling Meta directly:
+// POST https://myutik.com/api/channels/whatsapp/send with header x-api-key:
+// <this key>, sending from phoneNumberId 302631896256150 (the leased +44 1603
+// 336268). MYÜTIK decides text-vs-template from the live 24h window (try text,
+// resend as template on 409). Inbound MYÜTIK→GymOS webhooks are verified with
+// WHATSAPP_APP_SECRET (HMAC X-Hub-Signature-256), NOT this key.
+//
+// Same caveat as the WhatsApp keys above: until the worker / edge-webhooks
+// senders read from app_secrets, pair this in-app paste with
+// `fly secrets set MYUTIK_API_KEY=…` on the Fly services.
+
+registerRequiredSecret({
+  key: "MYUTIK_API_KEY",
+  label: "MYÜTIK API Key",
+  description:
+    "MYÜTIK API key (must have the whatsapp:send permission) used to send WhatsApp replies and campaigns from GymClassOS via the MYÜTIK relay — POST https://myutik.com/api/channels/whatsapp/send, sending from phoneNumberId 302631896256150. Create it in MYÜTIK → Settings → API Keys. Inbound webhook signatures are verified separately with WHATSAPP_APP_SECRET, not this key. Also set via `fly secrets set MYUTIK_API_KEY=…` on the Fly worker until senders migrate to app_secrets.",
+  docsUrl: "https://myutik.com",
+  scope: "user",
+  kind: "api-key",
+  required: true,
+});
