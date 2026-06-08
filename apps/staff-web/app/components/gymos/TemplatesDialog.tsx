@@ -27,9 +27,9 @@
 // approval to land), wrap the left-pane list in shadcn `<Skeleton>` rows
 // (h-8 w-full, 3 rows) per the UI-SPEC contract.
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useFetcher } from "react-router";
-import { IconTemplate } from "@tabler/icons-react";
+import { IconTemplate, IconRefresh } from "@tabler/icons-react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -111,6 +111,8 @@ export function TemplatesDialog({
   hasOptIn,
 }: TemplatesDialogProps) {
   const fetcher = useFetcher();
+  const syncFetcher = useFetcher();
+  const isSyncing = syncFetcher.state !== "idle";
   const [open, setOpen] = useState(false);
   const [selectedName, setSelectedName] = useState<string | null>(null);
   const [vars, setVars] = useState<Record<string, string>>({});
@@ -166,6 +168,33 @@ export function TemplatesDialog({
     resetState();
   };
 
+  const handleSync = () => {
+    const fd = new FormData();
+    fd.set("_intent", "sync-templates");
+    syncFetcher.submit(fd, { method: "post", action: "/gymos/compose" });
+  };
+
+  useEffect(() => {
+    if (syncFetcher.state !== "idle") return;
+    const r = (
+      syncFetcher.data as
+        | {
+            syncResult?: {
+              ok: boolean;
+              synced?: number;
+              error?: string;
+            };
+          }
+        | undefined
+    )?.syncResult;
+    if (!r) return;
+    if (r.ok) {
+      toast.success(`Updated — ${r.synced ?? 0} templates`);
+    } else {
+      toast.error(r.error ?? "Couldn't update templates");
+    }
+  }, [syncFetcher.data, syncFetcher.state]);
+
   const handleDiscard = () => {
     setOpen(false);
     resetState();
@@ -188,13 +217,29 @@ export function TemplatesDialog({
         className="max-w-[640px] h-[520px] p-0 gap-0 flex flex-col"
         aria-describedby={undefined}
       >
-        <DialogHeader className="px-4 py-3 border-b border-border/50 space-y-0.5">
-          <DialogTitle className="text-sm font-semibold">
-            Send a template
-          </DialogTitle>
-          <p className="text-[11px] text-muted-foreground">
-            Approved WhatsApp message templates
-          </p>
+        <DialogHeader className="px-4 py-3 border-b border-border/50 space-y-0.5 flex flex-row items-start justify-between">
+          <div className="space-y-0.5">
+            <DialogTitle className="text-sm font-semibold">
+              Send a template
+            </DialogTitle>
+            <p className="text-[11px] text-muted-foreground">
+              Approved WhatsApp message templates
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleSync}
+            disabled={isSyncing}
+          >
+            <IconRefresh
+              size={14}
+              aria-hidden
+              className={isSyncing ? "mr-1 animate-spin" : "mr-1"}
+            />
+            {isSyncing ? "Updating…" : "Update templates"}
+          </Button>
         </DialogHeader>
 
         <div className="flex flex-1 min-h-0">
