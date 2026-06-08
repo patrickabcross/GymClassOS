@@ -26,6 +26,16 @@ const EnvSchema = z.object({
   MYUTIK_API_KEY: z.string().min(8).optional(),
   MYUTIK_PHONE_NUMBER_ID: z.string().min(4).optional(),
 
+  // Shared key material for decrypting app_secrets (written by staff-web
+  // Settings UI). Mirrors framework getEncryptionKey precedence. Optional:
+  // when absent, every resolver falls back to the pgcrypto secrets table + env.
+  // To activate: set the SAME value that staff-web uses via
+  // `fly secrets set BETTER_AUTH_SECRET=<value> -a <worker-app>`.
+  // Prefer SECRETS_ENCRYPTION_KEY if staff-web is later switched to it;
+  // the worker checks it first, matching framework precedence.
+  SECRETS_ENCRYPTION_KEY: z.string().min(16).optional(),
+  BETTER_AUTH_SECRET: z.string().min(16).optional(),
+
   // Stripe (Plan 07 reducers)
   STRIPE_SECRET_KEY: z
     .string()

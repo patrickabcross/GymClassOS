@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import { getEnv } from "./env.js";
 import type { getDb } from "./db.js";
+import { readAppSecretByKey } from "./appSecrets.js";
 
 /**
  * Write a secret to the `secrets` table, encrypted via pgcrypto.
@@ -73,34 +74,38 @@ export async function getStripeSecretKey(
 
 /**
  * Resolve the WhatsApp Cloud API access token.
- * Priority: secrets.whatsapp_access_token → env WHATSAPP_ACCESS_TOKEN → throw.
+ * Priority: app_secrets[WHATSAPP_ACCESS_TOKEN] → secrets.whatsapp_access_token → env WHATSAPP_ACCESS_TOKEN → throw.
  * Rotation-capable via the in-app Settings UI.
  */
 export async function getWhatsAppAccessToken(
   db: ReturnType<typeof getDb>,
 ): Promise<string> {
+  const fromApp = await readAppSecretByKey("WHATSAPP_ACCESS_TOKEN", db);
+  if (fromApp) return fromApp;
   const fromDb = await readSecret("whatsapp_access_token", db);
   if (fromDb) return fromDb;
   const env = getEnv();
   if (env.WHATSAPP_ACCESS_TOKEN) return env.WHATSAPP_ACCESS_TOKEN;
   throw new Error(
-    "No WhatsApp access token available — neither secrets.whatsapp_access_token nor env WHATSAPP_ACCESS_TOKEN is set",
+    "No WhatsApp access token available — neither app_secrets[WHATSAPP_ACCESS_TOKEN] nor secrets.whatsapp_access_token nor env WHATSAPP_ACCESS_TOKEN is set",
   );
 }
 
 /**
  * Resolve the WhatsApp phone number ID.
- * Priority: secrets.whatsapp_phone_number_id → env WHATSAPP_PHONE_NUMBER_ID → throw.
+ * Priority: app_secrets[WHATSAPP_PHONE_NUMBER_ID] → secrets.whatsapp_phone_number_id → env WHATSAPP_PHONE_NUMBER_ID → throw.
  */
 export async function getWhatsAppPhoneNumberId(
   db: ReturnType<typeof getDb>,
 ): Promise<string> {
+  const fromApp = await readAppSecretByKey("WHATSAPP_PHONE_NUMBER_ID", db);
+  if (fromApp) return fromApp;
   const fromDb = await readSecret("whatsapp_phone_number_id", db);
   if (fromDb) return fromDb;
   const env = getEnv();
   if (env.WHATSAPP_PHONE_NUMBER_ID) return env.WHATSAPP_PHONE_NUMBER_ID;
   throw new Error(
-    "No WhatsApp phone number ID available — neither secrets.whatsapp_phone_number_id nor env WHATSAPP_PHONE_NUMBER_ID is set",
+    "No WhatsApp phone number ID available — neither app_secrets[WHATSAPP_PHONE_NUMBER_ID] nor secrets.whatsapp_phone_number_id nor env WHATSAPP_PHONE_NUMBER_ID is set",
   );
 }
 
@@ -121,30 +126,34 @@ export async function getWhatsAppBusinessAccountId(
 
 /**
  * Resolve the MYÜTIK API key used for template-sync (WA-08 repoint).
- * Priority: secrets.myutik_api_key → env MYUTIK_API_KEY → throw.
+ * Priority: app_secrets[MYUTIK_API_KEY] → secrets.myutik_api_key → env MYUTIK_API_KEY → throw.
  * Rotation-capable via the in-app Settings UI.
  */
 export async function getMyutikApiKey(
   db: ReturnType<typeof getDb>,
 ): Promise<string> {
+  const fromApp = await readAppSecretByKey("MYUTIK_API_KEY", db);
+  if (fromApp) return fromApp;
   const fromDb = await readSecret("myutik_api_key", db);
   if (fromDb) return fromDb;
   const env = getEnv();
   if (env.MYUTIK_API_KEY) return env.MYUTIK_API_KEY;
   throw new Error(
-    "No MYÜTIK API key available — neither secrets.myutik_api_key nor env MYUTIK_API_KEY is set",
+    "No MYÜTIK API key available — neither app_secrets[MYUTIK_API_KEY] nor secrets.myutik_api_key nor env MYUTIK_API_KEY is set",
   );
 }
 
 /**
  * Resolve the MYÜTIK phone number ID used to scope template lookups.
- * Priority: secrets.myutik_phone_number_id → env MYUTIK_PHONE_NUMBER_ID
- *           → env WHATSAPP_PHONE_NUMBER_ID (required, never absent).
+ * Priority: app_secrets[MYUTIK_PHONE_NUMBER_ID] → secrets.myutik_phone_number_id
+ *           → env MYUTIK_PHONE_NUMBER_ID → env WHATSAPP_PHONE_NUMBER_ID (required, never absent).
  * Never throws — falls through to the required WhatsApp phone number env var.
  */
 export async function getMyutikPhoneNumberId(
   db: ReturnType<typeof getDb>,
 ): Promise<string> {
+  const fromApp = await readAppSecretByKey("MYUTIK_PHONE_NUMBER_ID", db);
+  if (fromApp) return fromApp;
   const fromDb = await readSecret("myutik_phone_number_id", db);
   if (fromDb) return fromDb;
   const env = getEnv();
