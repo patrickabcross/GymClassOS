@@ -2,15 +2,12 @@ import type { PgBoss } from "pg-boss";
 import { getDb } from "../lib/db.js";
 import { getLogger } from "../lib/logger.js";
 import { syncWhatsAppTemplates } from "../domain/syncTemplates.js";
-import {
-  getWhatsAppAccessToken,
-  getWhatsAppBusinessAccountId,
-} from "../lib/secrets.js";
+import { getMyutikApiKey, getMyutikPhoneNumberId } from "../lib/secrets.js";
 
 const TEMPLATES_SYNC_QUEUE = "templates-sync";
 
 /**
- * WA-08: Daily housekeeping cron for WhatsApp template metadata sync.
+ * WA-08: Daily housekeeping cron for WhatsApp template metadata sync via MYÜTIK.
  *
  * Registers two things, in this order:
  *   1. `boss.work('templates-sync', handler)` — the consumer that pulls
@@ -21,10 +18,10 @@ const TEMPLATES_SYNC_QUEUE = "templates-sync";
  *      — the cron schedule. pg-boss singleton guarantees only one tick
  *      fires across all worker replicas in the same Postgres database.
  *
- * If WHATSAPP_BUSINESS_ACCOUNT_ID is not configured in env, the handler
- * logs a warning and returns — worker still boots cleanly. The schedule
- * is registered either way so flipping the env var on is a single env-only
- * change (no code redeploy).
+ * If the MYÜTIK API key is not configured (no secrets.myutik_api_key and no
+ * MYUTIK_API_KEY env var), the handler logs a warning and returns — worker
+ * still boots cleanly. The schedule is registered either way so setting the
+ * key later is a zero-redeploy change.
  */
 export async function registerHousekeeping(boss: PgBoss): Promise<void> {
   const log = getLogger();
@@ -32,18 +29,23 @@ export async function registerHousekeeping(boss: PgBoss): Promise<void> {
   // Register the consumer FIRST so the schedule has a claim destination.
   await boss.work(TEMPLATES_SYNC_QUEUE, async () => {
     const db = getDb();
-    const wabaId = await getWhatsAppBusinessAccountId(db);
-    if (!wabaId) {
+    let apiKey: string | undefined;
+    try {
+      apiKey = await getMyutikApiKey(db);
+    } catch {
+      /* unconfigured */
+    }
+    if (!apiKey) {
       log.warn(
-        "[templates-sync] whatsapp_business_account_id not configured; skipping. " +
-          "Save it via the in-app Settings → Integrations or set WHATSAPP_BUSINESS_ACCOUNT_ID " +
-          "as a Fly secret to enable nightly Meta template sync.",
+        "[templates-sync] MYÜTIK API key not configured; skipping. " +
+          "Save it via the in-app Settings → API Keys (secrets.myutik_api_key) " +
+          "or set MYUTIK_API_KEY as a Fly secret to enable nightly template sync.",
       );
       return;
     }
+    const phoneNumberId = await getMyutikPhoneNumberId(db);
     try {
-      const accessToken = await getWhatsAppAccessToken(db);
-      const result = await syncWhatsAppTemplates(accessToken, wabaId, db);
+      const result = await syncWhatsAppTemplates(apiKey, phoneNumberId, db);
       log.info(result, "[templates-sync] completed");
     } catch (err) {
       log.error({ err }, "[templates-sync] failed — will retry next cron tick");
