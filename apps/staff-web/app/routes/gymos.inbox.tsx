@@ -49,6 +49,7 @@ import {
   IconInbox,
 } from "@tabler/icons-react";
 import { getDb, schema } from "../../server/db";
+import { readAppSecretByKey } from "../../server/lib/app-secrets";
 import { enqueueOutboundWhatsApp } from "@/lib/queue-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -365,6 +366,105 @@ export async function action({ request }: ActionFunctionArgs) {
   const formData = await request.formData();
   const intent = String(formData.get("_intent") ?? "send-text");
   const conversationId = String(formData.get("conversationId") ?? "");
+
+  // ─── sync-templates branch (260608-gn1 / WA-08 on-demand) ──────────────────
+  //
+  // Pulls approved templates from MYÜTIK into whatsapp_templates on demand.
+  // No conversationId required — runs before the conversationId guard below.
+  if (intent === "sync-templates") {
+    try {
+      const apiKey = await readAppSecretByKey("MYUTIK_API_KEY");
+      if (!apiKey) {
+        return {
+          syncResult: {
+            ok: false,
+            error:
+              "No MYÜTIK API key configured — add it in Settings → API Keys",
+          },
+        };
+      }
+      const phoneNumberId =
+        (await readAppSecretByKey("MYUTIK_PHONE_NUMBER_ID")) ??
+        "302631896256150";
+
+      const baseUrl = new URL(
+        "https://myutik.com/api/channels/whatsapp/templates",
+      );
+      baseUrl.searchParams.set("phoneNumberId", phoneNumberId);
+      baseUrl.searchParams.set("limit", "200");
+
+      const db = getDb();
+      let synced = 0;
+      let after: string | undefined;
+      for (let page = 0; page < 20; page++) {
+        const url = new URL(baseUrl.toString());
+        if (after) url.searchParams.set("after", after);
+        const res = await fetch(url.toString(), {
+          headers: { "x-api-key": apiKey },
+        });
+        if (!res.ok) {
+          return { syncResult: { ok: false, error: `MYÜTIK ${res.status}` } };
+        }
+        const json = (await res.json()) as {
+          templates?: Array<{
+            name: string;
+            status: string;
+            category?: string | null;
+            language?: string;
+            components?: unknown;
+          }>;
+          paging?: { next?: string | null };
+        };
+        const rows = json.templates ?? [];
+        for (const tpl of rows) {
+          // guard:allow-unscoped — single-tenant; templates are studio-wide
+          await db
+            .insert(schema.whatsappTemplates)
+            .values({
+              name: tpl.name,
+              status: tpl.status.toLowerCase() as any,
+              category: (tpl.category
+                ? tpl.category.toLowerCase()
+                : null) as any,
+              language: tpl.language ?? "en_US",
+              componentsJson: JSON.stringify({
+                components: tpl.components ?? [],
+              }),
+              lastSyncedAt: new Date().toISOString(),
+            })
+            .onConflictDoUpdate({
+              target: schema.whatsappTemplates.name,
+              set: {
+                status: tpl.status.toLowerCase() as any,
+                category: (tpl.category
+                  ? tpl.category.toLowerCase()
+                  : null) as any,
+                language: tpl.language ?? "en_US",
+                componentsJson: JSON.stringify({
+                  components: tpl.components ?? [],
+                }),
+                lastSyncedAt: new Date().toISOString(),
+              },
+            });
+          synced += 1;
+        }
+        const next = json.paging?.next;
+        if (next) after = next;
+        else break;
+      }
+      return { syncResult: { ok: true, synced } };
+    } catch (err) {
+      return {
+        syncResult: {
+          ok: false,
+          error:
+            err instanceof Error
+              ? `Couldn't update templates: ${err.message}`
+              : "Couldn't update templates",
+        },
+      };
+    }
+  }
 
   if (!conversationId) {
     return { error: "Missing conversation" };
