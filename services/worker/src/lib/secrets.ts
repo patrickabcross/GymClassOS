@@ -118,3 +118,37 @@ export async function getWhatsAppBusinessAccountId(
   const env = getEnv();
   return env.WHATSAPP_BUSINESS_ACCOUNT_ID ?? null;
 }
+
+/**
+ * Resolve the MYÜTIK API key used for template-sync (WA-08 repoint).
+ * Priority: secrets.myutik_api_key → env MYUTIK_API_KEY → throw.
+ * Rotation-capable via the in-app Settings UI.
+ */
+export async function getMyutikApiKey(
+  db: ReturnType<typeof getDb>,
+): Promise<string> {
+  const fromDb = await readSecret("myutik_api_key", db);
+  if (fromDb) return fromDb;
+  const env = getEnv();
+  if (env.MYUTIK_API_KEY) return env.MYUTIK_API_KEY;
+  throw new Error(
+    "No MYÜTIK API key available — neither secrets.myutik_api_key nor env MYUTIK_API_KEY is set",
+  );
+}
+
+/**
+ * Resolve the MYÜTIK phone number ID used to scope template lookups.
+ * Priority: secrets.myutik_phone_number_id → env MYUTIK_PHONE_NUMBER_ID
+ *           → env WHATSAPP_PHONE_NUMBER_ID (required, never absent).
+ * Never throws — falls through to the required WhatsApp phone number env var.
+ */
+export async function getMyutikPhoneNumberId(
+  db: ReturnType<typeof getDb>,
+): Promise<string> {
+  const fromDb = await readSecret("myutik_phone_number_id", db);
+  if (fromDb) return fromDb;
+  const env = getEnv();
+  if (env.MYUTIK_PHONE_NUMBER_ID) return env.MYUTIK_PHONE_NUMBER_ID;
+  // WHATSAPP_PHONE_NUMBER_ID is a required env var — always present.
+  return env.WHATSAPP_PHONE_NUMBER_ID;
+}

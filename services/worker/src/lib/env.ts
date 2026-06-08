@@ -20,6 +20,12 @@ const EnvSchema = z.object({
   // post-cutover RUNBOOK.
   WHATSAPP_BUSINESS_ACCOUNT_ID: z.string().min(4).optional(),
 
+  // MYÜTIK template-sync path (WA-08 repoint — 260608-fb8).
+  // Optional: absence means no DB row AND no env var; the templates-sync
+  // handler logs a warning and returns cleanly (worker still boots).
+  MYUTIK_API_KEY: z.string().min(8).optional(),
+  MYUTIK_PHONE_NUMBER_ID: z.string().min(4).optional(),
+
   // Stripe (Plan 07 reducers)
   STRIPE_SECRET_KEY: z
     .string()
