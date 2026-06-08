@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: "Completed quick-260608-g74: worker reads credentials from app_secrets (readAppSecretByKey + 4 resolver layers)"
-last_updated: "2026-06-08T10:47:50.318Z"
-last_activity: "2026-06-08 - Completed quick task 260608-fb8: repointed worker templates-sync cron from Meta Graph to the MYÜTIK Template Extract API (verified read key live, 200 OK). Worker now resolves MYÜTIK key + phoneNumberId, paginates, and lowercases status for templateGate. Needs `fly secrets set MYUTIK_API_KEY` + worker redeploy to go live"
+stopped_at: "Completed quick-260608-gn1: Update templates button in inbox TemplatesDialog + sync-templates action + worker componentsJson shape fix"
+last_updated: "2026-06-08T11:11:13.753Z"
+last_activity: "2026-06-08 - Completed quick task 260608-g74: worker now reads credentials from the framework `app_secrets` table (paste-once-in-UI), preferring it over the pgcrypto secrets table + env via a new `readAppSecretByKey` (local AES-256-GCM decrypt). Layered into the MYÜTIK + WhatsApp resolvers; backwards-compatible. Activate by setting shared `BETTER_AUTH_SECRET` as a Fly secret on the worker + redeploy. (Prior: fb8 repointed templates-sync to MYÜTIK)"
 progress:
   total_phases: 13
   completed_phases: 1
@@ -253,8 +253,8 @@ None tracked as TODOs; everything is in the roadmap / requirements.
 
 ## Session Continuity
 
-Last session: 2026-06-08T10:47:44.027Z
-Stopped at: Completed quick-260608-g74: worker reads credentials from app_secrets (readAppSecretByKey + 4 resolver layers)
+Last session: 2026-06-08T11:11:13.712Z
+Stopped at: Completed quick-260608-gn1: Update templates button in inbox TemplatesDialog + sync-templates action + worker componentsJson shape fix
 Resume file: None
 
 ### ▶ PICK UP HERE — 2026-06-04 EOD
