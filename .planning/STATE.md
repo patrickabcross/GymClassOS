@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: "WhatsApp templates blocker diagnosed — going via MYÜTIK. Inbox send-404 fixed (needs Vercel redeploy); MYÜTIK templates endpoint specced for their dev. P3 Waves 1-4 done, Wave 5 e2e-smoke at checkpoint"
-last_updated: "2026-06-07"
-last_activity: 2026-06-07 - Fixed inbox send 404 ([...page].post.ts); diagnosed templates = stale demo data + Meta token lacks whatsapp scope (403 on real WABA 115640014972621); specced MYÜTIK templates endpoint
+stopped_at: "Completed quick-260608-g74: worker reads credentials from app_secrets (readAppSecretByKey + 4 resolver layers)"
+last_updated: "2026-06-08T10:47:50.318Z"
+last_activity: "2026-06-08 - Completed quick task 260608-fb8: repointed worker templates-sync cron from Meta Graph to the MYÜTIK Template Extract API (verified read key live, 200 OK). Worker now resolves MYÜTIK key + phoneNumberId, paginates, and lowercases status for templateGate. Needs `fly secrets set MYUTIK_API_KEY` + worker redeploy to go live"
 progress:
   total_phases: 13
   completed_phases: 1
@@ -185,6 +185,7 @@ Decisions are logged in `PROJECT.md` Key Decisions table. Recent ones affecting 
 - [Phase P3-ai-noticeboard-home]: useSectionMetric calls all 4 metric hooks unconditionally then switches by section param (React rules of hooks)
 - [Phase P3-ai-noticeboard-home]: BoardCard receives full proposals array and filters internally by actionName — avoids parent knowing card-to-proposal mapping
 - [Phase P3-ai-noticeboard-home]: AlertDialog gate for send-template-to-members proposals; direct approve for create-checkout-link (reversible)
+- [Phase quick-260608-g74]: Worker reimplements AES-256-GCM decrypt locally (no @agent-native/core dep); readAppSecretByKey returns null on any failure; app_secrets is now first source in 4 resolvers with existing pgcrypto+env fallbacks intact
 
 ### Pending Todos
 
@@ -251,8 +252,8 @@ None tracked as TODOs; everything is in the roadmap / requirements.
 
 ## Session Continuity
 
-Last session: 2026-06-04 (EOD)
-Stopped at: WhatsApp inbound via MYÜTIK live — deployed + DB-validated; awaiting one real re-test. P3 execution: Waves 1-4 done, Wave 5 (e2e-smoke) at checkpoint.
+Last session: 2026-06-08T10:47:44.027Z
+Stopped at: Completed quick-260608-g74: worker reads credentials from app_secrets (readAppSecretByKey + 4 resolver layers)
 Resume file: None
 
 ### ▶ PICK UP HERE — 2026-06-04 EOD
@@ -270,20 +271,24 @@ fj3 / nwb / op8). All deployed to Fly `gymos-edge-webhooks` via
 
 **THE ONE NEXT STEP:** send a fresh inbound from a real phone via MYÜTIK, then verify
 the chain landed:
+
 - `SELECT id, conversation_id, direction, status, left(body,40), created_at FROM messages ORDER BY created_at DESC LIMIT 5;` → a new `direction='in'` row
 - the sender's conversation now `status='open'` (promote-on-inbound)
 - pg-boss job `completed`: `SELECT name, state, retry_count, created_on FROM pgboss.job WHERE name='inbound-whatsapp' ORDER BY created_on DESC LIMIT 5;`
 - message appears in `/gymos/inbox` (Vercel staff-web)
 
 **Critical facts for resume:**
+
 - MYÜTIK must sign with the **app secret** `whatsapp_app_secret` =
   `c36d2e8392ec5ab62c00e5859fbda05e` (sha256[:12]=`bac2db3b957c`) — NOT the verify
   token (`gymos_wa_verify…vb7`). That mix-up was the `401 Bad signature` earlier.
   The handler resolves it DB-first from `secrets.whatsapp_app_secret`.
+
 - Inbound `from` must be E.164 **digits, no `+`** (worker adds `+`, matches `gym_members.phoneE164`).
 - Self-test (inside the machine, signs with the handler's resolved secret) — reuse
   the `fly ssh console -a gymos-edge-webhooks -C "... node --input-type=module"`
   pattern from quick task fj3/nwb/op8 summaries.
+
 - Neon project `gymos-demo` id `billowing-sun-51091059`. Timestamps stored as TEXT
   (ISO) — sort/compare lexicographically or cast `::timestamptz`.
 
@@ -291,6 +296,7 @@ the chain landed:
 and were never stored. Only NEW inbound after today's deploy will land.
 
 **Optional housekeeping (low priority):**
+
 - Stale `unread_count=12` on lead conversation `QQlzCss2O_L-c9dMbUM-g` — reset to real count.
 - Two identical partial unique indexes on `messages.external_id`
   (`idx_messages_external_id` + `messages_external_id_unique`) — drop one (non-destructive).
@@ -314,6 +320,7 @@ a note/task, propose→approve→**gate proof** `NO_OPT_IN`, reject, "proposed n
 transcript). Full walkthrough + Neon verification queries are in
 `.planning/phases/P3-ai-noticeboard-home/P3-ai-noticeboard-E2E-RESULTS.md` and the
 07 plan. Report `board-verified` / `e2e-passed` → finalize E2E-RESULTS + run verifier
+
 + `phase complete`. Resume with `/gsd:execute-phase P3` (skips the 6 done plans).
 
 ### Resume Notes — Next Session Quick-Start (P1c — older, still valid)
