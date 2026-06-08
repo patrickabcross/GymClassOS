@@ -64,6 +64,23 @@ describe("syncWhatsAppTemplates (WA-08, MYÜTIK)", () => {
     // Status must be lowercased so templateGate's status='approved' filter matches.
     expect(firstSql).toContain("approved");
     expect(firstSql).not.toContain("APPROVED");
+    // componentsJson must be object-wrapped so the dialog parser
+    // (JSON.parse(componentsJson).components) and seed shape match.
+    // Drizzle inlines bound params as string chunks in queryChunks; the
+    // serialized sql object will contain the escaped object wrapper.
+    const call0 = executeMock.mock.calls[0][0] as any;
+    // Find the components_json bound value among the queryChunks params.
+    const chunks: unknown[] = call0?.queryChunks ?? [];
+    const componentsBound = chunks.find(
+      (c) =>
+        typeof c === "string" && c.startsWith("{") && c.includes("components"),
+    );
+    expect(componentsBound).toBeDefined();
+    // Confirm the value round-trips to the object-wrapped shape.
+    const parsed = JSON.parse(componentsBound as string) as {
+      components: unknown[];
+    };
+    expect(parsed).toEqual({ components: [] });
   });
 
   it("upserts each template and returns correct synced count", async () => {

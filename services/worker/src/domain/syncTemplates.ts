@@ -67,7 +67,7 @@ export async function syncWhatsAppTemplates(
           ${tpl.status.toLowerCase()},
           ${tpl.category ?? null},
           ${tpl.language ?? "en_US"},
-          ${JSON.stringify(tpl.components ?? [])},
+          ${JSON.stringify({ components: tpl.components ?? [] })},
           NOW()
         )
         ON CONFLICT (name) DO UPDATE
