@@ -27,10 +27,15 @@
 // approval to land), wrap the left-pane list in shadcn `<Skeleton>` rows
 // (h-8 w-full, 3 rows) per the UI-SPEC contract.
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useFetcher } from "react-router";
-import { IconTemplate, IconRefresh } from "@tabler/icons-react";
+import {
+  IconTemplate,
+  IconRefresh,
+  IconMessageChatbot,
+} from "@tabler/icons-react";
 import { toast } from "sonner";
+import { sendToAgentChat, agentNativePath } from "@agent-native/core/client";
 import {
   Dialog,
   DialogContent,
@@ -62,6 +67,9 @@ export type TemplatesDialogProps = {
   conversationId: string;
   templates: TemplateRow[];
   hasOptIn: boolean;
+  // Compact open-conversation member context the agent maps onto {{N}} slots.
+  // Optional so the component compiles standalone; the inbox loader wires it.
+  memberContext?: Record<string, unknown>;
 };
 
 type ComponentBlock = {
@@ -105,10 +113,49 @@ function renderPreview(bodyText: string, vars: Record<string, string>): string {
   );
 }
 
+// ─── AI auto-fill application_state bridge ────────────────────────────────────
+//
+// The agent (delegated to via sendToAgentChat) writes its suggested {{N}} map
+// back through the suggest-template-vars action -> writeAppState under this key.
+// We poll the key here and merge the suggestion into inputs the coach has not
+// already typed into. Mirrors templates/clips/app/hooks/use-auto-title.ts
+// readRequest/clearRequest (the stored value is wrapped under `.value`).
+
+function stateKey(conversationId: string, templateName: string): string {
+  return `gymos-template-vars-${conversationId}-${templateName}`;
+}
+
+async function readVars(key: string): Promise<Record<string, string> | null> {
+  const url = agentNativePath(
+    `/_agent-native/application-state/${encodeURIComponent(key)}`,
+  );
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const payload = await res.json().catch(() => null);
+    if (!payload || typeof payload !== "object") return null;
+    // The application-state endpoint wraps stored values under `.value`.
+    const value = (payload as any).value ?? payload;
+    const parsed = typeof value === "string" ? JSON.parse(value) : value;
+    if (!parsed || typeof parsed !== "object") return null;
+    return parsed as Record<string, string>;
+  } catch {
+    return null;
+  }
+}
+
+async function clearVars(key: string): Promise<void> {
+  const url = agentNativePath(
+    `/_agent-native/application-state/${encodeURIComponent(key)}`,
+  );
+  await fetch(url, { method: "DELETE" }).catch(() => {});
+}
+
 export function TemplatesDialog({
   conversationId,
   templates,
   hasOptIn,
+  memberContext,
 }: TemplatesDialogProps) {
   const fetcher = useFetcher();
   const syncFetcher = useFetcher();
@@ -116,6 +163,11 @@ export function TemplatesDialog({
   const [open, setOpen] = useState(false);
   const [selectedName, setSelectedName] = useState<string | null>(null);
   const [vars, setVars] = useState<Record<string, string>>({});
+  // AI auto-fill state: `filling` drives the inline indicator + poll loop;
+  // `dispatched` makes the delegation fire exactly once per
+  // (conversationId, templateName) per dialog session (mirrors use-auto-title).
+  const [filling, setFilling] = useState(false);
+  const dispatched = useRef<Set<string>>(new Set());
 
   const selected = selectedName
     ? (templates.find((t) => t.name === selectedName) ?? null)
@@ -143,12 +195,46 @@ export function TemplatesDialog({
   const resetState = () => {
     setSelectedName(null);
     setVars({});
+    setFilling(false);
   };
 
   const handleSelect = (name: string, status: string) => {
     if (status !== "approved") return; // disabled rows are not selectable
     setSelectedName(name);
     setVars({});
+
+    // ─── AI auto-fill trigger (Six Rules #2 — delegate to the agent chat) ──
+    // Only when the freshly-selected approved template has >=1 {{N}} variable
+    // and the loader gave us member context. Fire the background delegation
+    // exactly once per (conversationId, templateName) per dialog session.
+    const selectedTemplate = templates.find((t) => t.name === name);
+    if (!selectedTemplate || !memberContext) return;
+    const variableSlots = extractVariables(selectedTemplate.componentsJson);
+    if (variableSlots.length === 0) return;
+
+    const dispatchKey = `${conversationId}:${name}`;
+    if (dispatched.current.has(dispatchKey)) return;
+    dispatched.current.add(dispatchKey);
+
+    setFilling(true);
+    sendToAgentChat({
+      message:
+        "Auto-fill the WhatsApp template variables for the open conversation. " +
+        "Map each {{N}} slot to the right value from the member context and template body, " +
+        'then call the suggest-template-vars action with conversationId, templateName, and a vars map ({"1":"..."}). ' +
+        "Do NOT send anything — the coach reviews and sends.",
+      context: JSON.stringify({
+        conversationId,
+        templateName: name,
+        templateBody: getBodyText(selectedTemplate.componentsJson),
+        variableSlots,
+        memberContext,
+      }),
+      submit: true,
+      openSidebar: false,
+      newTab: true,
+      background: true,
+    });
   };
 
   const handleSend = () => {
@@ -195,6 +281,40 @@ export function TemplatesDialog({
     }
   }, [syncFetcher.data, syncFetcher.state]);
 
+  // ─── Poll for the agent's suggested vars ──────────────────────────────────
+  // While `filling` is true and a template is selected, poll the
+  // application_state key the suggest-template-vars action writes to. When it
+  // lands, merge ONLY into slots the coach hasn't typed into, then clear the
+  // key so it doesn't re-fire on the next open.
+  useEffect(() => {
+    if (!filling || !selectedName) return;
+    let cancelled = false;
+    const key = stateKey(conversationId, selectedName);
+
+    const tick = async () => {
+      if (cancelled) return;
+      const incoming = await readVars(key);
+      if (cancelled || !incoming) return;
+      setVars((prev) => {
+        const next = { ...prev };
+        for (const [k, v] of Object.entries(incoming)) {
+          // Never clobber a value the coach has already typed.
+          if (!(next[k] && next[k].trim().length > 0)) next[k] = v;
+        }
+        return next;
+      });
+      setFilling(false);
+      void clearVars(key);
+    };
+
+    void tick();
+    const handle = setInterval(tick, 2500);
+    return () => {
+      cancelled = true;
+      clearInterval(handle);
+    };
+  }, [filling, selectedName, conversationId]);
+
   const handleDiscard = () => {
     setOpen(false);
     resetState();
@@ -202,7 +322,13 @@ export function TemplatesDialog({
 
   const handleOpenChange = (next: boolean) => {
     setOpen(next);
-    if (!next) resetState();
+    if (!next) {
+      // Clear the pending suggestion key for the open selection (if any) and
+      // reset the once-per-session dispatch guard so reopening re-fires.
+      if (selectedName) void clearVars(stateKey(conversationId, selectedName));
+      dispatched.current.clear();
+      resetState();
+    }
   };
 
   return (
@@ -325,6 +451,17 @@ export function TemplatesDialog({
                 <div className="text-sm font-semibold truncate">
                   {selected.name}
                 </div>
+
+                {filling && variables.length > 0 && (
+                  <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                    <IconMessageChatbot
+                      size={13}
+                      aria-hidden
+                      className="animate-pulse"
+                    />
+                    Filling with AI…
+                  </div>
+                )}
 
                 {variables.length === 0 ? (
                   <div className="text-[12px] text-muted-foreground">
