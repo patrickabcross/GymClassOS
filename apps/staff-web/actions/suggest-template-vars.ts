@@ -24,7 +24,10 @@ export default defineAction({
   run: async ({ conversationId, templateName, vars }) => {
     const key = `gymos-template-vars-${conversationId}-${templateName}`;
     // guard:allow-unscoped — single-tenant gym deploy; application_state is framework-scoped, no ownable gym table touched
-    await writeAppState(key, JSON.stringify(vars));
+    // Pass the object directly — writeAppState JSON.stringifies internally (see
+    // application-state/store.ts appStatePut). Pre-stringifying here would
+    // double-encode the value.
+    await writeAppState(key, vars);
     return { ok: true, key, count: Object.keys(vars).length };
   },
 });
