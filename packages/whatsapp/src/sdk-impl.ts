@@ -72,10 +72,27 @@ export async function sendTemplate(
   creds?: WhatsAppCreds,
 ): Promise<SendResult> {
   const validated = SendTemplateSchema.parse(args);
-  const components = Object.values(validated.vars).map((v) => ({
-    type: "body" as const,
-    parameters: [{ type: "text" as const, text: v }],
-  }));
+  // WhatsApp expects a SINGLE body component whose `parameters` array holds the
+  // {{1}}, {{2}}, ... values in order — NOT one body component per variable
+  // (that yields Meta error #132000 "number of parameters does not match").
+  // vars is keyed by the placeholder number ("1","2",...), so sort numerically
+  // before mapping to positional parameters. Templates with no vars send no
+  // components at all.
+  const orderedValues = Object.entries(validated.vars)
+    .sort(([a], [b]) => Number(a) - Number(b))
+    .map(([, v]) => v);
+  const components =
+    orderedValues.length > 0
+      ? [
+          {
+            type: "body" as const,
+            parameters: orderedValues.map((v) => ({
+              type: "text" as const,
+              text: v,
+            })),
+          },
+        ]
+      : [];
   const sdk = getSdk(creds?.accessToken);
   const result = await sdk.message
     .createMessage({
