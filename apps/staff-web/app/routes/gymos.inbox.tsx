@@ -890,6 +890,20 @@ export default function GymosInbox() {
                   conversationId={data.selectedConversation.id}
                   templates={data.templates}
                   hasOptIn={selectedHasOptIn}
+                  memberContext={
+                    data.selectedMember
+                      ? {
+                          firstName: data.selectedMember.firstName,
+                          lastName: data.selectedMember.lastName,
+                          passBalance: data.memberStats?.passBalance,
+                          passProduct: data.memberStats?.passProduct,
+                          passExpiresAt: data.memberStats?.passExpiresAt,
+                          lifetimeBookings: data.memberStats?.lifetimeBookings,
+                          nextClassName: data.upcomingBooking?.className,
+                          nextClassStartsAt: data.upcomingBooking?.startsAt,
+                        }
+                      : undefined
+                  }
                 />
                 <Button type="submit" disabled={!canSendText || !reply.trim()}>
                   Send
