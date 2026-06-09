@@ -1,6 +1,26 @@
-# WhatsApp Send/Receive — Handoff (updated 2026-06-07 EOD)
+# WhatsApp Send/Receive — Handoff (updated 2026-06-09 EOD)
 
 **Goal:** send AND receive WhatsApp messages in the GymClassOS `/gymos` inbox.
+
+---
+
+## 2026-06-09 EOD — OUTBOUND SEND REWIRED TO MYÜTIK + DEPLOYED (pick up here)
+
+**TL;DR for morning:** The send path is now wired to MYÜTIK and **deployed to the Fly worker**. The one thing left is to **send a fresh template from the inbox and confirm it actually arrives** — everything upstream is green.
+
+**What got done today:**
+1. **AI auto-fill of template variables (shipped, working in prod).** Selecting an approved template in the inbox Templates dialog now auto-fills its `{{N}}` variables from the open conversation's member context, via the agent chat. New `apps/staff-web/actions/suggest-template-vars.ts` (pure write-back to `application_state`, no LLM in the action — the agent reasons and calls it). The delegation sends to the **active** chat thread (an earlier `newTab`+`background` version created a ghost thread that never ran — see commit `0a5b48e1`). `ANTHROPIC_API_KEY` is confirmed set in staff-web's Vercel env. Quick task `260609-fcm`.
+2. **Diagnosed why sends weren't arriving.** A real send queued fine, the worker picked it up, but **Meta rejected it**: `code 100 / subcode 33 "Object 302631896256150 … missing permissions"` (from `pgboss.job.output`). Confirms the GymClassOS Meta app/token can't send on that number — exactly the wiring block, now proven for outbound too. (Also found + fixed a multi-var bug: the template builder emitted one `body` component per var instead of one with all params — commit `2eb3794a`.)
+3. **Rewired ALL outbound sends through MYÜTIK (quick task `260609-qe9`, deployed).** New `services/worker/src/domain/sendViaMyutik.ts` POSTs `https://myutik.com/api/channels/whatsapp/send` (`x-api-key` + `phoneNumberId`). `services/worker/src/domain/sendMessage.ts` rewired so `sendViaMyutik` is the **sole** send call site — the `@gymos/whatsapp` direct-Meta path is gone. Compliance gates (opt-in / 24h window / template-approved) and the message status machine are unchanged. Status mapping: 4xx (400/404/409) → terminal `failed`; 502/no-wamid → pg-boss retry; success stores `wamid` (`result.messages[0].id`) as `external_id`. 79/79 worker tests + `tsc` green.
+   - **Deployed:** `flyctl deploy --config services/edge-webhooks/fly.toml` — `gymos-edge-webhooks` web + worker machines rolled healthy. The live worker now sends via MYÜTIK.
+   - **API key:** user confirmed the stored `MYUTIK_API_KEY` has **all** permissions (incl. `whatsapp:send`) — activation step cleared.
+
+**MYÜTIK `/send` contract (for reference):** body `{ to (E.164 ±+), phoneNumberId, text | (templateName + templateLanguage + templateComponents) }`; `200 { sent, type, conversationId, result }` (wamid at `result.messages[0].id`); `400` bad request; `404` pid-not-owned; `409 { error, requiresTemplate:true }` (window closed, text-only); `502` Meta send failed. Account resolved from the key — no Meta token passed.
+
+**NEXT (morning):**
+- Send a **fresh** template from `/gymos/inbox` (the earlier stuck row `msg_3BZURB4eTF35XrQvhKija` will NOT resend — its pg-boss job already exhausted retries on the old Meta path; it stays `queued`).
+- Verify in `gymos-demo` Neon (`billowing-sun-51091059`): the new `messages` row reaches `status='sent'` with `external_id` populated, and the `pgboss.job` (`outbound-whatsapp`) is `completed`. And confirm it lands on the phone.
+- If it fails, MYÜTIK's error now flows into `messages.error_code` — read it there (or `pgboss.job.output`).
 
 ---
 
