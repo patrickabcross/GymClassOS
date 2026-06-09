@@ -286,15 +286,31 @@ export function TemplatesDialog({
   // application_state key the suggest-template-vars action writes to. When it
   // lands, merge ONLY into slots the coach hasn't typed into, then clear the
   // key so it doesn't re-fire on the next open.
+  //
+  // The delegation can silently never write back — the agent thread might not
+  // run, the action might not be deployed yet, or the agent declines to call
+  // it. We MUST NOT spin forever: after FILL_TIMEOUT_MS give up, drop the
+  // indicator, and let the coach fill the fields manually. Degrading to manual
+  // entry is the pre-existing behaviour, so the fallback is safe.
   useEffect(() => {
     if (!filling || !selectedName) return;
     let cancelled = false;
     const key = stateKey(conversationId, selectedName);
+    const startedAt = Date.now();
+    const POLL_INTERVAL_MS = 2500;
+    const FILL_TIMEOUT_MS = 30000;
 
     const tick = async () => {
       if (cancelled) return;
       const incoming = await readVars(key);
-      if (cancelled || !incoming) return;
+      if (cancelled) return;
+      if (!incoming) {
+        // Give up after the timeout so the spinner can't hang indefinitely.
+        if (Date.now() - startedAt >= FILL_TIMEOUT_MS) {
+          setFilling(false);
+        }
+        return;
+      }
       setVars((prev) => {
         const next = { ...prev };
         for (const [k, v] of Object.entries(incoming)) {
@@ -308,7 +324,7 @@ export function TemplatesDialog({
     };
 
     void tick();
-    const handle = setInterval(tick, 2500);
+    const handle = setInterval(tick, POLL_INTERVAL_MS);
     return () => {
       cancelled = true;
       clearInterval(handle);
