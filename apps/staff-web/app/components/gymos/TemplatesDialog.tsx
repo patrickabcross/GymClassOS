@@ -217,6 +217,15 @@ export function TemplatesDialog({
     dispatched.current.add(dispatchKey);
 
     setFilling(true);
+    // Send to the ACTIVE chat thread, not a new background tab. A `newTab`
+    // thread is created client-side only (use-chat-threads.ts createThread does
+    // NOT POST — the server row is created lazily on first message send). With
+    // `background:true` we immediately switch away, so that thread's <Chat>
+    // never mounts, its ref never registers, the queued message in pendingSends
+    // never sends, the agent never runs, and the thread 404s forever. The
+    // active thread is always mounted, so it actually runs the turn. We open the
+    // sidebar so the coach sees the fill happen (and the active <Chat> is
+    // guaranteed mounted to flush the send).
     sendToAgentChat({
       message:
         "Auto-fill the WhatsApp template variables for the open conversation. " +
@@ -231,9 +240,7 @@ export function TemplatesDialog({
         memberContext,
       }),
       submit: true,
-      openSidebar: false,
-      newTab: true,
-      background: true,
+      openSidebar: true,
     });
   };
 
