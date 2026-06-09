@@ -1,5 +1,4 @@
 import { eq, and } from "drizzle-orm";
-import { sendText, sendTemplate } from "@gymos/whatsapp";
 import type { getDb } from "../lib/db.js";
 import { schema } from "../lib/db.js";
 import {
@@ -10,10 +9,8 @@ import {
 import { hasOptIn } from "./gates/optInGate.js";
 import { isInWindow } from "./gates/windowGate.js";
 import { isTemplateApproved } from "./gates/templateGate.js";
-import {
-  getWhatsAppAccessToken,
-  getWhatsAppPhoneNumberId,
-} from "../lib/secrets.js";
+import { sendViaMyutik } from "./sendViaMyutik.js";
+import { getMyutikApiKey, getMyutikPhoneNumberId } from "../lib/secrets.js";
 
 export type SendMessagePayload =
   | { type: "text"; body: string }
@@ -46,9 +43,12 @@ export type SendMessageResult = { externalId: string };
  *   2. window (WA-06; PITFALL #1)   — refuse free-text outside 24h
  *   3. template approved (WA-08)    — refuse unapproved template name
  *
- * Then call @gymos/whatsapp adapter; update messages.status based on result.
+ * Then relay through MYÜTIK (POST myutik.com/api/channels/whatsapp/send);
+ * update messages.status based on result. The GymClassOS Meta app is not
+ * approved to send on Hustle's WABA, so ALL sends go through MYÜTIK's relay,
+ * which holds the token with the right WhatsApp permissions (WA-05).
  *
- * Throws on gate failure WITHOUT calling Meta.
+ * Throws on gate failure WITHOUT calling MYÜTIK.
  * Returns { externalId } on success.
  * Returns { externalId: "" } and marks status='failed' on 4xx terminal.
  * Re-throws on 5xx / network — pg-boss retries.
@@ -105,38 +105,51 @@ export async function sendMessage(
     }
   }
 
-  // 6. Resolve creds DB-first (WA-05, rotation-capable) — once per send,
-  //    before the adapter call block so both sendText and sendTemplate use the
-  //    same resolved values.
-  const creds = {
-    accessToken: await getWhatsAppAccessToken(db),
-    phoneNumberId: await getWhatsAppPhoneNumberId(db),
-  };
+  // 6. Resolve MYÜTIK creds DB-first (WA-05, rotation-capable) — once per send,
+  //    before the relay call block. The MYÜTIK account is resolved from the
+  //    API key; no Meta token is passed.
+  const apiKey = await getMyutikApiKey(db);
+  const phoneNumberId = await getMyutikPhoneNumberId(db);
 
-  // 7. Call adapter — STRIP leading + from E.164 per Meta's API contract.
-  const to = member.phoneE164.replace(/^\+/, "");
+  // 7. Relay through MYÜTIK — KEEP the leading + on the E.164 number
+  //    (MYÜTIK accepts with or without +; we keep it).
+  const to = member.phoneE164;
   let externalId: string;
   try {
     if (payload.type === "text") {
-      const result = await sendText({ to, body: payload.body }, creds);
-      externalId = result.messageId;
+      const result = await sendViaMyutik({
+        apiKey,
+        phoneNumberId,
+        to,
+        text: payload.body,
+      });
+      externalId = result.wamid;
     } else {
-      // SendTemplateArgs.language is Zod-defaulted to "en_US"; explicit
-      // fallback keeps the type checker happy without changing runtime
-      // semantics (the Zod parse inside the adapter applies the same default).
-      const result = await sendTemplate(
-        {
-          to,
-          name: payload.name,
-          vars: payload.vars,
-          language: payload.language ?? "en_US",
-        },
-        creds,
-      );
-      externalId = result.messageId;
+      // Build a SINGLE body component with params ordered by placeholder number
+      // ({{1}}, {{2}}, ...). Empty vars → omit templateComponents entirely.
+      const orderedValues = Object.entries(payload.vars)
+        .sort(([a], [b]) => Number(a) - Number(b))
+        .map(([, v]) => v);
+      const templateComponents = orderedValues.length
+        ? [
+            {
+              type: "body",
+              parameters: orderedValues.map((v) => ({ type: "text", text: v })),
+            },
+          ]
+        : undefined;
+      const result = await sendViaMyutik({
+        apiKey,
+        phoneNumberId,
+        to,
+        templateName: payload.name,
+        templateLanguage: payload.language ?? "en_US",
+        templateComponents,
+      });
+      externalId = result.wamid;
     }
   } catch (err: unknown) {
-    // 4xx from Meta is terminal — mark failed, don't retry.
+    // 4xx from MYÜTIK is terminal — mark failed, don't retry.
     // 5xx / fetch error → re-throw, pg-boss retries up to retryLimit.
     const status =
       (err as { status?: number; statusCode?: number })?.status ??

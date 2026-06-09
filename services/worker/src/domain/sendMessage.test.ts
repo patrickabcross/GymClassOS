@@ -8,15 +8,15 @@ vi.mock("./gates/optInGate.js", () => ({ hasOptIn }));
 vi.mock("./gates/windowGate.js", () => ({ isInWindow, WINDOW_HOURS: 24 }));
 vi.mock("./gates/templateGate.js", () => ({ isTemplateApproved }));
 
-// Mock the WhatsApp adapter — verifies our chokepoint refuses BEFORE any
-// fetch escapes to Meta (success criteria #3 + #4).
-const sendText = vi.fn();
-const sendTemplate = vi.fn();
-vi.mock("@gymos/whatsapp", () => ({ sendText, sendTemplate }));
+// Mock the MYÜTIK send client — verifies our chokepoint refuses BEFORE any
+// send escapes to MYÜTIK (success criteria #3 + #4).
+const sendViaMyutik = vi.fn();
+vi.mock("./sendViaMyutik.js", () => ({ sendViaMyutik }));
 
 // Mock the secrets readers so creds are resolved without a real DB call.
-// The creds object injected should be a stable fixture for call assertions.
 vi.mock("../lib/secrets.js", () => ({
+  getMyutikApiKey: vi.fn().mockResolvedValue("myutik_test_key"),
+  getMyutikPhoneNumberId: vi.fn().mockResolvedValue("302631896256150"),
   getWhatsAppAccessToken: vi.fn().mockResolvedValue("wa_test_token"),
   getWhatsAppPhoneNumberId: vi.fn().mockResolvedValue("11111111"),
   getWhatsAppBusinessAccountId: vi.fn().mockResolvedValue("waba_test"),
@@ -57,21 +57,18 @@ const { sendMessage } = await import("./sendMessage.js");
 const { NoOptInError, WindowExpiredError, TemplateNotApprovedError } =
   await import("../lib/errors.js");
 
-const TEST_CREDS = { accessToken: "wa_test_token", phoneNumberId: "11111111" };
-
 describe("sendMessage chokepoint (D-10)", () => {
   beforeEach(() => {
     hasOptIn.mockReset();
     isInWindow.mockReset();
     isTemplateApproved.mockReset();
-    sendText.mockReset();
-    sendTemplate.mockReset();
+    sendViaMyutik.mockReset();
     selectChain.limit.mockReset();
     updateChain.set.mockClear();
     updateChain.where.mockClear();
   });
 
-  it("throws NoOptInError + does NOT call adapter when opt-in missing (WA-07)", async () => {
+  it("throws NoOptInError + does NOT call MYÜTIK when opt-in missing (WA-07)", async () => {
     hasOptIn.mockResolvedValueOnce(false);
     await expect(
       sendMessage({
@@ -81,12 +78,11 @@ describe("sendMessage chokepoint (D-10)", () => {
         db: mockDb as any,
       }),
     ).rejects.toBeInstanceOf(NoOptInError);
-    // Success criterion #4: NO fetch to Meta on gate failure.
-    expect(sendText).not.toHaveBeenCalled();
-    expect(sendTemplate).not.toHaveBeenCalled();
+    // Success criterion #4: NO send on gate failure.
+    expect(sendViaMyutik).not.toHaveBeenCalled();
   });
 
-  it("throws WindowExpiredError + does NOT call adapter for text outside window (WA-06)", async () => {
+  it("throws WindowExpiredError + does NOT call MYÜTIK for text outside window (WA-06)", async () => {
     hasOptIn.mockResolvedValueOnce(true);
     selectChain.limit
       .mockResolvedValueOnce([{ id: "mem_1", phoneE164: "+447700900000" }])
@@ -103,8 +99,8 @@ describe("sendMessage chokepoint (D-10)", () => {
         db: mockDb as any,
       }),
     ).rejects.toBeInstanceOf(WindowExpiredError);
-    // Success criterion #3: NO fetch to Meta on window expiry.
-    expect(sendText).not.toHaveBeenCalled();
+    // Success criterion #3: NO send on window expiry.
+    expect(sendViaMyutik).not.toHaveBeenCalled();
   });
 
   it("allows template send OUTSIDE window (WA-06 + WA-08 happy path)", async () => {
@@ -113,7 +109,7 @@ describe("sendMessage chokepoint (D-10)", () => {
       .mockResolvedValueOnce([{ id: "mem_1", phoneE164: "+447700900000" }])
       .mockResolvedValueOnce([{ id: "conv_1", lastInboundAt: null }]);
     isTemplateApproved.mockResolvedValueOnce(true);
-    sendTemplate.mockResolvedValueOnce({ messageId: "wamid_sent_abc" });
+    sendViaMyutik.mockResolvedValueOnce({ wamid: "wamid_sent_abc" });
 
     const result = await sendMessage({
       memberId: "mem_1",
@@ -126,16 +122,17 @@ describe("sendMessage chokepoint (D-10)", () => {
       db: mockDb as any,
     });
     expect(result.externalId).toBe("wamid_sent_abc");
-    // Adapter receives the payload args + injected creds as 2nd arg
-    expect(sendTemplate).toHaveBeenCalledWith(
-      {
-        to: "447700900000",
-        name: "class_reminder",
-        vars: { 1: "Yoga" },
-        language: "en_US",
-      },
-      TEST_CREDS,
-    );
+    // MYÜTIK receives template fields with a single body component (ordered params)
+    expect(sendViaMyutik).toHaveBeenCalledWith({
+      apiKey: "myutik_test_key",
+      phoneNumberId: "302631896256150",
+      to: "+447700900000",
+      templateName: "class_reminder",
+      templateLanguage: "en_US",
+      templateComponents: [
+        { type: "body", parameters: [{ type: "text", text: "Yoga" }] },
+      ],
+    });
     // isInWindow should NOT have been consulted (template path)
     expect(isInWindow).not.toHaveBeenCalled();
   });
@@ -155,10 +152,10 @@ describe("sendMessage chokepoint (D-10)", () => {
         db: mockDb as any,
       }),
     ).rejects.toBeInstanceOf(TemplateNotApprovedError);
-    expect(sendTemplate).not.toHaveBeenCalled();
+    expect(sendViaMyutik).not.toHaveBeenCalled();
   });
 
-  it("text in window calls sendText + marks status='sent'", async () => {
+  it("text in window calls MYÜTIK + marks status='sent'", async () => {
     hasOptIn.mockResolvedValueOnce(true);
     selectChain.limit
       .mockResolvedValueOnce([{ id: "mem_1", phoneE164: "+447700900000" }])
@@ -166,7 +163,7 @@ describe("sendMessage chokepoint (D-10)", () => {
         { id: "conv_1", lastInboundAt: new Date().toISOString() },
       ]);
     isInWindow.mockReturnValueOnce(true);
-    sendText.mockResolvedValueOnce({ messageId: "wamid_OK" });
+    sendViaMyutik.mockResolvedValueOnce({ wamid: "wamid_OK" });
 
     const result = await sendMessage({
       memberId: "mem_1",
@@ -175,11 +172,13 @@ describe("sendMessage chokepoint (D-10)", () => {
       db: mockDb as any,
     });
     expect(result.externalId).toBe("wamid_OK");
-    // Adapter receives payload args + injected creds as 2nd arg
-    expect(sendText).toHaveBeenCalledWith(
-      { to: "447700900000", body: "hello" },
-      TEST_CREDS,
-    );
+    // MYÜTIK receives the text payload + resolved creds; KEEP the leading +
+    expect(sendViaMyutik).toHaveBeenCalledWith({
+      apiKey: "myutik_test_key",
+      phoneNumberId: "302631896256150",
+      to: "+447700900000",
+      text: "hello",
+    });
     // Two updates: messages.status='sent' + conversations.last_outbound_at
     const setArgs = updateChain.set.mock.calls.map((c) => c[0]);
     expect(
@@ -187,7 +186,7 @@ describe("sendMessage chokepoint (D-10)", () => {
     ).toBe(true);
   });
 
-  it("marks status='failed' on 4xx Meta response without re-throwing", async () => {
+  it("marks status='failed' on 4xx MYÜTIK response without re-throwing", async () => {
     hasOptIn.mockResolvedValueOnce(true);
     selectChain.limit
       .mockResolvedValueOnce([{ id: "mem_1", phoneE164: "+447700900000" }])
@@ -195,11 +194,11 @@ describe("sendMessage chokepoint (D-10)", () => {
         { id: "conv_1", lastInboundAt: new Date().toISOString() },
       ]);
     isInWindow.mockReturnValueOnce(true);
-    const err = new Error("Invalid phone number") as Error & {
-      status?: number;
-    };
-    err.status = 400;
-    sendText.mockRejectedValueOnce(err);
+    sendViaMyutik.mockRejectedValueOnce(
+      Object.assign(new Error("MYÜTIK send 409: window closed"), {
+        status: 409,
+      }),
+    );
 
     const result = await sendMessage({
       memberId: "mem_1",
@@ -224,9 +223,9 @@ describe("sendMessage chokepoint (D-10)", () => {
         { id: "conv_1", lastInboundAt: new Date().toISOString() },
       ]);
     isInWindow.mockReturnValueOnce(true);
-    const err = new Error("Bad gateway") as Error & { status?: number };
-    err.status = 502;
-    sendText.mockRejectedValueOnce(err);
+    sendViaMyutik.mockRejectedValueOnce(
+      Object.assign(new Error("Bad gateway"), { status: 502 }),
+    );
 
     await expect(
       sendMessage({
@@ -238,7 +237,7 @@ describe("sendMessage chokepoint (D-10)", () => {
     ).rejects.toThrow(/Bad gateway/);
   });
 
-  it("strips leading + from phone before passing to adapter", async () => {
+  it("keeps the leading + on the phone before passing to MYÜTIK", async () => {
     hasOptIn.mockResolvedValueOnce(true);
     selectChain.limit
       .mockResolvedValueOnce([{ id: "mem_p", phoneE164: "+447700900123" }])
@@ -246,16 +245,16 @@ describe("sendMessage chokepoint (D-10)", () => {
         { id: "conv_p", lastInboundAt: new Date().toISOString() },
       ]);
     isInWindow.mockReturnValueOnce(true);
-    sendText.mockResolvedValueOnce({ messageId: "wamid_p" });
+    sendViaMyutik.mockResolvedValueOnce({ wamid: "wamid_p" });
     await sendMessage({
       memberId: "mem_p",
       messageId: "msg_p",
       payload: { type: "text", body: "x" },
       db: mockDb as any,
     });
-    const sendArgs = sendText.mock.calls[0][0];
-    expect(sendArgs.to).toBe("447700900123");
-    expect(sendArgs.to).not.toMatch(/^\+/);
+    const sendArgs = sendViaMyutik.mock.calls[0][0];
+    expect(sendArgs.to).toBe("+447700900123");
+    expect(sendArgs.to).toMatch(/^\+/);
   });
 
   it("throws when member has no phone_e164", async () => {
@@ -271,6 +270,6 @@ describe("sendMessage chokepoint (D-10)", () => {
         db: mockDb as any,
       }),
     ).rejects.toThrow(/has no phone_e164/);
-    expect(sendText).not.toHaveBeenCalled();
+    expect(sendViaMyutik).not.toHaveBeenCalled();
   });
 });
