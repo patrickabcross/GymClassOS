@@ -100,6 +100,7 @@ describe("POST /webhooks/whatsapp", () => {
       inserted: true,
       eventKey: "whatsapp:wamid_abc",
     });
+    // No metadata.phone_number_id → direction defaults to "in"
     const body = JSON.stringify({
       entry: [
         {
@@ -136,7 +137,102 @@ describe("POST /webhooks/whatsapp", () => {
       messageType: "text",
       body: "hi",
       timestamp: "1700000000",
+      direction: "in",
     });
+  });
+
+  it("detects outbound mirror: enqueues direction='out' + customerWaId when msg.from === phone_number_id", async () => {
+    insertWebhookEvent.mockResolvedValue({
+      inserted: true,
+      eventKey: "whatsapp:wamid_outbound_mirror",
+    });
+    // Business number 302631896256150 is the sender → outbound mirror
+    const body = JSON.stringify({
+      entry: [
+        {
+          changes: [
+            {
+              value: {
+                metadata: { phone_number_id: "302631896256150" },
+                contacts: [{ wa_id: "447700900001" }],
+                messages: [
+                  {
+                    id: "wamid_outbound_mirror",
+                    from: "302631896256150",
+                    type: "text",
+                    text: { body: "Great session!" },
+                    timestamp: "1700000100",
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    });
+    const sig = validSig(body, "demo_secret");
+    const app = buildApp();
+    const res = await app.request("/webhooks/whatsapp", {
+      method: "POST",
+      headers: { "x-hub-signature-256": sig },
+      body,
+    });
+    expect(res.status).toBe(200);
+    expect(enqueueInboundWhatsApp).toHaveBeenCalledWith({
+      kind: "message",
+      externalId: "wamid_outbound_mirror",
+      from: "302631896256150",
+      messageType: "text",
+      body: "Great session!",
+      timestamp: "1700000100",
+      direction: "out",
+      customerWaId: "447700900001",
+    });
+  });
+
+  it("customer inbound with metadata present stays direction='in'", async () => {
+    insertWebhookEvent.mockResolvedValue({
+      inserted: true,
+      eventKey: "whatsapp:wamid_cust_inbound",
+    });
+    // Customer sends (from !== phone_number_id) → direction must stay "in"
+    const body = JSON.stringify({
+      entry: [
+        {
+          changes: [
+            {
+              value: {
+                metadata: { phone_number_id: "302631896256150" },
+                contacts: [{ wa_id: "447700900002" }],
+                messages: [
+                  {
+                    id: "wamid_cust_inbound",
+                    from: "447700900002",
+                    type: "text",
+                    text: { body: "What time is the class?" },
+                    timestamp: "1700000200",
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    });
+    const sig = validSig(body, "demo_secret");
+    const app = buildApp();
+    const res = await app.request("/webhooks/whatsapp", {
+      method: "POST",
+      headers: { "x-hub-signature-256": sig },
+      body,
+    });
+    expect(res.status).toBe(200);
+    expect(enqueueInboundWhatsApp).toHaveBeenCalledWith(
+      expect.objectContaining({
+        direction: "in",
+        from: "447700900002",
+      }),
+    );
   });
 
   it("enqueues STRUCTURED status payload on valid status webhook (HIGH #6)", async () => {

@@ -88,7 +88,18 @@ whatsappRoutes.post("/whatsapp", async (c) => {
           timestamp?: string;
           errors?: Array<{ code: number | string; title?: string }>;
         }>;
+        metadata?: { phone_number_id?: string };
+        contacts?: Array<{ wa_id?: string }>;
       };
+
+      // Outbound mirror detection: when msg.from === metadata.phone_number_id
+      // it is a MYÜTIK mirror of an agent reply (business sent it), NOT a
+      // customer inbound. The customer's wa_id is in contacts[0].wa_id.
+      const phoneNumberId = String(value.metadata?.phone_number_id ?? "");
+      const customerWaId =
+        value.contacts?.[0]?.wa_id != null
+          ? String(value.contacts[0].wa_id)
+          : undefined;
 
       // Inbound messages (WA-03)
       for (const msg of value.messages ?? []) {
@@ -100,6 +111,10 @@ whatsappRoutes.post("/whatsapp", async (c) => {
           payloadRaw: raw,
         });
         if (result.inserted) {
+          // Direction: "out" when the sender IS the business number (outbound
+          // mirror from MYÜTIK), "in" for normal customer messages.
+          const direction =
+            phoneNumberId && String(msg.from) === phoneNumberId ? "out" : "in";
           // HIGH #6: structured message payload — worker reads fields directly.
           await enqueueInboundWhatsApp({
             kind: "message",
@@ -109,6 +124,8 @@ whatsappRoutes.post("/whatsapp", async (c) => {
             body: msg.text?.body != null ? String(msg.text.body) : undefined,
             timestamp:
               msg.timestamp != null ? String(msg.timestamp) : undefined,
+            direction,
+            ...(customerWaId !== undefined ? { customerWaId } : {}),
           });
         }
       }

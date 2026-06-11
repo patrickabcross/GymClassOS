@@ -60,6 +60,65 @@ describe("payload schemas", () => {
     expect(result.success).toBe(true);
   });
 
+  it("InboundWhatsAppMessagePayload: old in-flight job without direction defaults to 'in' (backward compat)", () => {
+    // Legacy payloads have no direction / customerWaId fields.
+    // They must parse cleanly and resolve direction='in'.
+    const result = InboundWhatsAppPayload.safeParse({
+      kind: "message",
+      externalId: "wamid.LEGACY",
+      from: "447700900000",
+      messageType: "text",
+    });
+    expect(result.success).toBe(true);
+    if (result.success && result.data.kind === "message") {
+      expect(result.data.direction).toBe("in");
+      expect(result.data.customerWaId).toBeUndefined();
+    }
+  });
+
+  it("InboundWhatsAppMessagePayload: direction='out' + customerWaId round-trips", () => {
+    const result = InboundWhatsAppPayload.safeParse({
+      kind: "message",
+      externalId: "wamid.OUTBOUND",
+      from: "302631896256150",
+      messageType: "text",
+      body: "Great session!",
+      timestamp: "1700000100",
+      direction: "out",
+      customerWaId: "447700900001",
+    });
+    expect(result.success).toBe(true);
+    if (result.success && result.data.kind === "message") {
+      expect(result.data.direction).toBe("out");
+      expect(result.data.customerWaId).toBe("447700900001");
+    }
+  });
+
+  it("InboundWhatsAppMessagePayload: direction='in' explicit round-trips", () => {
+    const result = InboundWhatsAppPayload.safeParse({
+      kind: "message",
+      externalId: "wamid.IN",
+      from: "447700900002",
+      messageType: "text",
+      direction: "in",
+    });
+    expect(result.success).toBe(true);
+    if (result.success && result.data.kind === "message") {
+      expect(result.data.direction).toBe("in");
+    }
+  });
+
+  it("InboundWhatsAppMessagePayload: rejects invalid direction value", () => {
+    const result = InboundWhatsAppPayload.safeParse({
+      kind: "message",
+      externalId: "wamid.BAD",
+      from: "447700900003",
+      messageType: "text",
+      direction: "sideways",
+    });
+    expect(result.success).toBe(false);
+  });
+
   it("InboundWhatsAppPayload accepts status variant with explicit fields (HIGH #6)", () => {
     const result = InboundWhatsAppPayload.safeParse({
       kind: "status",

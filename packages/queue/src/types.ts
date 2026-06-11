@@ -37,6 +37,14 @@ export const InboundWhatsAppMessagePayload = z.object({
   messageType: z.string().min(1), // "text" | "image" | "audio" | ...
   body: z.string().optional(), // text body if type="text"
   timestamp: z.string().optional(), // Meta unix timestamp string
+  // Direction: "out" when msg.from === metadata.phone_number_id (MYÜTIK
+  // outbound mirror). Defaults to "in" so old in-flight jobs without this
+  // field parse without error (backward compatible).
+  direction: z.enum(["in", "out"]).default("in"),
+  // Customer's wa_id from contacts[0].wa_id — present only when direction="out"
+  // so the worker can match the gym member by the customer's number (NOT by
+  // `from`, which is the business number and matches no member row).
+  customerWaId: z.string().optional(),
 });
 
 export const InboundWhatsAppStatusPayload = z.object({
