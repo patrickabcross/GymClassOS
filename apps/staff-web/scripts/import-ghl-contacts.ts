@@ -24,6 +24,8 @@ import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
 import { parse } from "csv-parse/sync";
 import { nanoid } from "nanoid";
+import { parseLeadsCsv } from "../server/lib/csv-leads.js";
+import type { FieldMapping } from "../server/lib/csv-leads.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -61,184 +63,10 @@ if (!fs.existsSync(csvPath)) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Header auto-detection
+// Header auto-detection, phone normalization, and consent parsing are now in:
+//   apps/staff-web/server/lib/csv-leads.ts
+// Imported above — no inlined copies here.
 // ─────────────────────────────────────────────────────────────────────────────
-
-/** Strip to lowercase alphanumeric for fuzzy matching */
-function normalize(h: string): string {
-  return h.toLowerCase().replace(/[^a-z0-9]/g, "");
-}
-
-/**
- * Synonyms map: canonical field → list of normalized synonyms.
- * All synonym strings are already lowercase/alphanumeric (normalize()-form).
- */
-const SYNONYMS: Record<string, string[]> = {
-  firstName: [
-    "firstname",
-    "fname",
-    "givenname",
-    "contactfirstname",
-    "first",
-    "firstn",
-  ],
-  lastName: ["lastname", "lname", "surname", "contactlastname", "last"],
-  email: ["email", "emailaddress", "email", "email"],
-  phone: [
-    "phone",
-    "mobile",
-    "phonenumber",
-    "mobilenumber",
-    "contactphone",
-    "number",
-    "tel",
-    "cellphone",
-    "mobilephone",
-    "phonemobile",
-  ],
-  marketingConsent: [
-    "optin",
-    "optedin",
-    "marketing",
-    "consent",
-    "subscribed",
-    "marketingconsent",
-    "smsoptin",
-    "emailoptin",
-    "smsconsent",
-    "marketingoptinstatus",
-  ],
-  unsubscribed: [
-    "unsubscribed",
-    "unsubscribe",
-    "optout",
-    "optedout",
-    "donotcontact",
-    "dnc",
-    "donotmarket",
-  ],
-  consentDate: [
-    "consentdate",
-    "optedindate",
-    "dateadded",
-    "optintimestamp",
-    "subscribeddate",
-    "optindate",
-    "consentat",
-  ],
-};
-
-type FieldMapping = {
-  firstName?: string;
-  lastName?: string;
-  email?: string;
-  phone?: string;
-  marketingConsent?: string;
-  unsubscribed?: string;
-  consentDate?: string;
-};
-
-function detectHeaders(rawHeaders: string[]): FieldMapping {
-  const mapping: FieldMapping = {};
-  for (const raw of rawHeaders) {
-    const n = normalize(raw);
-    for (const [field, synonyms] of Object.entries(SYNONYMS)) {
-      if (
-        (mapping as Record<string, string | undefined>)[field] === undefined &&
-        synonyms.includes(n)
-      ) {
-        (mapping as Record<string, string | undefined>)[field] = raw;
-      }
-    }
-  }
-  return mapping;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Phone normalization → E.164 (UK +44 default)
-// ─────────────────────────────────────────────────────────────────────────────
-
-function normalizePhone(raw: string): string | null {
-  if (!raw || !raw.trim()) return null;
-  // Keep digits and a leading +
-  let s = raw.replace(/[^\d+]/g, "");
-  if (!s) return null;
-
-  let result: string;
-  if (s.startsWith("+")) {
-    // Already has country code — keep as-is after validation
-    result = s;
-  } else if (s.startsWith("0")) {
-    // UK national format: 07xxx → +447xxx
-    result = "+44" + s.slice(1);
-  } else if (s.startsWith("44")) {
-    // UK without leading + e.g. 447911123456
-    result = "+" + s;
-  } else {
-    // Ambiguous — cannot safely assume country
-    return null;
-  }
-
-  // Sanity: must be +<8-15 digits>
-  if (!/^\+\d{8,15}$/.test(result)) return null;
-  return result;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Consent parsing
-// ─────────────────────────────────────────────────────────────────────────────
-
-const TRUTHY_CONSENT = new Set([
-  "yes",
-  "true",
-  "1",
-  "y",
-  "opted in",
-  "optedin",
-  "subscribed",
-  "opt in",
-  "optin",
-]);
-const TRUTHY_UNSUB = new Set([
-  "yes",
-  "true",
-  "1",
-  "y",
-  "unsubscribed",
-  "opted out",
-  "optout",
-]);
-
-function parseConsent(
-  row: Record<string, string>,
-  mapping: FieldMapping,
-): boolean {
-  // unsubscribed column is an INVERTED signal — if truthy, member is NOT consented
-  if (mapping.unsubscribed !== undefined) {
-    const val = (row[mapping.unsubscribed] ?? "").toLowerCase().trim();
-    if (TRUTHY_UNSUB.has(val)) return false;
-  }
-  if (mapping.marketingConsent !== undefined) {
-    const val = (row[mapping.marketingConsent] ?? "").toLowerCase().trim();
-    return TRUTHY_CONSENT.has(val);
-  }
-  return false;
-}
-
-function parseConsentDate(
-  row: Record<string, string>,
-  mapping: FieldMapping,
-  fallback: string,
-): string {
-  if (mapping.consentDate !== undefined) {
-    const raw = (row[mapping.consentDate] ?? "").trim();
-    if (raw) {
-      const d = new Date(raw);
-      if (!isNaN(d.getTime())) return d.toISOString();
-    }
-  }
-  return fallback;
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Bulk insert helper — mirrors seed-demo-data.ts pattern exactly
@@ -287,42 +115,7 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  const rawHeaders = Object.keys(rows[0]);
-
-  // 2. Detect headers
-  const mapping = detectHeaders(rawHeaders);
-
-  console.log("\n=== Detected column mapping ===");
-  const displayFields: (keyof FieldMapping)[] = [
-    "firstName",
-    "lastName",
-    "email",
-    "phone",
-    "marketingConsent",
-    "unsubscribed",
-    "consentDate",
-  ];
-  for (const field of displayFields) {
-    const raw = mapping[field];
-    console.log(`  ${field.padEnd(18)} → ${raw ?? "(not found)"}`);
-  }
-  console.log();
-
-  // 3. Hard error if firstName or phone is missing
-  const missingFields: string[] = [];
-  if (!mapping.firstName) missingFields.push("firstName");
-  if (!mapping.phone) missingFields.push("phone");
-
-  if (missingFields.length > 0) {
-    console.error(
-      `Error: required column(s) not detected: ${missingFields.join(", ")}\n` +
-        `Raw headers seen: ${rawHeaders.join(", ")}\n` +
-        "Rename a column to match one of the synonyms and retry.\n" +
-        "firstName synonyms: first name, first, fname, given name, contact first name\n" +
-        "phone synonyms: phone, mobile, phone number, mobile number, contact phone, number, tel",
-    );
-    process.exit(1);
-  }
+  // 2–3. Detect headers + hard-error on missing required fields — delegated to parseLeadsCsv
 
   // 4. Query existing phones from DB (read-only SELECT — safe in dry-run too)
   let existingPhones = new Set<string>();
@@ -347,10 +140,38 @@ async function main(): Promise<void> {
     }
   }
 
-  // 5. Process rows
-  const seenPhones = new Set<string>();
-  const seenEmails = new Set<string>();
+  // 5. Process rows via shared library
+  const parsed = parseLeadsCsv(rows, { existingPhones, nowIso: NOW_ISO });
+  const { mapping, rawHeaders } = parsed;
 
+  console.log("\n=== Detected column mapping ===");
+  const displayFields: (keyof FieldMapping)[] = [
+    "firstName",
+    "lastName",
+    "email",
+    "phone",
+    "marketingConsent",
+    "unsubscribed",
+    "consentDate",
+  ];
+  for (const field of displayFields) {
+    const col = mapping[field];
+    console.log(`  ${field.padEnd(18)} → ${col ?? "(not found)"}`);
+  }
+  console.log();
+
+  if (parsed.missingFields.length > 0) {
+    console.error(
+      `Error: required column(s) not detected: ${parsed.missingFields.join(", ")}\n` +
+        `Raw headers seen: ${rawHeaders.join(", ")}\n` +
+        "Rename a column to match one of the synonyms and retry.\n" +
+        "firstName synonyms: first name, first, fname, given name, contact first name\n" +
+        "phone synonyms: phone, mobile, phone number, mobile number, contact phone, number, tel",
+    );
+    process.exit(1);
+  }
+
+  // Build insert arrays from parsed members (CLI owns DB inserts and reporting)
   const members: Array<{
     id: string;
     firstName: string;
@@ -370,104 +191,48 @@ async function main(): Promise<void> {
     source: "import";
   }> = [];
 
-  // Skip counters
-  let skipNoFirstName = 0;
-  let skipNoValidPhone = 0;
-  let skipDuplicateInFile = 0;
-  let skipAlreadyInDb = 0;
-  let optedInCount = 0;
-  let notOptedInCount = 0;
-
-  for (const row of rows) {
-    const firstName = (row[mapping.firstName!] ?? "").trim();
-    if (!firstName) {
-      skipNoFirstName++;
-      continue;
-    }
-
-    const rawPhone = (row[mapping.phone!] ?? "").trim();
-    const phoneE164 = normalizePhone(rawPhone);
-    if (!phoneE164) {
-      skipNoValidPhone++;
-      continue;
-    }
-
-    if (seenPhones.has(phoneE164)) {
-      skipDuplicateInFile++;
-      continue;
-    }
-    seenPhones.add(phoneE164);
-
-    if (existingPhones.has(phoneE164)) {
-      skipAlreadyInDb++;
-      continue;
-    }
-
-    const rawEmail = mapping.email ? (row[mapping.email] ?? "").trim() : "";
-    const email = rawEmail || null;
-    if (email) {
-      const emailLower = email.toLowerCase();
-      if (seenEmails.has(emailLower)) {
-        skipDuplicateInFile++;
-        seenPhones.delete(phoneE164); // undo — counted as dupe
-        continue;
-      }
-      seenEmails.add(emailLower);
-    }
-
-    const lastName = mapping.lastName
-      ? (row[mapping.lastName] ?? "").trim() || null
-      : null;
-
-    const consent = parseConsent(row, mapping);
-    const consentDate = parseConsentDate(row, mapping, NOW_ISO);
-
+  for (const m of parsed.members) {
     const memberId = nanoid();
     members.push({
       id: memberId,
-      firstName,
-      lastName,
-      email,
-      phoneE164,
-      marketingConsent: consent,
+      firstName: m.firstName,
+      lastName: m.lastName,
+      email: m.email,
+      phoneE164: m.phoneE164,
+      marketingConsent: m.consent,
       createdAt: NOW_ISO,
       updatedAt: NOW_ISO,
     });
 
-    if (consent) {
-      optedInCount++;
-      const consentColName =
-        mapping.marketingConsent ?? mapping.unsubscribed ?? null;
-      const consentValue = consentColName ? (row[consentColName] ?? "") : "";
+    if (m.consent) {
       optIns.push({
         memberId,
-        optedInAt: consentDate,
+        optedInAt: m.consentDate,
         evidenceMessageId: null,
         evidencePayload: JSON.stringify({
           importedFrom: "gohighlevel",
           file: path.basename(csvPath),
-          consentColumn: consentColName,
-          consentValue,
+          consentColumn: m.consentColumn,
+          consentValue: m.consentValue,
           importedAt: NOW_ISO,
         }),
         source: "import",
       });
-    } else {
-      notOptedInCount++;
     }
   }
 
   // 6. Report
+  const { counts } = parsed;
   console.log("=== Import summary ===");
-  console.log(`  CSV rows parsed:        ${rows.length}`);
-  console.log(`  Importable rows:        ${members.length}`);
-  console.log(`    Opted-in (WA):        ${optedInCount}`);
-  console.log(`    No consent:           ${notOptedInCount}`);
+  console.log(`  CSV rows parsed:        ${parsed.totalRows}`);
+  console.log(`  Importable rows:        ${counts.importable}`);
+  console.log(`    Opted-in (WA):        ${counts.optedIn}`);
+  console.log(`    No consent:           ${counts.notOptedIn}`);
   console.log(`  Skipped:`);
-  console.log(`    No first name:        ${skipNoFirstName}`);
-  console.log(`    No valid phone:       ${skipNoValidPhone}`);
-  console.log(`    Duplicate in file:    ${skipDuplicateInFile}`);
-  console.log(`    Already in DB:        ${skipAlreadyInDb}`);
+  console.log(`    No first name:        ${counts.skipNoFirstName}`);
+  console.log(`    No valid phone:       ${counts.skipNoValidPhone}`);
+  console.log(`    Duplicate in file:    ${counts.skipDuplicateInFile}`);
+  console.log(`    Already in DB:        ${counts.skipAlreadyInDb}`);
   console.log();
 
   // 7. Sample rows (up to 5)
