@@ -3,6 +3,18 @@ import { nanoid } from "nanoid";
 import type { getDb } from "../lib/db.js";
 import { schema } from "../lib/db.js";
 
+/**
+ * Arguments for materialiseOutboundMirror — the outbound-mirror
+ * counterpart to InboundMessage.
+ */
+export type OutboundMirrorArgs = {
+  externalId: string; // wamid
+  customerWaId: string; // customer's wa_id from contacts[0].wa_id
+  messageType: string; // "text" | "image" | ...
+  body?: string; // text body (may be undefined for non-text types)
+  timestamp?: string; // Meta unix timestamp string
+};
+
 export type InboundMessage = {
   id: string; // wamid
   from: string; // phone WITHOUT leading + (e.g. "447700900000")
@@ -154,6 +166,130 @@ export async function upsertConversationAndMessage(
       source: "inbound_reply",
     })
     .onConflictDoNothing({ target: schema.whatsappOptIn.memberId });
+
+  return { processed: true };
+}
+
+/**
+ * Materialise an outbound mirror webhook from MYÜTIK (WA-03 outbound path).
+ *
+ * An outbound mirror is a webhook MYÜTIK sends back to the receiver when
+ * an agent reply is delivered. It has msg.from === metadata.phone_number_id
+ * (the business number) and the customer's wa_id in contacts[0].wa_id.
+ *
+ * Key differences from upsertConversationAndMessage (the inbound path):
+ *   - Member matched by customerWaId ("+" + args.customerWaId), NOT by `from`.
+ *   - Inserts messages row with direction:"out", status:"sent".
+ *   - Does NOT bump unreadCount.
+ *   - Does NOT set lastInboundAt.
+ *   - Does NOT set conversation.status.
+ *   - Does NOT insert whatsapp_opt_in (agent reply ≠ opt-in evidence).
+ *   - Sets lastOutboundAt + lastMessagePreview on the conversation.
+ *   - Self-send dedup via the same onConflictDoNothing partial index.
+ *
+ * Returns:
+ *   { processed: true }           — new row written
+ *   { processed: false, reason: "unknown_phone" }    — no member for customerWaId
+ *   { processed: false, reason: "duplicate_wamid" }  — already stored (self-send dedup)
+ */
+export async function materialiseOutboundMirror(
+  db: ReturnType<typeof getDb>,
+  args: OutboundMirrorArgs,
+  rawPayload: string,
+): Promise<{ processed: boolean; reason?: string }> {
+  const { externalId, customerWaId, messageType, body, timestamp: _ts } = args;
+  const toE164 = `+${customerWaId}`;
+  const preview = body ?? `(${messageType})`;
+
+  // 1. Look up member by customer's wa_id (NOT by the business sender number)
+  //    guard:allow-unscoped — webhook processor
+  const member = await db
+    .select()
+    .from(schema.gymMembers)
+    .where(eq(schema.gymMembers.phoneE164, toE164))
+    .limit(1)
+    .then((r: any) => r[0] ?? null);
+
+  if (!member) {
+    return { processed: false, reason: "unknown_phone" };
+  }
+
+  // 2. Find or create conversation — DO NOT set status or lastInboundAt here.
+  //    guard:allow-unscoped — webhook processor
+  const now = new Date().toISOString();
+  let conv = await db
+    .select()
+    .from(schema.conversations)
+    .where(
+      and(
+        eq(schema.conversations.memberId, member.id),
+        eq(schema.conversations.channel, "whatsapp"),
+      ),
+    )
+    .limit(1)
+    .then((r: any) => r[0] ?? null);
+
+  const isNewConversation = !conv;
+  if (isNewConversation) {
+    const convId = `conv_${nanoid()}`;
+    // DO NOT pass status — column default ('open') applies.
+    // DO NOT pass unreadCount — column default (0) applies.
+    // guard:allow-unscoped — webhook processor
+    await db.insert(schema.conversations).values({
+      id: convId,
+      memberId: member.id,
+      channel: "whatsapp",
+      lastOutboundAt: now,
+      lastMessagePreview: preview,
+    });
+    conv = { id: convId } as any;
+  }
+
+  // 3. INSERT messages row with direction:'out', status:'sent'.
+  //    Same onConflictDoNothing partial-index shape as the inbound path (HIGH #4).
+  //    Self-send mirrors (already written by sendMessage.ts) dedupe here.
+  //    guard:allow-unscoped — webhook processor
+  const insertResult = await db
+    .insert(schema.messages)
+    .values({
+      id: `msg_${nanoid()}`,
+      conversationId: conv.id,
+      externalId,
+      direction: "out",
+      messageType: messageType as any,
+      body: body ?? null,
+      payload: rawPayload,
+      status: "sent",
+    })
+    .onConflictDoNothing({
+      // Matches the partial UNIQUE index created in P1b-02
+      // (WHERE external_id IS NOT NULL). Without the `where` predicate
+      // Postgres raises 42P10 (no unique or exclusion constraint matching).
+      target: schema.messages.externalId,
+      where: sql`${schema.messages.externalId} is not null`,
+    })
+    .returning({ id: schema.messages.id });
+
+  if (insertResult.length === 0) {
+    // ON CONFLICT: self-send mirror already stored by sendMessage.ts — clean no-op.
+    return { processed: false, reason: "duplicate_wamid" };
+  }
+
+  // 4. Update existing conversation (if it already existed) with lastOutboundAt.
+  //    DO NOT touch unreadCount / lastInboundAt / status.
+  //    guard:allow-unscoped — webhook processor
+  if (!isNewConversation) {
+    await db
+      .update(schema.conversations)
+      .set({
+        lastOutboundAt: now,
+        lastMessagePreview: preview,
+        updatedAt: now,
+      })
+      .where(eq(schema.conversations.id, conv.id));
+  }
+
+  // 5. NO whatsapp_opt_in insert — an agent reply is not opt-in evidence.
 
   return { processed: true };
 }

@@ -3,7 +3,10 @@ import { eq, and } from "drizzle-orm";
 import { QUEUE_NAMES, InboundWhatsAppPayload } from "@gymos/queue";
 import { getDb, schema } from "../lib/db.js";
 import { getLogger } from "../lib/logger.js";
-import { upsertConversationAndMessage } from "../domain/conversations.js";
+import {
+  upsertConversationAndMessage,
+  materialiseOutboundMirror,
+} from "../domain/conversations.js";
 import {
   applyOrdinalStatusUpdate,
   type MessageStatus,
@@ -102,24 +105,56 @@ export async function registerInboundWhatsAppWorker(boss: PgBoss) {
         return;
       }
 
-      const inboundMsg = {
-        id: data.externalId,
-        from: data.from,
-        type: data.messageType,
-        text: data.body != null ? { body: data.body } : undefined,
-        timestamp: data.timestamp,
-      };
       const rawPayload =
         row?.payloadRaw ?? JSON.stringify({ synthetic: true, ...data });
 
-      const result = await upsertConversationAndMessage(
-        db,
-        inboundMsg as any,
-        rawPayload,
-      );
+      let result: { processed: boolean; reason?: string };
+
+      if (data.direction === "out") {
+        // Outbound mirror path (MYÜTIK mirrors agent replies back to us).
+        // Match member by customer wa_id, not by `from` (which is the
+        // business number and matches no gym_members row).
+        if (!data.customerWaId) {
+          // Missing customerWaId — permanently unprocessable; log and
+          // complete the job so pg-boss does NOT retry it indefinitely.
+          log.warn(
+            { externalId: data.externalId },
+            "[inbound-whatsapp] outbound mirror missing customerWaId — skipping",
+          );
+          result = { processed: false, reason: "missing_customer_wa_id" };
+        } else {
+          result = await materialiseOutboundMirror(
+            db,
+            {
+              externalId: data.externalId,
+              customerWaId: data.customerWaId,
+              messageType: data.messageType,
+              body: data.body,
+              timestamp: data.timestamp,
+            },
+            rawPayload,
+          );
+        }
+      } else {
+        // Normal inbound path (customer message) — unchanged.
+        const inboundMsg = {
+          id: data.externalId,
+          from: data.from,
+          type: data.messageType,
+          text: data.body != null ? { body: data.body } : undefined,
+          timestamp: data.timestamp,
+        };
+        result = await upsertConversationAndMessage(
+          db,
+          inboundMsg as any,
+          rawPayload,
+        );
+      }
+
       log.info(
         {
           externalId: data.externalId,
+          direction: data.direction ?? "in",
           processed: result.processed,
           reason: result.reason,
         },

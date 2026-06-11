@@ -63,7 +63,10 @@ vi.mock("../lib/db.js", () => ({
   },
 }));
 
-import { upsertConversationAndMessage } from "./conversations.js";
+import {
+  upsertConversationAndMessage,
+  materialiseOutboundMirror,
+} from "./conversations.js";
 
 describe("upsertConversationAndMessage", () => {
   beforeEach(() => {
@@ -224,6 +227,126 @@ describe("upsertConversationAndMessage", () => {
         from: "447700900005",
         type: "text",
         text: { body: "dup" },
+      },
+      "{}",
+    );
+    expect(result.processed).toBe(false);
+    expect(result.reason).toBe("duplicate_wamid");
+    // opt-in INSERT must NOT have been attempted on the duplicate path
+    expect(optInInsertChain.values).not.toHaveBeenCalled();
+  });
+});
+
+describe("materialiseOutboundMirror", () => {
+  beforeEach(() => {
+    selectChain.then.mockReset();
+    messageInsertChain.values.mockClear();
+    messageInsertChain.onConflictDoNothing.mockClear();
+    messageInsertChain.returning.mockReset();
+    conversationInsertChain.values.mockClear();
+    optInInsertChain.values.mockClear();
+    optInInsertChain.onConflictDoNothing.mockClear();
+    updateChain.set.mockClear();
+    updateChain.where.mockClear();
+    mockDb.insert.mockClear();
+    insertCallSequence = [];
+  });
+
+  it("(a) member matched by customerWaId, no prior conversation: creates conversation + message with direction='out' and status='sent', no opt-in", async () => {
+    selectChain.then
+      .mockResolvedValueOnce({ id: "mem_out_1", phoneE164: "+447700900010" }) // member found
+      .mockResolvedValueOnce(null); // no existing conversation
+    insertCallSequence = ["conversation", "message"];
+    messageInsertChain.returning.mockResolvedValueOnce([{ id: "msg_out_1" }]);
+
+    const result = await materialiseOutboundMirror(
+      mockDb as any,
+      {
+        externalId: "wamid_out_1",
+        customerWaId: "447700900010",
+        messageType: "text",
+        body: "Great session today!",
+        timestamp: "1718000000",
+      },
+      '{"raw":"out"}',
+    );
+
+    expect(result.processed).toBe(true);
+    // Conversation INSERT must have been called
+    expect(conversationInsertChain.values).toHaveBeenCalled();
+    // Message INSERT values must include direction:'out' and status:'sent'
+    expect(messageInsertChain.values).toHaveBeenCalledWith(
+      expect.objectContaining({ direction: "out", status: "sent" }),
+    );
+    // opt-in INSERT must NOT have been attempted (agent reply ≠ opt-in)
+    expect(optInInsertChain.values).not.toHaveBeenCalled();
+  });
+
+  it("(b) existing conversation: update sets lastOutboundAt + lastMessagePreview, NOT unreadCount/lastInboundAt/status", async () => {
+    selectChain.then
+      .mockResolvedValueOnce({ id: "mem_out_2", phoneE164: "+447700900011" })
+      .mockResolvedValueOnce({ id: "conv_out_existing", unreadCount: 2 }); // existing conv
+    insertCallSequence = ["message"];
+    messageInsertChain.returning.mockResolvedValueOnce([{ id: "msg_out_2" }]);
+
+    await materialiseOutboundMirror(
+      mockDb as any,
+      {
+        externalId: "wamid_out_2",
+        customerWaId: "447700900011",
+        messageType: "text",
+        body: "See you next class!",
+      },
+      "{}",
+    );
+
+    expect(updateChain.set).toHaveBeenCalled();
+    const setCall = updateChain.set.mock.calls[0][0];
+    // Must set lastOutboundAt and lastMessagePreview
+    expect(setCall.lastOutboundAt).toBeDefined();
+    expect(setCall.lastMessagePreview).toBe("See you next class!");
+    // Must NOT touch unreadCount, lastInboundAt, or status
+    expect(setCall).not.toHaveProperty("unreadCount");
+    expect(setCall).not.toHaveProperty("lastInboundAt");
+    expect(setCall).not.toHaveProperty("status");
+    // opt-in INSERT must NOT have been attempted
+    expect(optInInsertChain.values).not.toHaveBeenCalled();
+  });
+
+  it("(c) unknown customerWaId: returns processed:false, reason:'unknown_phone'", async () => {
+    selectChain.then.mockResolvedValueOnce(null); // no member
+    const result = await materialiseOutboundMirror(
+      mockDb as any,
+      {
+        externalId: "wamid_out_3",
+        customerWaId: "999999999999",
+        messageType: "text",
+        body: "hello",
+      },
+      "{}",
+    );
+    expect(result.processed).toBe(false);
+    expect(result.reason).toBe("unknown_phone");
+    // Nothing else should have been called
+    expect(mockDb.insert).not.toHaveBeenCalled();
+    expect(optInInsertChain.values).not.toHaveBeenCalled();
+  });
+
+  it("(d) duplicate wamid (returning []): returns processed:false, reason:'duplicate_wamid', no opt-in", async () => {
+    selectChain.then
+      .mockResolvedValueOnce({ id: "mem_out_4", phoneE164: "+447700900012" })
+      .mockResolvedValueOnce({ id: "conv_out_dup", unreadCount: 0 });
+    insertCallSequence = ["message"];
+    // ON CONFLICT triggers — self-send dedup path
+    messageInsertChain.returning.mockResolvedValueOnce([]);
+
+    const result = await materialiseOutboundMirror(
+      mockDb as any,
+      {
+        externalId: "wamid_out_dup",
+        customerWaId: "447700900012",
+        messageType: "text",
+        body: "dup reply",
       },
       "{}",
     );
