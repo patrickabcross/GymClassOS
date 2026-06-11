@@ -35,6 +35,7 @@
 import {
   useSearchParams,
   useLoaderData,
+  useRevalidator,
   Form,
   redirect,
   Link,
@@ -56,6 +57,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { TemplatesDialog } from "@/components/gymos/TemplatesDialog";
+import { ImportLeadsDialog } from "@/components/gymos/ImportLeadsDialog";
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "react-router";
 
 export function meta() {
@@ -630,6 +632,7 @@ export default function GymosInbox() {
   const selectedId = params.get("conversation");
   const { isLeadsView } = data;
   const [reply, setReply] = useState("");
+  const revalidator = useRevalidator();
 
   const selectedWs = data.selectedConversation
     ? data.windowStateByConvId[data.selectedConversation.id]
@@ -645,12 +648,17 @@ export default function GymosInbox() {
       <aside className="w-[320px] shrink-0 border-r border-border/50 flex flex-col bg-card/30">
         <header className="px-4 py-3 border-b border-border/50">
           <div className="flex items-center justify-between">
-            <h1 className="text-sm font-semibold">
-              {isLeadsView ? "Leads" : "WhatsApp Inbox"}
-            </h1>
-            <Badge variant="outline" className="text-[10px] h-5">
-              {data.conversations.length}
-            </Badge>
+            <div className="flex items-center gap-1.5">
+              <h1 className="text-sm font-semibold">
+                {isLeadsView ? "Leads" : "WhatsApp Inbox"}
+              </h1>
+              <Badge variant="outline" className="text-[10px] h-5">
+                {data.conversations.length}
+              </Badge>
+            </div>
+            {isLeadsView && (
+              <ImportLeadsDialog onImported={() => revalidator.revalidate()} />
+            )}
           </div>
           {/* P1c-04: Inbox / Leads filter chips — minimal, progressive disclosure.
               Default shows non-lead conversations; Leads chip shows status='lead'. */}
