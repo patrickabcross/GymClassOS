@@ -307,7 +307,10 @@ const touchedConvs =
         sql`SELECT c.id, c.unread_count AS old_unread
             FROM conversations c
             JOIN gym_members m ON m.id = c.member_id
-            WHERE m.phone_e164 = ANY(${[...touchedConversationMemberIds].map((id) => `+${id}`)})
+            WHERE m.phone_e164 IN (${sql.join(
+              [...touchedConversationMemberIds].map((id) => sql`${`+${id}`}`),
+              sql`, `,
+            )})
               AND c.channel = 'whatsapp'`,
       )
     : { rows: [] };

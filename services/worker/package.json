@@ -31,6 +31,7 @@
     "@types/node": "^22.0.0",
     "@types/pg": "^8.11.0",
     "@types/ws": "^8.5.0",
+    "dotenv": "^17.4.2",
     "tsx": "catalog:",
     "typescript": "catalog:",
     "vitest": "^2.0.0"
