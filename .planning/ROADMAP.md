@@ -37,7 +37,7 @@
   2. A naming decision record exists listing every email-vocabulary UI label, code identifier, CSS class, and route, with each item tagged by rename layer (label / CSS / identifier / route)
   3. The naming record is comprehensive enough that a reader can derive the full scope of R3 without re-auditing the codebase
 **Plans**: 3 plans
-- [ ] R1-01-naming-decision-record-PLAN.md (wave 1) — grep-driven naming decision record: 4 per-layer tables (label/CSS/identifier/route) across all three surfaces [AUDT-02]
+- [x] R1-01-naming-decision-record-PLAN.md (wave 1) — grep-driven naming decision record: 4 per-layer tables (label/CSS/identifier/route) across all three surfaces [AUDT-02]
 - [x] R1-02-capture-tooling-PLAN.md (wave 1) — parameterized Playwright capture script + light/dark embed test pages + README (reused by R2-R5) [AUDT-01]
 - [ ] R1-03-run-captures-and-manifest-PLAN.md (wave 2) — auth checkpoint + run web/embed captures + mobile Expo Go capture checkpoint + INDEX.md manifest with deploy SHA [AUDT-01]
 
@@ -105,7 +105,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| R1. Audit Baseline | 1/3 | In Progress|  |
+| R1. Audit Baseline | 2/3 | In Progress|  |
 | R2. Design System Token Layer | 0/TBD | Not started | - |
 | R3. Naming & IA Pass | 0/TBD | Not started | - |
 | R4. Staff Web Visual Refresh + Embed Widgets | 0/TBD | Not started | - |
@@ -168,7 +168,7 @@ Post-v1 backlog (HealthKit + native mobile, Coach View with health context, CRM 
 4. Member context panel in the inbox shows next-class + pass-balance for the opened conversation's member (real data)
 5. Stripe Checkout link generated for a 10-pack purchase + paid in Stripe test mode + resulting pass grant visible in member profile
 
-**Plans:** 1/3 plans executed
+**Plans:** 2/3 plans executed
 
 - [x] D1-01-schedule-surface-PLAN.md — Build /gymos/schedule week-grid + book-from-occurrence dialog (SCH-01, BKG-01) — completed 2026-05-19 (commits f5cdbdc6, dd50fe62, 23ee58f2)
 - [x] D1-02-members-directory-PLAN.md — Build /gymos/members + /gymos/members/:id profile with bookings + pass balance (MEM-01, MEM-02)
