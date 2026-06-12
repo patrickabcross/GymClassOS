@@ -1,0 +1,20 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/m/:path*",
+      "destination": "/__server"
+    },
+    {
+      "source": "/api/submit/:path*",
+      "destination": "/__server"
+    },
+    {
+      "source": "/api/forms/:path*",
+      "destination": "/__server"
+    },
+    {
+      "source": "/webhooks/:path*",
+      "destination": "/__server"
+    }
+  ]
+}
