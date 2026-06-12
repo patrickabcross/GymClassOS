@@ -114,6 +114,86 @@ describe("POST /webhooks/stripe", () => {
   });
 });
 
+describe("POST /webhooks/stripe-connect", () => {
+  beforeEach(() => {
+    constructEvent.mockReset();
+    insertWebhookEvent.mockReset();
+    enqueueStripeEvent.mockReset();
+  });
+
+  it("returns 400 for tampered body (BEFORE any DB write or enqueue)", async () => {
+    constructEvent.mockImplementation(() => {
+      throw new Error("Invalid signature");
+    });
+    const app = buildApp();
+    const res = await app.request("/webhooks/stripe-connect", {
+      method: "POST",
+      headers: { "stripe-signature": "t=1,v1=bad" },
+      body: '{"id":"evt_tampered","account":"acct_x"}',
+    });
+    expect(res.status).toBe(400);
+    expect(await res.text()).toBe("invalid signature");
+    expect(insertWebhookEvent).not.toHaveBeenCalled();
+    expect(enqueueStripeEvent).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 when stripe-signature header missing", async () => {
+    const app = buildApp();
+    const res = await app.request("/webhooks/stripe-connect", {
+      method: "POST",
+      body: "{}",
+    });
+    expect(res.status).toBe(400);
+    expect(await res.text()).toBe("Missing stripe-signature");
+    expect(constructEvent).not.toHaveBeenCalled();
+  });
+
+  it("returns 200 and enqueues with stripeAccount on valid Connect event", async () => {
+    constructEvent.mockReturnValue({
+      id: "evt_connect_abc",
+      type: "account.updated",
+      account: "acct_x",
+    });
+    insertWebhookEvent.mockResolvedValue({
+      inserted: true,
+      eventKey: "stripe:evt_connect_abc",
+    });
+    const app = buildApp();
+    const res = await app.request("/webhooks/stripe-connect", {
+      method: "POST",
+      headers: { "stripe-signature": "t=1,v1=good" },
+      body: '{"id":"evt_connect_abc","account":"acct_x"}',
+    });
+    expect(res.status).toBe(200);
+    expect(await res.text()).toBe("ok");
+    expect(enqueueStripeEvent).toHaveBeenCalledWith({
+      eventId: "evt_connect_abc",
+      stripeAccount: "acct_x",
+    });
+  });
+
+  it("returns 200 (dedup) and skips enqueue on duplicate Connect event", async () => {
+    constructEvent.mockReturnValue({
+      id: "evt_connect_dup",
+      type: "account.updated",
+      account: "acct_x",
+    });
+    insertWebhookEvent.mockResolvedValue({
+      inserted: false,
+      eventKey: "stripe:evt_connect_dup",
+    });
+    const app = buildApp();
+    const res = await app.request("/webhooks/stripe-connect", {
+      method: "POST",
+      headers: { "stripe-signature": "t=1,v1=good" },
+      body: '{"id":"evt_connect_dup","account":"acct_x"}',
+    });
+    expect(res.status).toBe(200);
+    expect(await res.text()).toBe("ok (dedup)");
+    expect(enqueueStripeEvent).not.toHaveBeenCalled();
+  });
+});
+
 describe("GET /healthz", () => {
   it("returns 200 with ok + version", async () => {
     const app = buildApp();
