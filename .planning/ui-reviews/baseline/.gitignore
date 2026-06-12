@@ -1,0 +1,3 @@
+# Baseline screenshots ARE committed — override the parent .gitignore rule
+!*.png
+!**/*.png

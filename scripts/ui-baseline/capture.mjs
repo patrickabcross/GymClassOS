@@ -140,8 +140,9 @@ async function ensureDir(dir) {
  * Pitfall 2: AgentSidebar persists open/closed in localStorage.
  */
 async function gotoAndCapture(page, url, outputPath, isGymosRoute = true) {
-  await page.goto(url, { waitUntil: "networkidle" });
-  await page.waitForTimeout(1500);
+  await page.goto(url, { waitUntil: "load", timeout: 60_000 });
+  // Extra wait for React hydration + TanStack Query initial fetch
+  await page.waitForTimeout(3000);
 
   if (isGymosRoute) {
     // Close agent sidebar if open. Press Escape — tolerate if no sidebar present.
@@ -288,7 +289,8 @@ async function captureAll() {
       );
       process.exit(1);
     }
-    await guardPage.goto(`${BASE}/gymos`, { waitUntil: "networkidle" });
+    await guardPage.goto(`${BASE}/gymos`, { waitUntil: "domcontentloaded", timeout: 60_000 });
+    await guardPage.waitForTimeout(4000);
     const currentUrl = guardPage.url();
     if (
       currentUrl.includes("accounts.google.com") ||
@@ -307,7 +309,8 @@ async function captureAll() {
     let firstMemberId = null;
     try {
       await guardPage.goto(`${BASE}/gymos/members`, {
-        waitUntil: "networkidle",
+        waitUntil: "load",
+        timeout: 60_000,
       });
       await guardPage.waitForTimeout(1500);
       const memberHref = await guardPage
@@ -391,8 +394,8 @@ async function captureInteractionStates(context) {
   try {
     const page = await context.newPage();
     await page.setViewportSize(DESKTOP);
-    await page.goto(`${BASE}/gymos/inbox`, { waitUntil: "networkidle" });
-    await page.waitForTimeout(2000);
+    await page.goto(`${BASE}/gymos/inbox`, { waitUntil: "load", timeout: 60_000 });
+    await page.waitForTimeout(4000);
 
     // Resolve the first conversation ID from a href containing "conversation="
     let conversationId = null;
@@ -412,9 +415,10 @@ async function captureInteractionStates(context) {
 
     if (conversationId) {
       await page.goto(`${BASE}/gymos/inbox?conversation=${conversationId}`, {
-        waitUntil: "networkidle",
+        waitUntil: "load",
+        timeout: 60_000,
       });
-      await page.waitForTimeout(2000);
+      await page.waitForTimeout(4000);
     }
 
     // Close agent sidebar (Pitfall 2) to reveal member-context right-rail
@@ -434,7 +438,7 @@ async function captureInteractionStates(context) {
   try {
     const page = await context.newPage();
     await page.setViewportSize(DESKTOP);
-    await page.goto(`${BASE}/gymos/inbox`, { waitUntil: "networkidle" });
+    await page.goto(`${BASE}/gymos/inbox`, { waitUntil: "load", timeout: 60_000 });
     await page.waitForTimeout(1500);
 
     // Close sidebar before interacting with toolbar buttons
@@ -458,7 +462,7 @@ async function captureInteractionStates(context) {
   try {
     const page = await context.newPage();
     await page.setViewportSize(DESKTOP);
-    await page.goto(`${BASE}/gymos/schedule`, { waitUntil: "networkidle" });
+    await page.goto(`${BASE}/gymos/schedule`, { waitUntil: "load", timeout: 60_000 });
     await page.waitForTimeout(1500);
     await page.keyboard.press("Escape");
     await page.waitForTimeout(300);
@@ -494,7 +498,7 @@ async function captureInteractionStates(context) {
   try {
     const page = await context.newPage();
     await page.setViewportSize(DESKTOP);
-    await page.goto(`${BASE}/gymos/inbox`, { waitUntil: "networkidle" });
+    await page.goto(`${BASE}/gymos/inbox`, { waitUntil: "load", timeout: 60_000 });
     await page.waitForTimeout(1500);
     await page.keyboard.press("Escape");
     await page.waitForTimeout(300);
