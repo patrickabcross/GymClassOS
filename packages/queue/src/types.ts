@@ -63,6 +63,10 @@ export type InboundWhatsAppPayload = z.infer<typeof InboundWhatsAppPayload>;
 
 export const StripeEventPayload = z.object({
   eventId: z.string().min(1).regex(/^evt_/, "Stripe event IDs start with evt_"),
+  // P1c.1: present only for Connect-endpoint events (event.account). Platform
+  // events leave it undefined. Threaded to every reducer's refetch as the
+  // { stripeAccount } request option (RESEARCH §Connect webhooks).
+  stripeAccount: z.string().regex(/^acct_/).optional(),
 });
 export type StripeEventPayload = z.infer<typeof StripeEventPayload>;
 
