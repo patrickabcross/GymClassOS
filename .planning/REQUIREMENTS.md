@@ -142,9 +142,9 @@
 ### Staff Web App — Payments
 
 - [x] **PAY-01** [D]: Demo can generate a Stripe Checkout link for a pass purchase (one-off pack, e.g. 10 credits) and verify success in member profile
-- [ ] **PAY-02** [P]: Coach can generate a Stripe Checkout link for a class drop-in (creates 1-credit pass on success — drop-ins flow through Checkout → pass, not a separate code path)
-- [ ] **PAY-03** [P]: Coach can generate a Stripe Subscription Checkout link for recurring memberships
-- [ ] **PAY-04** [P]: Coach can generate a Stripe Customer Portal link to send to a member for self-service billing
+- [x] **PAY-02** [P]: Coach can generate a Stripe Checkout link for a class drop-in (creates 1-credit pass on success — drop-ins flow through Checkout → pass, not a separate code path)
+- [x] **PAY-03** [P]: Coach can generate a Stripe Subscription Checkout link for recurring memberships
+- [x] **PAY-04** [P]: Coach can generate a Stripe Customer Portal link to send to a member for self-service billing
 - [ ] **PAY-05** [P]: Refunds happen via Stripe Dashboard (NO refunds UI in staff-web v1)
 
 ### Member PWA — Booking + Profile

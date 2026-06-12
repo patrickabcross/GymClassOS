@@ -264,14 +264,14 @@ The production milestone is structured as 4 phases (preserving the prior coarse-
 7. Stripe Customer Portal (on the connected account) reachable for subscription self-service
 8. No card data stored anywhere; tokenised IDs only (STR-08 preserved)
 
-**Plans:** 4/7 plans executed
+**Plans:** 5/7 plans executed
 
 Plans:
 - [x] P1c.1-01-PLAN.md (wave 1) — additive connected_accounts table (acct_id + readiness flags, direct-to-Neon) + StripeEventPayload.stripeAccount optional field [STR-01]
 - [x] P1c.1-02-PLAN.md (wave 2) — POST /webhooks/stripe-connect Connect endpoint (separate whsec_, reads event.account, same idempotency spine) [STR-01]
 - [ ] P1c.1-03-PLAN.md (wave 3) — thread stripeAccount through all 6 reducers refetch + new account.updated readiness reducer [STR-01, STR-02, PAY-01, PAY-02]
 - [x] P1c.1-04-PLAN.md (wave 1) — getPlatformStripe() + create-connect-account (controller props) + create-account-link + settings Connect/readiness UI; restricted-key path dormant [STR-01]
-- [ ] P1c.1-05-PLAN.md (wave 2) — rework create-checkout-link (Connect + subscription mode + subscription_data.metadata.memberId) + create-portal-link + public /embed/buy [STR-02, PAY-01, PAY-02, PAY-03, PAY-04]
+- [x] P1c.1-05-PLAN.md (wave 2) — rework create-checkout-link (Connect + subscription mode + subscription_data.metadata.memberId) + create-portal-link + public /embed/buy [STR-02, PAY-01, PAY-02, PAY-03, PAY-04]
 - [x] P1c.1-06-PLAN.md (wave 1) — fix /api/m/* 404 on Vercel + /api/m/purchase endpoint + mobile purchase screen (Checkout in browser sheet) [PAY-01, STR-02]
 - [ ] P1c.1-07-PLAN.md (wave 3) — CHECKPOINT: user enables platform Connect + registers Connect webhook + sets secrets + onboards Hustle; then live Stripe CLI e2e → VERIFICATION.md [STR-01, STR-02, PAY-01, PAY-02, PAY-03, PAY-04]
 

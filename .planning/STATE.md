@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed P1c.1-02-PLAN.md
-last_updated: "2026-06-12T15:37:31.316Z"
+stopped_at: Completed P1c.1-05-PLAN.md
+last_updated: "2026-06-12T16:00:06.968Z"
 last_activity: 2026-06-12
 progress:
   total_phases: 14
   completed_phases: 1
   total_plans: 15
-  completed_plans: 14
+  completed_plans: 15
   percent: 50
 ---
 
@@ -35,7 +35,7 @@ Requirements: `.planning/REQUIREMENTS.md` (130 reqs across 20 categories — see
 
 Milestone: Demo Sprint (1 of 2) — Week 1 (target ~2026-05-24 — slipped to 2026-05-26 with live-fix wave)
 Phase: P1c.1 (Stripe Connect Custom + Customer Purchase Flows) — EXECUTING
-Plan: 5 of 7
+Plan: 6 of 7
 Status: Ready to execute
 Last activity: 2026-06-12
 
@@ -195,6 +195,9 @@ Decisions are logged in `PROJECT.md` Key Decisions table. Recent ones affecting 
 - [Phase P1c.1]: PILOT_PRODUCTS uses env vars (STRIPE_PRICE_DROP_IN etc.) for v1; P2 replaces with stripe.prices.list() on connected account
 - [Phase P1c.1-stripe-connect-custom-customer-purchase-flows]: Reuse stripeRoutes Hono instance for Connect handler — no new export, no server.ts change — Route already mounted via app.route('/webhooks', stripeRoutes); adding handler inline is simpler
 - [Phase P1c.1-stripe-connect-custom-customer-purchase-flows]: provider='stripe' for Connect events — Stripe event IDs globally unique, no external_id collision with platform events — The shared (provider, external_id) UNIQUE constraint correctly dedups both event streams
+- [Phase P1c.1]: Extracted buildCheckoutParams/validateConnectedAccount to helpers module — defineAction wrapper can't be imported in Vitest (CJS React conflict); pure helpers are testable
+- [Phase P1c.1]: Nitro .get.ts + .post.ts split for /embed/buy — matches schedule widget convention and lets Nitro serve raw HTML bypassing RR7
+- [Phase P1c.1]: (platform.checkout.sessions.create as any)(params, opts) cast — Stripe SDK TypeScript overloads confuse { stripeAccount } as second arg; runtime is correct
 
 ### Pending Todos
 
@@ -268,11 +271,12 @@ None tracked as TODOs; everything is in the roadmap / requirements.
 | Phase P1c.1-stripe-connect-custom-customer-purchase-flows P04 | 8min | 3 tasks | 6 files |
 | Phase P1c.1 P06 | 45min | 3 tasks | 15 files |
 | Phase P1c.1-stripe-connect-custom-customer-purchase-flows P02 | 4min | 2 tasks | 3 files |
+| Phase P1c.1 P05 | 35min | 3 tasks | 9 files |
 
 ## Session Continuity
 
-Last session: 2026-06-12T15:37:31.304Z
-Stopped at: Completed P1c.1-02-PLAN.md
+Last session: 2026-06-12T16:00:06.946Z
+Stopped at: Completed P1c.1-05-PLAN.md
 Resume file: None
 
 ### ▶ PICK UP HERE — 2026-06-04 EOD
