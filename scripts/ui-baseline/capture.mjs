@@ -23,7 +23,7 @@
  */
 
 import { chromium } from "playwright";
-import { mkdir, access } from "fs/promises";
+import { mkdir, access, writeFile } from "fs/promises";
 import { join, resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 
@@ -161,38 +161,78 @@ async function gotoAndCapture(page, url, outputPath, isGymosRoute = true) {
 // ---------------------------------------------------------------------------
 
 async function saveAuth() {
-  console.log(
-    "Launching headed browser — log in via Google when the window opens.",
-  );
-  console.log(
-    "The script waits up to 5 minutes for a session cookie (URL alone is not",
-  );
-  console.log(
-    "proof of login — /gymos renders its auth gate client-side on a 200).",
+  // Google blocks OAuth inside Playwright-launched browsers ("This browser or
+  // app may not be secure"). Workaround: the user signs in using a REAL Chrome
+  // or Edge launched with a remote-debugging port (a normal, non-automated
+  // browser Google trusts); this script connects over CDP and saves the
+  // resulting session cookies.
+  const CDP_URL = "http://localhost:9222";
+  const profileDir = join(
+    process.env.TEMP || process.env.TMPDIR || "/tmp",
+    "gymos-auth-profile",
   );
 
-  const browser = await chromium.launch({ headless: false });
-  const context = await browser.newContext();
-  const page = await context.newPage();
+  console.log(
+    "Google blocks sign-in inside automated browsers, so login happens in a real Chrome/Edge.",
+  );
+  console.log("");
+  console.log(
+    "1. Open a NEW terminal and launch Chrome (or Edge) with a debug port:",
+  );
+  console.log("");
+  console.log("   PowerShell (Chrome):");
+  console.log(
+    `   & "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" --remote-debugging-port=9222 --user-data-dir="${profileDir}" "${BASE}/gymos"`,
+  );
+  console.log("");
+  console.log("   PowerShell (Edge, if Chrome is not installed):");
+  console.log(
+    `   & "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe" --remote-debugging-port=9222 --user-data-dir="${profileDir}" "${BASE}/gymos"`,
+  );
+  console.log("");
+  console.log("2. Sign in with the allowlisted Google account in that window.");
+  console.log(
+    "3. This script polls localhost:9222 and saves the session automatically.",
+  );
+  console.log("");
 
-  // Root URL 404s on the live deploy — go straight to /gymos (shows the sign-in gate).
-  await page.goto(`${BASE}/gymos`);
+  // Poll for the CDP endpoint while the user launches the browser
+  let browser = null;
+  const connectDeadline = Date.now() + 300_000;
+  while (Date.now() < connectDeadline && !browser) {
+    try {
+      browser = await chromium.connectOverCDP(CDP_URL);
+    } catch {
+      await new Promise((r) => setTimeout(r, 3000));
+    }
+  }
+  if (!browser) {
+    console.error(
+      "Could not connect to a browser on port 9222 within 5 minutes.\n" +
+        "Launch Chrome/Edge with --remote-debugging-port=9222 (command above), then re-run.",
+    );
+    process.exit(1);
+  }
 
-  // Wait for an actual better-auth session cookie. waitForURL("**/gymos**") is NOT
-  // sufficient: /gymos returns 200 unauthenticated and gates client-side, so a URL
-  // wait resolves before login and saves an empty storageState.
+  console.log(
+    "Connected to browser — finish signing in; polling for session cookie...",
+  );
+  const context = browser.contexts()[0];
+
+  // Wait for an actual better-auth session cookie. A /gymos URL alone is NOT
+  // proof of login: the route returns 200 unauthenticated and gates client-side.
   const deadline = Date.now() + 300_000;
-  let authed = false;
+  let sessionCookies = null;
   while (Date.now() < deadline) {
     const cookies = await context.cookies(BASE);
     if (cookies.some((c) => /session/i.test(c.name))) {
-      authed = true;
+      sessionCookies = cookies;
       break;
     }
-    await page.waitForTimeout(2000);
+    await new Promise((r) => setTimeout(r, 2000));
   }
 
-  if (!authed) {
+  if (!sessionCookies) {
     await browser.close();
     console.error(
       "Timed out: no session cookie appeared within 5 minutes — login not detected.\n" +
@@ -201,11 +241,16 @@ async function saveAuth() {
     process.exit(1);
   }
 
-  await context.storageState({ path: STORAGE_STATE_PATH });
-  await browser.close();
+  // Write storageState manually — cookies are all better-auth needs.
+  await writeFile(
+    STORAGE_STATE_PATH,
+    JSON.stringify({ cookies: sessionCookies, origins: [] }, null, 2),
+  );
+  await browser.close(); // disconnects CDP; the user's browser window stays open
 
   console.log(`Auth saved to ${STORAGE_STATE_PATH}`);
   console.log("This file is gitignored — do not commit it.");
+  console.log("You can close the Chrome/Edge window now.");
 }
 
 // ---------------------------------------------------------------------------
