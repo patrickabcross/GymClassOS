@@ -1,233 +1,303 @@
-# Stack Research — GymClassOS
+# Stack Research — GymClassOS v1.1 UI Redesign (Theming Layer)
 
-**Domain:** Boutique fitness studio management platform (staff web + WhatsApp + Stripe + member-mobile-integration)
-**Researched:** 2026-05-17
-**Confidence:** HIGH for framework/DB/auth/payments (verified against agent-native repo and official docs); MEDIUM for WhatsApp client (deprecated official SDK); MEDIUM for jobs runtime (depends on Phase 0 audit findings).
+**Domain:** Studio-skinnable design system spanning Tailwind v4 web + Expo React Native
+**Researched:** 2026-06-12
+**Confidence:** HIGH for Tailwind v4 token strategy and embed isolation (official docs verified); MEDIUM for RN theming approach (evidence-based, multiple credible sources); LOW for react-native-unistyles (architectural fit needs prototype validation)
 
----
-
-## The Single Most Important Finding (Read This First)
-
-**agent-native does NOT use Next.js.** It uses **React Router v7 (Framework Mode) + Vite + Drizzle ORM + H3 server + Better-auth**. The Mail template (which becomes the WhatsApp client) is built on this stack with Radix UI primitives and Tailwind.
-
-This is decisive: do NOT pick Next.js, do NOT pick Prisma, do NOT pick NextAuth. Match the upstream so merges from `BuilderIO/agent-native` stay tractable. Every recommendation below assumes alignment with what's already in the framework.
-
-Verified from `BuilderIO/agent-native` (commit-level web inspection 2026-05-17):
-
-| Choice in agent-native | Files inspected |
-|---|---|
-| React Router v7 (framework mode, SSR) | `templates/mail/react-router.config.ts`, `vite.config.ts` |
-| Vite as the build tool | `templates/mail/vite.config.ts` |
-| Drizzle ORM via `@agent-native/core/db/drizzle-config` | `templates/mail/drizzle.config.ts`, `packages/core/package.json` (`drizzle-orm@^0.45.2`) |
-| H3 as the server runtime | `packages/core/package.json` (h3 used inside templates' `server/middleware/*`) |
-| **Better-auth** for sessions | `packages/core/package.json` (`better-auth@^1.6.0`); `auth.ts` middleware delegates to `runAuthGuard` from `@agent-native/core/server` |
-| Radix UI + Tailwind v4 + Lucide + Sonner | `templates/mail/package.json`, `templates/starter/package.json` |
-| React Hook Form + Zod + TanStack Query | `templates/mail/package.json` |
-| Tiptap for rich text editing | `templates/mail/package.json` |
-| `@neondatabase/serverless@^1.1.0` already in core | `packages/core/package.json` |
-| LibSQL is the *default* dev DB but Postgres/Neon is supported via the same Drizzle config | `packages/core/package.json` lists both `@libsql/client` and `@neondatabase/serverless` |
-
-This means: **the only DB swap we need to make is configuring Drizzle for `pg`/`neon-http` instead of `libsql` at fork time** — agent-native's core already imports the Neon serverless driver as a first-class option.
+> **Scope note.** This file covers ONLY the stack additions and changes needed for milestone v1.1 (studio-skinnable design system). The base platform stack (React Router v7, Drizzle, Better-auth, pg-boss, Hono, WhatsApp, Stripe) is documented in the 2026-05-17 version of this file — that research stands unchanged. Nothing below touches those choices.
 
 ---
 
-## Recommended Stack
+## The Single Most Important Finding
 
-### Core Technologies
+**The embed widget already uses iframes.** `apps/staff-web/features/forms/lib/embed-snippet.ts` and `schedule-widget-ssr.ts` inject `<iframe>` elements and communicate via `postMessage`. This decision was made in P1c. **CSS isolation for embeds is solved.** The SSR pages rendered inside the iframes are self-contained HTML documents with `<style>` blocks — the host page's CSS cannot reach in. The redesign work is confined to improving those inline styles to consume the token system, not changing the isolation model.
+
+This means Shadow DOM and CSS prefixing are both off the table as over-engineering. The existing iframe approach is correct and identical to how Calendly, Typeform, and Elfsight handle third-party embeds in 2026.
+
+---
+
+## Recommended Stack Additions
+
+### Core Technologies (New for v1.1)
 
 | Technology | Version | Purpose | Why Recommended |
-|---|---|---|---|
-| **TypeScript** | `^5.7.x` (catalog-managed in pnpm workspace) | Language | Locked-in; matches agent-native |
-| **React** | `19.2.x` | UI runtime | Matches agent-native `^19.2.5` |
-| **React Router v7** | `^7.13.x` (latest stable line; the 8.0 RC is *not* worth chasing for a 2-month ship) | Routing + SSR framework mode | This **replaces Next.js** for us. Agent-native ships with it. Loader/action data model is closer to old Remix and is a clean fit for typed full-stack code with no React Server Components complexity to fight. |
-| **Vite** | `^6.x` (catalog version inherited from agent-native) | Dev server + bundler | Comes with React Router v7 framework mode. Cloudflare-tuned in upstream but the same `vite.config.ts` works for Vercel/Node targets. |
-| **Postgres (Neon)** | Postgres 16, Neon managed | Application database | Locked-in. One Neon project per studio per the tenancy model. |
-| **Drizzle ORM** | `^0.45.x` (stay on 0.45 line — agent-native is on `0.45.2`; **do NOT jump to 1.0-beta** mid-ship) | DB schema + queries | Already in agent-native. TS-first. Pairs natively with `@neondatabase/serverless`. Migration story is `drizzle-kit generate` + `drizzle-kit migrate` (note: agent-native has a `guard:no-drizzle-push` script — push is disallowed; use generate+migrate). |
-| **`@neondatabase/serverless`** | `^1.1.x` | DB driver (HTTP + WebSocket) | Already a dep in `@agent-native/core`. Use the HTTP driver for Vercel-hosted stateless routes (cold-start friendly) and the WebSocket driver for the long-lived Fly worker (better latency for transactional workloads). |
-| **H3** | `^2.0.x` (RC line in upstream — the same version agent-native ships) | Server runtime inside the React Router app | Already wired up by agent-native's middleware layer. Used for the global auth guard middleware. Do not replace; extend. |
-| **Better-auth** | `^1.6.x` | Staff auth | Already in agent-native (`runAuthGuard` from `@agent-native/core/server` is Better-auth under the hood). Email/password + magic link for v1 staff login is enough; add OAuth later if needed. |
-| **Stripe Node SDK** | `^17.x` (latest stable — verify the exact patch at install time; pin to the version that matches your target API version) | Payments | Use `stripe.webhooks.constructEvent()` — never hand-roll HMAC. Use Stripe Connect (OAuth) so studios authorise GymClassOS onto their *existing* account. |
-| **`@great-detail/whatsapp`** | `^9.x` (April 2026) | WhatsApp Cloud API client | **Critical**: Meta's official `WhatsApp/WhatsApp-Nodejs-SDK` was paused (see Issue #31, "Pausing Development of the WhatsApp SDK"). `@great-detail/whatsapp` is the maintained fork. Tracks Cloud API v23, ships TS types, ESM + CJS, includes `event.verifySignature(appSecret)` for webhook validation. **Confidence: MEDIUM** — depends on a single maintainer; mitigation in the "What NOT to Use" section below. |
-| **Hono** | `^4.x` | The Fly.io webhook receiver app + the Fly.io background worker's tiny admin HTTP surface | Hono is the right TS-native choice for the *Fly.io side* (which is a *separate* app from the React Router app on Vercel). Tiny bundle, first-class TS, easy raw-body handling for Stripe and WhatsApp signature verification. Do *not* use Hono for the staff web app — that's React Router. |
-| **pg-boss** | `^10.x` | Background job queue on Fly.io (Postgres-backed) | Postgres-native queue running against the same Neon instance as application data. Eliminates Redis entirely — one fewer service, one fewer secret, one fewer failure mode. Supports delayed jobs (`sendAfter`), idempotency (`singletonKey`), retries with backoff, cron schedules, and dead-letter via `expireInHours`. Used for: outbound WhatsApp send queue, Stripe webhook post-processing, class reminder scheduling, weekly schedule materialisation. Locked in over BullMQ for the simplicity gain — solo-dev, low-volume v1. |
+|------------|---------|---------|-----------------|
+| **`packages/gymos-tokens`** (new workspace package) | n/a — hand-rolled, no semver | Single source of truth for design tokens: color palette, semantic color mappings, typography scale, border-radius scale, spacing overrides | A 100-line TypeScript file avoids Style Dictionary's build pipeline complexity entirely. Token values are plain JS objects; CSS var names are derived by convention. Feeds both the Tailwind v4 `@theme` block (as a generated CSS snippet) and the Expo `ThemeContext` (as direct JS values). The workspace already has the precedent for tiny shared packages (`packages/shared-app-config`, `packages/queue`). |
+| **Tailwind v4 `@theme inline` + CSS variable override pattern** | Tailwind `^4.2.4` (already in catalog) | Runtime per-studio theming on staff web and embed pages | `@theme inline` makes Tailwind emit `var(--color-primary)` in utility classes instead of literal values. Overriding `:root` CSS variables at request-render time (server-injected `<style>` block with per-studio values) then flows through the entire Tailwind utility class tree. No recompile needed. Verified against official Tailwind v4 docs and shadcn/ui v4 migration guide. |
+| **`ThemeContext` (hand-rolled, ~60 lines)** | n/a | Runtime theme for Expo/React Native | Context provides a `theme` object typed against `packages/gymos-tokens`. `StyleSheet.create()` calls are replaced with inline objects derived from `useTheme()`. No third-party RN styling library needed for a 5-token system. |
+| **`expo-font` (already a transitive dep via Expo)** | `~56.0.x` (bundled with Expo 55) | Load self-hosted Inter OTF files in the Expo app | `useFonts()` hook works with Expo Go (required — demo uses Expo Go per PROJECT.md). The config plugin alternative requires a dev build and cannot be tested via Expo Go. |
 
-### Supporting Libraries
+### Supporting Libraries (New or Changed for v1.1)
 
 | Library | Version | Purpose | When to Use |
-|---|---|---|---|
-| **Tailwind CSS** | `^4.x` | Styling | Already in agent-native; v4 is the version `@agent-native/core` peers against |
-| **shadcn/ui** | latest CLI (no semver — copy-in components) | UI components | shadcn officially supports React Router v7 (`ui.shadcn.com/docs/installation/react-router`). Already aligned with agent-native's Radix + Tailwind + CVA stack — `shadcn add` should drop in cleanly without ejecting existing Radix usages. Use to fill gaps where agent-native's components don't cover GymClassOS-specific surfaces (forms, data tables, calendars beyond what's in the Calendar template). |
-| **Radix UI primitives** | `^1.1.x` / `^2.2.x` | Accessible UI primitives | Already in agent-native; underlies shadcn |
-| **Lucide React** | `^1.8.x` | Icon set | Already in agent-native |
-| **Sonner** | `^2.0.x` | Toast notifications | Already in agent-native |
-| **Zod** | `^4.x` | Schema validation (API payloads, env vars, WhatsApp webhook bodies, Stripe webhook bodies) | Already in agent-native; v4 |
-| **React Hook Form** | `^7.71.x` | Forms in staff app | Already in agent-native |
-| **TanStack Query** | `^5.99.x` | Client-side data fetching/cache | Already in agent-native |
-| **date-fns** | `^4.1.x` | Date math for class schedules, 24h-window enforcement, reminder windows | Already in agent-native. Use `date-fns-tz` for the studio's local timezone (booked classes always render in studio time). |
-| **Jose** | `^6.2.x` | JWT (already in agent-native; mostly for Better-auth internals) | Don't roll your own JWT — Better-auth uses Jose under the hood |
-| **Nanoid** | `^5.1.x` | Short opaque IDs (idempotency keys, public-facing booking codes) | Already in agent-native |
-| **Pino** | `^9.x` | Structured logging on Fly.io | Logs ship to Better Stack via Fly Logshipper (see Logging section) |
+|---------|---------|---------|-------------|
+| **`next-themes`** | `^0.4.6` (already in staff-web devDependencies) | Light/dark mode toggle on staff web | Already installed. For studio theming, dark/light is a separate toggle from studio brand tokens. Use `next-themes` for dark mode class on `<html>` as today; use CSS variable injection for studio brand tokens. Do not conflate them. |
+| **`vite-plugin-webfont-dl`** | `^3.9.x` | Download and self-host Inter from Google Fonts at build time | Optional but recommended: eliminates the Google Fonts `@import` CDN call in `global.css` (privacy + performance). The current `global.css` line 1 is `@import url("https://fonts.googleapis.com/css2?family=Inter:...")` — this sends a third-party DNS lookup on every page load. Replacing it with a local `/fonts/inter-variable.woff2` served from the Vite public dir eliminates the lookup. Install in `apps/staff-web` only. |
 
-### Development Tools
+### Development Tools (No Changes)
 
-| Tool | Purpose | Notes |
-|---|---|---|
-| **pnpm** | Package manager | Required — agent-native is a pnpm workspace with version `10.14.0`. Use the same. The `catalog:` versions in agent-native's package.json only work under pnpm. |
-| **Drizzle Kit** | Schema migration generation | Use `drizzle-kit generate` + `drizzle-kit migrate`. Agent-native ships `guard:no-drizzle-push` — push is forbidden because it drops data. Preserve this guard in the fork. |
-| **Vitest** | Unit tests | Already in agent-native templates. Use for: Zod schemas, idempotency key logic, WhatsApp 24h-window enforcer, Stripe event reducers. Avoid Vitest browser mode for React Router v7 components — there's a known preamble-detection bug; do that work in Playwright instead. |
-| **Playwright** | E2E tests | Use for: staff login flow, sending a WhatsApp template, booking a class, processing a Stripe webhook end-to-end (via Stripe CLI fixtures). |
-| **Stripe CLI** | Webhook testing locally | `stripe listen --forward-to localhost:3001/webhooks/stripe`. Required for any safe webhook iteration. |
-| **`ngrok` or Cloudflare Tunnel** | WhatsApp webhook testing locally | Meta requires a public HTTPS URL to register a webhook subscriber. Pick one and stick with it. |
-| **Prettier** | Formatting | Already in agent-native (`^3.6.2`). Inherit its config. |
-| **Changesets** | Version management (optional for v1) | Agent-native uses it; for a solo-dev forked monorepo with one customer it's overkill — defer to Phase 4+. |
+All existing tooling (pnpm, Vite, TypeScript, Vitest, Prettier) applies unchanged. The tokens package requires no special build tooling — it exports plain TypeScript and is consumed directly via `workspace:*` in other packages.
 
-## Installation
+---
 
-> **Don't run a green-field `npm init`.** The starting point is `git clone https://github.com/BuilderIO/agent-native gymos && cd gymos && pnpm install`. The "installation" below is what to *add* on top of the fork for the GymClassOS-specific layer.
+## Token Architecture
 
-```bash
-# Inside the fork — packages added for GymClassOS-specific surfaces
-pnpm add @great-detail/whatsapp        # WhatsApp Cloud API client (maintained fork)
-pnpm add stripe                        # Stripe Node SDK
-pnpm add hono                          # Fly.io webhook receiver framework
-pnpm add pg-boss                       # Background job queue (Postgres-backed, no Redis)
-pnpm add date-fns-tz                   # Timezone-aware date math for class schedules
-pnpm add pino pino-http                # Structured logging on Fly
+### Workspace Location
 
-# Dev-only additions
-pnpm add -D @playwright/test           # E2E
-pnpm add -D stripe-cli-wrapper         # OPTIONAL — most setups just call the stripe CLI binary directly
+```
+packages/
+  gymos-tokens/           ← NEW
+    package.json          (name: "@gymos/tokens", private: true, main: "index.ts")
+    index.ts              (exports primitives + semantics + helpers)
+    tokens/
+      primitives.ts       (color palette: slate, blue, etc. — raw values)
+      semantics.ts        (maps primitives to roles: primary, background, border, etc.)
+      typography.ts       (font family names, scale)
+      radius.ts           (border radius scale)
+    css/
+      base-theme.css      (generated or hand-authored @theme block — consumed by staff-web)
 ```
 
-Already present from the agent-native fork (do NOT re-install — let `pnpm install` from upstream resolve):
-React, React Router v7, Vite, Drizzle ORM, `@neondatabase/serverless`, H3, Better-auth, Radix UI, Tailwind v4, Lucide, Sonner, Zod, React Hook Form, TanStack Query, Vitest, Prettier.
+### Why NOT style-dictionary
 
-## The Three Apps You're Actually Deploying
+Style Dictionary v4 is a mature build pipeline for teams with a Figma-to-code token export workflow and multiple platform targets. For a solo developer with a 5-token surface (color, typography, radius, logo, dark/light) and no Figma token export, it adds:
+- A `build.ts` config file
+- A separate build step before any consuming package can compile
+- The CTI naming convention to learn and map to Tailwind's naming
+- An additional ~700 KB in devDependencies
 
-The locked-in tenancy model (one Neon project + one Vercel deploy + one Fly app per studio) means three deployable artefacts per studio, all from the same monorepo:
+The hand-rolled alternative is 100 lines of TypeScript and a conventions document. The tokens package only needs to grow to style-dictionary if: (a) there are more than 3 studios with divergent token sets, or (b) a Figma plugin export workflow is introduced. Neither applies to v1.1.
 
-| App | Where | What | Why there |
-|---|---|---|---|
-| **`apps/staff-web`** (forked from agent-native templates: Mail → WhatsApp client, Calendar → class schedule, Content → KB, Analytics → reporting, Calorie tracker → calorie counter) | Vercel | React Router v7 SSR app — staff login, WhatsApp inbox, schedule, member directory, reports | Stateless, edge/serverless-friendly. Vercel's React Router v7 support (`@vercel/react-router` adapter) is first-class. |
-| **`apps/edge-webhooks`** (new — Hono) | Fly.io (single small machine, always on) | Receives Meta WhatsApp inbound webhooks and Stripe webhooks. Verifies signatures. Enqueues via pg-boss directly against Neon. Returns 200 within Meta's/Stripe's tight timeout windows. | Vercel functions are *fine for Stripe* but Meta WhatsApp webhooks need a permanently warm endpoint with a stable IP for Meta's allowlist — Fly is the right home. Co-locating Stripe here keeps webhook ingress in one place; idempotency state lives in Postgres (`webhook_events` table). |
-| **`apps/worker`** (new — Node pg-boss workers) | Fly.io (same Fly app or sibling) | Processes the pg-boss queues: outbound WhatsApp sender (enforces 24h window + template gate), Stripe event reducer, class-reminder scheduler, schedule materialisation cron | Long-running, needs persistent process. Workers subscribe to pg-boss queues over the same Neon connection used for app data. Vercel cron is too coarse for reminder windows. |
+### Token Structure (Recommended)
 
-## Server Actions vs API Routes — Use Loaders + Actions
+```typescript
+// packages/gymos-tokens/tokens/primitives.ts
+// Raw palette — never referenced directly by components
+export const palette = {
+  blue: { 50: "#eff6ff", 500: "#3b82f6", 900: "#1e3a5f" },
+  slate: { 50: "#f8fafc", 900: "#0f172a" },
+  // ... studio-skinnable accent colours added per studio config
+} as const;
 
-This is a Next.js-shaped question; in React Router v7 the answer is different. Use **loaders** for reads and **actions** for writes within the staff app. For *external* webhooks (Stripe, WhatsApp), do NOT mount them as React Router actions — host them in the Fly Hono app instead. Reasons:
+// packages/gymos-tokens/tokens/semantics.ts
+// Role-based tokens — what components reference
+export type StudioTokens = {
+  colorPrimary: string;       // accent / CTA
+  colorBackground: string;    // page background
+  colorForeground: string;    // body text
+  colorCard: string;          // card surface
+  colorBorder: string;        // borders / dividers
+  colorMuted: string;         // muted text
+  radiusBase: string;         // e.g. "0.5rem"
+  fontSans: string;           // font-family stack
+};
 
-1. Webhook handlers need raw body access for signature verification. React Router/H3 will happily parse JSON before you can grab the raw bytes; Hono on Fly gives you a clean `c.req.raw` boundary.
-2. Webhook handlers need to be permanently warm. Vercel cold starts on a low-traffic studio break Meta's retry expectations.
-3. Webhook handlers need a stable egress for Meta's optional IP allowlist. Vercel functions don't give you that; a Fly machine does.
+export const defaultTokens: StudioTokens = {
+  colorPrimary: "#3b82f6",
+  colorBackground: "hsl(0 0% 100%)",
+  // ...
+};
+```
+
+### How Tokens Flow to Each Surface
+
+#### Surface 1: Staff Web (Tailwind v4)
+
+The existing `global.css` already uses CSS variables (`--primary`, `--background`, etc.) in the shadcn/Radix pattern. The addition is:
+
+1. Add `@theme inline` block mapping Tailwind tokens to CSS vars (shadcn/ui v4 pattern — verified):
+
+```css
+/* global.css */
+@theme inline {
+  --color-primary: var(--primary);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  /* ... studio brand tokens */
+  --color-studio-accent: var(--studio-accent);
+  --radius-base: var(--radius);
+}
+```
+
+2. Per-studio override injected by the loader (single-tenant deploy — values come from DB or env):
+
+```typescript
+// Server-rendered <style> block in the root layout
+const studioTheme = await getStudioTokens(); // reads studio config from DB
+const cssVarBlock = `
+  :root {
+    --studio-accent: ${studioTheme.colorPrimary};
+    --radius: ${studioTheme.radiusBase};
+    /* font is handled separately via @font-face */
+  }
+`;
+```
+
+This is pure CSS variable override — no Tailwind recompile, no build step, works at runtime. The pattern is verified against the official Tailwind v4 discussion thread and shadcn/ui v4 docs (both confirm this is the intended approach).
+
+#### Surface 2: Embed Widgets (Iframe SSR pages)
+
+The embed pages (`schedule-widget-ssr.ts`, `public-form-ssr.ts`) already inline all CSS into the `<head>`. The theming parameters arrive as URL query params (`?accent=&radius=`). The redesign work is:
+
+1. Expand the inline CSS `<style>` block to reference `--studio-*` vars at `:root` level.
+2. Populate those vars from the sanitized URL params (already done for `--gym-accent` and `--gym-radius` — extend the same pattern).
+3. Import the font from the same self-hosted `/fonts/` path served by staff-web.
+
+**No new library needed.** The embed isolation approach (iframe + postMessage) is already correct and identical to Calendly/Typeform's model. Shadow DOM is not needed and would break the current resize postMessage mechanism.
+
+#### Surface 3: Expo Mobile App (React Native)
+
+React Native has no CSS. Tailwind does not apply. The approach:
+
+1. Add `packages/gymos-tokens` as a workspace dep in `packages/mobile-app`.
+2. Create `packages/mobile-app/lib/theme.ts` exporting `ThemeContext` + `useTheme()`.
+3. Wrap the root layout in `<ThemeProvider>` with the studio's token values (loaded from the API on app start, or bundled as the single-studio default since this is a per-studio deploy).
+4. Replace hardcoded hex strings in `StyleSheet.create()` calls with `useTheme()` values.
+
+Currently all mobile screens use hardcoded values (`backgroundColor: "#111"`, `color: "#fff"`, `backgroundColor: "#3b82f6"` etc — confirmed by inspecting `packages/mobile-app/app/(tabs)/index.tsx` and `_layout.tsx`). The redesign replaces these with theme-derived values.
+
+**No react-native-unistyles needed.** Unistyles v3 requires native module compilation (C++ / Nitro modules) and a development build. The project constraint is that demo uses Expo Go. Unistyles v3 is incompatible with Expo Go. A hand-rolled ThemeContext costs ~60 lines and has zero native footprint.
+
+---
+
+## Font Strategy
+
+### Staff Web
+
+Replace the Google Fonts CDN import with a self-hosted Inter variable font:
+
+1. Download `inter-variable.woff2` from the Inter GitHub release or Google Webfonts Helper (`gwfh.mranftl.com`).
+2. Place in `apps/staff-web/public/fonts/inter-variable.woff2`.
+3. Replace `global.css` line 1 (`@import url("https://fonts.googleapis.com/...")`) with a local `@font-face` block.
+4. Add a `<link rel="preload" as="font" type="font/woff2" crossorigin href="/fonts/inter-variable.woff2">` in the root layout.
+
+The `vite-plugin-webfont-dl` plugin can automate steps 1-3 at build time if preferred, but manual download is simpler for a solo dev.
+
+### Embed Widgets
+
+The embed SSR pages currently `@import` Inter from Google Fonts (see `schedule-widget-ssr.ts` line 233). Replace with a reference to the same `/fonts/inter-variable.woff2` path served by staff-web — the iframe src is the same origin as the font file, so no CORS issue.
+
+### Expo Mobile App
+
+Use `useFonts` from `expo-font` (already a transitive dep from Expo 55, version `~56.0.x`):
+
+```typescript
+const [loaded] = useFonts({
+  "Inter-Regular": require("../../assets/fonts/Inter-Regular.otf"),
+  "Inter-SemiBold": require("../../assets/fonts/Inter-SemiBold.otf"),
+  "Inter-Bold": require("../../assets/fonts/Inter-Bold.otf"),
+});
+```
+
+**Use OTF, not TTF.** Official Expo docs (2026) state OTF files are smaller than TTF and render slightly better in certain contexts. Download from `github.com/rsms/inter`.
+
+**Use `useFonts`, not the config plugin.** The config plugin embeds fonts at native build time but is incompatible with Expo Go. Since the demo runs on Expo Go (PROJECT.md constraint), `useFonts` is the only viable approach. The config plugin can be added when EAS Build replaces Expo Go in production.
+
+Place font assets in `packages/mobile-app/assets/fonts/` — this keeps the fork boundary clean (not in `templates/` or `packages-vendored/`).
+
+---
+
+## Embed CSS Isolation — Decision Record
+
+The question was: Shadow DOM vs CSS prefixing vs iframe for embed widget isolation.
+
+**Decision: iframe (already implemented — no change needed).**
+
+Evidence:
+- The current codebase already implements iframe embeds with postMessage theming params (embed-snippet.ts, schedule-widget-ssr.ts — inspected directly).
+- Calendly, Typeform, and Elfsight all use the iframe model for third-party embed isolation as of 2026.
+- Shadow DOM requires the host page to use the Web Components API and does not naturally work as a drop-in script tag embed.
+- CSS prefixing (e.g. `.gymos-widget .card { ... }`) leaks styles if the host page has a `.card` rule with `!important` — fragile.
+- The iframe model means: host page CSS cannot reach in; GymClassOS CSS cannot bleed out; the only interface is the iframe `src` URL and `postMessage`.
+
+The theming redesign for embeds is therefore: improve the inline CSS within the existing SSR pages to use CSS variables from `packages/gymos-tokens`, consuming `--studio-*` vars set from the URL params. No structural change to the embed mechanism.
+
+---
 
 ## Alternatives Considered
 
-| Recommended | Alternative | When to Use Alternative |
-|---|---|---|
-| React Router v7 (framework mode) | Next.js App Router | Never for this project — would force divergence from upstream agent-native, killing the merge story. Pick Next only if you ever fully **stop** merging from agent-native. |
-| Drizzle ORM | Prisma | Prisma's DX is nicer for some, but agent-native is Drizzle and the `@agent-native/core/db/drizzle-config` is the schema integration point. Switching means re-writing the DB layer of every template you adopt. Not worth it. |
-| Drizzle ORM | Kysely / Raw SQL | Kysely is great for type-safe SQL without an ORM, but you'd lose the migration tooling and have to re-wire agent-native's DB layer. Worse trade. |
-| Better-auth | NextAuth/Auth.js, Clerk, Lucia | Better-auth is already what `@agent-native/core` ships with via `runAuthGuard`. NextAuth assumes Next.js. Clerk costs money per MAU and is overkill for staff-only auth (small N of users per studio). Lucia is in maintenance mode (author confirmed end of 2025). Stay with what the framework ships. |
-| `@great-detail/whatsapp` | Hand-rolling Graph API calls with `fetch` + a 300-line typed wrapper | Acceptable backup if the maintained fork goes stale. Track it in PITFALLS.md. The Graph API itself is simple; the value of the SDK is mostly the webhook signature verification + typed templates. If you hand-roll, copy their `verifySignature` implementation. |
-| `@great-detail/whatsapp` | Twilio/MessageBird/Vonage | **Locked out** by project constraint. |
-| Hono on Fly for webhooks | Express on Fly | Hono's raw-body story is cleaner and the TS types are designed-in. Express works but you'll fight `express.json()` middleware order for webhook signature verification — a documented Stripe footgun. |
-| pg-boss on Neon | BullMQ + Redis on Fly | Pick BullMQ only if v1 job volume actually exceeds pg-boss's comfortable range (broadly ~10k jobs/day per studio with default polling). Trade: + more mature rate-limit primitives and priority lanes; − adds Redis as a service, adds an Upstash bill, adds a secret, doubles the things-that-can-break. For a solo-dev / one-studio / 2-month ship, the simplicity wins. Re-evaluate at the milestone after the first studio is live. |
-| pg-boss on Neon | Inngest (managed) | Inngest is excellent and tempting for solo devs, but it's a *third-party SaaS* — adds another vendor, another billing relationship, and routes job execution through their cloud. For a per-studio deploy model this means N Inngest projects to manage. pg-boss stays inside the per-studio Neon boundary and matches the one-deploy-per-studio mental model. Reconsider Inngest if you ever centralise multi-studio observability. |
-| pg-boss on Neon | Trigger.dev | Same trade as Inngest, plus Trigger.dev shines for *long, complex multi-step workflows* — overkill for the current job set (send a message, idempotency-check an event, schedule a reminder). |
-| pg-boss on Neon | Native Node `setInterval` / Vercel Cron | Insufficient — reminders need per-class scheduling, WhatsApp sender needs queue retries + delayed jobs, no observability story. |
-| shadcn/ui on top of agent-native's existing Radix components | Mantine, Chakra, custom Tailwind | Agent-native already uses Radix + Tailwind + CVA, which IS shadcn's stack. Adding shadcn = adding more components in the same idiom. Switching to Mantine/Chakra means two design systems clashing. |
-| Better Stack (log management) | Axiom | Axiom is arguably stronger for high-volume serverless logs; pick it if you grow past 50GB/month or want Vercel-native function logs. For a per-studio deploy with modest volume, Better Stack's free tier + Fly Logshipper + Vercel integration is the lower-friction starting point. |
-
-## What NOT to Use
-
-| Avoid | Why | Use Instead |
-|---|---|---|
-| **Next.js (any router)** | Would force divergence from agent-native upstream; you'd be re-porting every template merge from the framework manually | React Router v7 framework mode (what agent-native ships) |
-| **`WhatsApp/WhatsApp-Nodejs-SDK`** (Meta's official) | Officially paused — see Issue #31 "Pausing Development of the WhatsApp SDK". No 2026 maintenance. Will break on Cloud API version upgrades. | `@great-detail/whatsapp` (the maintained fork, currently v9, April 2026) |
-| **Prisma** | Not what agent-native uses; would require rewriting the DB layer of every template fork. Prisma's runtime is also heavier in serverless contexts than the Neon HTTP driver. | Drizzle ORM (already in agent-native) |
-| **NextAuth / Auth.js** | Tightly coupled to Next.js conventions; doesn't fit React Router v7 + H3 + agent-native's middleware model | Better-auth (already in agent-native) |
-| **Lucia Auth** | In maintenance mode as of 2025 — author has publicly recommended migrating away | Better-auth |
-| **Clerk / Auth0 / WorkOS** | Per-MAU pricing + extra vendor surface area; staff-auth-only context doesn't justify the cost. Member auth is the customer's existing mobile app's responsibility per project constraints. | Better-auth |
-| **Drizzle 1.0-beta** | API churn risk during your 2-month ship window. The 0.45.x line is what agent-native uses and what production deployments run on today. | Drizzle `^0.45.x` — re-evaluate post-launch |
-| **`drizzle-kit push`** | Drops data silently. Agent-native ships a `guard:no-drizzle-push` script for a reason. | `drizzle-kit generate` + `drizzle-kit migrate` |
-| **Hosting webhooks on Vercel functions** | Cold starts + no stable egress IP break Meta's webhook retry expectations and IP-allowlist option. Stripe replays will pile up during cold-start storms. | Always-on Fly machine running the Hono app |
-| **`express.json()` ahead of Stripe webhook route** | Documented footgun — destroys the raw body needed for signature verification | Hono with explicit `c.req.raw` access, or Express with raw-body middleware *before* `express.json()` |
-| **`drizzle-kit` with multi-schema files spread across packages** | Agent-native expects a single drizzle config delegating to `@agent-native/core/db/drizzle-config`. Don't fragment it. | One `drizzle.config.ts` per deployable, schema lives in the app it belongs to. |
-| **Building member-facing web UI** | Locked out by project scope — member surface is mobile in v1, integrated into the customer's existing RN app | Defer until post-v1; no member web portal |
-| **Multi-tenant column scoping (`studio_id` everywhere)** | Locked out by tenancy decision | One Neon project per studio, no tenant column |
-
-## Stack Patterns by Variant
-
-**If Phase 0 audit decides "fork-clean" (preserve agent-native upstream merges):**
-- Keep `@agent-native/core` as a pnpm workspace dep; never edit it in-place
-- All GymClassOS-specific code lives in `apps/staff-web` (NEW), `apps/edge-webhooks` (NEW), `apps/worker` (NEW)
-- The Mail/Calendar/Content/Analytics/Calorie templates are *copied into* `apps/staff-web/features/{whatsapp,schedule,kb,reports,calorie}/` then modified — original templates stay untouched in `templates/` so upstream merges can flow
-- Use git remotes: `upstream = BuilderIO/agent-native`, `origin = your fork`. Periodically `git fetch upstream && git merge upstream/main` into the framework-layer branches.
-
-**If Phase 0 audit decides "adapt" (vendoring without merge expectations):**
-- Same structure but stop pretending you'll merge upstream — delete the `templates/` directory after copying out what you need
-- Pin every dep explicitly (drop the `catalog:` indirection)
-- Cheaper short-term, more expensive long-term
-
-**If Phase 0 audit decides "build fresh":**
-- Drop agent-native entirely. Reconsider: do you still want React Router v7? (Probably yes, for the speed-of-iteration and SSR ergonomics.) Do you still want Better-auth? (Yes — the auth analysis above is independent of the framework choice.)
-- Effectively a different STACK.md. Flag for re-research if this branch is chosen.
-
-**If background job volume per studio exceeds ~10k jobs/day after launch:**
-- Re-evaluate pg-boss → BullMQ + Redis. Concrete trigger: pg-boss polling latency p95 > 2s OR Postgres write contention on the queue tables observed in slow-query logs.
-- Migration path is contained: the worker subscribe/handler signature is conceptually identical between the two libraries, and `webhook_events` (the source-of-truth idempotency table) is unchanged. The change is the queue library and the addition of one Redis (Upstash on Fly).
-- Until that trigger fires, the simpler choice is correct.
-
-## Version Compatibility
-
-| Package A | Compatible With | Notes |
-|---|---|---|
-| React 19.2.x | React Router v7.13+ | Confirmed in agent-native templates |
-| React Router v7 (framework mode) | Vite 6.x | Required pairing; Vite 5 will not work |
-| React Router v7 (framework mode) | Vercel (`@vercel/react-router` adapter) | Officially supported per Vercel changelog 2025 |
-| Drizzle ORM 0.45.x | `@neondatabase/serverless` 1.x | First-class via `drizzle-orm/neon-http` and `drizzle-orm/neon-serverless` |
-| Drizzle Kit 0.31.x | Drizzle ORM 0.45.x | Same release line agent-native pins |
-| Tailwind v4 | shadcn/ui (latest CLI) | shadcn officially documented Tailwind v4 support |
-| Better-auth 1.6.x | React Router v7 + H3 | Used in this exact combo by agent-native — confirm at Phase 0 by reading `runAuthGuard` source in `@agent-native/core/server` |
-| `@great-detail/whatsapp` 9.x | Node 22+ | Will not run on Node 20 LTS — pin Fly machine to Node 22 (or Bun 1.2+) |
-| Hono 4.x | Node 22+ on Fly | Works on Node 20 too, but match the WhatsApp SDK's Node 22 requirement and standardise |
-| pg-boss 10.x | Postgres 11+ (Neon satisfies) | Auto-creates its own `pgboss` schema on `boss.start()`; runs alongside the application schema in the same Neon project |
-| Stripe Node SDK 17.x | Stripe API version pinned in `apiVersion` constructor option | Always pin `apiVersion` explicitly; never let it float |
-
-## Confidence Notes (Read Before Locking Any Choice)
-
-- **HIGH** confidence in the framework layer (React Router v7 + Vite + Drizzle + Better-auth + H3) — verified by direct inspection of `BuilderIO/agent-native` package.json files and template configs.
-- **HIGH** confidence in Tailwind v4 + Radix + shadcn — agent-native uses Radix + Tailwind already; shadcn is additive.
-- **HIGH** confidence on Stripe SDK + webhook pattern — Stripe's official docs are authoritative.
-- **MEDIUM** confidence on `@great-detail/whatsapp` — official Meta SDK is dead; the fork is the best option, but it's a single-maintainer project. **Mitigation**: at Phase 0, fork the package to your own GitHub org as insurance, and write the webhook signature verification + send-template paths in such a way that swapping to hand-rolled Graph API calls is a one-file change.
-- **HIGH** confidence on **pg-boss as v1 queue** — locked in 2026-05-17. Trades BullMQ's mature primitives for the operational simplicity of eliminating Redis. Re-evaluation trigger documented in §Stack Patterns by Variant ("If background job volume per studio exceeds ~10k jobs/day").
-- **MEDIUM** confidence on **Vercel deployment of React Router v7 framework mode** — Vercel officially supports it (per changelog) but the community thread "React Router v7 with middleware fails on Vercel" shows there are edge cases with v7's middleware feature. **Action**: at Phase 0, deploy a hello-world React Router v7 + Better-auth app to Vercel before committing to the architecture.
-- **LOW-MEDIUM** confidence on the **exact React Router v7 patch version** — the 7.x line is moving fast. Pin to whatever `BuilderIO/agent-native@main` currently uses at fork time.
-
-## Sources
-
-- `BuilderIO/agent-native` repository (web-inspected 2026-05-17):
-  - `packages/core/package.json` — confirmed Better-auth ^1.6.0, Drizzle ORM ^0.45.2, `@neondatabase/serverless` ^1.1.0, H3 ^2.0.x, Tailwind v4 peer, React 19.2.x
-  - `templates/mail/package.json` — React Router 7.13.1, Vite, Tiptap, React Hook Form, Zod 4, Radix UI, Lucide, Sonner
-  - `templates/mail/react-router.config.ts` — SSR enabled, `appDirectory: "app"`, route discovery initial
-  - `templates/mail/vite.config.ts` — uses `reactRouter()` from `@react-router/dev/vite`; Cloudflare-tuned but framework-portable
-  - `templates/mail/drizzle.config.ts` — delegates to `createDrizzleConfig()` from `@agent-native/core/db/drizzle-config`
-  - `templates/mail/server/middleware/auth.ts` — delegates to `runAuthGuard` from `@agent-native/core/server` (Better-auth)
-- React Router v7 docs (`reactrouter.com/start/modes`, `reactrouter.com/start/framework/deploying`) — framework mode + Vercel deploy support
-- Vercel changelog "Support for React Router v7" — confirmed first-class support
-- Drizzle ORM docs (`orm.drizzle.team/docs/connect-neon`, `orm.drizzle.team/docs/latest-releases`) — neon-http + neon-websockets drivers; 0.45.x is current stable, 1.0-beta exists but is not production-recommended yet
-- `WhatsApp/WhatsApp-Nodejs-SDK` Issue #31 "Pausing Development of the WhatsApp SDK" — confirmed official SDK is dead
-- `@great-detail/whatsapp` npm + GitHub — v9.0.0 dated 2026-04-17, Cloud API v23, includes `verifySignature` and template messaging
-- Stripe docs (`docs.stripe.com/webhooks/signature`, `docs.stripe.com/webhooks/quickstart?lang=node`) — `stripe.webhooks.constructEvent()` is the only correct pattern
-- Better-auth docs + 2026 comparison surveys (PkgPulse, BuildPilot) — Better-auth is the current state of the art for self-hosted auth, Lucia confirmed in maintenance mode
-- shadcn/ui docs (`ui.shadcn.com/docs/installation/react-router`, `ui.shadcn.com/docs/tailwind-v4`) — first-class React Router v7 and Tailwind v4 support
-- Fly.io docs (`fly.io/docs/blueprints/work-queues/`) — Fly's documented queue patterns include BullMQ + Redis; pg-boss is the lighter alternative when the application is already on Postgres
-- pg-boss docs (`github.com/timgit/pg-boss/blob/master/docs/readme.md`) — `boss.start()`, `boss.send()`, `boss.work()`, `singletonKey`, `sendAfter`, schedule API
-- Hono docs (`hono.dev`) + Express vs Hono 2026 surveys — Hono is the TS-native default for new webhook receivers
-- Better Stack + Axiom Vercel/Fly integration docs — both supported; Better Stack lower-friction at GymClassOS volume
+| Recommended | Alternative | Why Not |
+|-------------|-------------|---------|
+| Hand-rolled `packages/gymos-tokens` (plain TS) | style-dictionary v4 | 700 KB devDep + separate build step + CTI naming conventions + Figma token export workflow assumed. 0 of those are present in this project for v1.1. Re-evaluate if a second studio joins with a Figma design token export. |
+| `@theme inline` + CSS var override at render time | Compile-time per-studio Tailwind build | Would require running a full Tailwind compile per studio per deploy. With a single-tenant deploy model this is technically possible but unnecessary — CSS var override achieves the same result with zero build cost. |
+| Hand-rolled `ThemeContext` (~60 lines) in RN | react-native-unistyles v3 | Unistyles v3 requires C++ native modules (Nitro), incompatible with Expo Go. The demo constraint makes this a hard blocker. Unistyles is the right choice if EAS Dev Client replaces Expo Go, but not before. |
+| Hand-rolled `ThemeContext` (~60 lines) in RN | react-native-unistyles v2 | Unistyles v2 does not support New Architecture — Expo SDK 55 (React Native 0.83) removed the old architecture. Unistyles v2 is incompatible. |
+| Hand-rolled `ThemeContext` (~60 lines) in RN | NativeWind (Tailwind for RN) | NativeWind v4 compiles Tailwind utility classes to RN StyleSheets at build time, requires a Babel/Metro plugin, and does not consume the same CSS custom property token system as the web surfaces. Adds Babel complexity for minimal gain in a 5-token system. |
+| `useFonts` hook for Expo fonts | expo-font config plugin | Config plugin requires a dev build, incompatible with Expo Go. Must use `useFonts` until Expo Go is replaced by EAS Dev Client in production. |
+| iframe isolation (existing) | Shadow DOM for embed widgets | Shadow DOM requires Web Components API on the host; adds JS bundle complexity; breaks the existing resize postMessage mechanism; no clear benefit over the iframe already in place. |
+| iframe isolation (existing) | CSS class prefixing | Fragile against host page `!important` rules. Does not provide true isolation. Not how production embed vendors solve this in 2026. |
+| Self-hosted Inter variable font | Google Fonts CDN | Third-party DNS lookup on every page load. Privacy concern (GDPR — font CDNs can fingerprint users). No performance benefit once self-hosted with proper caching headers. |
 
 ---
 
-*Stack research for: boutique fitness studio management platform (GymClassOS)*
-*Researched: 2026-05-17*
-*Confidence: HIGH for framework stack and pg-boss queue choice; MEDIUM for WhatsApp client (single-maintainer mitigation in §What NOT to Use)*
+## What NOT to Add
+
+| Avoid | Why | Use Instead |
+|-------|-----|-------------|
+| **style-dictionary** | Build pipeline complexity disproportionate to a 5-token system for a solo developer | Hand-rolled `packages/gymos-tokens` (plain TS objects + convention for CSS var names) |
+| **react-native-unistyles v3** | Requires native module compilation (Nitro/C++); incompatible with Expo Go; demo constraint makes this a hard blocker | Hand-rolled `ThemeContext` + `useTheme()` hook |
+| **react-native-unistyles v2** | New Architecture required by Expo SDK 55 / RN 0.83 — unistyles v2 does not support New Architecture | Same as above |
+| **NativeWind** | Adds Babel/Metro config complexity; diverges the token pipeline (CSS utility classes vs JS objects); overkill for 5 tokens | `ThemeContext` consuming `packages/gymos-tokens` directly |
+| **Storybook** | Significant setup cost for a solo dev; not in existing toolchain | Manual component review via deployed Vercel preview + `gsd:ui-review` |
+| **CSS Modules** | Not used anywhere in agent-native or staff-web; would introduce a third styling system alongside Tailwind + shadcn | Stay with Tailwind v4 utility classes + CSS vars |
+| **Emotion / styled-components on web** | Runtime CSS-in-JS adds style injection latency; incompatible with Tailwind v4's static generation model; not in agent-native | Tailwind v4 + CSS custom properties (zero runtime) |
+| **A Figma plugin or token export tool** | No Figma source of truth exists today; designing in-code is faster for a solo dev at this stage | Code-first tokens in `packages/gymos-tokens` |
+| **Per-studio Tailwind config files** | Would require a separate build per studio — incompatible with the single-binary single-tenant deploy model | CSS variable override at render time (zero build cost) |
+
+---
+
+## Version Compatibility (Theming Layer)
+
+| Package | Version | Compatibility Notes |
+|---------|---------|---------------------|
+| `tailwindcss` | `^4.2.4` (catalog) | `@theme inline` is a v4 feature — verified in official docs. Not available in v3. |
+| `next-themes` | `^0.4.6` (already in staff-web) | Works with React 19 + React Router v7. Used for dark/light mode toggle only — not for studio brand tokens. |
+| `expo-font` | `~56.0.x` (bundled with Expo 55) | `useFonts` hook works with Expo Go. Config plugin requires dev build (incompatible with demo constraint). |
+| `react-native` | `0.83.9` (locked in workspace) | New Architecture enabled by default (cannot disable from SDK 55 onward). Unistyles v2 incompatible. Unistyles v3 compatible but requires native build. |
+| `vite-plugin-webfont-dl` | `^3.9.x` | Vite 8.x compatible (catalog version is `8.0.3`). Optional — can replace with manual font download. |
+
+---
+
+## Installation (Theming Layer Only)
+
+```bash
+# 1. Create the tokens package (hand-rolled — no npm install needed)
+#    mkdir packages/gymos-tokens && touch packages/gymos-tokens/package.json packages/gymos-tokens/index.ts
+
+# 2. Add tokens package as dep in staff-web and mobile-app
+#    In apps/staff-web/package.json and packages/mobile-app/package.json:
+#    "@gymos/tokens": "workspace:*"
+
+# 3. Optional: self-hosting font automation (staff-web only)
+pnpm add -D vite-plugin-webfont-dl --filter @gymos/staff-web
+# OR manually download inter-variable.woff2 and place in apps/staff-web/public/fonts/
+
+# 4. Font files for Expo (manual step — no npm install)
+#    Download Inter-Regular.otf, Inter-SemiBold.otf, Inter-Bold.otf from github.com/rsms/inter
+#    Place in packages/mobile-app/assets/fonts/
+```
+
+Already present, no reinstall needed: `tailwindcss ^4.2.4`, `next-themes ^0.4.6`, `expo-font` (transitive from Expo 55).
+
+---
+
+## Sources
+
+- Tailwind CSS v4 official docs (`tailwindcss.com/docs/theme`) — `@theme` vs `@theme inline` distinction, CSS custom property emission, runtime override pattern. **HIGH confidence.**
+- shadcn/ui Tailwind v4 migration docs (`ui.shadcn.com/docs/tailwind-v4`) — two-layer pattern (`@theme inline` + `:root` vars). **HIGH confidence.**
+- Tailwind v4 community discussion thread `tailwindlabs/tailwindcss #15600` — confirmed runtime CSS var override is the intended multi-theme pattern. **HIGH confidence.**
+- Expo fonts docs (`docs.expo.dev/develop/user-interface/fonts/`) — `useFonts` vs config plugin compatibility matrix. **HIGH confidence** (official docs, current).
+- `packages/mobile-app/app/(tabs)/index.tsx` and `app/_layout.tsx` (direct code inspection) — confirmed all current styling uses hardcoded hex values. **HIGH confidence.**
+- `apps/staff-web/features/forms/lib/embed-snippet.ts` and `schedule-widget-ssr.ts` (direct code inspection) — confirmed iframe model is already implemented. **HIGH confidence.**
+- `apps/staff-web/app/global.css` (direct code inspection) — confirmed CSS variable token pattern already in use (shadcn style), `@import` Google Fonts CDN is the current font loading. **HIGH confidence.**
+- react-native-unistyles docs (`unistyl.es/v3/start/getting-started/`) + GitHub discussion #191 — confirmed v3 requires New Architecture + native build, incompatible with Expo Go. **MEDIUM confidence** (official docs + GitHub discussions).
+- Expo SDK 55 migration notes (`byteiota.com` verified against `docs.expo.dev/guides/new-architecture/`) — confirmed Legacy Architecture removed in SDK 55 / RN 0.83. **HIGH confidence.**
+- Inter font repository (`github.com/rsms/inter`) — OTF files available, recommended format per Expo docs. **HIGH confidence.**
+- Google Webfonts Helper (`gwfh.mranftl.com`) — WOFF2 variable font download for self-hosting. **MEDIUM confidence** (third-party tool, widely used).
+- style-dictionary npm (`npmjs.com/package/style-dictionary`) — confirmed v4 is current stable (5.4.4 latest), ES Modules, browser-compatible. Complexity assessment is the author's judgment. **MEDIUM confidence.**
+
+---
+
+*Stack research for: v1.1 UI Redesign — studio-skinnable GymClassOS design system*
+*Researched: 2026-06-12*
+*Confidence: HIGH for token strategy and embed isolation (code-verified); MEDIUM for RN theming (unistyles Expo Go incompatibility verified; ThemeContext recommendation is conventional pattern); LOW for unistyles as future option (needs prototype when EAS Dev Client replaces Expo Go)*
