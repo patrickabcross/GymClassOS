@@ -105,7 +105,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| R1. Audit Baseline | 3/3 | Complete   | 2026-06-12 |
+| R1. Audit Baseline | 3/3 | Complete    | 2026-06-12 |
 | R2. Design System Token Layer | 0/TBD | Not started | - |
 | R3. Naming & IA Pass | 0/TBD | Not started | - |
 | R4. Staff Web Visual Refresh + Embed Widgets | 0/TBD | Not started | - |
