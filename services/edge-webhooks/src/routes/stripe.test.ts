@@ -5,6 +5,7 @@ vi.mock("../lib/env.js", () => ({
   getEnv: () => ({
     STRIPE_SECRET_KEY: "sk_test_xxx",
     STRIPE_WEBHOOK_SECRET: "whsec_xxx",
+    STRIPE_CONNECT_WEBHOOK_SECRET: "whsec_connect_xxx",
     WHATSAPP_VERIFY_TOKEN: "demo",
     WHATSAPP_APP_SECRET: "demo",
     DATABASE_URL: "postgres://x",
