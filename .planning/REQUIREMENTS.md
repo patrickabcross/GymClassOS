@@ -11,7 +11,7 @@
 
 ### Baseline Audit
 
-- [ ] **AUDT-01**: Before-state screenshots of every staff-web surface, embed widget, and mobile screen are captured from the deployed apps into `.planning/ui-reviews/baseline/` (no local dev server exists — regressions are otherwise invisible)
+- [x] **AUDT-01**: Before-state screenshots of every staff-web surface, embed widget, and mobile screen are captured from the deployed apps into `.planning/ui-reviews/baseline/` (no local dev server exists — regressions are otherwise invisible)
 - [ ] **AUDT-02**: A complete rename inventory (every email-vocabulary UI label, code identifier, CSS class, and route) exists as a naming decision record, with each item classified by rename layer (label / CSS / identifier / route)
 
 ### Design System
@@ -95,7 +95,7 @@ Which phases cover which requirements. Updated 2026-06-12 during roadmap creatio
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| AUDT-01 | R1. Audit Baseline | Pending |
+| AUDT-01 | R1. Audit Baseline | Complete |
 | AUDT-02 | R1. Audit Baseline | Pending |
 | DSGN-01 | R2. Design System Token Layer | Pending |
 | DSGN-02 | R2. Design System Token Layer | Pending |
