@@ -264,10 +264,10 @@ The production milestone is structured as 4 phases (preserving the prior coarse-
 7. Stripe Customer Portal (on the connected account) reachable for subscription self-service
 8. No card data stored anywhere; tokenised IDs only (STR-08 preserved)
 
-**Plans:** 7 plans (3 waves)
+**Plans:** 1/7 plans executed
 
 Plans:
-- [ ] P1c.1-01-PLAN.md (wave 1) — additive connected_accounts table (acct_id + readiness flags, direct-to-Neon) + StripeEventPayload.stripeAccount optional field [STR-01]
+- [x] P1c.1-01-PLAN.md (wave 1) — additive connected_accounts table (acct_id + readiness flags, direct-to-Neon) + StripeEventPayload.stripeAccount optional field [STR-01]
 - [ ] P1c.1-02-PLAN.md (wave 2) — POST /webhooks/stripe-connect Connect endpoint (separate whsec_, reads event.account, same idempotency spine) [STR-01]
 - [ ] P1c.1-03-PLAN.md (wave 3) — thread stripeAccount through all 6 reducers refetch + new account.updated readiness reducer [STR-01, STR-02, PAY-01, PAY-02]
 - [ ] P1c.1-04-PLAN.md (wave 1) — getPlatformStripe() + create-connect-account (controller props) + create-account-link + settings Connect/readiness UI; restricted-key path dormant [STR-01]

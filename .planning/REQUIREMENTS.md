@@ -45,7 +45,7 @@
 
 ### Stripe Integration (direct restricted-API-key, NOT Connect)
 
-- [ ] **STR-01** [D+P]: Per-studio Stripe restricted key stored encrypted (pgcrypto). Demo: one studio, hardcoded; Production: rotated + audited. Studio creates their own Stripe account and generates the key with permissions: Products/Prices, Customers, Subscriptions, PaymentIntents, SetupIntents, Charges (read), Refunds, Webhooks (read)
+- [x] **STR-01** [D+P]: Per-studio Stripe restricted key stored encrypted (pgcrypto). Demo: one studio, hardcoded; Production: rotated + audited. Studio creates their own Stripe account and generates the key with permissions: Products/Prices, Customers, Subscriptions, PaymentIntents, SetupIntents, Charges (read), Refunds, Webhooks (read)
 - [ ] **STR-02** [D]: Demo can generate at least one Stripe Checkout link for a pass purchase, complete it in test mode, and reflect the resulting pass grant in the member profile
 - [x] **STR-03** [P]: `checkout.session.completed` handler creates/updates `payments` row + grants pass if line item is a pack (atomic transaction with `webhook_events` insert)
 - [x] **STR-04** [P]: `invoice.paid` and `invoice.payment_failed` handlers reconcile `stripe_subscriptions` state + write to `payments`

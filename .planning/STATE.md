@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: "Completed quick-260611-rrh: outbound WhatsApp mirror fix (MYÜTIK-diagnosed bug — agent replies mirrored to the webhook were dropped as unknown_phone because consumer treated everything as inbound). Receiver detects direction via metadata.phone_number_id, worker materialises direction='out' via customerWaId. Pending: flyctl deploy + backfill run against Neon. Earlier today: quick-260611-dxv CSV lead import (deployed to Vercel, live)."
-last_updated: "2026-06-11T10:30:00.000Z"
-last_activity: "2026-06-11 - Added CSV bulk-upload interface to the inbox Leads view (dxv). Prior: 2026-06-09 - Outbound WhatsApp send now routes through MYÜTIK and is live on Fly. Day's work: (1) shipped + fixed AI template-variable auto-fill (qe-fcm; agent delegates to the ACTIVE chat thread — the background-tab version created a ghost thread that never ran; ANTHROPIC_API_KEY confirmed in staff-web Vercel env; works in prod). (2) Diagnosed non-delivery: worker called Meta directly and Meta rejected the sender number (code 100/subcode 33, missing permissions) — the known wiring block, now proven for outbound; also fixed a multi-var template-component bug (commit 2eb3794a). (3) Rewired the worker send chokepoint to MYÜTIK (qe-qe9): new sendViaMyutik.ts is the sole send path, gates + status machine unchanged, 79/79 tests green; flyctl deploy of gymos-edge-webhooks rolled web+worker healthy; user confirmed MYUTIK_API_KEY has all scopes. Pending morning verification of an actual send."
+stopped_at: Completed P1c.1-01-PLAN.md
+last_updated: "2026-06-12T13:15:48.928Z"
+last_activity: 2026-06-12
 progress:
-  total_phases: 13
+  total_phases: 14
   completed_phases: 1
-  total_plans: 8
-  completed_plans: 10
+  total_plans: 15
+  completed_plans: 11
   percent: 50
 ---
 
@@ -25,7 +25,7 @@ Requirements: `.planning/REQUIREMENTS.md` (130 reqs across 20 categories — see
 
 **Core value:** Coaches and studio managers run their entire day from one inbox-and-schedule surface (WhatsApp + class bookings + member context). Members book, pay, and log activity / nutrition from a native iOS/Android Expo app (forked from agent-native's `packages/mobile-app`) that includes an in-app coaching agent.
 
-**Current focus:** Phase P3-ai-noticeboard — home
+**Current focus:** Phase P1c.1 — Stripe Connect Custom + Customer Purchase Flows
 
 1. **WhatsApp integration deep wire** — migrate `services/worker/` and `services/edge-webhooks/` to read Meta credentials from `app_secrets` (not `process.env`) so the in-app Settings UI is the single source of truth; wire the WA-08 template sync cron so real approved Meta templates replace the seeded stubs; full end-to-end test of outbound send + inbound delivery/read callbacks against the verified WABA.
 2. **Mobile app (member surface)** — resume D2 work (Task 4 of in-app agent was pending; D2-06 verification deferred); harden the Expo fork against the iteration that landed during the staff-web pilot fixes; cut an EAS preview build under the customer's existing Apple Developer Account.
@@ -34,10 +34,10 @@ Requirements: `.planning/REQUIREMENTS.md` (130 reqs across 20 categories — see
 ## Current Position
 
 Milestone: Demo Sprint (1 of 2) — Week 1 (target ~2026-05-24 — slipped to 2026-05-26 with live-fix wave)
-Phase: P3-ai-noticeboard (home) — EXECUTING
-Plan: 7 of 7
+Phase: P1c.1 (Stripe Connect Custom + Customer Purchase Flows) — EXECUTING
+Plan: 2 of 7
 Status: Ready to execute
-Last activity: 2026-06-08 - Completed quick task 260608-gn1: added an "Update templates" button to the inbox Templates dialog that pulls Hustle's approved templates from MYÜTIK into `whatsapp_templates` on demand (staff-web side, works without the worker). New staff-web `readAppSecretByKey` + `sync-templates` action intent; fixed the worker componentsJson shape bug. Needs Vercel redeploy of staff-web + click "Update templates" to populate. (Prior: g74 worker app_secrets reader; fb8 MYÜTIK templates-sync)
+Last activity: 2026-06-12
 
 **P1c-WIDE VERIFICATION CONSTRAINT (accumulated context — read before executing P1c-04/05/06):** The local `agent-native dev` server cannot boot (`NitroViteError: Vite environment "nitro" is unavailable` → 503 on server routes) — same class of issue as the Vercel/Netlify Nitro-bundling crash; staff-web only runs reliably on Fly. So NO P1c plan can run a local HTTP walkthrough. Verify the SUBSTANCE by replaying the handler/action SQL against the live `gymos-demo` Neon DB via Neon MCP (and clean up test rows), OR defer runtime checks (CORS preflight 204 ordering, route mounting, honeypot/rate-limit over HTTP, `/gymos` rendering) to the P1c-07 e2e smoke test. P1c-02 was verified this way (lead upsert replayed twice → 1 member / 1 lead conversation / 2 FK-safe submissions — checker's canonical-id re-select BLOCKER confirmed working).
 
@@ -187,6 +187,8 @@ Decisions are logged in `PROJECT.md` Key Decisions table. Recent ones affecting 
 - [Phase P3-ai-noticeboard-home]: BoardCard receives full proposals array and filters internally by actionName — avoids parent knowing card-to-proposal mapping
 - [Phase P3-ai-noticeboard-home]: AlertDialog gate for send-template-to-members proposals; direct approve for create-checkout-link (reversible)
 - [Phase quick-260608-g74]: Worker reimplements AES-256-GCM decrypt locally (no @agent-native/core dep); readAppSecretByKey returns null on any failure; app_secrets is now first source in 4 resolvers with existing pgcrypto+env fallbacks intact
+- [Phase P1c.1-stripe-connect-custom-customer-purchase-flows]: integer({ mode: 'boolean' }) used for chargesEnabled/payoutsEnabled in connectedAccounts (matches schema.ts convention; dialect-agnostic via core helper)
+- [Phase P1c.1-stripe-connect-custom-customer-purchase-flows]: singletonKey for Stripe events unchanged (stripe-event:stripe_eventId only); stripeAccount not included — replayed Connect events must still dedup by eventId
 
 ### Pending Todos
 
@@ -256,11 +258,12 @@ None tracked as TODOs; everything is in the roadmap / requirements.
 | Phase P3-ai-noticeboard-home P04 | 556 | 3 tasks | 4 files |
 | Phase P3-ai-noticeboard-home P06 | 382 | 3 tasks | 3 files |
 | Phase P3-ai-noticeboard-home P05 | 671 | 3 tasks | 4 files |
+| Phase P1c.1-stripe-connect-custom-customer-purchase-flows P01 | 5min | 2 tasks | 4 files |
 
 ## Session Continuity
 
-Last session: 2026-06-08T11:11:13.712Z
-Stopped at: Completed quick-260608-gn1: Update templates button in inbox TemplatesDialog + sync-templates action + worker componentsJson shape fix
+Last session: 2026-06-12T13:15:31.034Z
+Stopped at: Completed P1c.1-01-PLAN.md
 Resume file: None
 
 ### ▶ PICK UP HERE — 2026-06-04 EOD
