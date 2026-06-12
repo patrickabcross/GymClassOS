@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed P1c.1-04-PLAN.md
-last_updated: "2026-06-12T13:18:51.472Z"
+stopped_at: Completed P1c.1-06-PLAN.md
+last_updated: "2026-06-12T15:27:26.228Z"
 last_activity: 2026-06-12
 progress:
   total_phases: 14
   completed_phases: 1
   total_plans: 15
-  completed_plans: 12
+  completed_plans: 13
   percent: 50
 ---
 
@@ -35,7 +35,7 @@ Requirements: `.planning/REQUIREMENTS.md` (130 reqs across 20 categories — see
 
 Milestone: Demo Sprint (1 of 2) — Week 1 (target ~2026-05-24 — slipped to 2026-05-26 with live-fix wave)
 Phase: P1c.1 (Stripe Connect Custom + Customer Purchase Flows) — EXECUTING
-Plan: 3 of 7
+Plan: 4 of 7
 Status: Ready to execute
 Last activity: 2026-06-12
 
@@ -191,6 +191,8 @@ Decisions are logged in `PROJECT.md` Key Decisions table. Recent ones affecting 
 - [Phase P1c.1-stripe-connect-custom-customer-purchase-flows]: singletonKey for Stripe events unchanged (stripe-event:stripe_eventId only); stripeAccount not included — replayed Connect events must still dedup by eventId
 - [Phase P1c.1-stripe-connect-custom-customer-purchase-flows]: getPlatformStripe() resolves stripe_platform_secret_key from pgcrypto secrets → STRIPE_SECRET_KEY env → throw; getStripeClient() kept deprecated for rollback — Platform key needed for Connect operations; restricted-key model deprecated but not deleted per plan rollback-insurance requirement
 - [Phase P1c.1-stripe-connect-custom-customer-purchase-flows]: Settings integrations ?stripe=refresh handled at loader level (server redirect to fresh Account Link) not client-side — Cleaner UX with no JS flash; loader handles redirect before page renders
+- [Phase P1c.1]: h3 v2 API fix: event.req as unknown as Request replaces toWebRequest(event); as any cast on loader/action args for TypedServerRequest→Request bridge
+- [Phase P1c.1]: PILOT_PRODUCTS uses env vars (STRIPE_PRICE_DROP_IN etc.) for v1; P2 replaces with stripe.prices.list() on connected account
 
 ### Pending Todos
 
@@ -262,11 +264,12 @@ None tracked as TODOs; everything is in the roadmap / requirements.
 | Phase P3-ai-noticeboard-home P05 | 671 | 3 tasks | 4 files |
 | Phase P1c.1-stripe-connect-custom-customer-purchase-flows P01 | 5min | 2 tasks | 4 files |
 | Phase P1c.1-stripe-connect-custom-customer-purchase-flows P04 | 8min | 3 tasks | 6 files |
+| Phase P1c.1 P06 | 45min | 3 tasks | 15 files |
 
 ## Session Continuity
 
-Last session: 2026-06-12T13:18:51.458Z
-Stopped at: Completed P1c.1-04-PLAN.md
+Last session: 2026-06-12T15:27:13.528Z
+Stopped at: Completed P1c.1-06-PLAN.md
 Resume file: None
 
 ### ▶ PICK UP HERE — 2026-06-04 EOD

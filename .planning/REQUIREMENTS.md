@@ -46,7 +46,7 @@
 ### Stripe Integration (direct restricted-API-key, NOT Connect)
 
 - [x] **STR-01** [D+P]: Per-studio Stripe restricted key stored encrypted (pgcrypto). Demo: one studio, hardcoded; Production: rotated + audited. Studio creates their own Stripe account and generates the key with permissions: Products/Prices, Customers, Subscriptions, PaymentIntents, SetupIntents, Charges (read), Refunds, Webhooks (read)
-- [ ] **STR-02** [D]: Demo can generate at least one Stripe Checkout link for a pass purchase, complete it in test mode, and reflect the resulting pass grant in the member profile
+- [x] **STR-02** [D]: Demo can generate at least one Stripe Checkout link for a pass purchase, complete it in test mode, and reflect the resulting pass grant in the member profile
 - [x] **STR-03** [P]: `checkout.session.completed` handler creates/updates `payments` row + grants pass if line item is a pack (atomic transaction with `webhook_events` insert)
 - [x] **STR-04** [P]: `invoice.paid` and `invoice.payment_failed` handlers reconcile `stripe_subscriptions` state + write to `payments`
 - [x] **STR-05** [P]: `customer.subscription.updated` and `customer.subscription.deleted` handlers reconcile membership status
@@ -141,7 +141,7 @@
 
 ### Staff Web App — Payments
 
-- [ ] **PAY-01** [D]: Demo can generate a Stripe Checkout link for a pass purchase (one-off pack, e.g. 10 credits) and verify success in member profile
+- [x] **PAY-01** [D]: Demo can generate a Stripe Checkout link for a pass purchase (one-off pack, e.g. 10 credits) and verify success in member profile
 - [ ] **PAY-02** [P]: Coach can generate a Stripe Checkout link for a class drop-in (creates 1-credit pass on success — drop-ins flow through Checkout → pass, not a separate code path)
 - [ ] **PAY-03** [P]: Coach can generate a Stripe Subscription Checkout link for recurring memberships
 - [ ] **PAY-04** [P]: Coach can generate a Stripe Customer Portal link to send to a member for self-service billing

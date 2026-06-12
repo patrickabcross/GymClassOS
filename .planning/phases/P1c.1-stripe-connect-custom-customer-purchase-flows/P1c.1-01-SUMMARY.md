@@ -127,6 +127,15 @@ None - no external service configuration required for this plan. The connected_a
 - `StripeEventPayload.stripeAccount` is threading-ready — Plan 02's edge-webhooks receiver can enqueue Connect events with the `stripeAccount` field populated
 - All regression suites green — no existing functionality affected by the optional field addition
 
+## Self-Check: PASSED
+
+- apps/staff-web/server/db/migrations/0006_p1c1_connected_accounts.sql: FOUND
+- apps/staff-web/server/db/schema.ts: FOUND (connectedAccounts export verified)
+- packages/queue/src/types.ts: FOUND (stripeAccount field verified)
+- packages/queue/src/publish.test.ts: FOUND (23 tests verified)
+- .planning/phases/P1c.1-.../P1c.1-01-SUMMARY.md: FOUND
+- Commits b36aac8a / 6d083413 / 8504dabc / c1e42782: all present in git log
+
 ---
 *Phase: P1c.1-stripe-connect-custom-customer-purchase-flows*
 *Completed: 2026-06-12*
