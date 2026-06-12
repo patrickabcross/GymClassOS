@@ -33,10 +33,10 @@ import { fileURLToPath } from "url";
 
 const BASE = "https://gym-class-os.vercel.app";
 const DESKTOP = { width: 1440, height: 900 };
-const MOBILE  = { width: 390,  height: 844 };
+const MOBILE = { width: 390, height: 844 };
 
 const __filename = fileURLToPath(import.meta.url);
-const __dirname  = dirname(__filename);
+const __dirname = dirname(__filename);
 
 // Path to the gitignored OAuth session file — relative to repo root
 const STORAGE_STATE_PATH = resolve(__dirname, "storageState.json");
@@ -46,7 +46,7 @@ const STORAGE_STATE_PATH = resolve(__dirname, "storageState.json");
 // ---------------------------------------------------------------------------
 
 const args = process.argv.slice(2);
-const SAVE_AUTH  = args.includes("--save-auth");
+const SAVE_AUTH = args.includes("--save-auth");
 const OUTPUT_DIR = args.includes("--output-dir")
   ? resolve(process.cwd(), args[args.indexOf("--output-dir") + 1])
   : resolve(process.cwd(), ".planning/ui-reviews/baseline");
@@ -64,40 +64,47 @@ function buildCaptures(firstMemberId) {
   /** Helper: both viewports for a gymos route */
   const both = (slug, path) => [
     { slug, path, viewport: DESKTOP, subdir: "staff-web" },
-    { slug, path, viewport: MOBILE,  subdir: "staff-web" },
+    { slug, path, viewport: MOBILE, subdir: "staff-web" },
   ];
 
   /** Helper: desktop-only gymos route */
   const desk = (slug, path, state) => ({
-    slug, path, viewport: DESKTOP, subdir: "staff-web", state,
+    slug,
+    path,
+    viewport: DESKTOP,
+    subdir: "staff-web",
+    state,
   });
 
   return [
     // -------------------------------------------------------------------------
     // Desktop + Mobile pairs
     // -------------------------------------------------------------------------
-    ...both("gymos-home",     "/gymos"),
-    ...both("gymos-inbox",    "/gymos/inbox"),
+    ...both("gymos-home", "/gymos"),
+    ...both("gymos-inbox", "/gymos/inbox"),
     ...both("gymos-schedule", "/gymos/schedule"),
-    ...both("gymos-members",  "/gymos/members"),
+    ...both("gymos-members", "/gymos/members"),
 
     // -------------------------------------------------------------------------
     // Desktop-only gymos routes
     // -------------------------------------------------------------------------
-    desk("gymos-inbox-leads",              "/gymos/inbox?filter=leads"),
-    desk("gymos-members-id",               firstMemberId ? `/gymos/members/${firstMemberId}` : "/gymos/members"),
-    desk("gymos-payments",                 "/gymos/payments"),
-    desk("gymos-analytics",                "/gymos/analytics"),
-    desk("gymos-campaigns",                "/gymos/campaigns"),
-    desk("gymos-forms",                    "/gymos/forms"),
-    desk("gymos-settings-integrations",    "/gymos/settings/integrations"),
+    desk("gymos-inbox-leads", "/gymos/inbox?filter=leads"),
+    desk(
+      "gymos-members-id",
+      firstMemberId ? `/gymos/members/${firstMemberId}` : "/gymos/members",
+    ),
+    desk("gymos-payments", "/gymos/payments"),
+    desk("gymos-analytics", "/gymos/analytics"),
+    desk("gymos-campaigns", "/gymos/campaigns"),
+    desk("gymos-forms", "/gymos/forms"),
+    desk("gymos-settings-integrations", "/gymos/settings/integrations"),
 
     // -------------------------------------------------------------------------
     // Legacy routes (still routable per D-05; excluded: /email)
     // -------------------------------------------------------------------------
     desk("draft-queue", "/draft-queue"),
-    desk("settings",    "/settings"),
-    desk("team",        "/team"),
+    desk("settings", "/settings"),
+    desk("team", "/team"),
 
     // -------------------------------------------------------------------------
     // Interaction states — D-06 (desktop only, resolved at capture time)
@@ -154,15 +161,45 @@ async function gotoAndCapture(page, url, outputPath, isGymosRoute = true) {
 // ---------------------------------------------------------------------------
 
 async function saveAuth() {
-  console.log("Launching headed browser — log in via Google when the window opens.");
-  console.log("The script will wait up to 2 minutes for you to reach a /gymos/** URL.");
+  console.log(
+    "Launching headed browser — log in via Google when the window opens.",
+  );
+  console.log(
+    "The script waits up to 5 minutes for a session cookie (URL alone is not",
+  );
+  console.log(
+    "proof of login — /gymos renders its auth gate client-side on a 200).",
+  );
 
   const browser = await chromium.launch({ headless: false });
   const context = await browser.newContext();
-  const page    = await context.newPage();
+  const page = await context.newPage();
 
-  await page.goto(BASE);
-  await page.waitForURL("**/gymos**", { timeout: 120_000 });
+  // Root URL 404s on the live deploy — go straight to /gymos (shows the sign-in gate).
+  await page.goto(`${BASE}/gymos`);
+
+  // Wait for an actual better-auth session cookie. waitForURL("**/gymos**") is NOT
+  // sufficient: /gymos returns 200 unauthenticated and gates client-side, so a URL
+  // wait resolves before login and saves an empty storageState.
+  const deadline = Date.now() + 300_000;
+  let authed = false;
+  while (Date.now() < deadline) {
+    const cookies = await context.cookies(BASE);
+    if (cookies.some((c) => /session/i.test(c.name))) {
+      authed = true;
+      break;
+    }
+    await page.waitForTimeout(2000);
+  }
+
+  if (!authed) {
+    await browser.close();
+    console.error(
+      "Timed out: no session cookie appeared within 5 minutes — login not detected.\n" +
+        "Re-run: node scripts/ui-baseline/capture.mjs --save-auth",
+    );
+    process.exit(1);
+  }
 
   await context.storageState({ path: STORAGE_STATE_PATH });
   await browser.close();
@@ -182,7 +219,7 @@ async function captureAll() {
   } catch {
     console.error(
       `storageState.json not found at ${STORAGE_STATE_PATH}.\n` +
-      "Run: node scripts/ui-baseline/capture.mjs --save-auth"
+        "Run: node scripts/ui-baseline/capture.mjs --save-auth",
     );
     process.exit(1);
   }
@@ -192,17 +229,31 @@ async function captureAll() {
     storageState: STORAGE_STATE_PATH,
   });
 
-  // Session-validity guard (Pitfall 1): navigate to /gymos and check we are NOT
-  // on a Google sign-in page.
+  // Session-validity guard (Pitfall 1): /gymos returns 200 even unauthenticated
+  // (client-side gate), so URL inspection is not enough — require a session
+  // cookie in the loaded storageState before capturing anything.
   {
     const guardPage = await context.newPage();
+    const cookies = await context.cookies(BASE);
+    if (!cookies.some((c) => /session/i.test(c.name))) {
+      await browser.close();
+      console.error(
+        "storageState has no session cookie — auth was never saved or has been cleared.\n" +
+          "Re-run with --save-auth to refresh: node scripts/ui-baseline/capture.mjs --save-auth",
+      );
+      process.exit(1);
+    }
     await guardPage.goto(`${BASE}/gymos`, { waitUntil: "networkidle" });
     const currentUrl = guardPage.url();
-    if (currentUrl.includes("accounts.google.com") || currentUrl.includes("sign_in")) {
+    if (
+      currentUrl.includes("accounts.google.com") ||
+      currentUrl.includes("sign_in") ||
+      currentUrl.includes("access-denied")
+    ) {
       await browser.close();
       console.error(
         "storageState expired — Google auth session is no longer valid.\n" +
-        "Re-run with --save-auth to refresh: node scripts/ui-baseline/capture.mjs --save-auth"
+          "Re-run with --save-auth to refresh: node scripts/ui-baseline/capture.mjs --save-auth",
       );
       process.exit(1);
     }
@@ -210,7 +261,9 @@ async function captureAll() {
     // Resolve the first member ID from the members page
     let firstMemberId = null;
     try {
-      await guardPage.goto(`${BASE}/gymos/members`, { waitUntil: "networkidle" });
+      await guardPage.goto(`${BASE}/gymos/members`, {
+        waitUntil: "networkidle",
+      });
       await guardPage.waitForTimeout(1500);
       const memberHref = await guardPage
         .locator('a[href*="/gymos/members/"]')
@@ -222,7 +275,9 @@ async function captureAll() {
         if (match) firstMemberId = match[1];
       }
     } catch (_) {
-      console.warn("Could not resolve first member ID — gymos-members-id will capture /gymos/members instead.");
+      console.warn(
+        "Could not resolve first member ID — gymos-members-id will capture /gymos/members instead.",
+      );
     }
 
     await guardPage.close();
@@ -246,7 +301,12 @@ async function captureAll() {
       await page.setViewportSize(viewport);
 
       try {
-        await gotoAndCapture(page, `${BASE}${routePath}`, outFile, routePath.startsWith("/gymos"));
+        await gotoAndCapture(
+          page,
+          `${BASE}${routePath}`,
+          outFile,
+          routePath.startsWith("/gymos"),
+        );
         console.log(`  [OK] ${filename(slug, viewport, state)}`);
         written++;
       } catch (err) {
@@ -301,10 +361,14 @@ async function captureInteractionStates(context) {
         const match = href.match(/conversation=([^&]+)/);
         if (match) conversationId = match[1];
       }
-    } catch (_) { /* no conversation links found */ }
+    } catch (_) {
+      /* no conversation links found */
+    }
 
     if (conversationId) {
-      await page.goto(`${BASE}/gymos/inbox?conversation=${conversationId}`, { waitUntil: "networkidle" });
+      await page.goto(`${BASE}/gymos/inbox?conversation=${conversationId}`, {
+        waitUntil: "networkidle",
+      });
       await page.waitForTimeout(2000);
     }
 
@@ -355,10 +419,18 @@ async function captureInteractionStates(context) {
     await page.waitForTimeout(300);
 
     // Click the first class card / book control
-    const firstClassCard = page.locator('[data-class-id], [data-occurrence-id], .class-card, .occurrence-card, [role="button"]').first();
+    const firstClassCard = page
+      .locator(
+        '[data-class-id], [data-occurrence-id], .class-card, .occurrence-card, [role="button"]',
+      )
+      .first();
     await firstClassCard.click({ timeout: 8_000 }).catch(() => {
       // Fallback: find any clickable element that looks like a class listing
-      return page.locator("button").filter({ hasText: /book|class|view/i }).first().click({ timeout: 5_000 });
+      return page
+        .locator("button")
+        .filter({ hasText: /book|class|view/i })
+        .first()
+        .click({ timeout: 5_000 });
     });
 
     await page.waitForSelector('[role="dialog"]', { timeout: 10_000 });
@@ -383,7 +455,11 @@ async function captureInteractionStates(context) {
     await page.waitForTimeout(300);
 
     // Hover / click the first conversation row to trigger .email-list-row.selected
-    const firstRow = page.locator('[href*="conversation="], .email-list-row, [data-conversation-id]').first();
+    const firstRow = page
+      .locator(
+        '[href*="conversation="], .email-list-row, [data-conversation-id]',
+      )
+      .first();
     await firstRow.hover({ timeout: 5_000 }).catch(() => {});
     await page.waitForTimeout(300);
 
@@ -412,13 +488,13 @@ async function captureEmbeds(context) {
 
   const embedCaptures = [
     { file: "embed-light.html", slug: "embed-host.light", viewport: DESKTOP },
-    { file: "embed-dark.html",  slug: "embed-host.dark",  viewport: DESKTOP },
-    { file: "embed-light.html", slug: "embed-host.light", viewport: MOBILE  },
+    { file: "embed-dark.html", slug: "embed-host.dark", viewport: DESKTOP },
+    { file: "embed-light.html", slug: "embed-host.light", viewport: MOBILE },
   ];
 
   for (const { file, slug, viewport } of embedCaptures) {
     const htmlPath = join(embedDir, file);
-    const fileUrl  = `file://${htmlPath.replace(/\\/g, "/")}`;
+    const fileUrl = `file://${htmlPath.replace(/\\/g, "/")}`;
     const vp = viewport.width === DESKTOP.width ? "desktop" : "mobile";
     const outFile = join(outDir, `${slug}.${vp}.png`);
 
