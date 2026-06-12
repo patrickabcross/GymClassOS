@@ -48,3 +48,47 @@ stripeRoutes.post("/stripe", async (c) => {
 
   return c.text("ok", 200); // budget <100ms
 });
+
+// Stripe Connect webhook — separate signing secret, carries event.account = "acct_xxx".
+// Mirrors the platform handler exactly except:
+//   1. Verified with STRIPE_CONNECT_WEBHOOK_SECRET (not the platform secret).
+//   2. event.account is threaded into the enqueue payload as stripeAccount.
+// Idempotency: Stripe event ids (evt_...) are globally unique across platform +
+// Connect — reuse provider: "stripe" verbatim; no collision risk on external_id.
+stripeRoutes.post("/stripe-connect", async (c) => {
+  const env = getEnv();
+  const sigHeader = c.req.header("stripe-signature");
+  if (!sigHeader) return c.text("Missing stripe-signature", 400);
+
+  // RAW BODY FIRST (PITFALL #9).
+  const raw = await c.req.text();
+
+  let event: Stripe.Event;
+  try {
+    event = getStripe().webhooks.constructEvent(
+      raw,
+      sigHeader,
+      env.STRIPE_CONNECT_WEBHOOK_SECRET,
+    );
+  } catch {
+    return c.text("invalid signature", 400);
+  }
+
+  // "acct_xxx" present on all Connect events; undefined on platform events.
+  const connectedAccountId = event.account ?? undefined;
+
+  const result = await insertWebhookEvent({
+    provider: "stripe",
+    eventType: event.type,
+    externalId: event.id,
+    payloadRaw: raw,
+  });
+
+  if (!result.inserted) {
+    return c.text("ok (dedup)", 200);
+  }
+
+  await enqueueStripeEvent({ eventId: event.id, stripeAccount: connectedAccountId });
+
+  return c.text("ok", 200);
+});
