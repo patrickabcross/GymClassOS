@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed P1c.1-01-PLAN.md
-last_updated: "2026-06-12T13:15:48.928Z"
+stopped_at: Completed P1c.1-04-PLAN.md
+last_updated: "2026-06-12T13:18:51.472Z"
 last_activity: 2026-06-12
 progress:
   total_phases: 14
   completed_phases: 1
   total_plans: 15
-  completed_plans: 11
+  completed_plans: 12
   percent: 50
 ---
 
@@ -35,7 +35,7 @@ Requirements: `.planning/REQUIREMENTS.md` (130 reqs across 20 categories — see
 
 Milestone: Demo Sprint (1 of 2) — Week 1 (target ~2026-05-24 — slipped to 2026-05-26 with live-fix wave)
 Phase: P1c.1 (Stripe Connect Custom + Customer Purchase Flows) — EXECUTING
-Plan: 2 of 7
+Plan: 3 of 7
 Status: Ready to execute
 Last activity: 2026-06-12
 
@@ -189,6 +189,8 @@ Decisions are logged in `PROJECT.md` Key Decisions table. Recent ones affecting 
 - [Phase quick-260608-g74]: Worker reimplements AES-256-GCM decrypt locally (no @agent-native/core dep); readAppSecretByKey returns null on any failure; app_secrets is now first source in 4 resolvers with existing pgcrypto+env fallbacks intact
 - [Phase P1c.1-stripe-connect-custom-customer-purchase-flows]: integer({ mode: 'boolean' }) used for chargesEnabled/payoutsEnabled in connectedAccounts (matches schema.ts convention; dialect-agnostic via core helper)
 - [Phase P1c.1-stripe-connect-custom-customer-purchase-flows]: singletonKey for Stripe events unchanged (stripe-event:stripe_eventId only); stripeAccount not included — replayed Connect events must still dedup by eventId
+- [Phase P1c.1-stripe-connect-custom-customer-purchase-flows]: getPlatformStripe() resolves stripe_platform_secret_key from pgcrypto secrets → STRIPE_SECRET_KEY env → throw; getStripeClient() kept deprecated for rollback — Platform key needed for Connect operations; restricted-key model deprecated but not deleted per plan rollback-insurance requirement
+- [Phase P1c.1-stripe-connect-custom-customer-purchase-flows]: Settings integrations ?stripe=refresh handled at loader level (server redirect to fresh Account Link) not client-side — Cleaner UX with no JS flash; loader handles redirect before page renders
 
 ### Pending Todos
 
@@ -259,11 +261,12 @@ None tracked as TODOs; everything is in the roadmap / requirements.
 | Phase P3-ai-noticeboard-home P06 | 382 | 3 tasks | 3 files |
 | Phase P3-ai-noticeboard-home P05 | 671 | 3 tasks | 4 files |
 | Phase P1c.1-stripe-connect-custom-customer-purchase-flows P01 | 5min | 2 tasks | 4 files |
+| Phase P1c.1-stripe-connect-custom-customer-purchase-flows P04 | 8min | 3 tasks | 6 files |
 
 ## Session Continuity
 
-Last session: 2026-06-12T13:15:31.034Z
-Stopped at: Completed P1c.1-01-PLAN.md
+Last session: 2026-06-12T13:18:51.458Z
+Stopped at: Completed P1c.1-04-PLAN.md
 Resume file: None
 
 ### ▶ PICK UP HERE — 2026-06-04 EOD
