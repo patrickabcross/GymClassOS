@@ -19,7 +19,11 @@ export async function subscriptionDeleted(
   event: Stripe.Event,
   tx: any,
   _stripe: Stripe,
+  _stripeAccount?: string,
 ): Promise<void> {
+  // EXCEPTION TO REFETCH RULE: the subscription is deleted in Stripe —
+  // stripe.subscriptions.retrieve would 404. Use the event payload directly.
+  // stripeAccount param accepted for dispatch-table uniformity but unused here.
   const sub = event.data.object as Stripe.Subscription;
   await tx
     .update(schema.stripeSubscriptions)

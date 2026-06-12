@@ -18,18 +18,24 @@ export async function invoicePaid(
   event: Stripe.Event,
   tx: any,
   stripe: Stripe,
+  stripeAccount?: string,
 ): Promise<void> {
   const invoice = event.data.object as Stripe.Invoice;
 
   // REFETCH (PITFALL #4).
+  // Pass { stripeAccount } so refetches resolve against the connected account
+  // (not the platform) — Pitfall 3. undefined opts = platform event = no-op.
+  const opts = stripeAccount ? { stripeAccount } : undefined;
   // Cast to `any` for the legacy top-level `subscription` / `payment_intent`
   // fields: in the dahlia (2026-04-22) API surface these have moved (the
   // SDK 19.x types reflect the latest shape, but our pinned API version
   // still returns them at runtime via the expand list). Runtime is correct;
   // types lag.
-  const full = (await stripe.invoices.retrieve(invoice.id!, {
-    expand: ["subscription", "customer"],
-  })) as any;
+  const full = (await stripe.invoices.retrieve(
+    invoice.id!,
+    { expand: ["subscription", "customer"] },
+    opts,
+  )) as any;
 
   const subId =
     typeof full.subscription === "string"
@@ -40,7 +46,8 @@ export async function invoicePaid(
 
   if (subId && customerId) {
     // Refetch subscription for current_period_end.
-    const sub = await stripe.subscriptions.retrieve(subId);
+    // Pass {} as params (no expand needed) then opts for the stripeAccount header.
+    const sub = await stripe.subscriptions.retrieve(subId, {}, opts);
     await tx
       .insert(schema.stripeSubscriptions)
       .values({

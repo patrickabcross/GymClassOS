@@ -18,10 +18,14 @@ export async function subscriptionUpdated(
   event: Stripe.Event,
   tx: any,
   stripe: Stripe,
+  stripeAccount?: string,
 ): Promise<void> {
   const sub = event.data.object as Stripe.Subscription;
   // REFETCH for current state (PITFALL #4).
-  const full = (await stripe.subscriptions.retrieve(sub.id)) as any;
+  // Pass { stripeAccount } so the refetch resolves against the connected account
+  // (not the platform) — Pitfall 3. undefined opts = platform event = no-op.
+  const opts = stripeAccount ? { stripeAccount } : undefined;
+  const full = (await stripe.subscriptions.retrieve(sub.id, {}, opts)) as any;
 
   await tx
     .insert(schema.stripeSubscriptions)

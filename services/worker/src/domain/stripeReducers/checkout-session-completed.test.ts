@@ -34,6 +34,47 @@ describe("checkoutSessionCompleted (STR-03)", () => {
     stripeRetrieve.mockReset();
   });
 
+  it("refetches session from Stripe with stripeAccount as 3rd arg (Pitfall 3 + P1c.1-03)", async () => {
+    stripeRetrieve.mockResolvedValueOnce({
+      id: "cs_test_abc",
+      customer: "cus_abc",
+      payment_intent: "pi_abc",
+      amount_total: 5000,
+      currency: "gbp",
+      created: 1700000000,
+      metadata: { memberId: "mem_1" },
+      line_items: { data: [] },
+    });
+    const event = { data: { object: { id: "cs_test_abc" } } } as any;
+    await checkoutSessionCompleted(event, mockTx as any, mockStripe, "acct_x");
+    expect(stripeRetrieve).toHaveBeenCalledWith(
+      "cs_test_abc",
+      expect.objectContaining({ expand: expect.any(Array) }),
+      { stripeAccount: "acct_x" },
+    );
+  });
+
+  it("passes undefined stripeAccount (platform event) — backward compatible", async () => {
+    stripeRetrieve.mockResolvedValueOnce({
+      id: "cs_platform",
+      customer: "cus_abc",
+      payment_intent: "pi_abc",
+      amount_total: 5000,
+      currency: "gbp",
+      created: 1700000000,
+      metadata: { memberId: "mem_1" },
+      line_items: { data: [] },
+    });
+    const event = { data: { object: { id: "cs_platform" } } } as any;
+    // No stripeAccount — platform event
+    await checkoutSessionCompleted(event, mockTx as any, mockStripe);
+    expect(stripeRetrieve).toHaveBeenCalledWith(
+      "cs_platform",
+      expect.objectContaining({ expand: expect.any(Array) }),
+      undefined,
+    );
+  });
+
   it("refetches session from Stripe (PITFALL #4)", async () => {
     stripeRetrieve.mockResolvedValueOnce({
       id: "cs_test_abc",
@@ -50,10 +91,11 @@ describe("checkoutSessionCompleted (STR-03)", () => {
     expect(stripeRetrieve).toHaveBeenCalledWith(
       "cs_test_abc",
       expect.objectContaining({ expand: expect.any(Array) }),
+      undefined, // no stripeAccount = platform event
     );
   });
 
-  it("upserts stripe_customers + payments with onConflictDoNothing (idempotency assertion)", async () => {
+  it("upserts stripe_customers + payments with onConflictDoNothing when stripeAccount provided (idempotency)", async () => {
     stripeRetrieve.mockResolvedValueOnce({
       id: "cs_x",
       customer: "cus_x",
@@ -65,7 +107,7 @@ describe("checkoutSessionCompleted (STR-03)", () => {
       line_items: { data: [] },
     });
     const event = { data: { object: { id: "cs_x" } } } as any;
-    await checkoutSessionCompleted(event, mockTx as any, mockStripe);
+    await checkoutSessionCompleted(event, mockTx as any, mockStripe, "acct_x");
     expect(insertChain.onConflictDoNothing).toHaveBeenCalled();
   });
 

@@ -35,7 +35,8 @@ describe("subscriptionUpdated (STR-05)", () => {
     });
     const event = { data: { object: { id: "sub_abc" } } } as any;
     await subscriptionUpdated(event, mockTx as any, mockStripe);
-    expect(subRetrieve).toHaveBeenCalledWith("sub_abc");
+    // Called with (id, {}, opts) — opts is undefined for platform events
+    expect(subRetrieve).toHaveBeenCalledWith("sub_abc", {}, undefined);
   });
 
   it("uses onConflictDoUpdate on stripe_subscriptions (idempotency assertion — STR-07 replay safety)", async () => {
