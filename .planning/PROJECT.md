@@ -10,6 +10,24 @@ GymClassOS is a boutique fitness studio management platform — staff back-offic
 
 Coaches and studio managers run their entire day from one inbox-and-schedule surface (WhatsApp conversations + class bookings + member context). Members book, pay, and log activity / nutrition from a native iOS/Android app (forked from agent-native's `packages/mobile-app`) that includes an in-app coaching agent — without staff cobbling together WhatsApp, calendar, calorie-tracking, and CRM tools.
 
+## Current Milestone: v1.1 UI Redesign — GymClassOS Design System
+
+> **Branch-isolated milestone (2026-06-12):** lives on `redesign/ui-refresh`. The v1.0 Demo Sprint milestone continues independently on `master` in a separate working copy; this milestone merges when ready, NOT coupled to the 2026-07-15 ship date.
+
+**Goal:** Replace the agent-native template-fork look with a studio-skinnable GymClassOS design system and gym-domain naming across all three surfaces, so the product reads as a real vertical product sellable beyond Hustle.
+
+**Target features:**
+- **GymClassOS design system** — theme tokens (color, typography, logo, radius) skinnable per studio; Hustle ships as the first skin via configuration, not hardcoding
+- **Staff web redesign** — visual refresh + information-architecture and naming pass retiring Mail-template vocabulary (`InboxPage`, `DraftQueuePage`, email-shaped concepts) in favor of gym-domain language
+- **Public widgets redesign** — `/embed/schedule` booking widget + lead-capture forms styled to embed cleanly on any studio site, themed by the same tokens
+- **Member mobile app redesign** — Expo app aligned to the same design language
+- **Product naming audit (Claude as PM)** — systematic rename of surfaces, features, and labels for gym-domain clarity, captured as a naming decision record
+
+**Key constraints carried in:**
+- No local dev server (Nitro/Vite bug) — staff-web verifies via Fly deploy, mobile via EAS/Expo Go, widgets via deployed embeds
+- Fork boundary holds: `templates/` and `packages-vendored/*` never edited in place; redesign work lands in `apps/staff-web/features/*`, `apps/staff-web/app/*`, and the forked `packages/mobile-app`
+- Baseline `gsd:ui-review` audit is the first work item — no prior audit exists; the redesign must target documented weaknesses, not vibes
+
 ## Requirements
 
 ### Validated
@@ -28,7 +46,9 @@ Coaches and studio managers run their entire day from one inbox-and-schedule sur
 
 <!-- Current scope. Building toward these. The detailed REQ-IDs live in REQUIREMENTS.md. -->
 
-**Next-up — three parallel workstreams (post-P1b.1):**
+**v1.1 UI Redesign (this branch — `redesign/ui-refresh`):** see Current Milestone section above; detailed REQ-IDs in REQUIREMENTS.md once defined.
+
+**v1.0 workstreams (continuing on `master`, listed for context — NOT this branch's scope):**
 
 - [ ] **WhatsApp integration deep wire** — migrate `services/worker/` + `services/edge-webhooks/` to read Meta credentials from `app_secrets` (so the in-app Settings UI is the single source of truth, not `fly secrets set`); wire **P1b-09** WA-08 template sync cron so real approved Meta templates replace the seeded stubs; end-to-end test of outbound send + inbound delivery/read callbacks against the verified WABA
 - [ ] **Mobile app (member surface)** — resume D2 work (Task 4 of in-app agent was pending; D2-06 verification deferred); harden the Expo fork against iteration that landed during the staff-web pilot fixes; cut an EAS preview build under the customer's existing Apple Developer Account
@@ -150,6 +170,8 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-26 — P1b.1 Customer Pilot Enablement live-accepted on `gym-class-os.vercel.app` after iterative live-fix wave; P1c Public Site Integrations drafted (forms fork + `/embed/schedule` booking widget); validated requirements section refreshed from "(None yet)" to the shipped surfaces; next-up workstreams: WhatsApp deep wire + Mobile EAS build + P1c plan-phase.*
+*Last updated: 2026-06-12 — Milestone v1.1 UI Redesign started on branch `redesign/ui-refresh` (studio-skinnable GymClassOS design system + gym-domain naming across staff web, public widgets, member mobile app; parallel track, merge when ready).*
+
+*Earlier: 2026-05-26 — P1b.1 Customer Pilot Enablement live-accepted on `gym-class-os.vercel.app` after iterative live-fix wave; P1c Public Site Integrations drafted (forms fork + `/embed/schedule` booking widget); validated requirements section refreshed from "(None yet)" to the shipped surfaces; next-up workstreams: WhatsApp deep wire + Mobile EAS build + P1c plan-phase.*
 
 *Earlier: 2026-05-17 — major scope revision (Demo Sprint + Production v1 two-milestone shape; mobile = native Expo not PWA; Stripe direct restricted-key; calorie counter in v1; pg-boss replaces BullMQ/Redis). See PLATFORM-VISION.md for the reconciliation log.*

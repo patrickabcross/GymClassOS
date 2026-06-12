@@ -1,17 +1,17 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: milestone
-status: executing
-stopped_at: "Completed quick-260611-rrh: outbound WhatsApp mirror fix (MYÜTIK-diagnosed bug — agent replies mirrored to the webhook were dropped as unknown_phone because consumer treated everything as inbound). Receiver detects direction via metadata.phone_number_id, worker materialises direction='out' via customerWaId. Pending: flyctl deploy + backfill run against Neon. Earlier today: quick-260611-dxv CSV lead import (deployed to Vercel, live)."
-last_updated: "2026-06-11T10:30:00.000Z"
-last_activity: "2026-06-11 - Added CSV bulk-upload interface to the inbox Leads view (dxv). Prior: 2026-06-09 - Outbound WhatsApp send now routes through MYÜTIK and is live on Fly. Day's work: (1) shipped + fixed AI template-variable auto-fill (qe-fcm; agent delegates to the ACTIVE chat thread — the background-tab version created a ghost thread that never ran; ANTHROPIC_API_KEY confirmed in staff-web Vercel env; works in prod). (2) Diagnosed non-delivery: worker called Meta directly and Meta rejected the sender number (code 100/subcode 33, missing permissions) — the known wiring block, now proven for outbound; also fixed a multi-var template-component bug (commit 2eb3794a). (3) Rewired the worker send chokepoint to MYÜTIK (qe-qe9): new sendViaMyutik.ts is the sole send path, gates + status machine unchanged, 79/79 tests green; flyctl deploy of gymos-edge-webhooks rolled web+worker healthy; user confirmed MYUTIK_API_KEY has all scopes. Pending morning verification of an actual send."
+milestone: v1.1
+milestone_name: "UI Redesign — GymClassOS Design System"
+status: defining-requirements
+stopped_at: "Milestone v1.1 started on branch redesign/ui-refresh (2026-06-12). Branch-isolated from v1.0 Demo Sprint which continues on master. Next: define requirements, then roadmap."
+last_updated: "2026-06-12T00:00:00.000Z"
+last_activity: "2026-06-12 - Milestone v1.1 UI Redesign started: studio-skinnable GymClassOS design system + gym-domain naming across staff web, public widgets, member mobile app. Parallel track on redesign/ui-refresh, merge when ready."
 progress:
-  total_phases: 13
-  completed_phases: 1
-  total_plans: 8
-  completed_plans: 10
-  percent: 50
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -33,11 +33,13 @@ Requirements: `.planning/REQUIREMENTS.md` (130 reqs across 20 categories — see
 
 ## Current Position
 
-Milestone: Demo Sprint (1 of 2) — Week 1 (target ~2026-05-24 — slipped to 2026-05-26 with live-fix wave)
-Phase: P3-ai-noticeboard (home) — EXECUTING
-Plan: 7 of 7
-Status: Ready to execute
-Last activity: 2026-06-08 - Completed quick task 260608-gn1: added an "Update templates" button to the inbox Templates dialog that pulls Hustle's approved templates from MYÜTIK into `whatsapp_templates` on demand (staff-web side, works without the worker). New staff-web `readAppSecretByKey` + `sync-templates` action intent; fixed the worker componentsJson shape bug. Needs Vercel redeploy of staff-web + click "Update templates" to populate. (Prior: g74 worker app_secrets reader; fb8 MYÜTIK templates-sync)
+Milestone: v1.1 UI Redesign — GymClassOS Design System (branch-isolated on `redesign/ui-refresh`; v1.0 Demo Sprint continues on `master`)
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-06-12 — Milestone v1.1 started
+
+> **Branch note:** All v1.0 Demo Sprint position/detail below this point reflects `master` state at fork time (2026-06-12) and is kept for reference + accumulated context. Do not execute v1.0 work from this branch.
 
 **P1c-WIDE VERIFICATION CONSTRAINT (accumulated context — read before executing P1c-04/05/06):** The local `agent-native dev` server cannot boot (`NitroViteError: Vite environment "nitro" is unavailable` → 503 on server routes) — same class of issue as the Vercel/Netlify Nitro-bundling crash; staff-web only runs reliably on Fly. So NO P1c plan can run a local HTTP walkthrough. Verify the SUBSTANCE by replaying the handler/action SQL against the live `gymos-demo` Neon DB via Neon MCP (and clean up test rows), OR defer runtime checks (CORS preflight 204 ordering, route mounting, honeypot/rate-limit over HTTP, `/gymos` rendering) to the P1c-07 e2e smoke test. P1c-02 was verified this way (lead upsert replayed twice → 1 member / 1 lead conversation / 2 FK-safe submissions — checker's canonical-id re-select BLOCKER confirmed working).
 
