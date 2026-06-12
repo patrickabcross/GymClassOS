@@ -246,6 +246,44 @@ The production milestone is structured as 4 phases (preserving the prior coarse-
 
 ---
 
+### Phase P1c.1: Stripe Connect (Custom) + Customer Purchase Flows (INSERTED — 2026-06-12)
+
+**Goal:** Replace the direct restricted-API-key Stripe model with a GymClassOS **platform** account using **Custom connected accounts** (white-label — studio never sees Stripe branding), onboarded via Stripe-hosted Account Links (full embedded self-serve onboarding stays in backlog 999.3-adjacent territory). All charges are **direct charges on the connected account with NO application fee** (fee model deferred — one parameter to add later). Customers can purchase packs/drop-ins AND recurring membership subscriptions from three surfaces.
+
+> **Decision record (2026-06-12, user):** Reverses the 2026-05-17 "direct restricted-key, NOT Connect" decision. Locked: Custom account type; no platform fee for now; packs + subscriptions; all three purchase surfaces.
+
+**Requirements:** STR-01 (reworked for Connect), STR-02, PAY-01, PAY-02, PAY-03, PAY-04, plus closes milestone-audit gaps (Demo Sprint PAY-01/STR-02)
+
+**Success criteria:**
+1. Platform Stripe account configured; a Custom connected account exists for Hustle, onboarded to `charges_enabled && payouts_enabled` via an Account Link flow launched from /gymos/settings (account id stored server-side; `account.updated` webhook keeps readiness state current)
+2. Checkout sessions (one-off packs/drop-ins AND subscription memberships) are created **on the connected account**; completing a test-mode checkout grants the pass / activates the subscription via the existing P1b-07 reducers (idempotency preserved; reducers refetch account-scoped)
+3. Connect webhooks (events carrying the `account` field) verified + routed through edge-webhooks → pg-boss → worker, same idempotency spine as before
+4. Coach can generate and send a checkout link from the inbox/member profile (staff surface)
+5. Public embed (P1c widgets) supports a buy flow that links the Checkout to a lead/member by email/phone
+6. Member mobile app has a purchase screen (opens Checkout in a browser sheet) — **prerequisite: fix the /api/m/* 404 on the Vercel deploy first**
+7. Stripe Customer Portal (on the connected account) reachable for subscription self-service
+8. No card data stored anywhere; tokenised IDs only (STR-08 preserved)
+
+**Plans:** 7 plans (3 waves)
+
+Plans:
+- [ ] P1c.1-01-PLAN.md (wave 1) — additive connected_accounts table (acct_id + readiness flags, direct-to-Neon) + StripeEventPayload.stripeAccount optional field [STR-01]
+- [ ] P1c.1-02-PLAN.md (wave 2) — POST /webhooks/stripe-connect Connect endpoint (separate whsec_, reads event.account, same idempotency spine) [STR-01]
+- [ ] P1c.1-03-PLAN.md (wave 3) — thread stripeAccount through all 6 reducers refetch + new account.updated readiness reducer [STR-01, STR-02, PAY-01, PAY-02]
+- [ ] P1c.1-04-PLAN.md (wave 1) — getPlatformStripe() + create-connect-account (controller props) + create-account-link + settings Connect/readiness UI; restricted-key path dormant [STR-01]
+- [ ] P1c.1-05-PLAN.md (wave 2) — rework create-checkout-link (Connect + subscription mode + subscription_data.metadata.memberId) + create-portal-link + public /embed/buy [STR-02, PAY-01, PAY-02, PAY-03, PAY-04]
+- [ ] P1c.1-06-PLAN.md (wave 1) — fix /api/m/* 404 on Vercel + /api/m/purchase endpoint + mobile purchase screen (Checkout in browser sheet) [PAY-01, STR-02]
+- [ ] P1c.1-07-PLAN.md (wave 3) — CHECKPOINT: user enables platform Connect + registers Connect webhook + sets secrets + onboards Hustle; then live Stripe CLI e2e → VERIFICATION.md [STR-01, STR-02, PAY-01, PAY-02, PAY-03, PAY-04]
+
+**Wave structure (parallelism):**
+- **Wave 1** (no platform-account dependency — pure code/test): 01 (schema + queue contract), 04 (onboarding actions + settings UI), 06 (mobile 404 fix + purchase screen)
+- **Wave 2** (depend on wave-1 code): 02 (Connect endpoint, needs 01 queue field), 05 (purchase surfaces, needs 04 resolver)
+- **Wave 3** (depend on wave-2): 03 (reducers, needs 01+02), 07 (manual prereqs CHECKPOINT + live e2e, needs 02-06)
+
+**Manual prerequisites (Plan 07 checkpoint — executor must NOT fake):** GymClassOS platform Stripe account + Connect enabled; register a SECOND webhook endpoint /webhooks/stripe-connect with connect=true; set STRIPE_SECRET_KEY (platform key) + new STRIPE_CONNECT_WEBHOOK_SECRET as Fly/Vercel secrets; complete the Hustle Account Link onboarding with Stripe TEST verification values.
+
+---
+
 ### Phase P2: Staff + Member Product Surfaces (~3–4 weeks)
 
 **Goal:** Production-quality versions of every surface the demo showed, plus the surfaces the demo skipped. Coach runs a full day from staff-web; member runs their fitness life from the PWA.
