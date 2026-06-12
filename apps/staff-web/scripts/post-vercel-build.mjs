@@ -71,10 +71,15 @@ if (!fs.existsSync(configPath)) {
   const config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
 
   // Paths that Vercel's /api directory routing would otherwise intercept.
-  // Each entry routes matching requests directly to the Nitro __server Lambda,
-  // which then routes them through the React Router SSR handler.
+  // Routes to the dedicated /api/m/[...all] Lambda (registered by the new
+  // server/routes/api/m/[...all].get.ts Nitro catch-all, which delegates to
+  // the React Router SSR handler). Dest uses the function path as Vercel
+  // registers it in the output (no leading slash for api/* functions).
+  //
+  // /api/submit, /api/forms: route to __server (no dedicated func yet).
+  // /webhooks: route to __server (the Nitro app's own webhook handlers).
   const gymosMobileRoutes = [
-    { src: "^/api/m(/.*)?$", dest: "/__server" },
+    { src: "^/api/m(/.*)?$", dest: "/api/m/[...all]" },
     { src: "^/api/submit(/.*)?$", dest: "/__server" },
     { src: "^/api/forms(/.*)?$", dest: "/__server" },
     { src: "^/webhooks(/.*)?$", dest: "/__server" },
