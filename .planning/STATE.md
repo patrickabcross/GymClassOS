@@ -1,17 +1,16 @@
 ---
 gsd_state_version: 1.0
 milestone: v1.1
-milestone_name: "UI Redesign — GymClassOS Design System"
-status: roadmap-created
-stopped_at: "Roadmap created 2026-06-12. 5 phases (R1–R5), 30 requirements mapped. Next: /gsd:plan-phase R1"
-last_updated: "2026-06-12T00:00:00.000Z"
-last_activity: "2026-06-12 - Roadmap R1–R5 written. 30/30 requirements mapped. R1=Audit, R2=Tokens, R3=Naming, R4=Staff Web+Widgets, R5=Mobile."
+milestone_name: "— UI Redesign: GymClassOS Design System"
+status: planning
+stopped_at: Phase R1 context gathered
+last_updated: "2026-06-12T12:43:35.690Z"
+last_activity: 2026-06-12 — Roadmap created (R1–R5, 30/30 requirements mapped)
 progress:
   total_phases: 5
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
-  percent: 0
 ---
 
 # Project State
@@ -54,6 +53,7 @@ Last activity: 2026-06-12 — Roadmap created (R1–R5, 30/30 requirements mappe
 
 **v1.1 milestone start:** 2026-06-12
 **v1.0 reference velocity (from master):**
+
 - P1b.1 (8 plans): live-accepted 2026-05-26
 - P1c (7 plans): complete 2026-06-01
 - P3 (6/7 plans): in progress on master
@@ -76,6 +76,7 @@ Last activity: 2026-06-12 — Roadmap created (R1–R5, 30/30 requirements mappe
 **P1c-02 deviation (0004 migration):** P1c-01's migration 0003 created only `form_submissions`; it OMITTED the `forms` + `responses` tables the forked forms handler reads/writes. `apps/staff-web/server/db/migrations/0004_p1c_forms_responses.sql` (strictly additive) closes the gap and is applied to `gymos-demo` Neon. Any plan that adds new forms-feature tables must continue the direct-to-Neon-via-MCP apply pattern (0001-0004), not runMigrations.
 
 **Live deployment state (master):**
+
 - Staff-web: `https://gym-class-os.vercel.app` (Vercel, auto-deploys from `master`)
 - Worker + edge-webhooks: Fly app `gymos-edge-webhooks`
 - Neon project: `gymos-demo` (id `billowing-sun-51091059`)
@@ -138,9 +139,9 @@ None tracked yet — begin with `/gsd:plan-phase R1`.
 
 ## Session Continuity
 
-Last session: 2026-06-12T00:00:00.000Z
-Stopped at: Roadmap R1–R5 created and written to disk. REQUIREMENTS.md traceability section populated. STATE.md updated.
-Resume file: None
+Last session: 2026-06-12T12:43:35.663Z
+Stopped at: Phase R1 context gathered
+Resume file: .planning/phases/R1-audit-baseline/R1-CONTEXT.md
 
 ### ▶ PICK UP HERE — v1.1 Roadmap ready
 
@@ -149,11 +150,13 @@ Run `/gsd:plan-phase R1` to begin planning the Audit Baseline phase.
 **R1 scope reminder:** Screenshots of every deployed surface (Vercel staff-web + embed widgets via iframe test page + Expo Go mobile screenshots) into `.planning/ui-reviews/baseline/`. Plus the naming decision record (email-vocabulary audit → label / CSS / identifier / route classification). No code changes in R1 — documentation only.
 
 **Verification method for R1 (no local dev server):**
+
 - Staff-web screenshots: capture from `https://gym-class-os.vercel.app` (live Vercel deploy)
 - Embed screenshots: load the embed iframe snippet on a local HTML test page (static file, no server needed) against the live embed routes
 - Mobile screenshots: capture from Expo Go on a phone connected to the live API
 
 **Key files to read at R1 plan time:**
+
 - `.planning/phases/P1b.1-customer-pilot-enablement/P1b.1-UI-REVIEW.md` — the existing UI review done during P1b.1 (partial; R1 completes and formalises it)
 - `.planning/phases/P1b.1-customer-pilot-enablement/P1b.1-UI-SPEC.md` — existing UI spec (partial; R1 audit will inform R2–R4 spec)
 
