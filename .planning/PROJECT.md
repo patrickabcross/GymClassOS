@@ -41,6 +41,7 @@ Coaches and studio managers run their entire day from one inbox-and-schedule sur
 - [x] **Gym-aware right-rail agent** — 5 gym actions (`list-fill-rate`, `list-classes`, `list-members`, `list-renewals`, `list-at-risk-members`) + `list-revenue` registered as `defineAction` LLM tools; gym systemPrompt forbids email vocabulary. *Validated in Phase P1b.1 (2026-05-26).*
 - [x] **Customer Pilot Enablement** — auth allowlist, `/access-denied` branded denial page, sign-out, Templates dialog (WhatsApp template send through worker chokepoint), demo seed of 3 months of activity (260 members / 423 classes / 4,162 bookings / 200 active subs). *Validated in Phase P1b.1 (2026-05-26, live-accepted in lieu of formal walkthrough).*
 - [x] **Webhook + worker spine** — `services/edge-webhooks/` (Hono receiver, Stripe + WhatsApp signature verification) + `services/worker/` (pg-boss subscriber, sendMessage chokepoint with opt-in / 24h-window / template-approved gates). *Validated in Phase P1b (8/9 plans, 2026-05-23).*
+- [x] **v1.1 Audit baseline (AUDT-01, AUDT-02)** — before-state screenshots of all three surfaces (20 staff-web + 3 embed + 8 mobile PNGs, INDEX.md manifest with deploy SHA) in `.planning/ui-reviews/baseline/`; NAMING-RECORD.md inventories 60+ email-vocabulary items across 4 rename layers with proposed targets, gating R3–R5 scope. Reusable Playwright harness in `scripts/ui-baseline/`. Mobile captured via react-native-web fallback (Expo Go SDK 56 vs app SDK 55 — on-device re-shoot at R5). *Validated in Phase R1 (2026-06-12).*
 
 ### Active
 
@@ -170,7 +171,9 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-12 — Milestone v1.1 UI Redesign started on branch `redesign/ui-refresh` (studio-skinnable GymClassOS design system + gym-domain naming across staff web, public widgets, member mobile app; parallel track, merge when ready).*
+*Last updated: 2026-06-12 — Phase R1 (Audit Baseline) complete: before-state screenshots + naming decision record committed; two discoveries flagged for master: `/api/m/*` member API is production-gated to 401 (mobile app cannot fetch live data), and Expo Go can no longer run the SDK 55 app (EAS dev client needed).*
+
+*Earlier: 2026-06-12 — Milestone v1.1 UI Redesign started on branch `redesign/ui-refresh` (studio-skinnable GymClassOS design system + gym-domain naming across staff web, public widgets, member mobile app; parallel track, merge when ready).*
 
 *Earlier: 2026-05-26 — P1b.1 Customer Pilot Enablement live-accepted on `gym-class-os.vercel.app` after iterative live-fix wave; P1c Public Site Integrations drafted (forms fork + `/embed/schedule` booking widget); validated requirements section refreshed from "(None yet)" to the shipped surfaces; next-up workstreams: WhatsApp deep wire + Mobile EAS build + P1c plan-phase.*
 
