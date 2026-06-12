@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<!-- FORM_SLUG must be a published form slug from gymos-demo Neon.
+     R1-03 verifies/publishes a slug at capture time and updates this attribute.
+     Placeholder "trial-signup" used; replace if no such published form exists.
+     Check: https://gym-class-os.vercel.app/gymos/forms for the correct slug. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GymClassOS Embed Test — Light Host</title>
+  <style>
+    body {
+      background: #ffffff;
+      color: #111111;
+      font-family: sans-serif;
+      padding: 40px;
+      margin: 0;
+    }
+    h1 {
+      font-size: 20px;
+      color: #333;
+      margin-bottom: 24px;
+    }
+    h2 {
+      font-size: 16px;
+      color: #111;
+      margin-bottom: 16px;
+      margin-top: 40px;
+    }
+    .widget-container {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    p.note {
+      font-size: 13px;
+      color: #666;
+      margin-top: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="widget-container">
+    <h1>GymClassOS Embed Test — Light Host Background</h1>
+    <p class="note">
+      This static page loads the live embed.js from gym-class-os.vercel.app and renders
+      the schedule widget and lead-capture form widget on a white host background.
+      Used for WDGT-03 verification (embeds render correctly on light host pages).
+    </p>
+
+    <h2>Schedule Widget</h2>
+    <div data-gymos-schedule data-accent="#ff5733" data-radius="8"></div>
+
+    <h2>Lead Enquiry Form</h2>
+    <div data-gymos-form="trial-signup" data-accent="#ff5733" data-radius="8"></div>
+  </div>
+
+  <script src="https://gym-class-os.vercel.app/embed.js" async></script>
+</body>
+</html>

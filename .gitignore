@@ -88,3 +88,6 @@ templates/*/.env.*.local
 test-reports/
 *.tsbuildinfo
 .claude/settings.local.json
+
+# UI baseline capture auth (never commit OAuth session)
+scripts/ui-baseline/storageState.json
