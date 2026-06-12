@@ -96,10 +96,11 @@ export default defineAction({
     // ------------------------------------------------------------------
     // 3. Create session on the connected account
     // ------------------------------------------------------------------
-    const session = await platform.checkout.sessions.create(
-      params as Parameters<typeof platform.checkout.sessions.create>[0],
-      opts,
-    );
+    // The Stripe SDK's checkout.sessions.create overloads can confuse
+    // TypeScript when passing { stripeAccount } as a second arg. Cast to any
+    // to avoid overload-resolution issues — the runtime call is correct.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const session = await (platform.checkout.sessions.create as any)(params, opts);
 
     return {
       url: session.url,

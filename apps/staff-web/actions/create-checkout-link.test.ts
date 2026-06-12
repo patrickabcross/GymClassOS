@@ -42,7 +42,7 @@ describe("buildCheckoutParams", () => {
     expect(opts).toMatchObject({ stripeAccount: "acct_test123" });
 
     expect(params.mode).toBe("payment");
-    expect(params.metadata?.memberId).toBe(memberId);
+    expect((params.metadata as any)?.memberId).toBe(memberId);
 
     // NO subscription_data
     expect((params as any).subscription_data).toBeUndefined();
@@ -80,7 +80,7 @@ describe("buildCheckoutParams", () => {
     expect(params.mode).toBe("subscription");
 
     // Pitfall 2: BOTH top-level metadata and subscription_data.metadata must be set
-    expect(params.metadata?.memberId).toBe("mbr_2");
+    expect((params.metadata as any)?.memberId).toBe("mbr_2");
     expect((params as any).subscription_data?.metadata?.memberId).toBe("mbr_2");
 
     // NO application_fee_*

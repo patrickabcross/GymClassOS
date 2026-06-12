@@ -51,7 +51,7 @@ const authPlugin = createAuthPlugin({
     "/f", // public SSR form pages (GET /f/:slug)
     "/api/forms/public", // public form metadata GET (used by embed.js)
     "/api/submit", // public form POST — anonymous lead upsert only
-    "/embed", // /embed/schedule (P1c-05) and /embed.js (P1c-06)
+    "/embed", // /embed/schedule (P1c-05), /embed.js (P1c-06), /embed/buy (P1c.1-05)
     // Member mobile purchase return page — Stripe redirects here after checkout.
     // Members don't have staff sessions so the page must be reachable without auth.
     "/m/checkout-return",
