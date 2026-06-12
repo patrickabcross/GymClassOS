@@ -66,16 +66,40 @@ Note: `embed-host.dark.mobile` was intentionally excluded from the capture harne
 
 ## Mobile
 
-| Screen | How to reach | Target filename | Status |
-|--------|-------------|-----------------|--------|
-| Home tab | Open app, tap Home tab | `tab-home.png` | pending user capture |
-| Schedule tab (class browser) | Tap Schedule tab | `tab-schedule.png` | pending user capture |
-| Food tab (calorie log) | Tap Food tab | `tab-food.png` | pending user capture |
-| Profile tab | Tap Profile tab | `tab-profile.png` | pending user capture |
-| Member picker | First launch or re-pick from profile | `pick-member.png` | pending user capture |
-| Food search screen | Tap + on Food tab | `food-add.png` | pending user capture |
-| Barcode scanner screen | Tap barcode icon in food-add | `food-barcode.png` | pending user capture |
-| Agent chat sheet | Tap FAB on any tab | `agent-sheet.png` | pending user capture |
+> **Mobile capture deviation — read before using these screenshots for review.**
+>
+> The original plan (D-07) required real-device captures via Expo Go. This was impossible at capture time:
+> App Store Expo Go only runs SDK 56; this app is SDK 55; no EAS dev client exists (EAS build is master-branch
+> work queued for after v1.1). The user explicitly approved a react-native-web fallback on 2026-06-12.
+>
+> **What these screenshots actually show:**
+> - **Rendering:** Expo app rendered via react-native-web at 390×844 in headless Chromium (script:
+>   `scripts/ui-baseline/capture-mobile-web.mjs`). Fonts, safe-area insets, and platform-specific
+>   shadow/elevation may differ from a real device.
+> - **Data source:** Live `/api/m/*` routes are production-gated (NODE_ENV check returns 401 in the Vercel
+>   deploy — this affects real phones too). The capture script intercepts these requests and fulfills them with
+>   fixture data matching the exact loader shapes so screens render meaningfully.
+> - **Barcode screen:** `food-barcode.png` shows the camera permission stub — headless Chromium has no camera.
+>   A real device shows the live camera view; the screen chrome (button layout, overlay) is still captured.
+>
+> **Re-shootable when EAS dev client exists (R5 or later):** Replace `scripts/ui-baseline/capture-mobile-web.mjs`
+> with a real-device capture script, or follow MOBILE-CHECKLIST.md on a device running the EAS dev build.
+> Use the same filenames — `mobile/` will slot into after-state comparisons without changing the manifest.
+>
+> **Discovery worth recording:** The `/api/m/*` member API being production-gated to 401 means the mobile app
+> currently cannot fetch live data from the Vercel deploy at all — not just in headless Chromium. This is
+> flagged for the master-branch mobile/EAS workstream to resolve before any real-device testing.
+
+| Screen | Viewport | State | Target filename | Source | Status | Capture date |
+|--------|----------|-------|-----------------|--------|--------|--------------|
+| Home tab | 390×844 | default (fixture data) | `tab-home.png` | react-native-web / headless Chromium | captured | 2026-06-12 |
+| Schedule tab (class browser) | 390×844 | default (fixture data) | `tab-schedule.png` | react-native-web / headless Chromium | captured | 2026-06-12 |
+| Food tab (calorie log) | 390×844 | default (fixture data) | `tab-food.png` | react-native-web / headless Chromium | captured | 2026-06-12 |
+| Profile tab | 390×844 | default (fixture data) | `tab-profile.png` | react-native-web / headless Chromium | captured | 2026-06-12 |
+| Member picker | 390×844 | default (fixture data) | `pick-member.png` | react-native-web / headless Chromium | captured | 2026-06-12 |
+| Food search screen | 390×844 | default (fixture data) | `food-add.png` | react-native-web / headless Chromium | captured | 2026-06-12 |
+| Barcode scanner screen | 390×844 | camera permission stub | `food-barcode.png` | react-native-web / headless Chromium | captured (stub) | 2026-06-12 |
+| Agent chat sheet | 390×844 | sheet open via FAB | `agent-sheet.png` | react-native-web / headless Chromium | captured | 2026-06-12 |
 
 ---
 
@@ -87,8 +111,8 @@ Note: `embed-host.dark.mobile` was intentionally excluded from the capture harne
 | Staff Web (mobile routes) | 4 | 4 | 0 |
 | Staff Web (interaction states) | 2 of 4 | 4 | 2 (templates-dialog, booking-dialog — see above) |
 | Embeds | 3 | 3 | 0 |
-| Mobile (Expo Go) | 0 | 8 | 8 (pending user capture — Task 4) |
-| **Total** | **25 PNGs** | **35 PNGs** | **10** |
+| Mobile (web fallback) | 8 | 8 | 0 (all 8 captured; see deviation note above — not real-device) |
+| **Total** | **33 PNGs** | **35 PNGs** | **2** |
 
 ### Intentional exclusions
 
