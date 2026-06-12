@@ -1,6 +1,123 @@
 # Roadmap: GymClassOS
 
-## Overview
+---
+
+## v1.1 — UI Redesign: GymClassOS Design System
+
+> **Branch:** `redesign/ui-refresh` | **Started:** 2026-06-12 | **Merges when ready** (not coupled to v1.0 ship date)
+>
+> **Goal:** Replace the agent-native template-fork look with a studio-skinnable GymClassOS design system and gym-domain naming across all three surfaces (staff web, public embed widgets, member mobile app), so the product reads as a real vertical product sellable beyond Hustle.
+>
+> **Phase prefix:** R (for Redesign) — avoids `.planning/phases/` directory collisions when this branch merges into master.
+
+### Key constraints baked into every phase
+
+- **No local dev server** — `NitroViteError` prevents `pnpm dev` on staff-web. Verification is via Vercel/Fly deploy (staff web + embeds) and Expo Go / EAS (mobile).
+- **Live customer (Hustle) on the deployed app** — route renames require redirect shims (`React Router redirect()`); no DB enum or schema renames (drizzle-kit#1409 + live-DB table-lock risk).
+- **Fork boundary holds** — `templates/*` and `packages-vendored/*` are never edited. Redesign work lands in `apps/staff-web/features/*`, `apps/staff-web/app/*`, `apps/staff-web/app/skins/*`, and `packages/mobile-app`.
+- **Hustle brand hex values are a live dependency** — `hustle.css` cannot be finalised until Hustle confirms their brand hex values. This is flagged as an open dependency in R2.
+- **Token-before-label ordering** — design tokens must resolve cleanly before UI label changes land; label changes must be stable before code identifier and route renames proceed (pitfall-enforced sequencing from research).
+
+## Phases
+
+- [ ] **Phase R1: Audit Baseline** — Screenshot every deployed surface; produce the naming decision record (email-vocabulary inventory + rename classification)
+- [ ] **Phase R2: Design System Token Layer** — Install CSS custom-property token system with skin injector; author GymClassOS default skin and Hustle skin; self-host Inter
+- [ ] **Phase R3: Naming & IA Pass** — Rename nav labels and surface copy (labels first), then retire email-vocabulary code identifiers and routes (with redirect shims)
+- [ ] **Phase R4: Staff Web Visual Refresh + Embed Widgets** — Apply design-system tokens to all staff-web surfaces and public embed widgets; deliver the visual redesign
+- [ ] **Phase R5: Member Mobile App Redesign** — Align the Expo mobile app to the GymClassOS design language; rename tabs; deliver dark-first theme with token file
+
+## Phase Details
+
+### Phase R1: Audit Baseline
+**Goal**: The before-state of every surface is documented so regressions are detectable; every email-vocabulary item is inventoried and classified so R2–R5 have a concrete target list
+**Depends on**: Nothing
+**Requirements**: AUDT-01, AUDT-02
+**Success Criteria** (what must be TRUE):
+  1. Screenshots of every staff-web route, every embed widget, and every mobile screen are committed to `.planning/ui-reviews/baseline/` and can be diffed against post-redesign captures
+  2. A naming decision record exists listing every email-vocabulary UI label, code identifier, CSS class, and route, with each item tagged by rename layer (label / CSS / identifier / route)
+  3. The naming record is comprehensive enough that a reader can derive the full scope of R3 without re-auditing the codebase
+**Plans**: TBD
+
+### Phase R2: Design System Token Layer
+**Goal**: All staff-web colors, typography, and radius resolve from CSS custom-property tokens; the skin injector selects the right skin at deploy time; Hustle and GymClassOS default skins exist; Inter is self-hosted
+**Depends on**: Phase R1 (audit establishes the token surface area)
+**Requirements**: DSGN-01, DSGN-02, DSGN-03, DSGN-04, DSGN-05
+**Success Criteria** (what must be TRUE):
+  1. A CI grep guard fails if any hardcoded hex color appears in GymClassOS app code (outside skin files)
+  2. Setting `GYMOS_STUDIO_SKIN=hustle` at deploy time and redeploying to Vercel causes the staff web to render Hustle brand colors and logo — no code change required
+  3. `apps/staff-web/app/skins/default.css` and `apps/staff-web/app/skins/hustle.css` both exist; switching between them requires only an env-var change
+  4. No `fonts.googleapis.com` request appears in the network tab on any staff-web page load (Inter is served from the same origin)
+  5. Studio name and logo appear at the top of the staff sidebar, sourced from the active skin config
+**Plans**: TBD
+**UI hint**: yes
+**Open dependency**: Hustle brand hex values must be confirmed by the customer before `hustle.css` can be finalised. Until received, `hustle.css` uses placeholder values clearly marked `/* TODO: replace with Hustle brand values */`.
+
+### Phase R3: Naming & IA Pass
+**Goal**: Every user-visible surface uses gym-domain vocabulary; email-mental-model labels are eliminated; code identifiers and routes are renamed to match; the live customer's deep links continue working via redirect shims
+**Depends on**: Phase R2 (token layer must be stable before identifier renames, to avoid conflating token-refactor diffs with naming diffs)
+**Requirements**: NAME-01, NAME-02, NAME-03, NAME-04, NAME-05, NAME-06, NAME-07
+**Success Criteria** (what must be TRUE):
+  1. The staff nav reads exactly: Schedule | Messages | Members | Payments | Settings, with studio identity at the top — no "Inbox", "Compose", or "Draft Queue" appears anywhere user-visible
+  2. The messaging surface shows "Messages" as the heading, threads are labeled "Conversations", and the send button reads "New Message" — zero email vocabulary is visible
+  3. Navigating to any pre-rename route (e.g. the old inbox or draft-queue path) redirects correctly to the new route rather than returning a 404
+  4. "Book" is the primary booking CTA on every class surface — no "Reserve", "Enrol", or "Register" appears
+  5. Member detail view is headed "Member Profile"; pass balance displays as "X credits"
+  6. DB enum string values and schema column names are untouched (display labels only)
+**Plans**: TBD
+**UI hint**: yes
+**Internal ordering constraint**: Label-layer changes (NAME-01, NAME-02, NAME-06, NAME-07) must be deployed and verified before code-identifier renames (NAME-04) and route renames with redirect shims (NAME-03) are applied. NAME-05 (no DB renames) is a standing constraint throughout.
+
+### Phase R4: Staff Web Visual Refresh + Embed Widgets
+**Goal**: Staff-web surfaces and public embed widgets are visually redesigned using the token system; the product reads as a purpose-built gym platform, not an adapted email client
+**Depends on**: Phase R3 (naming and tokens must be stable before applying the full visual layer)
+**Requirements**: SWEB-01, SWEB-02, SWEB-03, SWEB-04, SWEB-05, SWEB-06, SWEB-07, SWEB-08, WDGT-01, WDGT-02, WDGT-03
+**Success Criteria** (what must be TRUE):
+  1. Class cards on the staff schedule show class name, time, instructor, and "X / Y booked"; capacity turns amber or red when three or fewer spots remain
+  2. The Member Context panel in a conversation shows pass-balance pill, next-class card, and last visit as scannable widget cards — not a data table
+  3. Members directory defaults to card view (avatar, membership pill, next class); a table view is available as a secondary option
+  4. The Messages surface is responsive at mobile widths — single column with member context in a bottom sheet
+  5. Coaches see Schedule / Messages / Members in the nav; admins additionally see Payments / Settings
+  6. Staff web defaults to light theme; dark theme is absent (not a toggle — deferred to DSGN-F1)
+  7. `/embed/schedule` and the lead-capture embed both render correctly inside an iframe on both light and dark host backgrounds, themed by studio tokens
+  8. The lead-capture form uses "Enquiry" vocabulary (not "Sign up" or "Contact")
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase R5: Member Mobile App Redesign
+**Goal**: The Expo member app is aligned to the GymClassOS design language with a dark-first theme, renamed tabs, and a token file replacing all hardcoded hex values
+**Depends on**: Phase R2 (token approach established; mobile uses a parallel `theme.ts` pattern rather than CSS custom properties)
+**Requirements**: MOBL-01, MOBL-02, MOBL-03, MOBL-04, MOBL-05, MOBL-06, MOBL-07
+**Success Criteria** (what must be TRUE):
+  1. `packages/mobile-app/lib/theme.ts` exists and all hardcoded hex values in mobile screens reference it — no bare hex strings remain in component files
+  2. Bottom tabs are labeled Home / Classes / Passes / Log / Profile (in that order)
+  3. The app opens in a high-contrast dark theme by default
+  4. The Home tab hero area shows next class, pass balance, and latest coach message as prominent cards
+  5. The booking flow completes in three steps or fewer (select → confirm with pass/drop-in choice → done) with a persistent pass-balance pill visible throughout
+  6. The Noticeboard is framed in coach voice ("From your coach" / "Studio updates") — not a generic notification feed
+  7. Inter loads via `useFonts` with OTF assets compatible with Expo Go; skin is selectable via `EXPO_PUBLIC_STUDIO_SKIN` at EAS build time
+**Plans**: TBD
+**UI hint**: yes
+
+## Progress
+
+| Phase | Plans Complete | Status | Completed |
+|-------|----------------|--------|-----------|
+| R1. Audit Baseline | 0/TBD | Not started | - |
+| R2. Design System Token Layer | 0/TBD | Not started | - |
+| R3. Naming & IA Pass | 0/TBD | Not started | - |
+| R4. Staff Web Visual Refresh + Embed Widgets | 0/TBD | Not started | - |
+| R5. Member Mobile App Redesign | 0/TBD | Not started | - |
+
+**Coverage:** 30 v1.1 requirements mapped across 5 phases (R1–R5).
+
+---
+
+## v1.0 — Demo Sprint + Production v1
+
+> **Continuing on `master` — NOT this branch's scope.**
+> All v1.0 work (phases D0–D2, P0, P1a, P1b, P1b.1, P1c, P2, P3) continues independently on `master`. The content below is preserved as reference for merge-time context. Do not execute v1.0 plans from `redesign/ui-refresh`.
+
+### Overview
 
 GymClassOS v1 ships in **two milestones**:
 
@@ -12,18 +129,18 @@ The demo deliberately cuts corners that production cannot: skipping atomic trans
 
 Post-v1 backlog (HealthKit + native mobile, Coach View with health context, CRM campaigns + segments, Knowledge Base, Reporting, bsport-migration productisation, A2A) lives in REQUIREMENTS.md and PLATFORM-VISION.md.
 
-## Milestones
+### Milestones
 
 - [ ] **Milestone 1: Demo Sprint** (Week 1) — vertical slice for customer's first look
 - [ ] **Milestone 2: Production v1** (Weeks 2–9) — harden + extend to production-ready
 
-## Milestone 1: Demo Sprint
+### Milestone 1: Demo Sprint
 
 **Window:** 2026-05-17 → ~2026-05-24 (~7 days)
 **Quality bar:** Prototype. Stubs OK. Hardcoded data OK on non-demo paths. Golden-path flows must work.
 **Demo delivery:** URLs on customer's devices — staff back-office on laptop, member PWA installed to home screen on phone.
 
-### Phase D0: Fork + Schema + Deploys (Days 1–2)
+#### Phase D0: Fork + Schema + Deploys (Days 1–2)
 
 **Goal:** Fork agent-native, get the workspace running locally, deploy a hello-world staff-web to Vercel against a Neon database, schema in place.
 
@@ -35,7 +152,7 @@ Post-v1 backlog (HealthKit + native mobile, Coach View with health context, CRM 
 3. Drizzle migration creates the demo-subset of tables on a fresh Neon project; `pnpm db:studio` shows them
 4. No `studio_id` column anywhere in the schema (`grep -r "studio_id" packages/db` returns zero)
 
-### Phase D1: Staff Surfaces Adapted from Mail + Calendar (Days 2–4)
+#### Phase D1: Staff Surfaces Adapted from Mail + Calendar (Days 2–4)
 
 **Goal:** The staff back-office shows recognisable Mail-as-inbox and Calendar-as-schedule surfaces with seeded data, plus a member directory and basic payments view.
 
@@ -55,7 +172,7 @@ Post-v1 backlog (HealthKit + native mobile, Coach View with health context, CRM 
 - [ ] D1-03-payments-stripe-checkout-PLAN.md — Build /gymos/payments with Stripe test-mode Checkout + pass grant (PAY-01, STR-01, STR-02)
 - [x] D1-04-inbox-gap-fill-PLAN.md — Add top-nav strip + send acknowledgement + INBX-* audit comments (INBX-01, INBX-02, INBX-03, INBX-06 thin, INBX-07)
 
-### Phase D2: Member Mobile App + Calorie Counter + Agent (Days 4–7)
+#### Phase D2: Member Mobile App + Calorie Counter + Agent (Days 4–7)
 
 **Goal:** Member opens an Expo Go link on their phone, loads the GymClassOS member app (forked from agent-native's `packages/mobile-app`), logs in (demo-stub picker), browses + books a class, logs a meal via search + barcode, and chats with the in-app agent that can `greet` / `book_class` (with confirmation) / `log_food_nl`. At least one real WhatsApp message round-trip (inbound + outbound) lands in the staff inbox.
 
@@ -91,14 +208,14 @@ Post-v1 backlog (HealthKit + native mobile, Coach View with health context, CRM 
 
 **UI hint:** yes
 
-## Milestone 2: Production v1
+### Milestone 2: Production v1
 
 **Window:** ~2026-05-25 → ~2026-07-15 (~8 weeks)
 **Quality bar:** Production. Atomic transactions. Idempotent everything. PII redacted logs. Per-studio deploy script. Real customer cutover lands in this window.
 
 The production milestone is structured as 4 phases (preserving the prior coarse-grained roadmap shape). Each phase hardens demo corner-cuts AND adds the requirements that didn't make the demo.
 
-### Phase P0: Audit & De-Risk (~3–5 days)
+#### Phase P0: Audit & De-Risk (~3–5 days)
 
 **Goal:** Long-lead-time and architectural risks neutralised before production code is written. Template audit completed. WhatsApp templates submitted to Meta (≤48h approval). `@great-detail/whatsapp` mirrored. Customer onboarding checklist signed off.
 
@@ -111,7 +228,7 @@ The production milestone is structured as 4 phases (preserving the prior coarse-
 4. All four WhatsApp templates (`class_reminder`, `waitlist_offer`, `payment_failed`, `pass_expiring`) submitted to Meta — approval status visible in Meta Business Manager
 5. Customer onboarding checklist signed off (Meta Business Manager + WhatsApp phone clean + Stripe account created + restricted key generated)
 
-### Phase P1a: Data Foundation, Auth & Deploy (~2 weeks)
+#### Phase P1a: Data Foundation, Auth & Deploy (~2 weeks)
 
 **Goal:** Coach + Member can log in to a production-deployed staff-web + member-PWA; schema has every table required by P1b and P2; adding a new studio is a single scripted command.
 
@@ -126,7 +243,7 @@ The production milestone is structured as 4 phases (preserving the prior coarse-
 6. PWA passes a Lighthouse PWA audit (installable, service worker, manifest); installs to home screen on iOS Safari + Android Chrome
 7. `/healthz` on edge-webhooks returns latency + queue-depth + last-processed JSON
 
-### Phase P1b: Webhook + Worker Spine (Stripe + WhatsApp) (~2 weeks)
+#### Phase P1b: Webhook + Worker Spine (Stripe + WhatsApp) (~2 weeks)
 
 **Goal:** Every external event from Stripe or Meta is received, signature-verified, persisted idempotently, processed by a pg-boss worker. Every outbound WhatsApp send is gated at the worker layer by 24h-window + opt-in checks. Stripe restricted-key flow is rotation-capable.
 
@@ -161,7 +278,7 @@ The production milestone is structured as 4 phases (preserving the prior coarse-
 - [x] P1b-08-staffweb-outbound-rotation-PLAN.md — /gymos Send action refactored to enqueue (no direct Meta) + loader exposes whatsapp_window_state + opt-in; UI badges + Send gate + D-19 failed-bubble copy; /gymos/settings/integrations Stripe key rotation (WA-05/08)
 - [ ] P1b-09-validation-cutover-PLAN.md — WA-08 daily template-sync cron via pg-boss schedule + integration tests for the 4 D-23 scenarios + Meta/Stripe URL flip + DELETE templates/mail/webhooks.whatsapp.tsx (D-05 last task) (WA-08)
 
-### Phase P1b.1: Customer Pilot Enablement (INSERTED — 2026-05-25)
+#### Phase P1b.1: Customer Pilot Enablement (INSERTED — 2026-05-25)
 
 **Goal:** Hand the deployed staff-web to the signed customer as a real pilot tool. After the successful 2026-05-25 demo, the customer immediately needs (a) accounts to log in with and (b) the ability to actually send WhatsApp messages from the inbox via approved templates. Plus the cosmetic + functional cleanup the demo exposed: `/gymos` looks like an email client, the AI sidebar isn't gym-aware, and Analytics is missing from the top-nav.
 
@@ -204,7 +321,7 @@ The production milestone is structured as 4 phases (preserving the prior coarse-
 1. **WhatsApp integration deep wire** — migrate `services/worker/` and `services/edge-webhooks/` to read Meta credentials from `app_secrets` (so the in-app Settings UI is the single source of truth, not `fly secrets set`); wire WA-08 template sync cron to replace seeded stubs with real Meta approvals; end-to-end test of outbound send + inbound delivery/read callbacks against the verified WABA.
 2. **Mobile app (member surface)** — resume D2 work (Task 4 of in-app agent was pending; D2-06 verification deferred); cut an EAS preview build under the customer's existing Apple Developer Account so the studio can hand the member experience to a real test cohort.
 
-### Phase P1c: Public Site Integrations (~2–3 weeks — DRAFT, not yet planned)
+#### Phase P1c: Public Site Integrations (~2–3 weeks — DRAFT, not yet planned)
 
 **Goal:** Productize the pilot for *visitors* — people who land on the studio's marketing site (`doyouhustle.co.uk`) but haven't signed in to anything. Two surfaces:
 
@@ -246,7 +363,7 @@ The production milestone is structured as 4 phases (preserving the prior coarse-
 
 ---
 
-### Phase P2: Staff + Member Product Surfaces (~3–4 weeks)
+#### Phase P2: Staff + Member Product Surfaces (~3–4 weeks)
 
 **Goal:** Production-quality versions of every surface the demo showed, plus the surfaces the demo skipped. Coach runs a full day from staff-web; member runs their fitness life from the PWA.
 
@@ -272,7 +389,7 @@ The production milestone is structured as 4 phases (preserving the prior coarse-
 
 **UI hint:** yes
 
-### Phase P3: AI Noticeboard Home (~1–2 weeks)
+#### Phase P3: AI Noticeboard Home (~1–2 weeks)
 
 **Goal:** Replace the `/gymos` post-login landing with an old-school noticeboard/bulletin-board dashboard (Polsia-style; fits the gym brand). A board of section cards is the first thing a coach/manager sees after login. The existing right-rail agent chat stays but gains the ability to **author** dashboard content — turning the agent from read-only Q&A into a human-in-the-loop operator that surfaces recommendations and recently-taken actions, and maintains a prioritized Tasks list.
 
@@ -312,7 +429,7 @@ Plans:
 - [x] P3-ai-noticeboard-06-agent-posture-PLAN.md (wave 3) — system prompt + AGENTS.md suggest-and-act rewrite + navigate vocabulary [SC-6]
 - [ ] P3-ai-noticeboard-07-e2e-smoke-PLAN.md (wave 5) — live Vercel + Neon e2e: board render, agent authoring, propose->approve->execute with worker gate proof [SC-1..SC-6]
 
-## Progress
+### v1.0 Progress
 
 **Execution Order:**
 Demo Sprint runs first (D0 → D1 → D2 over 7 days). Production v1 runs after (P0 → P1a → P1b → P2 over 8 weeks).
@@ -330,9 +447,9 @@ Demo Sprint runs first (D0 → D1 → D2 over 7 days). Production v1 runs after 
 | **P1b.1. Customer Pilot Enablement** | 8 | ✓ **Live-accepted** | **2026-05-26** (8/8 plans + live-fix wave) |
 | **P1c. Public Site Integrations** | 10 | ✓ **Complete** (7/7 plans; lead funnel verified live on deploy; Stripe Checkout deferred to studio Stripe setup) | **2026-06-01** |
 | P2. Staff + Member Product Surfaces | 50+ | Not started | - |
-| P3. AI Noticeboard Home | 6/7 | In Progress|  |
+| P3. AI Noticeboard Home | 6/7 | In Progress | |
 
-**Active workstreams (next up):**
+**Active workstreams (next up — master branch):**
 - **WhatsApp deep wire** — migrate worker + edge-webhooks credentials from `process.env` to `app_secrets`; wire WA-08 template sync (P1b-09); live test against verified WABA
 - **Mobile app** — finish D2-06 Task 4 + cut EAS build for customer's Apple Developer Account
 - **Studio Stripe setup** — restricted key + Products tagged with pack keywords (`10-pack`/`5-pack`/`drop-in`); unblocks D1-03 payments AND the P1c Checkout-link → pass loop (customer task)
@@ -391,9 +508,9 @@ Plans:
 
 ---
 
-*Roadmap created: 2026-05-17*
-*Revised: 2026-05-17 — major restructure (Demo Sprint + Production v1 two-milestone shape; mobile = PWA; Stripe direct; calorie counter in v1)*
-*Revised: 2026-05-19 — D2 plan list registered (6 plans), success criteria realigned to native Expo flow (was inherited PWA wording), MEMBR-06 dropped from D2 (PWA manifest is N/A for native Expo Go; rolled into P1a EAS work)*
-*Revised: 2026-06-01 — P1c Public Site Integrations planned (7 plans) + executed + verified live on deploy → marked Complete. Migrations 0003+0004 applied to gymos-demo Neon. FORMS-01..04 + EMBED-01..06 added (140 reqs total). Checkout-link + visual-browser checks deferred (studio Stripe setup / dev-server NitroViteError).*
+*v1.0 Roadmap created: 2026-05-17*
+*v1.0 Revised: 2026-05-17 — major restructure (Demo Sprint + Production v1 two-milestone shape; mobile = PWA; Stripe direct; calorie counter in v1)*
+*v1.0 Revised: 2026-05-19 — D2 plan list registered (6 plans), success criteria realigned to native Expo flow (was inherited PWA wording), MEMBR-06 dropped from D2 (PWA manifest is N/A for native Expo Go; rolled into P1a EAS work)*
+*v1.0 Revised: 2026-06-01 — P1c Public Site Integrations planned (7 plans) + executed + verified live on deploy → marked Complete. Migrations 0003+0004 applied to gymos-demo Neon. FORMS-01..04 + EMBED-01..06 added (140 reqs total). Checkout-link + visual-browser checks deferred (studio Stripe setup / dev-server NitroViteError).*
+*v1.1 Roadmap added: 2026-06-12 — Milestone v1.1 UI Redesign phases R1–R5 defined on branch redesign/ui-refresh. 30 requirements mapped.*
 *Out of v1 scope: Native mobile (v1.x), HealthKit, Coach View with health context, CRM campaigns + segments, Knowledge Base, Operational Reporting, bsport-migration productisation, A2A. See REQUIREMENTS.md §Post-v1 Backlog and PLATFORM-VISION.md.*
-

@@ -91,17 +91,48 @@ Deferred — tracked but not in the v1.1 roadmap.
 
 ## Traceability
 
-Which phases cover which requirements. Updated during roadmap creation.
+Which phases cover which requirements. Updated 2026-06-12 during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| — | — | Pending roadmap |
+| AUDT-01 | R1. Audit Baseline | Pending |
+| AUDT-02 | R1. Audit Baseline | Pending |
+| DSGN-01 | R2. Design System Token Layer | Pending |
+| DSGN-02 | R2. Design System Token Layer | Pending |
+| DSGN-03 | R2. Design System Token Layer | Pending |
+| DSGN-04 | R2. Design System Token Layer | Pending |
+| DSGN-05 | R2. Design System Token Layer | Pending |
+| NAME-01 | R3. Naming & IA Pass | Pending |
+| NAME-02 | R3. Naming & IA Pass | Pending |
+| NAME-03 | R3. Naming & IA Pass | Pending |
+| NAME-04 | R3. Naming & IA Pass | Pending |
+| NAME-05 | R3. Naming & IA Pass | Pending |
+| NAME-06 | R3. Naming & IA Pass | Pending |
+| NAME-07 | R3. Naming & IA Pass | Pending |
+| SWEB-01 | R4. Staff Web Visual Refresh + Embed Widgets | Pending |
+| SWEB-02 | R4. Staff Web Visual Refresh + Embed Widgets | Pending |
+| SWEB-03 | R4. Staff Web Visual Refresh + Embed Widgets | Pending |
+| SWEB-04 | R4. Staff Web Visual Refresh + Embed Widgets | Pending |
+| SWEB-05 | R4. Staff Web Visual Refresh + Embed Widgets | Pending |
+| SWEB-06 | R4. Staff Web Visual Refresh + Embed Widgets | Pending |
+| SWEB-07 | R4. Staff Web Visual Refresh + Embed Widgets | Pending |
+| SWEB-08 | R4. Staff Web Visual Refresh + Embed Widgets | Pending |
+| WDGT-01 | R4. Staff Web Visual Refresh + Embed Widgets | Pending |
+| WDGT-02 | R4. Staff Web Visual Refresh + Embed Widgets | Pending |
+| WDGT-03 | R4. Staff Web Visual Refresh + Embed Widgets | Pending |
+| MOBL-01 | R5. Member Mobile App Redesign | Pending |
+| MOBL-02 | R5. Member Mobile App Redesign | Pending |
+| MOBL-03 | R5. Member Mobile App Redesign | Pending |
+| MOBL-04 | R5. Member Mobile App Redesign | Pending |
+| MOBL-05 | R5. Member Mobile App Redesign | Pending |
+| MOBL-06 | R5. Member Mobile App Redesign | Pending |
+| MOBL-07 | R5. Member Mobile App Redesign | Pending |
 
 **Coverage:**
 - v1.1 requirements: 30 total
-- Mapped to phases: 0
-- Unmapped: 30 ⚠️ (roadmap pending)
+- Mapped to phases: 30
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-06-12*
-*Last updated: 2026-06-12 after initial definition*
+*Last updated: 2026-06-12 — traceability section populated (roadmap R1–R5 created)*
