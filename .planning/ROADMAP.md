@@ -36,7 +36,10 @@
   1. Screenshots of every staff-web route, every embed widget, and every mobile screen are committed to `.planning/ui-reviews/baseline/` and can be diffed against post-redesign captures
   2. A naming decision record exists listing every email-vocabulary UI label, code identifier, CSS class, and route, with each item tagged by rename layer (label / CSS / identifier / route)
   3. The naming record is comprehensive enough that a reader can derive the full scope of R3 without re-auditing the codebase
-**Plans**: TBD
+**Plans**: 3 plans
+- [ ] R1-01-naming-decision-record-PLAN.md (wave 1) — grep-driven naming decision record: 4 per-layer tables (label/CSS/identifier/route) across all three surfaces [AUDT-02]
+- [ ] R1-02-capture-tooling-PLAN.md (wave 1) — parameterized Playwright capture script + light/dark embed test pages + README (reused by R2-R5) [AUDT-01]
+- [ ] R1-03-run-captures-and-manifest-PLAN.md (wave 2) — auth checkpoint + run web/embed captures + mobile Expo Go capture checkpoint + INDEX.md manifest with deploy SHA [AUDT-01]
 
 ### Phase R2: Design System Token Layer
 **Goal**: All staff-web colors, typography, and radius resolve from CSS custom-property tokens; the skin injector selects the right skin at deploy time; Hustle and GymClassOS default skins exist; Inter is self-hosted
@@ -102,7 +105,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| R1. Audit Baseline | 0/TBD | Not started | - |
+| R1. Audit Baseline | 0/3 | Not started | - |
 | R2. Design System Token Layer | 0/TBD | Not started | - |
 | R3. Naming & IA Pass | 0/TBD | Not started | - |
 | R4. Staff Web Visual Refresh + Embed Widgets | 0/TBD | Not started | - |
