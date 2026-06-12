@@ -1,8 +1,7 @@
 <!DOCTYPE html>
-<!-- FORM_SLUG must be a published form slug from gymos-demo Neon.
-     R1-03 verifies/publishes a slug at capture time and updates this attribute.
-     Placeholder "trial-signup" used; replace if no such published form exists.
-     Check: https://gym-class-os.vercel.app/gymos/forms for the correct slug. -->
+<!-- FORM_SLUG verified by R1-03: "schedule-enquiry" is the stable published slug
+     seeded by apps/staff-web/server/db/seeds/seed-enquiry-form.ts with status="published".
+     Renders at https://gym-class-os.vercel.app/f/schedule-enquiry. -->
 <html lang="en">
 <head>
   <meta charset="utf-8">
@@ -51,7 +50,7 @@
     <div data-gymos-schedule data-accent="#ff5733" data-radius="8"></div>
 
     <h2>Lead Enquiry Form</h2>
-    <div data-gymos-form="trial-signup" data-accent="#ff5733" data-radius="8"></div>
+    <div data-gymos-form="schedule-enquiry" data-accent="#ff5733" data-radius="8"></div>
   </div>
 
   <script src="https://gym-class-os.vercel.app/embed.js" async></script>
