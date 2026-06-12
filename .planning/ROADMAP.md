@@ -20,7 +20,7 @@
 
 ## Phases
 
-- [ ] **Phase R1: Audit Baseline** — Screenshot every deployed surface; produce the naming decision record (email-vocabulary inventory + rename classification)
+- [x] **Phase R1: Audit Baseline** — Screenshot every deployed surface; produce the naming decision record (email-vocabulary inventory + rename classification) (completed 2026-06-12)
 - [ ] **Phase R2: Design System Token Layer** — Install CSS custom-property token system with skin injector; author GymClassOS default skin and Hustle skin; self-host Inter
 - [ ] **Phase R3: Naming & IA Pass** — Rename nav labels and surface copy (labels first), then retire email-vocabulary code identifiers and routes (with redirect shims)
 - [ ] **Phase R4: Staff Web Visual Refresh + Embed Widgets** — Apply design-system tokens to all staff-web surfaces and public embed widgets; deliver the visual redesign
@@ -39,7 +39,7 @@
 **Plans**: 3 plans
 - [x] R1-01-naming-decision-record-PLAN.md (wave 1) — grep-driven naming decision record: 4 per-layer tables (label/CSS/identifier/route) across all three surfaces [AUDT-02]
 - [x] R1-02-capture-tooling-PLAN.md (wave 1) — parameterized Playwright capture script + light/dark embed test pages + README (reused by R2-R5) [AUDT-01]
-- [ ] R1-03-run-captures-and-manifest-PLAN.md (wave 2) — auth checkpoint + run web/embed captures + mobile Expo Go capture checkpoint + INDEX.md manifest with deploy SHA [AUDT-01]
+- [x] R1-03-run-captures-and-manifest-PLAN.md (wave 2) — auth checkpoint + run web/embed captures + mobile Expo Go capture checkpoint + INDEX.md manifest with deploy SHA [AUDT-01]
 
 ### Phase R2: Design System Token Layer
 **Goal**: All staff-web colors, typography, and radius resolve from CSS custom-property tokens; the skin injector selects the right skin at deploy time; Hustle and GymClassOS default skins exist; Inter is self-hosted
@@ -105,7 +105,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| R1. Audit Baseline | 2/3 | In Progress|  |
+| R1. Audit Baseline | 3/3 | Complete   | 2026-06-12 |
 | R2. Design System Token Layer | 0/TBD | Not started | - |
 | R3. Naming & IA Pass | 0/TBD | Not started | - |
 | R4. Staff Web Visual Refresh + Embed Widgets | 0/TBD | Not started | - |
@@ -168,7 +168,7 @@ Post-v1 backlog (HealthKit + native mobile, Coach View with health context, CRM 
 4. Member context panel in the inbox shows next-class + pass-balance for the opened conversation's member (real data)
 5. Stripe Checkout link generated for a 10-pack purchase + paid in Stripe test mode + resulting pass grant visible in member profile
 
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 
 - [x] D1-01-schedule-surface-PLAN.md — Build /gymos/schedule week-grid + book-from-occurrence dialog (SCH-01, BKG-01) — completed 2026-05-19 (commits f5cdbdc6, dd50fe62, 23ee58f2)
 - [x] D1-02-members-directory-PLAN.md — Build /gymos/members + /gymos/members/:id profile with bookings + pass balance (MEM-01, MEM-02)

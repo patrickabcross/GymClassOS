@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: "— UI Redesign: GymClassOS Design System"
-status: executing
-stopped_at: Completed R1-01-naming-decision-record-PLAN.md
-last_updated: "2026-06-12T13:08:52.084Z"
+status: verifying
+stopped_at: Completed R1-03-run-captures-and-manifest-PLAN.md
+last_updated: "2026-06-12T16:02:42.959Z"
 last_activity: 2026-06-12
 progress:
   total_phases: 5
@@ -30,7 +30,7 @@ Requirements: `.planning/REQUIREMENTS.md` (30 v1.1 reqs across 6 categories — 
 Milestone: v1.1 UI Redesign — GymClassOS Design System (branch-isolated on `redesign/ui-refresh`; v1.0 Demo Sprint continues on `master`)
 Phase: R1 (Audit Baseline) — EXECUTING
 Plan: 3 of 3
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-06-12
 
 > **Branch note:** All v1.0 Demo Sprint position/detail in the Accumulated Context section below reflects `master` state at branch time (2026-06-12) and is kept for reference. Do not execute v1.0 work from this branch.
@@ -41,13 +41,13 @@ Last activity: 2026-06-12
 
 | Phase | Goal | Requirements | Status |
 |-------|------|--------------|--------|
-| R1. Audit Baseline | Document before-state; produce naming inventory | AUDT-01, AUDT-02 | Not started |
+| R1. Audit Baseline | Document before-state; produce naming inventory | AUDT-01, AUDT-02 | Complete |
 | R2. Design System Token Layer | CSS token system + skin injector + Inter self-hosted | DSGN-01..05 | Not started |
 | R3. Naming & IA Pass | Gym-domain labels → code identifiers → route renames | NAME-01..07 | Not started |
 | R4. Staff Web + Embed Widgets | Visual redesign across staff surfaces + embeds | SWEB-01..08, WDGT-01..03 | Not started |
 | R5. Member Mobile App | Dark-first themed Expo app with token file | MOBL-01..07 | Not started |
 
-**Next action:** `/gsd:plan-phase R1`
+**Next action:** `/gsd:execute-phase R2` (Design System Token Layer)
 
 ## Performance Metrics
 
@@ -67,6 +67,9 @@ Last activity: 2026-06-12
 - **2026-06-12 — Hustle brand hex is an open dependency.** hustle.css cannot be finalised until Hustle confirms their hex values. Placeholder values with TODO comments ship in R2; final values applied when received.
 - **2026-06-12 — No local dev server constraint carried into all phases.** All verification is via Vercel/Fly deploy (staff web + widgets) and Expo Go / EAS (mobile). No phase plan should include a local HTTP walkthrough step.
 - **2026-06-12 — NAME-05 (no DB enum renames) is a standing constraint throughout R3.** drizzle-kit#1409 + live Hustle DB table-lock risk. Display labels only.
+- **2026-06-12 (R1-03) — Mobile real-device Expo Go impossible.** App Store Expo Go runs SDK 56; the app is SDK 55; no EAS dev client exists. User approved react-native-web + headless Chromium fallback with /api/m/* fixture interception. Re-shootable at R5 once EAS dev client built. Same filenames, same INDEX.md manifest structure.
+- **2026-06-12 (R1-03) — /api/m/* is production-gated to 401.** The Vercel deploy returns 401 on all member API routes (NODE_ENV check). This affects real phones too, not just headless capture. Flagged for the master-branch mobile/EAS workstream to resolve before any real-device testing.
+- **2026-06-12 (R1-03) — Google OAuth requires CDP attach to real browser.** Automated Chromium is blocked by Google's bot-detection during OAuth. Auth detection must check for the better-auth.session_token cookie, not the URL (because /gymos returns 200 unauthenticated).
 - **2026-06-12 — Fork boundary holds throughout R1–R5.** templates/* and packages-vendored/* never edited. All changes land in apps/staff-web/ or packages/mobile-app/.
 
 ### v1.0 Accumulated Context (from master — preserved for reference)
@@ -126,6 +129,7 @@ Key patterns discovered during v1.0 execution that apply to v1.1:
 | 260611-rrh | Fix WhatsApp webhook consumer dropping MYÜTIK outbound mirrors | 2026-06-11 | 00863fc1 | Done |
 | Phase R1 P02 | 3 | 2 tasks | 5 files |
 | Phase R1 P01 | 185 | 2 tasks | 1 files |
+| Phase R1-audit-baseline P03 | 240 | 5 tasks | 15 files |
 
 ### Pending Todos (v1.1)
 
@@ -141,8 +145,8 @@ None tracked yet — begin with `/gsd:plan-phase R1`.
 
 ## Session Continuity
 
-Last session: 2026-06-12T13:08:52.071Z
-Stopped at: Completed R1-01-naming-decision-record-PLAN.md
+Last session: 2026-06-12T16:02:42.947Z
+Stopped at: Completed R1-03-run-captures-and-manifest-PLAN.md
 Resume file: None
 
 ### ▶ PICK UP HERE — v1.1 Roadmap ready
