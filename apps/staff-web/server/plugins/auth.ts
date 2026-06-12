@@ -52,6 +52,9 @@ const authPlugin = createAuthPlugin({
     "/api/forms/public", // public form metadata GET (used by embed.js)
     "/api/submit", // public form POST — anonymous lead upsert only
     "/embed", // /embed/schedule (P1c-05) and /embed.js (P1c-06)
+    // Member mobile purchase return page — Stripe redirects here after checkout.
+    // Members don't have staff sessions so the page must be reachable without auth.
+    "/m/checkout-return",
   ],
 });
 
@@ -108,7 +111,8 @@ const allowlistHandler = defineEventHandler(async (event) => {
     pathname.startsWith("/f/") ||
     pathname.startsWith("/api/forms/public") ||
     pathname.startsWith("/api/submit") ||
-    pathname.startsWith("/embed")
+    pathname.startsWith("/embed") ||
+    pathname.startsWith("/m/checkout-return")
   ) {
     return;
   }
