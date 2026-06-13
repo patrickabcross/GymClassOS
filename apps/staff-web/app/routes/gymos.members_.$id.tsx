@@ -164,6 +164,9 @@ export default function GymosMemberProfile() {
           </Link>
           <div className="mt-3 flex items-start justify-between gap-4">
             <div>
+              <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                Member Profile
+              </div>
               <h1 className="text-sm font-semibold">{fullName}</h1>
               <div className="mt-1 flex flex-wrap items-center gap-3 text-[13px] text-muted-foreground">
                 {member.phoneE164 && (
@@ -202,7 +205,9 @@ export default function GymosMemberProfile() {
         {/* ─── Pass balance ───────────────────────────────────────────── */}
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold">Pass balance</CardTitle>
+            <CardTitle className="text-sm font-semibold">
+              Pass balance
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <div>
@@ -335,7 +340,9 @@ export default function GymosMemberProfile() {
         {/* ─── Recent food ────────────────────────────────────────────── */}
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold">Recent food entries</CardTitle>
+            <CardTitle className="text-sm font-semibold">
+              Recent food entries
+            </CardTitle>
           </CardHeader>
           <CardContent>
             {foodEntries.length === 0 ? (

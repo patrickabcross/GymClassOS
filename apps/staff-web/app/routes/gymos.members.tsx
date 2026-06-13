@@ -172,7 +172,7 @@ export default function GymosMembers() {
             to="/gymos"
             className="text-[12px] text-muted-foreground hover:text-foreground transition shrink-0"
           >
-            ← Back to inbox
+            ← Home
           </Link>
         </header>
 

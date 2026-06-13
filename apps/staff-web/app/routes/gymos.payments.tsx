@@ -49,7 +49,7 @@ export default function GymosPayments() {
           to="/gymos"
           className="mt-6 inline-block text-[12px] text-muted-foreground hover:text-foreground transition"
         >
-          ← Back to inbox
+          ← Home
         </Link>
       </div>
     </div>
