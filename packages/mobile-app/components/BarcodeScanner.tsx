@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
+import { useTheme } from "../lib/theme";
 
 type Props = { onScanned: (ean: string) => void };
 
@@ -16,8 +17,56 @@ type Props = { onScanned: (ean: string) => void };
  * per second in expo-camera so we self-guard.
  */
 export default function BarcodeScanner({ onScanned }: Props) {
+  const theme = useTheme();
   const [perm, requestPerm] = useCameraPermissions();
   const [done, setDone] = useState(false);
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        center: {
+          flex: 1,
+          backgroundColor: theme.colors.background,
+          alignItems: "center",
+          justifyContent: "center",
+          padding: 24,
+          gap: 16,
+        },
+        copy: { color: theme.colors.foreground, textAlign: "center", fontSize: 16 },
+        btn: {
+          backgroundColor: theme.colors.accent,
+          paddingHorizontal: 16,
+          paddingVertical: 12,
+          borderRadius: 8,
+        },
+        btnText: {
+          color: theme.colors.accentForeground,
+          fontWeight: "600",
+        },
+        overlay: {
+          ...StyleSheet.absoluteFillObject,
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 24,
+        },
+        frame: {
+          width: 280,
+          height: 140,
+          borderRadius: 12,
+          borderWidth: 3,
+          borderColor: theme.colors.foreground,
+          backgroundColor: "transparent",
+        },
+        hint: {
+          color: theme.colors.foreground,
+          fontSize: 14,
+          opacity: 0.9,
+          textShadowColor: "rgba(0,0,0,0.7)",
+          textShadowRadius: 4,
+        },
+      }),
+    [theme],
+  );
 
   if (!perm) return null;
   if (!perm.granted) {
@@ -55,43 +104,3 @@ export default function BarcodeScanner({ onScanned }: Props) {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  center: {
-    flex: 1,
-    backgroundColor: "#111",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 24,
-    gap: 16,
-  },
-  copy: { color: "#fff", textAlign: "center", fontSize: 16 },
-  btn: {
-    backgroundColor: "#3b82f6",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  btnText: { color: "#fff", fontWeight: "600" },
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 24,
-  },
-  frame: {
-    width: 280,
-    height: 140,
-    borderRadius: 12,
-    borderWidth: 3,
-    borderColor: "#fff",
-    backgroundColor: "transparent",
-  },
-  hint: {
-    color: "#fff",
-    fontSize: 14,
-    opacity: 0.9,
-    textShadowColor: "rgba(0,0,0,0.7)",
-    textShadowRadius: 4,
-  },
-});

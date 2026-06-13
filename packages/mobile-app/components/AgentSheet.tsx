@@ -14,7 +14,7 @@
 // ['food-entries'] + ['profile']. The agent's log_food_nl is one such surface,
 // so we invalidate both on every tool_result (cheap; safe; agent doesn't know
 // which tool ran from the mobile side without parsing).
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -29,6 +29,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { Feather } from "@expo/vector-icons";
 import { streamAgent } from "../lib/agent-stream";
+import { useTheme } from "../lib/theme";
 
 type ChatMessage = {
   id: string;
@@ -40,6 +41,7 @@ type ChatMessage = {
 type Props = { onClose: () => void };
 
 export default function AgentSheet({ onClose }: Props) {
+  const theme = useTheme();
   const qc = useQueryClient();
   const [messages, setMessages] = useState<ChatMessage[]>([
     { id: "sys-welcome", role: "system", text: "Agent — GymClassOS Coach" },
@@ -48,6 +50,71 @@ export default function AgentSheet({ onClose }: Props) {
   const [sending, setSending] = useState(false);
   const cancelRef = useRef<(() => void) | null>(null);
   const listRef = useRef<FlatList<ChatMessage>>(null);
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        container: { flex: 1, backgroundColor: theme.colors.cardElevated },
+        header: {
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: 14,
+          borderBottomWidth: StyleSheet.hairlineWidth,
+          borderBottomColor: theme.colors.border,
+        },
+        headerTitle: {
+          color: theme.colors.foreground,
+          fontSize: 16,
+          fontWeight: "600",
+        },
+        systemLine: {
+          color: theme.colors.mutedFaint,
+          fontSize: 11,
+          textAlign: "center",
+          marginVertical: 4,
+        },
+        bubbleRow: { flexDirection: "row" },
+        bubbleRowUser: { justifyContent: "flex-end" },
+        bubbleRowAgent: { justifyContent: "flex-start" },
+        bubble: {
+          maxWidth: "85%",
+          paddingHorizontal: 12,
+          paddingVertical: 8,
+          borderRadius: 14,
+        },
+        bubbleUser: { backgroundColor: theme.colors.accent },
+        bubbleAgent: { backgroundColor: theme.colors.cardElevated },
+        bubbleText: { color: theme.colors.foreground, fontSize: 15, lineHeight: 20 },
+        inputRow: {
+          flexDirection: "row",
+          alignItems: "flex-end",
+          padding: 12,
+          gap: 8,
+          borderTopWidth: StyleSheet.hairlineWidth,
+          borderTopColor: theme.colors.border,
+        },
+        input: {
+          flex: 1,
+          color: theme.colors.foreground,
+          backgroundColor: theme.colors.cardElevated,
+          paddingHorizontal: 12,
+          paddingVertical: 10,
+          borderRadius: 18,
+          maxHeight: 100,
+          fontSize: 15,
+        },
+        sendBtn: {
+          width: 40,
+          height: 40,
+          borderRadius: 20,
+          backgroundColor: theme.colors.accent,
+          alignItems: "center",
+          justifyContent: "center",
+        },
+      }),
+    [theme],
+  );
 
   useEffect(() => {
     // Cancel any in-flight stream on unmount/close
@@ -163,7 +230,7 @@ export default function AgentSheet({ onClose }: Props) {
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Agent — GymClassOS Coach</Text>
         <Pressable onPress={onClose} hitSlop={12}>
-          <Feather name="x" size={22} color="#999" />
+          <Feather name="x" size={22} color={theme.colors.muted} />
         </Pressable>
       </View>
       <FlatList
@@ -196,7 +263,7 @@ export default function AgentSheet({ onClose }: Props) {
                 {item.streaming && (
                   <ActivityIndicator
                     size="small"
-                    color="#999"
+                    color={theme.colors.muted}
                     style={{ marginTop: 4 }}
                   />
                 )}
@@ -213,7 +280,7 @@ export default function AgentSheet({ onClose }: Props) {
             value={draft}
             onChangeText={setDraft}
             placeholder="Ask anything…"
-            placeholderTextColor="#666"
+            placeholderTextColor={theme.colors.mutedFaint}
             style={styles.input}
             multiline
             editable={!sending}
@@ -226,67 +293,10 @@ export default function AgentSheet({ onClose }: Props) {
               (!draft.trim() || sending) && { opacity: 0.5 },
             ]}
           >
-            <Feather name="send" size={18} color="#fff" />
+            <Feather name="send" size={18} color={theme.colors.accentForeground} />
           </Pressable>
         </View>
       </KeyboardAvoidingView>
     </KeyboardAvoidingView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#1a1a1a" },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "#333",
-  },
-  headerTitle: { color: "#fff", fontSize: 16, fontWeight: "600" },
-  systemLine: {
-    color: "#666",
-    fontSize: 11,
-    textAlign: "center",
-    marginVertical: 4,
-  },
-  bubbleRow: { flexDirection: "row" },
-  bubbleRowUser: { justifyContent: "flex-end" },
-  bubbleRowAgent: { justifyContent: "flex-start" },
-  bubble: {
-    maxWidth: "85%",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 14,
-  },
-  bubbleUser: { backgroundColor: "#3b82f6" },
-  bubbleAgent: { backgroundColor: "#252525" },
-  bubbleText: { color: "#fff", fontSize: 15, lineHeight: 20 },
-  inputRow: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    padding: 12,
-    gap: 8,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: "#333",
-  },
-  input: {
-    flex: 1,
-    color: "#fff",
-    backgroundColor: "#252525",
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 18,
-    maxHeight: 100,
-    fontSize: 15,
-  },
-  sendBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "#3b82f6",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-});
