@@ -34,8 +34,8 @@
 
 ### Staff Web Visual Refresh
 
-- [ ] **SWEB-01**: Class cards show class name, time, instructor, and "X / Y booked" on the staff schedule
-- [ ] **SWEB-02**: Capacity display turns amber/red when ≤3 spots remain
+- [x] **SWEB-01**: Class cards show class name, time, instructor, and "X / Y booked" on the staff schedule
+- [x] **SWEB-02**: Capacity display turns amber/red when ≤3 spots remain
 - [ ] **SWEB-03**: Member Context panel in conversations shows pass-balance pill, next-class card, and last visit as prominent scannable widgets — card hierarchy, not a data table
 - [ ] **SWEB-04**: Member Profile shows pass-balance pill, next-class card, and bookings timeline
 - [ ] **SWEB-05**: Members directory defaults to card view (avatar, membership pill, next class); table remains as a secondary/filter view
@@ -109,8 +109,8 @@ Which phases cover which requirements. Updated 2026-06-12 during roadmap creatio
 | NAME-05 | R3. Naming & IA Pass | Complete |
 | NAME-06 | R3. Naming & IA Pass | Complete |
 | NAME-07 | R3. Naming & IA Pass | Complete |
-| SWEB-01 | R4. Staff Web Visual Refresh + Embed Widgets | Pending |
-| SWEB-02 | R4. Staff Web Visual Refresh + Embed Widgets | Pending |
+| SWEB-01 | R4. Staff Web Visual Refresh + Embed Widgets | Complete |
+| SWEB-02 | R4. Staff Web Visual Refresh + Embed Widgets | Complete |
 | SWEB-03 | R4. Staff Web Visual Refresh + Embed Widgets | Pending |
 | SWEB-04 | R4. Staff Web Visual Refresh + Embed Widgets | Pending |
 | SWEB-05 | R4. Staff Web Visual Refresh + Embed Widgets | Pending |

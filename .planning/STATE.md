@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: "— UI Redesign: GymClassOS Design System"
-status: verifying
-stopped_at: Completed R3-04-route-renames-and-shims-PLAN.md
-last_updated: "2026-06-13T18:19:46.991Z"
+status: executing
+stopped_at: Completed R4-01-schedule-class-cards-PLAN.md
+last_updated: "2026-06-13T18:57:51.887Z"
 last_activity: 2026-06-13
 progress:
   total_phases: 5
@@ -23,14 +23,14 @@ Requirements: `.planning/REQUIREMENTS.md` (30 v1.1 reqs across 6 categories — 
 
 **Core value:** Coaches and studio managers run their entire day from one inbox-and-schedule surface (WhatsApp + class bookings + member context). Members book, pay, and log activity / nutrition from a native iOS/Android Expo app (forked from agent-native's `packages/mobile-app`) that includes an in-app coaching agent.
 
-**Current focus:** Phase R3 — Naming & IA Pass
+**Current focus:** Phase R4 — Staff Web Visual Refresh + Embed Widgets
 
 ## Current Position
 
 Milestone: v1.1 UI Redesign — GymClassOS Design System (branch-isolated on `redesign/ui-refresh`; v1.0 Demo Sprint continues on `master`)
-Phase: R3 (Naming & IA Pass) — EXECUTING
-Plan: 4 of 4
-Status: Phase complete — ready for verification
+Phase: R4 (Staff Web Visual Refresh + Embed Widgets) — EXECUTING
+Plan: 2 of 7
+Status: Ready to execute
 Last activity: 2026-06-13
 
 > **Branch note:** All v1.0 Demo Sprint position/detail in the Accumulated Context section below reflects `master` state at branch time (2026-06-12) and is kept for reference. Do not execute v1.0 work from this branch.
@@ -141,6 +141,7 @@ Key patterns discovered during v1.0 execution that apply to v1.1:
 | Phase R3-naming-ia-pass P02 | 4 | 2 tasks | 8 files |
 | Phase R3-naming-ia-pass P03 | 12 | 3 tasks | 13 files |
 | Phase R3-naming-ia-pass P04 | 5 | 3 tasks | 4 files |
+| Phase R4-staff-web-visual-refresh P01 | 12 | 2 tasks | 1 files |
 
 ### Pending Todos (v1.1)
 
@@ -156,8 +157,8 @@ None tracked yet — begin with `/gsd:plan-phase R1`.
 
 ## Session Continuity
 
-Last session: 2026-06-13T18:19:46.985Z
-Stopped at: Completed R3-04-route-renames-and-shims-PLAN.md
+Last session: 2026-06-13T18:57:51.880Z
+Stopped at: Completed R4-01-schedule-class-cards-PLAN.md
 Resume file: None
 
 ### ▶ PICK UP HERE — v1.1 Roadmap ready
