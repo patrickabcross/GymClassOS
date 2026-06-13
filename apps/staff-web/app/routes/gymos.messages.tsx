@@ -60,6 +60,8 @@ import { enqueueOutboundWhatsApp } from "@/lib/queue-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { TemplatesDialog } from "@/components/gymos/TemplatesDialog";
 import { ImportLeadsDialog } from "@/components/gymos/ImportLeadsDialog";
@@ -964,49 +966,90 @@ export default function GymosMessages() {
       </main>
 
       {/* ─── Member context panel (right rail) — DIFFERENTIATOR ──────────── */}
+      {/* Three scannable widget cards (Pass Balance / Next Class / Last Visit)  */}
+      {/* per R4-UI-SPEC §2 — NOT a field list or data table. R4-06 will extract  */}
+      {/* this aside into a reusable component and add responsive bottom-sheet.   */}
       {data.selectedMember && data.memberStats && (
         <aside className="w-[300px] shrink-0 border-l border-border/50 flex flex-col bg-card/20 overflow-y-auto">
-          <header className="px-4 py-3 border-b border-border/50">
-            <h3 className="text-sm font-semibold">Member context</h3>
-            <p className="text-[11px] text-muted-foreground mt-0.5">
-              Member at a glance
-            </p>
-          </header>
-          <div className="px-4 py-3 space-y-4 text-[12px]">
-            <div>
-              <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">
-                Pass balance
+          {/* Screen-reader heading per Copywriting Contract */}
+          <h3 className="sr-only">Member Context</h3>
+
+          {/* Panel header: avatar + name + phone */}
+          <div className="px-4 py-3 border-b border-border/50 flex items-center gap-2.5">
+            <Avatar className="h-8 w-8 shrink-0">
+              <AvatarFallback className="text-[11px] font-semibold">
+                {[
+                  data.selectedMember.firstName?.[0],
+                  data.selectedMember.lastName?.[0],
+                ]
+                  .filter(Boolean)
+                  .join("")
+                  .toUpperCase() || "?"}
+              </AvatarFallback>
+            </Avatar>
+            <div className="min-w-0">
+              <div className="text-sm font-semibold truncate">
+                {[data.selectedMember.firstName, data.selectedMember.lastName]
+                  .filter(Boolean)
+                  .join(" ") || "Unknown"}
               </div>
-              <div className="text-sm font-semibold tabular-nums">
-                {data.memberStats.passBalance}{" "}
-                <span className="text-[10px] text-muted-foreground font-normal">
+              <div className="text-[11px] text-muted-foreground truncate">
+                {data.selectedMember.phoneE164 ?? ""}
+              </div>
+            </div>
+          </div>
+
+          <div className="px-4 py-3">
+            {/* ── WIDGET 1: PASS BALANCE ──────────────────────────────────── */}
+            <Card className="p-3 mt-2">
+              <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">
+                PASS BALANCE
+              </div>
+              <div className="flex items-baseline gap-1">
+                <span
+                  className={
+                    data.memberStats.passBalance > 0
+                      ? "text-xl font-bold text-primary tabular-nums"
+                      : "text-xl font-bold text-muted-foreground tabular-nums"
+                  }
+                >
+                  {data.memberStats.passBalance}
+                </span>
+                <span className="text-[12px] text-muted-foreground">
                   credits
                 </span>
               </div>
-              <div className="text-[11px] text-muted-foreground">
-                {data.memberStats.passProduct}
-                {data.memberStats.passExpiresAt && (
-                  <>
-                    {" "}
-                    · expires{" "}
-                    {new Date(
-                      data.memberStats.passExpiresAt,
-                    ).toLocaleDateString()}
-                  </>
-                )}
-              </div>
-            </div>
+              {data.memberStats.passBalance <= 0 && (
+                <div className="text-[11px] text-muted-foreground mt-0.5">
+                  No active pass
+                </div>
+              )}
+              {data.memberStats.passExpiresAt && (
+                <div className="text-[11px] text-muted-foreground mt-0.5">
+                  Expires{" "}
+                  {new Date(data.memberStats.passExpiresAt).toLocaleDateString(
+                    "en-GB",
+                    {
+                      day: "numeric",
+                      month: "short",
+                      year: "numeric",
+                    },
+                  )}
+                </div>
+              )}
+            </Card>
 
-            <div>
+            {/* ── WIDGET 2: NEXT CLASS ────────────────────────────────────── */}
+            <Card className="p-3 mt-2">
               <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">
-                Next class
+                NEXT CLASS
               </div>
               {data.upcomingBooking ? (
-                <div>
+                <>
                   <div className="text-[13px] font-semibold">
                     {data.upcomingBooking.className}
                   </div>
-                  <div className="text-[11px] text-muted-foreground">
+                  <div className="text-[11px] text-muted-foreground tabular-nums">
                     {new Date(data.upcomingBooking.startsAt).toLocaleString(
                       "en-GB",
                       {
@@ -1018,63 +1061,50 @@ export default function GymosMessages() {
                       },
                     )}
                   </div>
-                </div>
+                </>
               ) : (
-                <div className="text-[12px] text-muted-foreground italic">
+                <div className="text-[12px] text-muted-foreground">
                   No upcoming class
                 </div>
               )}
-            </div>
+            </Card>
 
-            <div>
+            {/* ── WIDGET 3: LAST VISIT ────────────────────────────────────── */}
+            <Card className="p-3 mt-2">
               <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">
-                Lifetime bookings
+                LAST VISIT
               </div>
-              <div className="text-sm font-semibold tabular-nums">
-                {data.memberStats.lifetimeBookings}
-              </div>
-            </div>
-
-            <div className="border-t border-border/40 pt-3">
-              <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">
-                Today's nutrition
-              </div>
-              {data.memberStats.todayFoodCount > 0 ? (
-                <div className="space-y-1">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Calories</span>
-                    <span className="tabular-nums">
-                      {Math.round(data.memberStats.todayKcal)} kcal
-                    </span>
+              {data.memberStats.lastVisit ? (
+                <>
+                  <div className="text-[13px] font-semibold tabular-nums">
+                    {new Date(
+                      data.memberStats.lastVisit.startsAt,
+                    ).toLocaleDateString("en-GB", {
+                      weekday: "short",
+                      day: "numeric",
+                      month: "short",
+                      year: "numeric",
+                    })}
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Protein</span>
-                    <span className="tabular-nums">
-                      {Math.round(data.memberStats.todayProtein)}g
-                    </span>
-                  </div>
-                  <div className="text-[10px] text-muted-foreground mt-1">
-                    {data.memberStats.todayFoodCount} entries logged today
-                  </div>
-                </div>
+                  {data.memberStats.lastVisit.className && (
+                    <div className="text-[11px] text-muted-foreground">
+                      {data.memberStats.lastVisit.className}
+                    </div>
+                  )}
+                </>
               ) : (
-                <div className="text-[12px] text-muted-foreground italic">
-                  Nothing logged today
+                <div className="text-[12px] text-muted-foreground">
+                  No visits recorded
                 </div>
               )}
-            </div>
+            </Card>
 
-            <div className="border-t border-border/40 pt-3">
-              <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">
-                Goal
-              </div>
-              <div className="text-[12px] capitalize">
-                {data.selectedMember.goal ?? "Not set"}
-              </div>
-              <div className="text-[11px] text-muted-foreground capitalize">
-                {data.selectedMember.activityLevel?.replace(/_/g, " ") ?? ""}
-              </div>
-            </div>
+            {/* ── Footer: View Member Profile CTA ─────────────────────────── */}
+            <Button asChild variant="outline" size="sm" className="w-full mt-3">
+              <Link to={`/gymos/members/${data.selectedMember.id}`}>
+                View Member Profile
+              </Link>
+            </Button>
           </div>
         </aside>
       )}
