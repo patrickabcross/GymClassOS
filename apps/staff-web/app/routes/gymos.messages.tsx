@@ -53,7 +53,9 @@ import {
   IconMessage,
   IconUsers,
   IconInbox,
+  IconUser,
 } from "@tabler/icons-react";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { getDb, schema } from "../../server/db";
 import { readAppSecretByKey } from "../../server/lib/app-secrets";
 import { enqueueOutboundWhatsApp } from "@/lib/queue-client";
@@ -834,7 +836,14 @@ export default function GymosMessages() {
   return (
     <div className="flex h-full w-full overflow-hidden">
       {/* ─── Conversation list (left rail) ──────────────────────────────── */}
-      <aside className="w-[320px] shrink-0 border-r border-border/50 flex flex-col bg-card/30">
+      {/* Mobile: full-width, hidden when a conversation is selected (thread takes over). */}
+      {/* Desktop (md+): fixed 320px, always visible side-by-side with the thread.       */}
+      <aside
+        className={cn(
+          "shrink-0 border-r border-border/50 flex flex-col bg-card/30 w-full md:w-[320px]",
+          selectedId && "hidden md:flex",
+        )}
+      >
         <header className="px-4 py-3 border-b border-border/50">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5">
@@ -956,7 +965,14 @@ export default function GymosMessages() {
       </aside>
 
       {/* ─── Message thread (center) ────────────────────────────────────── */}
-      <main className="flex-1 flex flex-col overflow-hidden min-w-0">
+      {/* Mobile: full-width when a conversation is selected, hidden when none (list shows). */}
+      {/* Desktop (md+): flex-1 always visible — three-pane side-by-side.                   */}
+      <main
+        className={cn(
+          "flex-1 flex flex-col overflow-hidden min-w-0",
+          !selectedId && "hidden md:flex",
+        )}
+      >
         {!data.selectedConversation ? (
           // Empty-state — replaces the bare "Select a conversation to start"
           // placeholder. Coaches landing on /gymos/messages with no thread selected
@@ -994,41 +1010,86 @@ export default function GymosMessages() {
           </div>
         ) : (
           <>
-            <header className="px-5 py-3 border-b border-border/50 flex items-center justify-between bg-card/40">
-              <div>
-                <h2 className="text-[14px] font-semibold">
-                  {data.selectedMember?.firstName}{" "}
-                  {data.selectedMember?.lastName}
-                </h2>
-                <p className="text-[11px] text-muted-foreground">
-                  {data.selectedMember?.phoneE164}
-                </p>
+            <header className="px-5 py-3 border-b border-border/50 flex items-center justify-between bg-card/40 gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                {/* ← Messages back nav — mobile only (md:hidden). URL-state-driven:
+                    drops ?conversation= param, returning the list to full-width. */}
+                <Link
+                  to={`/gymos/messages${isLeadsView ? "?filter=leads" : ""}`}
+                  preventScrollReset
+                  className="md:hidden shrink-0 inline-flex items-center gap-1 text-[12px] text-muted-foreground hover:text-foreground transition"
+                  aria-label="Back to messages list"
+                >
+                  ← Messages
+                </Link>
+                <div className="min-w-0">
+                  <h2 className="text-[14px] font-semibold truncate">
+                    {data.selectedMember?.firstName}{" "}
+                    {data.selectedMember?.lastName}
+                  </h2>
+                  <p className="text-[11px] text-muted-foreground truncate">
+                    {data.selectedMember?.phoneE164}
+                  </p>
+                </div>
               </div>
-              {/* D-20 thread-header window-state badge (LOW #12: IconPointFilled) */}
-              {selectedWs ? (
-                selectedWs.inWindow ? (
-                  <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2 py-1 rounded bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
-                    <IconPointFilled
-                      size={10}
-                      className="text-emerald-500"
-                      aria-hidden
-                    />
-                    in window
-                    {selectedWs.hoursLeft !== null
-                      ? ` · ${Math.floor(selectedWs.hoursLeft)}h left`
-                      : ""}
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2 py-1 rounded bg-zinc-500/15 text-zinc-700 dark:text-zinc-300">
-                    <IconPointFilled
-                      size={10}
-                      className="text-zinc-400"
-                      aria-hidden
-                    />
-                    out of window — template only
-                  </span>
-                )
-              ) : null}
+
+              <div className="flex items-center gap-2 shrink-0">
+                {/* D-20 thread-header window-state badge (LOW #12: IconPointFilled) */}
+                {selectedWs ? (
+                  selectedWs.inWindow ? (
+                    <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2 py-1 rounded bg-emerald-500/15 text-emerald-700">
+                      <IconPointFilled
+                        size={10}
+                        className="text-emerald-500"
+                        aria-hidden
+                      />
+                      in window
+                      {selectedWs.hoursLeft !== null
+                        ? ` · ${Math.floor(selectedWs.hoursLeft)}h left`
+                        : ""}
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2 py-1 rounded bg-zinc-500/15 text-zinc-700">
+                      <IconPointFilled
+                        size={10}
+                        className="text-zinc-400"
+                        aria-hidden
+                      />
+                      out of window — template only
+                    </span>
+                  )
+                ) : null}
+
+                {/* Mobile-only member-context Sheet trigger — md:hidden.
+                    Opens the same MemberContextCards stack in a bottom Sheet so
+                    coaches on the gym floor can check pass balance / next class
+                    without leaving the thread (SWEB-06 / R4-UI-SPEC §5). */}
+                {data.selectedMember && data.memberStats && (
+                  <Sheet>
+                    <SheetTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-9 w-9 md:hidden"
+                        type="button"
+                      >
+                        <IconUser size={18} aria-hidden />
+                        <span className="sr-only">Member context</span>
+                      </Button>
+                    </SheetTrigger>
+                    <SheetContent
+                      side="bottom"
+                      className="h-[60vh] overflow-y-auto rounded-t-[calc(var(--radius)+0.25rem)]"
+                    >
+                      <MemberContextCards
+                        member={data.selectedMember}
+                        stats={data.memberStats}
+                        upcomingBooking={data.upcomingBooking}
+                      />
+                    </SheetContent>
+                  </Sheet>
+                )}
+              </div>
             </header>
 
             <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
