@@ -20,7 +20,8 @@
 
 ## Phases
 
-- [x] **Phase R1: Audit Baseline** — Screenshot every deployed surface; produce the naming decision record (email-vocabulary inventory + rename classification) (completed 2026-06-12)
+- [x] **Phase R1: Audit Baseline** — Screenshot every deployed surface; produce the naming decision record (email-vocabulary inventory + rename classification)
+ (completed 2026-06-12)
 - [ ] **Phase R2: Design System Token Layer** — Install CSS custom-property token system with skin injector; author GymClassOS default skin and Hustle skin; self-host Inter
 - [ ] **Phase R3: Naming & IA Pass** — Rename nav labels and surface copy (labels first), then retire email-vocabulary code identifiers and routes (with redirect shims)
 - [ ] **Phase R4: Staff Web Visual Refresh + Embed Widgets** — Apply design-system tokens to all staff-web surfaces and public embed widgets; deliver the visual redesign
@@ -51,7 +52,11 @@
   3. `apps/staff-web/app/skins/default.css` and `apps/staff-web/app/skins/hustle.css` both exist; switching between them requires only an env-var change
   4. No `fonts.googleapis.com` request appears in the network tab on any staff-web page load (Inter is served from the same origin)
   5. Studio name and logo appear at the top of the staff sidebar, sourced from the active skin config
-**Plans**: TBD
+**Plans**: 4 plans
+- [ ] R2-01-token-layer-and-skins-PLAN.md (wave 1) — bare @theme tokens + --studio-* defaults in global.css; default.css + hustle.css skins; skins/config.ts registry; studios/ env contract scaffold [DSGN-01, DSGN-03]
+- [ ] R2-02-skin-injector-and-studio-identity-PLAN.md (wave 2) — root loader reads GYMOS_STUDIO_SKIN, sets data-studio on <html> (SSR, no FOUC); GymosTopNav renders skin displayName/logo [DSGN-02, DSGN-05]
+- [ ] R2-04-self-hosted-inter-PLAN.md (wave 3) — self-hosted Inter variable woff2 in public/fonts/; @font-face in global.css + preload in root.tsx; replace Google Fonts in 3 SSR pages [DSGN-04]
+- [ ] R2-03-hex-conversion-and-ci-guard-PLAN.md (wave 4) — guard-no-hardcoded-colors.mjs + guards/prep/CI wiring; convert/allowlist remaining hex so the guard passes [DSGN-01]
 **UI hint**: yes
 **Open dependency**: Hustle brand hex values must be confirmed by the customer before `hustle.css` can be finalised. Until received, `hustle.css` uses placeholder values clearly marked `/* TODO: replace with Hustle brand values */`.
 
@@ -106,7 +111,7 @@
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | R1. Audit Baseline | 3/3 | Complete    | 2026-06-12 |
-| R2. Design System Token Layer | 0/TBD | Not started | - |
+| R2. Design System Token Layer | 0/4 | Planned     | - |
 | R3. Naming & IA Pass | 0/TBD | Not started | - |
 | R4. Staff Web Visual Refresh + Embed Widgets | 0/TBD | Not started | - |
 | R5. Member Mobile App Redesign | 0/TBD | Not started | - |
