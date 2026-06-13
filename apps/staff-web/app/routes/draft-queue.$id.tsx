@@ -2,7 +2,7 @@ import { DraftQueuePage } from "@/pages/DraftQueuePage";
 import { Spinner } from "@/components/ui/spinner";
 
 export function meta() {
-  return [{ title: "Draft Queue — Mail" }];
+  return [{ title: "Scheduled Messages — GymClassOS" }];
 }
 
 export function HydrateFallback() {

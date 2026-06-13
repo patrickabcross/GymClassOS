@@ -659,7 +659,7 @@ export function DraftQueuePage() {
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border/30 px-4 py-3">
         <div>
           <h1 className="text-[15px] font-semibold text-foreground">
-            Draft queue
+            Scheduled Messages
           </h1>
           <p className="text-[12px] text-muted-foreground">
             {scope === "review"
@@ -704,7 +704,7 @@ export function DraftQueuePage() {
           <div>
             <IconX className="mx-auto mb-3 h-8 w-8 text-muted-foreground/25" />
             <p className="text-sm font-medium text-foreground">
-              Draft queue needs an active organization.
+              Scheduled Messages needs an active organization.
             </p>
             <Button
               variant="outline"
