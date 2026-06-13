@@ -6,6 +6,7 @@ import {
   Scripts,
   ScrollRestoration,
   useRouteError,
+  useRouteLoaderData,
 } from "react-router";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -25,6 +26,8 @@ import { TAB_ID } from "@/lib/tab-id";
 import { markExternalEmailRefresh } from "@/hooks/use-emails";
 import { Button } from "@/components/ui/button";
 import type { LinksFunction } from "react-router";
+import type { Route } from "./+types/root";
+import { getSkinConfig, type SkinName } from "./skins/config";
 import stylesheet from "./global.css?url";
 import { configureTracking } from "@agent-native/core/client";
 configureTracking({
@@ -52,9 +55,25 @@ function getHydrationStableThemeInitScript() {
 
 const THEME_INIT_SCRIPT = getHydrationStableThemeInitScript();
 
+export async function loader(_args: Route.LoaderArgs) {
+  const skinName = (process.env.GYMOS_STUDIO_SKIN ?? "default") as SkinName;
+  const skin = getSkinConfig(skinName);
+  // accentHex drives the <meta name="theme-color"> below — keep in sync with
+  // the skin's --primary value. This is the ONE place a brand hex lives outside
+  // the skin CSS, because a <meta> attribute is not a CSS context (no var()).
+  const accentHex =
+    skinName === "hustle"
+      ? "#7C3AED" // guard:allow-color — theme-color <meta> hex; CSS vars not valid in HTML attribute context
+      : "#F97316"; // guard:allow-color — theme-color <meta> hex; CSS vars not valid in HTML attribute context
+  return { skin: { name: skinName, ...skin }, accentHex };
+}
+
 export function Layout({ children }: { children: React.ReactNode }) {
+  const data = useRouteLoaderData<typeof loader>("root");
+  const studioName = data?.skin?.name ?? "default";
+  const themeColor = data?.accentHex ?? "#F97316"; // guard:allow-color — theme-color <meta> fallback hex; HTML attribute context
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning data-studio={studioName}>
       <head>
         <meta charSet="utf-8" />
         <meta
@@ -68,7 +87,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         />
         <link rel="icon" type="image/svg+xml" href={appPath("/favicon.svg")} />
         <link rel="manifest" href={appPath("/manifest.json")} />
-        <meta name="theme-color" content="#3B82F6" />
+        <meta name="theme-color" content={themeColor} />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta
           name="apple-mobile-web-app-status-bar-style"
