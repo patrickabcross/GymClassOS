@@ -121,7 +121,7 @@ Plans:
 
 Plans:
 - [x] R5-01-theme-foundation-PLAN.md (wave 1) — lib/theme.ts (ThemeContext + useTheme + default + Hustle skins, dark-first orange) + ThemeProvider/useFonts gate in _layout.tsx + Inter OTF assets [MOBL-01, MOBL-03, MOBL-07]
-- [ ] R5-02-tabs-and-leaf-screens-PLAN.md (wave 2) — rename/reorder tabs Home/Classes/Passes/Log/Profile + new passes.tsx + hex migration of food/profile/food-add/food-barcode/pick-member [MOBL-02, MOBL-01]
+- [x] R5-02-tabs-and-leaf-screens-PLAN.md (wave 2) — rename/reorder tabs Home/Classes/Passes/Log/Profile + new passes.tsx + hex migration of food/profile/food-add/food-barcode/pick-member [MOBL-02, MOBL-01]
 - [ ] R5-03-home-hero-and-noticeboard-PLAN.md (wave 2) — Home hero (next class + pass balance + latest coach message cards) + coach-voice Studio updates section + index.tsx/KcalRing hex migration [MOBL-04, MOBL-06, MOBL-01]
 - [ ] R5-04-booking-flow-pass-pill-PLAN.md (wave 2) — <=3-step booking (select -> confirm with pass/drop-in choice -> done) + persistent pass-balance pill + schedule.tsx hex migration [MOBL-05, MOBL-01]
 **UI hint**: yes
@@ -134,7 +134,7 @@ Plans:
 | R2. Design System Token Layer | 4/4 | Complete   | 2026-06-13 |
 | R3. Naming & IA Pass | 4/4 | Complete   | 2026-06-13 |
 | R4. Staff Web Visual Refresh + Embed Widgets | 7/7 | Complete   | 2026-06-13 |
-| R5. Member Mobile App Redesign | 1/4 | In Progress|  |
+| R5. Member Mobile App Redesign | 2/4 | In Progress|  |
 
 **Coverage:** 30 v1.1 requirements mapped across 5 phases (R1–R5).
 
@@ -193,7 +193,7 @@ Post-v1 backlog (HealthKit + native mobile, Coach View with health context, CRM 
 4. Member context panel in the inbox shows next-class + pass-balance for the opened conversation's member (real data)
 5. Stripe Checkout link generated for a 10-pack purchase + paid in Stripe test mode + resulting pass grant visible in member profile
 
-**Plans:** 1/4 plans executed
+**Plans:** 2/4 plans executed
 
 - [x] D1-01-schedule-surface-PLAN.md — Build /gymos/schedule week-grid + book-from-occurrence dialog (SCH-01, BKG-01) — completed 2026-05-19 (commits f5cdbdc6, dd50fe62, 23ee58f2)
 - [x] D1-02-members-directory-PLAN.md — Build /gymos/members + /gymos/members/:id profile with bookings + pass balance (MEM-01, MEM-02)

@@ -52,7 +52,7 @@
 ### Member Mobile App
 
 - [x] **MOBL-01**: `packages/mobile-app/lib/theme.ts` token file exists; all hardcoded hex values across mobile screens are replaced with theme references
-- [ ] **MOBL-02**: Bottom tabs are renamed Home / Classes / Passes / Log / Profile
+- [x] **MOBL-02**: Bottom tabs are renamed Home / Classes / Passes / Log / Profile
 - [x] **MOBL-03**: High-contrast dark theme is the member app default (gym/workout usage context)
 - [ ] **MOBL-04**: Home tab shows next class, pass balance, and latest coach message as hero content
 - [ ] **MOBL-05**: Booking flow is ≤3 steps (select → confirm with pass/drop-in choice → done) with a persistent pass-balance pill
@@ -121,7 +121,7 @@ Which phases cover which requirements. Updated 2026-06-12 during roadmap creatio
 | WDGT-02 | R4. Staff Web Visual Refresh + Embed Widgets | Complete |
 | WDGT-03 | R4. Staff Web Visual Refresh + Embed Widgets | Pending |
 | MOBL-01 | R5. Member Mobile App Redesign | Complete |
-| MOBL-02 | R5. Member Mobile App Redesign | Pending |
+| MOBL-02 | R5. Member Mobile App Redesign | Complete |
 | MOBL-03 | R5. Member Mobile App Redesign | Complete |
 | MOBL-04 | R5. Member Mobile App Redesign | Pending |
 | MOBL-05 | R5. Member Mobile App Redesign | Pending |
