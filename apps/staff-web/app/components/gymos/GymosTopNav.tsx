@@ -10,12 +10,17 @@
 // /gymos children weren't rendering at all (gymos.tsx was a parent route
 // without an <Outlet />, latent since D1).
 
-import { Link, useLocation } from "react-router";
+import { Link, useLocation, useRouteLoaderData } from "react-router";
 import { cn } from "@/lib/utils";
 
 export function GymosTopNav() {
   const location = useLocation();
   const path = location.pathname;
+  const rootData = useRouteLoaderData("root") as
+    | { skin?: { displayName?: string; logo?: string | null } }
+    | undefined;
+  const displayName = rootData?.skin?.displayName ?? "GymClassOS";
+  const logo = rootData?.skin?.logo ?? null;
   const tabClass = (active: boolean) =>
     cn(
       "px-2.5 py-1 rounded text-[12px] transition",
@@ -53,7 +58,13 @@ export function GymosTopNav() {
 
   return (
     <nav className="flex items-center gap-1 px-4 h-11 border-b border-border/50 bg-card/40 shrink-0">
-      <span className="text-[12px] font-semibold mr-3">GymClassOS</span>
+      <span className="text-[12px] font-semibold mr-3">
+        {logo ? (
+          <img src={logo} alt={displayName} className="h-5 w-auto" />
+        ) : (
+          displayName
+        )}
+      </span>
       <Link to="/gymos" className={tabClass(isHome)}>
         Home
       </Link>
