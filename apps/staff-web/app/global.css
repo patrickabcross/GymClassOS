@@ -5,6 +5,13 @@
 
 @source "./**/*.{ts,tsx}";
 
+/* GymClassOS brand tokens — bare @theme so utilities compile to var() references (R-01).
+   Declared AFTER the upstream agent-native.css @import so GymClassOS wins on overlap (R-13). */
+@theme {
+  --color-studio-accent: hsl(var(--studio-accent));
+  --color-studio-accent-soft: hsl(var(--studio-accent-soft));
+}
+
 :root {
   --background: 0 0% 100%;
   --foreground: 220 10% 10%;
@@ -26,6 +33,9 @@
   --input: 220 10% 90%;
   --ring: 220 10% 40%;
   --radius: 0.5rem;
+  /* GymClassOS default accent fallback (orange-500 #F97316 / orange-50 #FFF7ED) */
+  --studio-accent: 25 95% 53%;
+  --studio-accent-soft: 33 100% 96%;
   --sidebar-background: 220 10% 97%;
   --sidebar-foreground: 220 5% 45%;
   --sidebar-primary: 220 10% 15%;
@@ -747,3 +757,9 @@
   --border: 0 0% 100% / 0.1;
   --accent: 0 0% 100% / 0.08;
 }
+
+/* Studio skins — imported LAST so [data-studio] overrides win over .dark when both
+   are present on <html> (R-09). Skin selection happens via the data-studio attribute
+   set in root.tsx (plan 02); default.css provides the always-available fallback. */
+@import "./skins/default.css";
+@import "./skins/hustle.css";
