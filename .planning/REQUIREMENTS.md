@@ -45,8 +45,8 @@
 
 ### Public Widgets
 
-- [ ] **WDGT-01**: `/embed/schedule` renders a clean card-based layout with no admin chrome, themed by studio tokens (existing iframe isolation retained — no Shadow DOM work)
-- [ ] **WDGT-02**: Lead-capture form is styled with studio tokens and uses "Enquiry" vocabulary (UK boutique convention — Hustle is Norwich, UK)
+- [x] **WDGT-01**: `/embed/schedule` renders a clean card-based layout with no admin chrome, themed by studio tokens (existing iframe isolation retained — no Shadow DOM work)
+- [x] **WDGT-02**: Lead-capture form is styled with studio tokens and uses "Enquiry" vocabulary (UK boutique convention — Hustle is Norwich, UK)
 - [ ] **WDGT-03**: Both embeds verified rendering correctly inside an iframe on a test host page (light and dark host backgrounds)
 
 ### Member Mobile App
@@ -117,8 +117,8 @@ Which phases cover which requirements. Updated 2026-06-12 during roadmap creatio
 | SWEB-06 | R4. Staff Web Visual Refresh + Embed Widgets | Pending |
 | SWEB-07 | R4. Staff Web Visual Refresh + Embed Widgets | Complete |
 | SWEB-08 | R4. Staff Web Visual Refresh + Embed Widgets | Complete |
-| WDGT-01 | R4. Staff Web Visual Refresh + Embed Widgets | Pending |
-| WDGT-02 | R4. Staff Web Visual Refresh + Embed Widgets | Pending |
+| WDGT-01 | R4. Staff Web Visual Refresh + Embed Widgets | Complete |
+| WDGT-02 | R4. Staff Web Visual Refresh + Embed Widgets | Complete |
 | WDGT-03 | R4. Staff Web Visual Refresh + Embed Widgets | Pending |
 | MOBL-01 | R5. Member Mobile App Redesign | Pending |
 | MOBL-02 | R5. Member Mobile App Redesign | Pending |
