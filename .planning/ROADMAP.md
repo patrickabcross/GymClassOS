@@ -97,7 +97,7 @@
 
 Plans:
 - [x] R4-01-schedule-class-cards-PLAN.md (wave 1) — class cards: name/time/X-of-Y booked + 3-state capacity (amber <=3, red at 0) + accent today-cell [SWEB-01, SWEB-02]
-- [ ] R4-02-member-profile-widget-cards-PLAN.md (wave 1) — pass-balance pill + next-class card + bookings timeline with Show-all reveal [SWEB-04]
+- [x] R4-02-member-profile-widget-cards-PLAN.md (wave 1) — pass-balance pill + next-class card + bookings timeline with Show-all reveal [SWEB-04]
 - [ ] R4-03-members-directory-card-view-PLAN.md (wave 1) — card-default directory (avatar/membership pill/next class) + Table tab via ?view [SWEB-05]
 - [ ] R4-04-embed-widgets-token-theming-PLAN.md (wave 1) — /embed/schedule + lead form: light/white default, --studio-* token theming, Enquiry vocab; WDGT-03 light/dark host UAT checkpoint [WDGT-01, WDGT-02, WDGT-03]
 - [ ] R4-05-member-context-widget-cards-PLAN.md (wave 1) — conversation member-context rail -> Pass Balance / Next Class / Last Visit widget cards [SWEB-03]
@@ -127,7 +127,7 @@ Plans:
 | R1. Audit Baseline | 3/3 | Complete    | 2026-06-12 |
 | R2. Design System Token Layer | 4/4 | Complete   | 2026-06-13 |
 | R3. Naming & IA Pass | 4/4 | Complete   | 2026-06-13 |
-| R4. Staff Web Visual Refresh + Embed Widgets | 1/7 | In Progress|  |
+| R4. Staff Web Visual Refresh + Embed Widgets | 2/7 | In Progress|  |
 | R5. Member Mobile App Redesign | 0/TBD | Not started | - |
 
 **Coverage:** 30 v1.1 requirements mapped across 5 phases (R1–R5).
@@ -187,7 +187,7 @@ Post-v1 backlog (HealthKit + native mobile, Coach View with health context, CRM 
 4. Member context panel in the inbox shows next-class + pass-balance for the opened conversation's member (real data)
 5. Stripe Checkout link generated for a 10-pack purchase + paid in Stripe test mode + resulting pass grant visible in member profile
 
-**Plans:** 1/7 plans executed
+**Plans:** 2/7 plans executed
 
 - [x] D1-01-schedule-surface-PLAN.md — Build /gymos/schedule week-grid + book-from-occurrence dialog (SCH-01, BKG-01) — completed 2026-05-19 (commits f5cdbdc6, dd50fe62, 23ee58f2)
 - [x] D1-02-members-directory-PLAN.md — Build /gymos/members + /gymos/members/:id profile with bookings + pass balance (MEM-01, MEM-02)
