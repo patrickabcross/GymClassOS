@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { CheckoutLinkButton } from "@/components/gymos/CheckoutLinkButton";
 import type { LoaderFunctionArgs } from "react-router";
 
 export function meta() {
@@ -190,19 +191,24 @@ export default function GymosMemberProfile() {
               </div>
             </div>
 
-            {/* Cross-surface deep-link to inbox — the differentiator pivot */}
-            {conversation && (
-              <Link to={`/gymos?conversation=${conversation.id}`}>
-                <Button size="sm">Open WhatsApp conversation</Button>
-              </Link>
-            )}
+            {/* Header actions: payment link (always shown) + WhatsApp pivot (when conversation exists) */}
+            <div className="flex items-center gap-2">
+              <CheckoutLinkButton memberId={member.id} memberName={fullName} />
+              {conversation && (
+                <Link to={`/gymos?conversation=${conversation.id}`}>
+                  <Button size="sm">Open WhatsApp conversation</Button>
+                </Link>
+              )}
+            </div>
           </div>
         </div>
 
         {/* ─── Pass balance ───────────────────────────────────────────── */}
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold">Pass balance</CardTitle>
+            <CardTitle className="text-sm font-semibold">
+              Pass balance
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <div>
@@ -335,7 +341,9 @@ export default function GymosMemberProfile() {
         {/* ─── Recent food ────────────────────────────────────────────── */}
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold">Recent food entries</CardTitle>
+            <CardTitle className="text-sm font-semibold">
+              Recent food entries
+            </CardTitle>
           </CardHeader>
           <CardContent>
             {foodEntries.length === 0 ? (
