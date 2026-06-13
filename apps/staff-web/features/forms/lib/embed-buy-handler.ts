@@ -317,10 +317,32 @@ export async function handleEmbedBuyPost(
   const baseUrl =
     process.env.STAFF_WEB_URL ?? "https://gym-class-os.vercel.app";
 
+  // Coerce mode from the price's actual type so a membership (recurring) price
+  // submitted without &mode=subscription doesn't 500 with "you specified
+  // payment mode but passed a recurring price". The price lives on the
+  // connected account, so scope the retrieve with { stripeAccount }.
+  let effectiveMode: "payment" | "subscription" = mode;
+  try {
+    const platformForPrice = await getPlatformStripe();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const price = await (platformForPrice.prices.retrieve as any)(priceId, {
+      stripeAccount: acct!.id,
+    });
+    if (price?.recurring) effectiveMode = "subscription";
+    else if (price?.type === "one_time") effectiveMode = "payment";
+  } catch (err) {
+    // Non-fatal — fall back to the submitted mode; the try/catch around
+    // sessions.create below still renders a friendly banner if mode is wrong.
+    console.warn("[embed/buy] price retrieve failed, using submitted mode", {
+      priceId,
+      message: err instanceof Error ? err.message : String(err),
+    });
+  }
+
   const { params, opts } = buildCheckoutParams({
     memberId: resolvedMemberId,
     priceId,
-    mode,
+    mode: effectiveMode,
     acctId: acct!.id,
     baseUrl,
   });
@@ -332,11 +354,40 @@ export async function handleEmbedBuyPost(
     `${baseUrl}/embed/buy?priceId=${encodeURIComponent(priceId)}&productName=${encodeURIComponent(productName)}&mode=${mode}`;
 
   const platform = await getPlatformStripe();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const session = await (platform.checkout.sessions.create as any)(
-    params,
-    opts,
-  );
+
+  let session: { url?: string | null };
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    session = await (platform.checkout.sessions.create as any)(params, opts);
+  } catch (err) {
+    // Log the raw Stripe error server-side; NEVER surface it to the buyer.
+    console.error("[embed/buy] Stripe checkout.sessions.create failed", {
+      priceId,
+      mode: effectiveMode,
+      message: err instanceof Error ? err.message : String(err),
+    });
+    // Treat known client/config mistakes (e.g. recurring price submitted with
+    // mode=payment) as 400; everything else (transient Stripe outage) as 502.
+    const rawMsg = err instanceof Error ? err.message : String(err);
+    const isClientConfigError =
+      /recurring price|payment mode|you specified|no such price|invalid|missing/i.test(
+        rawMsg,
+      );
+    const status = isClientConfigError ? 400 : 502;
+    setResponseStatus(event, status);
+    return new Response(
+      renderBuyPage({
+        priceId,
+        productName,
+        mode,
+        accent,
+        radius,
+        error:
+          "We couldn't start your payment — please try again or contact us.",
+      }),
+      { status, headers: HTML_HEADERS },
+    );
+  }
 
   if (!session.url) {
     setResponseStatus(event, 502);
@@ -347,7 +398,8 @@ export async function handleEmbedBuyPost(
         mode,
         accent,
         radius,
-        error: "Failed to create payment session. Please try again.",
+        error:
+          "We couldn't start your payment — please try again or contact us.",
       }),
       { status: 502, headers: HTML_HEADERS },
     );
