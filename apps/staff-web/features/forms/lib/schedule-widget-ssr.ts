@@ -228,10 +228,14 @@ function renderPage(
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>Class Schedule</title>
 <meta name="description" content="Browse upcoming classes and enquire to book your spot.">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/fonts/inter-variable.woff2") format("woff2-variations");
+}
   :root {
     --gym-accent: ${accent};
     --gym-radius: ${radius}px;
