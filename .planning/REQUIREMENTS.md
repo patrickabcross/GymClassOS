@@ -40,8 +40,8 @@
 - [x] **SWEB-04**: Member Profile shows pass-balance pill, next-class card, and bookings timeline
 - [x] **SWEB-05**: Members directory defaults to card view (avatar, membership pill, next class); table remains as a secondary/filter view
 - [ ] **SWEB-06**: Messages is responsive — single column at mobile widths with member context as a bottom sheet (coaches check from phones on the gym floor)
-- [ ] **SWEB-07**: Role-based nav — coaches see Schedule/Messages/Members; admins additionally see Payments/Settings
-- [ ] **SWEB-08**: Staff web defaults to light theme (studio back-office is a lit environment)
+- [x] **SWEB-07**: Role-based nav — coaches see Schedule/Messages/Members; admins additionally see Payments/Settings
+- [x] **SWEB-08**: Staff web defaults to light theme (studio back-office is a lit environment)
 
 ### Public Widgets
 
@@ -115,8 +115,8 @@ Which phases cover which requirements. Updated 2026-06-12 during roadmap creatio
 | SWEB-04 | R4. Staff Web Visual Refresh + Embed Widgets | Complete |
 | SWEB-05 | R4. Staff Web Visual Refresh + Embed Widgets | Complete |
 | SWEB-06 | R4. Staff Web Visual Refresh + Embed Widgets | Pending |
-| SWEB-07 | R4. Staff Web Visual Refresh + Embed Widgets | Pending |
-| SWEB-08 | R4. Staff Web Visual Refresh + Embed Widgets | Pending |
+| SWEB-07 | R4. Staff Web Visual Refresh + Embed Widgets | Complete |
+| SWEB-08 | R4. Staff Web Visual Refresh + Embed Widgets | Complete |
 | WDGT-01 | R4. Staff Web Visual Refresh + Embed Widgets | Pending |
 | WDGT-02 | R4. Staff Web Visual Refresh + Embed Widgets | Pending |
 | WDGT-03 | R4. Staff Web Visual Refresh + Embed Widgets | Pending |
