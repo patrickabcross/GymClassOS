@@ -19,7 +19,7 @@
 - [x] **DSGN-01**: All staff-web colors, typography, and radius resolve from CSS custom-property tokens via bare `@theme` — no `@theme inline`, no hardcoded hex in GymClassOS app code (CI grep guard included)
 - [x] **DSGN-02**: Studio skin is selected at deploy time via `studios/<studio>/env.yml` (`GYMOS_STUDIO_SKIN`) and injected into every SSR `<head>` by a skin-injector server plugin — zero DB round-trip per request
 - [x] **DSGN-03**: Hustle skin (`apps/staff-web/app/skins/hustle.css`) renders the staff web in Hustle brand colors/logo; a `default.css` GymClassOS skin exists as fallback
-- [ ] **DSGN-04**: Inter is self-hosted on web surfaces — no `fonts.googleapis.com` request on any page load
+- [x] **DSGN-04**: Inter is self-hosted on web surfaces — no `fonts.googleapis.com` request on any page load
 - [x] **DSGN-05**: Studio name + logo appear at the top of the staff sidebar, sourced from skin config
 
 ### Naming & Information Architecture
@@ -100,7 +100,7 @@ Which phases cover which requirements. Updated 2026-06-12 during roadmap creatio
 | DSGN-01 | R2. Design System Token Layer | Complete |
 | DSGN-02 | R2. Design System Token Layer | Complete |
 | DSGN-03 | R2. Design System Token Layer | Complete |
-| DSGN-04 | R2. Design System Token Layer | Pending |
+| DSGN-04 | R2. Design System Token Layer | Complete |
 | DSGN-05 | R2. Design System Token Layer | Complete |
 | NAME-01 | R3. Naming & IA Pass | Pending |
 | NAME-02 | R3. Naming & IA Pass | Pending |
