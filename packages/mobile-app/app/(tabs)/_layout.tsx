@@ -1,22 +1,29 @@
-// GymClassOS 4-tab shell (D-04). Replaces the 16-template upstream tab bar.
-// Tabs: Home / Schedule / Food / Profile. Agent surface is a FAB rendered
-// elsewhere (D2-06), not a tab.
+// GymClassOS 5-tab shell (R5-02). Tabs: Home / Classes / Passes / Log / Profile.
+// Agent surface is a FAB rendered in app/_layout.tsx (D2-06), not a tab.
+// All hex replaced with theme tokens (MOBL-01 / R5-02).
 import { Tabs } from "expo-router";
 import { Feather } from "@expo/vector-icons";
+import { useTheme } from "../../lib/theme";
 
 export default function TabsLayout() {
+  const theme = useTheme();
   return (
     <Tabs
       screenOptions={{
         tabBarStyle: {
-          backgroundColor: "#111111",
-          borderTopColor: "#222222",
+          backgroundColor: theme.colors.card,
+          borderTopColor: theme.colors.border,
         },
-        tabBarActiveTintColor: "#ffffff",
-        tabBarInactiveTintColor: "#666666",
-        headerStyle: { backgroundColor: "#111111" },
-        headerTintColor: "#ffffff",
-        headerTitleStyle: { fontWeight: "600" },
+        tabBarActiveTintColor: theme.colors.accent,
+        tabBarInactiveTintColor: theme.colors.mutedFaint,
+        headerStyle: { backgroundColor: theme.colors.background },
+        headerTintColor: theme.colors.foreground,
+        headerTitleStyle: {
+          fontFamily: theme.font.semibold,
+        },
+        tabBarLabelStyle: {
+          fontFamily: theme.font.semibold,
+        },
       }}
     >
       <Tabs.Screen
@@ -31,16 +38,25 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="schedule"
         options={{
-          title: "Schedule",
+          title: "Classes",
           tabBarIcon: ({ color, size }) => (
             <Feather name="calendar" size={size} color={color} />
           ),
         }}
       />
       <Tabs.Screen
+        name="passes"
+        options={{
+          title: "Passes",
+          tabBarIcon: ({ color, size }) => (
+            <Feather name="award" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="food"
         options={{
-          title: "Food",
+          title: "Log",
           tabBarIcon: ({ color, size }) => (
             <Feather name="coffee" size={size} color={color} />
           ),
