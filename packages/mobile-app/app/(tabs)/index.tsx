@@ -13,6 +13,22 @@ import { apiFetch } from "../../lib/api";
 import KcalRing from "../../components/KcalRing";
 import { useTheme } from "../../lib/theme";
 
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+type CoachMessage = {
+  body: string;
+  sentAt: string;
+};
+
+type StudioUpdate = {
+  id: string;
+  title: string;
+  body: string;
+  postedAt: string;
+};
+
 type ProfileResponse = {
   member: {
     id: string;
@@ -39,7 +55,15 @@ type ProfileResponse = {
     targetCarbsG: number;
     targetFatG: number;
   };
+  /** Latest message from the coach, wired additively when the API provides it */
+  latestCoachMessage?: CoachMessage | null;
+  /** Studio-wide updates/notices, wired additively when the API provides them */
+  studioUpdates?: StudioUpdate[];
 };
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
 
 function bookingTimeLabel(iso: string) {
   const d = new Date(iso);
@@ -62,6 +86,23 @@ function bookingTimeLabel(iso: string) {
   );
 }
 
+function relativeTimeLabel(iso: string) {
+  const d = new Date(iso);
+  const now = new Date();
+  const diffMs = now.getTime() - d.getTime();
+  const diffHrs = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+  if (diffHrs < 1) return "Just now";
+  if (diffHrs < 24) return `${diffHrs}h ago`;
+  if (diffDays === 1) return "Yesterday";
+  if (diffDays < 7) return `${diffDays} days ago`;
+  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+}
+
+// ---------------------------------------------------------------------------
+// Screen
+// ---------------------------------------------------------------------------
+
 export default function HomeScreen() {
   const theme = useTheme();
   const router = useRouter();
@@ -70,15 +111,16 @@ export default function HomeScreen() {
     queryFn: () => apiFetch("/api/m/profile"),
   });
 
-  // Refetch on tab focus so a booking made on Schedule reflects here
+  // Refetch on tab focus so a booking made on Classes tab reflects here
   useFocusEffect(
     useCallback(() => {
       refetch();
     }, [refetch]),
   );
 
-  const styles = useMemo(
+  const s = useMemo(
     () => ({
+      // ---- Containers
       container: { flex: 1, backgroundColor: theme.colors.background },
       center: {
         flex: 1,
@@ -88,42 +130,106 @@ export default function HomeScreen() {
         padding: theme.spacing.xl,
         gap: theme.spacing.lg,
       },
+      scroll: { padding: theme.spacing.xl, paddingBottom: 96 },
+
+      // ---- Greeting
       greeting: {
         color: theme.colors.foreground,
         fontSize: 32,
         fontFamily: theme.font.bold,
+        marginBottom: 4,
       },
-      pill: {
-        flexDirection: "row" as const,
-        alignItems: "center" as const,
-        alignSelf: "flex-start" as const,
-        gap: 6,
-        backgroundColor: theme.colors.cardElevated,
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: theme.radius.pill,
-        marginTop: theme.spacing.sm,
+      subGreeting: {
+        color: theme.colors.muted,
+        fontSize: 14,
+        fontFamily: theme.font.regular,
+        marginBottom: theme.spacing.lg,
       },
-      pillRed: { backgroundColor: theme.colors.dangerSoft },
-      pillText: {
-        color: theme.colors.foreground,
-        fontSize: 13,
-        fontFamily: theme.font.semibold,
-      },
+
+      // ---- Cards (shared)
       card: {
         backgroundColor: theme.colors.card,
         borderRadius: theme.radius.md,
         padding: theme.spacing.lg,
-        marginTop: theme.spacing.lg,
+        marginBottom: theme.spacing.md,
+      },
+      heroCard: {
+        backgroundColor: theme.colors.card,
+        borderRadius: theme.radius.lg,
+        padding: theme.spacing.lg,
+        marginBottom: theme.spacing.md,
+        borderWidth: 1,
+        borderColor: theme.colors.border,
       },
       sectionLabel: {
         color: theme.colors.muted,
-        fontSize: 12,
+        fontSize: 11,
         fontFamily: theme.font.semibold,
         textTransform: "uppercase" as const,
-        letterSpacing: 0.5,
+        letterSpacing: 0.8,
         marginBottom: theme.spacing.sm,
       },
+
+      // ---- Pass Balance hero card
+      passBalanceRow: {
+        flexDirection: "row" as const,
+        alignItems: "center" as const,
+        justifyContent: "space-between" as const,
+      },
+      passBalanceValue: {
+        color: theme.colors.foreground,
+        fontSize: 40,
+        fontFamily: theme.font.bold,
+        lineHeight: 44,
+      },
+      passBalanceValueDanger: {
+        color: theme.colors.danger,
+      },
+      passBalanceUnit: {
+        color: theme.colors.muted,
+        fontSize: 16,
+        fontFamily: theme.font.regular,
+        marginTop: 4,
+      },
+      passBalanceIconWrap: {
+        backgroundColor: theme.colors.accentSoft,
+        borderRadius: theme.radius.lg,
+        padding: 14,
+      },
+      passBalanceDangerBadge: {
+        flexDirection: "row" as const,
+        alignItems: "center" as const,
+        gap: 6,
+        backgroundColor: theme.colors.dangerSoft,
+        borderRadius: theme.radius.pill,
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        alignSelf: "flex-start" as const,
+        marginTop: theme.spacing.sm,
+      },
+      passBalanceDangerText: {
+        color: theme.colors.foreground,
+        fontSize: 12,
+        fontFamily: theme.font.semibold,
+      },
+      topUpBtn: {
+        flexDirection: "row" as const,
+        alignItems: "center" as const,
+        gap: 6,
+        backgroundColor: theme.colors.accent,
+        borderRadius: theme.radius.pill,
+        paddingHorizontal: 14,
+        paddingVertical: 6,
+        alignSelf: "flex-start" as const,
+        marginTop: theme.spacing.sm,
+      },
+      topUpBtnText: {
+        color: theme.colors.accentForeground,
+        fontSize: 13,
+        fontFamily: theme.font.semibold,
+      },
+
+      // ---- Next Class hero card
       bookingRow: {
         flexDirection: "row" as const,
         alignItems: "center" as const,
@@ -131,7 +237,7 @@ export default function HomeScreen() {
       },
       bookingTitle: {
         color: theme.colors.foreground,
-        fontSize: 18,
+        fontSize: 20,
         fontFamily: theme.font.semibold,
       },
       bookingTime: {
@@ -140,6 +246,98 @@ export default function HomeScreen() {
         marginTop: 4,
         fontFamily: theme.font.regular,
       },
+      bookingEmpty: {
+        color: theme.colors.mutedFaint,
+        fontSize: 14,
+        fontFamily: theme.font.regular,
+        marginTop: 4,
+      },
+
+      // ---- Coach message hero card
+      coachHeaderRow: {
+        flexDirection: "row" as const,
+        alignItems: "center" as const,
+        gap: 8,
+        marginBottom: theme.spacing.sm,
+      },
+      coachIconWrap: {
+        backgroundColor: theme.colors.accentSoft,
+        borderRadius: theme.radius.sm,
+        padding: 6,
+      },
+      coachCardTitle: {
+        color: theme.colors.foreground,
+        fontSize: 15,
+        fontFamily: theme.font.semibold,
+        flex: 1,
+      },
+      coachMessageBody: {
+        color: theme.colors.foreground,
+        fontSize: 15,
+        fontFamily: theme.font.regular,
+        lineHeight: 22,
+      },
+      coachMessageEmpty: {
+        color: theme.colors.muted,
+        fontSize: 14,
+        fontFamily: theme.font.regular,
+        lineHeight: 20,
+      },
+      coachMessageTime: {
+        color: theme.colors.mutedFaint,
+        fontSize: 12,
+        fontFamily: theme.font.regular,
+        marginTop: 8,
+      },
+
+      // ---- Studio updates section
+      sectionHeader: {
+        flexDirection: "row" as const,
+        alignItems: "center" as const,
+        gap: 8,
+        marginBottom: theme.spacing.sm,
+        marginTop: theme.spacing.sm,
+      },
+      sectionTitle: {
+        color: theme.colors.foreground,
+        fontSize: 17,
+        fontFamily: theme.font.semibold,
+        flex: 1,
+      },
+      updateCard: {
+        backgroundColor: theme.colors.card,
+        borderRadius: theme.radius.md,
+        padding: theme.spacing.md,
+        marginBottom: theme.spacing.sm,
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+      },
+      updateTitle: {
+        color: theme.colors.foreground,
+        fontSize: 14,
+        fontFamily: theme.font.semibold,
+        marginBottom: 4,
+      },
+      updateBody: {
+        color: theme.colors.muted,
+        fontSize: 13,
+        fontFamily: theme.font.regular,
+        lineHeight: 18,
+      },
+      updateTime: {
+        color: theme.colors.mutedFaint,
+        fontSize: 11,
+        fontFamily: theme.font.regular,
+        marginTop: 6,
+      },
+      updatesEmpty: {
+        color: theme.colors.mutedFaint,
+        fontSize: 14,
+        fontFamily: theme.font.regular,
+        paddingVertical: theme.spacing.sm,
+      },
+
+      // ---- Nutrition card
       macroLine: {
         color: theme.colors.foreground,
         fontSize: 16,
@@ -155,6 +353,8 @@ export default function HomeScreen() {
         marginTop: 4,
         fontFamily: theme.font.regular,
       },
+
+      // ---- Shared
       btn: {
         backgroundColor: theme.colors.accent,
         paddingHorizontal: theme.spacing.lg,
@@ -166,99 +366,199 @@ export default function HomeScreen() {
         color: theme.colors.accentForeground,
         fontFamily: theme.font.semibold,
       },
-      error: { color: theme.colors.danger, fontFamily: theme.font.regular },
+      error: {
+        color: theme.colors.danger,
+        fontFamily: theme.font.regular,
+        textAlign: "center" as const,
+      },
     }),
     [theme],
   );
 
+  // ---- Loading / error states (crash-safe — /api/m/* may 401 on current deploy)
   if (isLoading && !data) {
     return (
-      <View style={styles.center}>
+      <View style={s.center}>
         <ActivityIndicator color={theme.colors.foreground} />
       </View>
     );
   }
   if (error || !data) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.error}>Couldn't load home</Text>
-        <Pressable onPress={() => refetch()} style={styles.btn}>
-          <Text style={styles.btnText}>Retry</Text>
+      <View style={s.center}>
+        <Text style={s.error}>Couldn't load home</Text>
+        <Pressable onPress={() => refetch()} style={s.btn}>
+          <Text style={s.btnText}>Retry</Text>
         </Pressable>
       </View>
     );
   }
 
-  const { member, passBalance, upcomingBooking, today } = data;
+  const {
+    member,
+    passBalance,
+    upcomingBooking,
+    today,
+    latestCoachMessage,
+    studioUpdates,
+  } = data;
   const lowBalance = passBalance <= 0;
   const fmt = (n: number) => Math.round(n);
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={{ padding: 24, paddingBottom: 96 }}
-    >
-      <Text style={styles.greeting}>Hi {member.firstName}</Text>
-      <View style={[styles.pill, lowBalance && styles.pillRed]}>
-        <Feather name="award" size={14} color={theme.colors.foreground} />
-        <Text style={styles.pillText}>
-          {passBalance} {passBalance === 1 ? "credit" : "credits"}
-        </Text>
-      </View>
+    <ScrollView style={s.container} contentContainerStyle={s.scroll}>
 
-      {/* Upcoming booking */}
-      <View style={styles.card}>
-        <Text style={styles.sectionLabel}>Next class</Text>
-        {upcomingBooking ? (
-          <Pressable
-            onPress={() => router.push("/(tabs)/schedule")}
-            style={styles.bookingRow}
-          >
-            <View style={{ flex: 1 }}>
-              <Text style={styles.bookingTitle}>
-                {upcomingBooking.className ?? "Class"}
-              </Text>
-              <Text style={styles.bookingTime}>
-                {bookingTimeLabel(upcomingBooking.startsAt)}
-              </Text>
-            </View>
-            <Feather name="chevron-right" size={20} color={theme.colors.mutedFaint} />
-          </Pressable>
+      {/* ── Greeting ──────────────────────────────────────────────── */}
+      <Text style={s.greeting}>Hi {member.firstName}</Text>
+      <Text style={s.subGreeting}>Here's your studio overview</Text>
+
+      {/* ── Hero 1: Pass Balance ───────────────────────────────────── */}
+      <View style={s.heroCard}>
+        <Text style={s.sectionLabel}>Pass Balance</Text>
+        <View style={s.passBalanceRow}>
+          <View>
+            <Text
+              style={[
+                s.passBalanceValue,
+                lowBalance && s.passBalanceValueDanger,
+              ]}
+            >
+              {passBalance}
+            </Text>
+            <Text style={s.passBalanceUnit}>
+              {passBalance === 1 ? "credit" : "credits"}
+            </Text>
+          </View>
+          <View style={s.passBalanceIconWrap}>
+            <Feather
+              name="award"
+              size={28}
+              color={lowBalance ? theme.colors.danger : theme.colors.accent}
+            />
+          </View>
+        </View>
+        {lowBalance ? (
+          <View style={s.passBalanceDangerBadge}>
+            <Feather name="alert-circle" size={12} color={theme.colors.foreground} />
+            <Text style={s.passBalanceDangerText}>No credits — top up to book</Text>
+          </View>
         ) : (
           <Pressable
-            onPress={() => router.push("/(tabs)/schedule")}
-            style={styles.bookingRow}
+            onPress={() => router.push("/(tabs)/passes" as any)}
+            style={s.topUpBtn}
           >
-            <View style={{ flex: 1 }}>
-              <Text style={styles.bookingTitle}>No upcoming class</Text>
-              <Text style={styles.bookingTime}>Tap to browse the schedule</Text>
-            </View>
-            <Feather name="chevron-right" size={20} color={theme.colors.mutedFaint} />
+            <Feather name="plus" size={14} color={theme.colors.accentForeground} />
+            <Text style={s.topUpBtnText}>View passes</Text>
           </Pressable>
         )}
       </View>
 
-      {/* Today's nutrition */}
-      <View style={styles.card}>
-        <Text style={styles.sectionLabel}>Today</Text>
+      {/* ── Hero 2: Next Class ─────────────────────────────────────── */}
+      <View style={s.heroCard}>
+        <Text style={s.sectionLabel}>Next class</Text>
+        {upcomingBooking ? (
+          <Pressable
+            onPress={() => router.push("/(tabs)/schedule")}
+            style={s.bookingRow}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={s.bookingTitle}>
+                {upcomingBooking.className ?? "Class"}
+              </Text>
+              <Text style={s.bookingTime}>
+                {bookingTimeLabel(upcomingBooking.startsAt)}
+              </Text>
+            </View>
+            <Feather
+              name="chevron-right"
+              size={22}
+              color={theme.colors.mutedFaint}
+            />
+          </Pressable>
+        ) : (
+          <Pressable
+            onPress={() => router.push("/(tabs)/schedule")}
+            style={s.bookingRow}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={s.bookingTitle}>No upcoming class</Text>
+              <Text style={s.bookingEmpty}>Tap to browse the schedule</Text>
+            </View>
+            <Feather
+              name="chevron-right"
+              size={22}
+              color={theme.colors.mutedFaint}
+            />
+          </Pressable>
+        )}
+      </View>
+
+      {/* ── Hero 3: Latest Coach Message ───────────────────────────── */}
+      <View style={s.heroCard}>
+        <View style={s.coachHeaderRow}>
+          <View style={s.coachIconWrap}>
+            <Feather name="message-circle" size={16} color={theme.colors.accent} />
+          </View>
+          <Text style={s.coachCardTitle}>From your coach</Text>
+        </View>
+        {latestCoachMessage ? (
+          <>
+            <Text style={s.coachMessageBody}>{latestCoachMessage.body}</Text>
+            <Text style={s.coachMessageTime}>
+              {relativeTimeLabel(latestCoachMessage.sentAt)}
+            </Text>
+          </>
+        ) : (
+          <Text style={s.coachMessageEmpty}>
+            No new messages from your coach right now — check back after class.
+          </Text>
+        )}
+      </View>
+
+      {/* ── Studio Updates (coach-voice noticeboard) ──────────────── */}
+      <View style={{ marginBottom: theme.spacing.sm }}>
+        <View style={s.sectionHeader}>
+          <Feather name="bell" size={18} color={theme.colors.muted} />
+          <Text style={s.sectionTitle}>Studio updates</Text>
+        </View>
+
+        {studioUpdates && studioUpdates.length > 0 ? (
+          studioUpdates.map((update) => (
+            <View key={update.id} style={s.updateCard}>
+              <Text style={s.updateTitle}>{update.title}</Text>
+              <Text style={s.updateBody}>{update.body}</Text>
+              <Text style={s.updateTime}>
+                {relativeTimeLabel(update.postedAt)}
+              </Text>
+            </View>
+          ))
+        ) : (
+          <Text style={s.updatesEmpty}>No studio updates this week.</Text>
+        )}
+      </View>
+
+      {/* ── Today's Nutrition ──────────────────────────────────────── */}
+      <View style={s.card}>
+        <Text style={s.sectionLabel}>Today</Text>
         <View style={{ alignItems: "center", marginVertical: 16 }}>
           <KcalRing value={fmt(today.kcal)} target={today.targetKcal} />
         </View>
-        <Text style={styles.macroLine}>
+        <Text style={s.macroLine}>
           P {fmt(today.proteinG)}g{"  "}C {fmt(today.carbsG)}g{"  "}F{" "}
           {fmt(today.fatG)}g
         </Text>
-        <Text style={styles.macroTargets}>
+        <Text style={s.macroTargets}>
           Target P {today.targetProteinG}g · C {today.targetCarbsG}g · F{" "}
           {today.targetFatG}g
         </Text>
         <Pressable
           onPress={() => router.push("/(tabs)/food")}
-          style={[styles.btn, { marginTop: 16 }]}
+          style={[s.btn, { marginTop: 16 }]}
         >
-          <Text style={styles.btnText}>+ Log a meal</Text>
+          <Text style={s.btnText}>+ Log a meal</Text>
         </Pressable>
       </View>
+
     </ScrollView>
   );
 }
