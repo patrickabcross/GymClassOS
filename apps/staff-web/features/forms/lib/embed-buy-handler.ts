@@ -32,7 +32,7 @@ import { readConnectedAccount } from "../../../server/lib/connected-account.js";
 // HTML escaping
 // ---------------------------------------------------------------------------
 
-function esc(value: unknown): string {
+export function esc(value: unknown): string {
   const s =
     typeof value === "string" ? value : value == null ? "" : String(value);
   return s
@@ -47,7 +47,7 @@ function esc(value: unknown): string {
 // CSS (mirrors schedule-widget-ssr.ts dark theme)
 // ---------------------------------------------------------------------------
 
-function CSS(): string {
+export function CSS(): string {
   return `
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{--bg:0 0% 100%;--fg:220 10% 10%;--card:0 0% 98%;--card-fg:220 10% 10%;--muted:220 10% 95%;--muted-fg:220 5% 45%;--border:220 10% 88%;--input:220 10% 90%;--ring:220 10% 40%;--accent-color:var(--gym-accent,#000);--radius:var(--gym-radius,6px)}
@@ -162,7 +162,7 @@ function renderBuyPage(opts: {
 // Shared HTML response headers
 // ---------------------------------------------------------------------------
 
-const HTML_HEADERS = {
+export const HTML_HEADERS = {
   "Content-Type": "text/html; charset=utf-8",
   "Content-Security-Policy": "frame-ancestors *",
   "Cache-Control": "no-store",
@@ -186,7 +186,14 @@ export async function renderEmbedBuy(event: H3Event): Promise<Response> {
 
   if (!priceId) {
     return new Response(
-      renderBuyPage({ priceId: "", productName, mode, accent, radius, error: "Missing priceId parameter." }),
+      renderBuyPage({
+        priceId: "",
+        productName,
+        mode,
+        accent,
+        radius,
+        error: "Missing priceId parameter.",
+      }),
       { status: 400, headers: HTML_HEADERS },
     );
   }
@@ -201,12 +208,15 @@ export async function renderEmbedBuy(event: H3Event): Promise<Response> {
 // POST handler
 // ---------------------------------------------------------------------------
 
-export async function handleEmbedBuyPost(event: H3Event): Promise<Response | void> {
+export async function handleEmbedBuyPost(
+  event: H3Event,
+): Promise<Response | void> {
   const rawBody = await readBody(event);
   const body = rawBody as Record<string, unknown> | undefined;
 
   const priceId = (body?.priceId as string | undefined)?.trim() ?? "";
-  const productName = (body?.productName as string | undefined)?.trim() ?? "pass";
+  const productName =
+    (body?.productName as string | undefined)?.trim() ?? "pass";
   const rawMode = (body?.mode as string | undefined)?.trim();
   const mode: "payment" | "subscription" =
     rawMode === "subscription" ? "subscription" : "payment";
@@ -220,7 +230,14 @@ export async function handleEmbedBuyPost(event: H3Event): Promise<Response | voi
   if (!priceId || !email || !name) {
     setResponseStatus(event, 400);
     return new Response(
-      renderBuyPage({ priceId: priceId || "", productName, mode, accent, radius, error: "Name and email are required." }),
+      renderBuyPage({
+        priceId: priceId || "",
+        productName,
+        mode,
+        accent,
+        radius,
+        error: "Name and email are required.",
+      }),
       { status: 400, headers: HTML_HEADERS },
     );
   }
@@ -232,7 +249,15 @@ export async function handleEmbedBuyPost(event: H3Event): Promise<Response | voi
   } catch {
     setResponseStatus(event, 503);
     return new Response(
-      renderBuyPage({ priceId, productName, mode, accent, radius, error: "Online payments are temporarily unavailable. Please contact us directly." }),
+      renderBuyPage({
+        priceId,
+        productName,
+        mode,
+        accent,
+        radius,
+        error:
+          "Online payments are temporarily unavailable. Please contact us directly.",
+      }),
       { status: 503, headers: HTML_HEADERS },
     );
   }
@@ -289,7 +314,8 @@ export async function handleEmbedBuyPost(event: H3Event): Promise<Response | voi
   // ---------------------------------------------------------------------------
   // Build Checkout session params and create on connected account
   // ---------------------------------------------------------------------------
-  const baseUrl = process.env.STAFF_WEB_URL ?? "https://gym-class-os.vercel.app";
+  const baseUrl =
+    process.env.STAFF_WEB_URL ?? "https://gym-class-os.vercel.app";
 
   const { params, opts } = buildCheckoutParams({
     memberId: resolvedMemberId,
@@ -300,17 +326,29 @@ export async function handleEmbedBuyPost(event: H3Event): Promise<Response | voi
   });
 
   // Override success/cancel URLs for the embed context (Pitfall 6 — not behind auth)
-  (params as any).success_url = `${baseUrl}/embed/buy/thank-you?member=${resolvedMemberId}`;
-  (params as any).cancel_url = `${baseUrl}/embed/buy?priceId=${encodeURIComponent(priceId)}&productName=${encodeURIComponent(productName)}&mode=${mode}`;
+  (params as any).success_url =
+    `${baseUrl}/embed/buy/thank-you?member=${resolvedMemberId}`;
+  (params as any).cancel_url =
+    `${baseUrl}/embed/buy?priceId=${encodeURIComponent(priceId)}&productName=${encodeURIComponent(productName)}&mode=${mode}`;
 
   const platform = await getPlatformStripe();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const session = await (platform.checkout.sessions.create as any)(params, opts);
+  const session = await (platform.checkout.sessions.create as any)(
+    params,
+    opts,
+  );
 
   if (!session.url) {
     setResponseStatus(event, 502);
     return new Response(
-      renderBuyPage({ priceId, productName, mode, accent, radius, error: "Failed to create payment session. Please try again." }),
+      renderBuyPage({
+        priceId,
+        productName,
+        mode,
+        accent,
+        radius,
+        error: "Failed to create payment session. Please try again.",
+      }),
       { status: 502, headers: HTML_HEADERS },
     );
   }
