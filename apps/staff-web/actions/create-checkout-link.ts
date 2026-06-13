@@ -5,6 +5,7 @@ import { readConnectedAccount } from "../server/lib/connected-account.js";
 import {
   validateConnectedAccount,
   buildCheckoutParams,
+  resolveProductKey,
 } from "./create-checkout-link-helpers.js";
 
 /**
@@ -51,13 +52,23 @@ export default defineAction({
       .string()
       .min(1)
       .describe("gym_members.id of the contacted lead — must be non-empty"),
+    productKey: z
+      .enum(["drop-in", "membership"])
+      .optional()
+      .describe(
+        "Resolve price+mode server-side from STRIPE_PRICE_* env. " +
+          "Use this from staff UI so price IDs never reach the client. " +
+          "Takes precedence over priceId/mode when present.",
+      ),
     priceId: z
       .string()
       .min(1)
+      .optional()
       .describe(
         "Stripe Price ID on the connected account (e.g. price_xxx). " +
           "For pack purchases the Product's DESCRIPTION must contain: 10-pack, 5-pack, drop-in, or 1-class. " +
-          "For subscription memberships the price must be recurring.",
+          "For subscription memberships the price must be recurring. " +
+          "Ignored when productKey is provided.",
       ),
     productName: z
       .string()
@@ -67,11 +78,39 @@ export default defineAction({
       .enum(["payment", "subscription"])
       .default("payment")
       .describe(
-        "payment = one-off pack/drop-in purchase; subscription = recurring membership",
+        "payment = one-off pack/drop-in purchase; subscription = recurring membership. " +
+          "Ignored when productKey is provided.",
       ),
   }),
   http: { method: "POST" },
-  run: async ({ memberId, priceId, productName, mode }) => {
+  run: async ({ memberId, productKey, priceId, productName, mode }) => {
+    // ------------------------------------------------------------------
+    // 0. Resolve productKey (staff UI path) OR validate raw priceId
+    // ------------------------------------------------------------------
+    let resolvedPriceId: string;
+    let resolvedMode: "payment" | "subscription";
+    let resolvedProductName: string;
+
+    if (productKey) {
+      // Staff-UI path: resolve price + mode server-side from STRIPE_PRICE_* env.
+      // productKey wins over any caller-supplied priceId/mode/productName.
+      const resolved = resolveProductKey(productKey);
+      resolvedPriceId = resolved.priceId;
+      resolvedMode = resolved.mode;
+      // Use caller's explicit productName if they overrode the default, otherwise
+      // use the resolved label.
+      resolvedProductName =
+        productName !== "pass" ? productName : resolved.productName;
+    } else {
+      // Agent propose→approve path or /embed/buy path: caller supplies raw priceId.
+      if (!priceId) {
+        throw new Error("Either productKey or priceId is required");
+      }
+      resolvedPriceId = priceId;
+      resolvedMode = mode;
+      resolvedProductName = productName;
+    }
+
     // ------------------------------------------------------------------
     // 1. Guard: connected account must exist and have charges enabled
     // ------------------------------------------------------------------
@@ -87,8 +126,8 @@ export default defineAction({
 
     const { params, opts } = buildCheckoutParams({
       memberId,
-      priceId,
-      mode,
+      priceId: resolvedPriceId,
+      mode: resolvedMode,
       acctId: acct.id,
       baseUrl,
     });
@@ -100,13 +139,16 @@ export default defineAction({
     // TypeScript when passing { stripeAccount } as a second arg. Cast to any
     // to avoid overload-resolution issues — the runtime call is correct.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const session = await (platform.checkout.sessions.create as any)(params, opts);
+    const session = await (platform.checkout.sessions.create as any)(
+      params,
+      opts,
+    );
 
     return {
       url: session.url,
       sessionId: session.id,
-      productName,
-      mode,
+      productName: resolvedProductName,
+      mode: resolvedMode,
     };
   },
 });

@@ -11,6 +11,55 @@
 import type { ConnectedAccount } from "../server/lib/connected-account.js";
 
 // ---------------------------------------------------------------------------
+// Product key resolver (staff UI path — price IDs stay server-side)
+// ---------------------------------------------------------------------------
+
+export const PILOT_PRODUCT_KEYS = ["drop-in", "membership"] as const;
+export type ProductKey = (typeof PILOT_PRODUCT_KEYS)[number];
+
+/**
+ * Resolve a product key to the Stripe price ID, checkout mode, and display
+ * name. Reads STRIPE_PRICE_* env vars server-side so the client never sees
+ * raw price IDs.
+ *
+ * Mirrors the env var names used in api.m.purchase.tsx PILOT_PRODUCTS so
+ * behaviour is consistent across all purchase surfaces.
+ *
+ * Throws if the required env var is missing — catch at call-site and return
+ * a user-facing error.
+ */
+export function resolveProductKey(key: ProductKey): {
+  priceId: string;
+  mode: "payment" | "subscription";
+  productName: string;
+} {
+  let priceId: string;
+  let mode: "payment" | "subscription";
+  let productName: string;
+
+  switch (key) {
+    case "drop-in":
+      priceId = process.env.STRIPE_PRICE_DROP_IN ?? "";
+      mode = "payment";
+      productName = "Drop-in class";
+      break;
+    case "membership":
+      priceId = process.env.STRIPE_PRICE_MEMBERSHIP ?? "";
+      mode = "subscription";
+      productName = "Unlimited membership";
+      break;
+  }
+
+  if (!priceId) {
+    throw new Error(
+      `Product not configured — STRIPE_PRICE_* env var missing for "${key}"`,
+    );
+  }
+
+  return { priceId, mode, productName };
+}
+
+// ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
