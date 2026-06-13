@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import { useRouter } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
 import BarcodeScanner from "../components/BarcodeScanner";
 import { apiFetch } from "../lib/api";
+import { useTheme } from "../lib/theme";
 
 type Lookup =
   | { status: "scanning" }
@@ -22,10 +23,101 @@ type MealType = "breakfast" | "lunch" | "dinner" | "snack";
 
 export default function FoodBarcodeScreen() {
   const router = useRouter();
+  const theme = useTheme();
   const qc = useQueryClient();
   const [state, setState] = useState<Lookup>({ status: "scanning" });
   const [mealType, setMealType] = useState<MealType>("snack");
   const [logging, setLogging] = useState(false);
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        center: {
+          flex: 1,
+          backgroundColor: theme.colors.background,
+          alignItems: "center",
+          justifyContent: "center",
+          padding: 24,
+          gap: 12,
+        },
+        copy: {
+          color: theme.colors.foreground,
+          textAlign: "center",
+          fontSize: 16,
+          fontFamily: theme.font.regular,
+        },
+        sub: {
+          color: theme.colors.muted,
+          textAlign: "center",
+          fontFamily: theme.font.regular,
+        },
+        btn: {
+          backgroundColor: theme.colors.accent,
+          paddingHorizontal: 24,
+          paddingVertical: 14,
+          borderRadius: theme.radius.sm,
+        },
+        btnText: {
+          color: theme.colors.accentForeground,
+          fontFamily: theme.font.bold,
+          fontSize: 16,
+        },
+        foundContainer: {
+          flex: 1,
+          backgroundColor: theme.colors.background,
+          padding: 24,
+          gap: 12,
+        },
+        foundName: {
+          color: theme.colors.foreground,
+          fontSize: 24,
+          fontFamily: theme.font.bold,
+        },
+        foundBrand: {
+          color: theme.colors.muted,
+          fontSize: 16,
+          fontFamily: theme.font.regular,
+        },
+        foundKcal: {
+          color: theme.colors.muted,
+          fontSize: 14,
+          fontFamily: theme.font.regular,
+        },
+        warn: {
+          color: theme.colors.warning,
+          fontSize: 13,
+          fontFamily: theme.font.regular,
+        },
+        label: {
+          color: theme.colors.muted,
+          fontSize: 12,
+          marginTop: 12,
+          fontFamily: theme.font.semibold,
+        },
+        mealRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+        mealPill: {
+          backgroundColor: theme.colors.cardElevated,
+          paddingHorizontal: 14,
+          paddingVertical: 8,
+          borderRadius: theme.radius.pill,
+        },
+        mealPillActive: { backgroundColor: theme.colors.accent },
+        mealPillText: {
+          color: theme.colors.muted,
+          fontSize: 14,
+          fontFamily: theme.font.regular,
+        },
+        mealPillTextActive: {
+          color: theme.colors.accentForeground,
+          fontFamily: theme.font.semibold,
+        },
+        scanDifferent: {
+          color: theme.colors.muted,
+          fontFamily: theme.font.regular,
+        },
+      }),
+    [theme],
+  );
 
   async function onEan(ean: string) {
     setState({ status: "loading", ean });
@@ -80,7 +172,7 @@ export default function FoodBarcodeScreen() {
   if (state.status === "loading") {
     return (
       <View style={styles.center}>
-        <ActivityIndicator color="#fff" />
+        <ActivityIndicator color={theme.colors.accent} />
         <Text style={styles.copy}>Looking up {state.ean}…</Text>
       </View>
     );
@@ -155,44 +247,8 @@ export default function FoodBarcodeScreen() {
         onPress={() => setState({ status: "scanning" })}
         style={{ alignSelf: "center", padding: 12 }}
       >
-        <Text style={{ color: "#999" }}>Scan a different barcode</Text>
+        <Text style={styles.scanDifferent}>Scan a different barcode</Text>
       </Pressable>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  center: {
-    flex: 1,
-    backgroundColor: "#111",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 24,
-    gap: 12,
-  },
-  copy: { color: "#fff", textAlign: "center", fontSize: 16 },
-  sub: { color: "#999", textAlign: "center" },
-  btn: {
-    backgroundColor: "#3b82f6",
-    paddingHorizontal: 24,
-    paddingVertical: 14,
-    borderRadius: 8,
-  },
-  btnText: { color: "#fff", fontWeight: "700", fontSize: 16 },
-  foundContainer: { flex: 1, backgroundColor: "#111", padding: 24, gap: 12 },
-  foundName: { color: "#fff", fontSize: 24, fontWeight: "700" },
-  foundBrand: { color: "#999", fontSize: 16 },
-  foundKcal: { color: "#999", fontSize: 14 },
-  warn: { color: "#fbbf24", fontSize: 13 },
-  label: { color: "#999", fontSize: 12, marginTop: 12, fontWeight: "600" },
-  mealRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  mealPill: {
-    backgroundColor: "#252525",
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 999,
-  },
-  mealPillActive: { backgroundColor: "#3b82f6" },
-  mealPillText: { color: "#999", fontSize: 14 },
-  mealPillTextActive: { color: "#fff", fontWeight: "600" },
-});

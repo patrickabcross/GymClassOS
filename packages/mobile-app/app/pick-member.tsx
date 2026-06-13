@@ -1,7 +1,7 @@
 // First-launch member-picker (D-05). Lists 5 seeded gym members. Tap to
-// persist the id to AsyncStorage and jump to the 4-tab shell.
+// persist the id to AsyncStorage and jump to the 5-tab shell.
 // Caption verbatim per D-06: "Demo only — production uses WhatsApp magic-link".
-import { useEffect, useState } from "react";
+import { useMemo, useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -13,13 +13,55 @@ import {
 import { useRouter } from "expo-router";
 import { apiFetch } from "../lib/api";
 import { setCurrentMemberId } from "../lib/current-member";
+import { useTheme } from "../lib/theme";
 
 type Member = { id: string; firstName: string; lastName: string | null };
 
 export default function PickMember() {
   const router = useRouter();
+  const theme = useTheme();
   const [members, setMembers] = useState<Member[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        container: {
+          flex: 1,
+          backgroundColor: theme.colors.background,
+          padding: 24,
+          paddingTop: 80,
+        },
+        title: {
+          color: theme.colors.foreground,
+          fontSize: 28,
+          fontFamily: theme.font.bold,
+        },
+        subtitle: {
+          color: theme.colors.muted,
+          fontSize: 14,
+          marginTop: 8,
+          fontFamily: theme.font.regular,
+        },
+        row: {
+          backgroundColor: theme.colors.card,
+          paddingHorizontal: 16,
+          paddingVertical: 18,
+          borderRadius: theme.radius.md,
+        },
+        rowText: {
+          color: theme.colors.foreground,
+          fontSize: 18,
+          fontFamily: theme.font.regular,
+        },
+        error: {
+          color: theme.colors.danger,
+          marginTop: 24,
+          fontFamily: theme.font.regular,
+        },
+      }),
+    [theme],
+  );
 
   useEffect(() => {
     apiFetch("/api/m/members/list")
@@ -41,7 +83,7 @@ export default function PickMember() {
 
       {members === null && !error && (
         <View style={{ marginTop: 32 }}>
-          <ActivityIndicator color="#fff" />
+          <ActivityIndicator color={theme.colors.accent} />
         </View>
       )}
       {error && <Text style={styles.error}>{error}</Text>}
@@ -62,22 +104,3 @@ export default function PickMember() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#111",
-    padding: 24,
-    paddingTop: 80,
-  },
-  title: { color: "#fff", fontSize: 28, fontWeight: "700" },
-  subtitle: { color: "#999", fontSize: 14, marginTop: 8 },
-  row: {
-    backgroundColor: "#1a1a1a",
-    paddingHorizontal: 16,
-    paddingVertical: 18,
-    borderRadius: 12,
-  },
-  rowText: { color: "#fff", fontSize: 18 },
-  error: { color: "#f88", marginTop: 24 },
-});

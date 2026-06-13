@@ -12,6 +12,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useRouter, useFocusEffect } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { apiFetch } from "../../lib/api";
+import { useTheme } from "../../lib/theme";
 
 type Entry = {
   id: string;
@@ -45,6 +46,7 @@ function todayStr() {
 
 export default function FoodScreen() {
   const router = useRouter();
+  const theme = useTheme();
   const [addOpen, setAddOpen] = useState(false);
   const dateKey = todayStr();
 
@@ -100,10 +102,138 @@ export default function FoodScreen() {
   };
   const fmt = (n: number) => Math.round(n).toLocaleString("en-GB");
 
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        container: { flex: 1, backgroundColor: theme.colors.background },
+        center: {
+          flex: 1,
+          backgroundColor: theme.colors.background,
+          alignItems: "center",
+          justifyContent: "center",
+        },
+        heading: {
+          color: theme.colors.foreground,
+          fontSize: 32,
+          fontFamily: theme.font.bold,
+        },
+        kcalTotal: {
+          color: theme.colors.foreground,
+          fontSize: 24,
+          fontFamily: theme.font.semibold,
+          marginTop: 8,
+          fontVariant: ["tabular-nums"],
+        },
+        macroLine: {
+          color: theme.colors.muted,
+          fontSize: 14,
+          marginTop: 4,
+          fontVariant: ["tabular-nums"],
+          fontFamily: theme.font.regular,
+        },
+        section: { marginTop: 24 },
+        sectionHeader: {
+          color: theme.colors.muted,
+          fontSize: 12,
+          fontFamily: theme.font.semibold,
+          textTransform: "uppercase",
+          letterSpacing: 0.5,
+          marginBottom: 8,
+        },
+        row: {
+          backgroundColor: theme.colors.card,
+          padding: 12,
+          borderRadius: 10,
+          marginBottom: 6,
+        },
+        foodName: {
+          color: theme.colors.foreground,
+          fontSize: 15,
+          fontFamily: theme.font.regular,
+        },
+        foodMeta: {
+          color: theme.colors.mutedFaint,
+          fontSize: 12,
+          marginTop: 2,
+          fontFamily: theme.font.regular,
+        },
+        emptyRow: {
+          color: theme.colors.mutedFaint,
+          fontSize: 13,
+          paddingHorizontal: 4,
+          fontFamily: theme.font.regular,
+        },
+        fab: {
+          position: "absolute",
+          bottom: 96,
+          right: 24,
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 6,
+          backgroundColor: theme.colors.accent,
+          paddingHorizontal: 18,
+          paddingVertical: 14,
+          borderRadius: theme.radius.pill,
+          shadowColor: theme.colors.shadow,
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.4,
+          shadowRadius: 8,
+          elevation: 6,
+        },
+        fabText: {
+          color: theme.colors.accentForeground,
+          fontFamily: theme.font.bold,
+          fontSize: 16,
+        },
+        backdrop: {
+          flex: 1,
+          backgroundColor: theme.colors.overlay,
+          justifyContent: "flex-end",
+        },
+        sheet: {
+          backgroundColor: theme.colors.card,
+          borderTopLeftRadius: 20,
+          borderTopRightRadius: 20,
+          padding: 16,
+          paddingBottom: 32,
+          gap: 12,
+        },
+        handle: {
+          alignSelf: "center",
+          width: 36,
+          height: 4,
+          borderRadius: 2,
+          backgroundColor: theme.colors.border,
+          marginBottom: 8,
+        },
+        sheetTitle: {
+          color: theme.colors.muted,
+          fontSize: 12,
+          fontFamily: theme.font.semibold,
+          textTransform: "uppercase",
+          letterSpacing: 0.5,
+        },
+        addOption: {
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 12,
+          backgroundColor: theme.colors.cardElevated,
+          padding: 16,
+          borderRadius: theme.radius.md,
+        },
+        addOptionText: {
+          color: theme.colors.foreground,
+          fontSize: 16,
+          fontFamily: theme.font.semibold,
+        },
+      }),
+    [theme],
+  );
+
   if (entriesQ.isLoading && !entriesQ.data) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator color="#fff" />
+        <ActivityIndicator color={theme.colors.accent} />
       </View>
     );
   }
@@ -144,7 +274,7 @@ export default function FoodScreen() {
       </ScrollView>
 
       <Pressable style={styles.fab} onPress={() => setAddOpen(true)}>
-        <Feather name="plus" size={20} color="#fff" />
+        <Feather name="plus" size={20} color={theme.colors.accentForeground} />
         <Text style={styles.fabText}>Add</Text>
       </Pressable>
 
@@ -165,7 +295,7 @@ export default function FoodScreen() {
                 router.push("/food-add");
               }}
             >
-              <Feather name="search" size={20} color="#fff" />
+              <Feather name="search" size={20} color={theme.colors.foreground} />
               <Text style={styles.addOptionText}>Search</Text>
             </Pressable>
             <Pressable
@@ -175,7 +305,7 @@ export default function FoodScreen() {
                 router.push("/food-barcode");
               }}
             >
-              <Feather name="camera" size={20} color="#fff" />
+              <Feather name="camera" size={20} color={theme.colors.foreground} />
               <Text style={styles.addOptionText}>Scan barcode</Text>
             </Pressable>
           </Pressable>
@@ -184,100 +314,3 @@ export default function FoodScreen() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#111" },
-  center: {
-    flex: 1,
-    backgroundColor: "#111",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  heading: { color: "#fff", fontSize: 32, fontWeight: "700" },
-  kcalTotal: {
-    color: "#fff",
-    fontSize: 24,
-    fontWeight: "600",
-    marginTop: 8,
-    fontVariant: ["tabular-nums"],
-  },
-  macroLine: {
-    color: "#999",
-    fontSize: 14,
-    marginTop: 4,
-    fontVariant: ["tabular-nums"],
-  },
-  section: { marginTop: 24 },
-  sectionHeader: {
-    color: "#999",
-    fontSize: 12,
-    fontWeight: "600",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-    marginBottom: 8,
-  },
-  row: {
-    backgroundColor: "#1a1a1a",
-    padding: 12,
-    borderRadius: 10,
-    marginBottom: 6,
-  },
-  foodName: { color: "#fff", fontSize: 15 },
-  foodMeta: { color: "#666", fontSize: 12, marginTop: 2 },
-  emptyRow: { color: "#444", fontSize: 13, paddingHorizontal: 4 },
-  fab: {
-    position: "absolute",
-    bottom: 96,
-    right: 24,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    backgroundColor: "#3b82f6",
-    paddingHorizontal: 18,
-    paddingVertical: 14,
-    borderRadius: 999,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  fabText: { color: "#fff", fontWeight: "700", fontSize: 16 },
-  backdrop: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    justifyContent: "flex-end",
-  },
-  sheet: {
-    backgroundColor: "#1a1a1a",
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 16,
-    paddingBottom: 32,
-    gap: 12,
-  },
-  handle: {
-    alignSelf: "center",
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: "#333",
-    marginBottom: 8,
-  },
-  sheetTitle: {
-    color: "#999",
-    fontSize: 12,
-    fontWeight: "600",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-  addOption: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    backgroundColor: "#252525",
-    padding: 16,
-    borderRadius: 12,
-  },
-  addOptionText: { color: "#fff", fontSize: 16, fontWeight: "600" },
-});

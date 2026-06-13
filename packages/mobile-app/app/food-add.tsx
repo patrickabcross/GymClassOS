@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useMemo, useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -12,6 +12,7 @@ import { useRouter } from "expo-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Feather } from "@expo/vector-icons";
 import { apiFetch } from "../lib/api";
+import { useTheme } from "../lib/theme";
 
 type Result = {
   id: string;
@@ -28,6 +29,7 @@ type MealType = "breakfast" | "lunch" | "dinner" | "snack";
 
 export default function FoodAddScreen() {
   const router = useRouter();
+  const theme = useTheme();
   const qc = useQueryClient();
   const [q, setQ] = useState("");
   const [debouncedQ, setDebouncedQ] = useState("");
@@ -48,6 +50,136 @@ export default function FoodAddScreen() {
       apiFetch(`/api/m/foods/search?q=${encodeURIComponent(debouncedQ)}`),
     enabled: debouncedQ.length >= 2,
   });
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        container: {
+          flex: 1,
+          backgroundColor: theme.colors.background,
+          padding: 16,
+        },
+        searchRow: {
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 8,
+          backgroundColor: theme.colors.card,
+          paddingHorizontal: 12,
+          borderRadius: 10,
+        },
+        input: {
+          flex: 1,
+          color: theme.colors.foreground,
+          paddingVertical: 12,
+          fontSize: 16,
+          fontFamily: theme.font.regular,
+        },
+        resultRow: {
+          flexDirection: "row",
+          alignItems: "center",
+          padding: 12,
+          gap: 12,
+          borderRadius: 10,
+        },
+        resultName: {
+          color: theme.colors.foreground,
+          fontSize: 15,
+          fontFamily: theme.font.regular,
+        },
+        resultBrand: {
+          color: theme.colors.mutedFaint,
+          fontSize: 12,
+          marginTop: 2,
+          fontFamily: theme.font.regular,
+        },
+        resultKcal: {
+          color: theme.colors.muted,
+          fontSize: 13,
+          fontFamily: theme.font.regular,
+        },
+        empty: {
+          color: theme.colors.mutedFaint,
+          padding: 16,
+          fontFamily: theme.font.regular,
+        },
+        confirmCard: {
+          backgroundColor: theme.colors.card,
+          padding: 16,
+          borderRadius: theme.radius.md,
+          marginTop: 12,
+          gap: 8,
+        },
+        confirmName: {
+          color: theme.colors.foreground,
+          fontSize: 18,
+          fontFamily: theme.font.bold,
+        },
+        confirmBrand: {
+          color: theme.colors.muted,
+          fontSize: 14,
+          fontFamily: theme.font.regular,
+        },
+        confirmKcal: {
+          color: theme.colors.muted,
+          fontSize: 13,
+          marginBottom: 8,
+          fontFamily: theme.font.regular,
+        },
+        label: {
+          color: theme.colors.muted,
+          fontSize: 12,
+          marginTop: 12,
+          fontFamily: theme.font.semibold,
+        },
+        qtyInput: {
+          backgroundColor: theme.colors.cardElevated,
+          color: theme.colors.foreground,
+          padding: 12,
+          borderRadius: theme.radius.sm,
+          fontSize: 16,
+          fontFamily: theme.font.regular,
+        },
+        mealRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+        mealPill: {
+          backgroundColor: theme.colors.cardElevated,
+          paddingHorizontal: 14,
+          paddingVertical: 8,
+          borderRadius: theme.radius.pill,
+        },
+        mealPillActive: { backgroundColor: theme.colors.accent },
+        mealPillText: {
+          color: theme.colors.muted,
+          fontSize: 14,
+          fontFamily: theme.font.regular,
+        },
+        mealPillTextActive: {
+          color: theme.colors.accentForeground,
+          fontFamily: theme.font.semibold,
+        },
+        logBtn: {
+          backgroundColor: theme.colors.accent,
+          padding: 14,
+          borderRadius: theme.radius.sm,
+          alignItems: "center",
+          marginTop: 16,
+        },
+        logBtnText: {
+          color: theme.colors.accentForeground,
+          fontFamily: theme.font.bold,
+          fontSize: 16,
+        },
+        error: {
+          color: theme.colors.danger,
+          marginTop: 8,
+          fontFamily: theme.font.regular,
+        },
+        pickDifferent: {
+          color: theme.colors.muted,
+          fontFamily: theme.font.regular,
+        },
+      }),
+    [theme],
+  );
 
   async function logEntry() {
     if (!selected) return;
@@ -90,12 +222,12 @@ export default function FoodAddScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.searchRow}>
-        <Feather name="search" size={18} color="#999" />
+        <Feather name="search" size={18} color={theme.colors.muted} />
         <TextInput
           value={q}
           onChangeText={setQ}
           placeholder="Search foods (e.g. banana)"
-          placeholderTextColor="#666"
+          placeholderTextColor={theme.colors.mutedFaint}
           style={styles.input}
           autoFocus
         />
@@ -159,14 +291,14 @@ export default function FoodAddScreen() {
             onPress={() => setSelected(null)}
             style={{ alignSelf: "center", padding: 12 }}
           >
-            <Text style={{ color: "#999" }}>Pick a different food</Text>
+            <Text style={styles.pickDifferent}>Pick a different food</Text>
           </Pressable>
         </View>
       ) : (
         <>
           {isLoading && debouncedQ && (
             <View style={{ padding: 16 }}>
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color={theme.colors.accent} />
             </View>
           )}
           <FlatList
@@ -199,64 +331,3 @@ export default function FoodAddScreen() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#111", padding: 16 },
-  searchRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    backgroundColor: "#1a1a1a",
-    paddingHorizontal: 12,
-    borderRadius: 10,
-  },
-  input: { flex: 1, color: "#fff", paddingVertical: 12, fontSize: 16 },
-  resultRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 12,
-    gap: 12,
-    borderRadius: 10,
-  },
-  resultName: { color: "#fff", fontSize: 15 },
-  resultBrand: { color: "#777", fontSize: 12, marginTop: 2 },
-  resultKcal: { color: "#999", fontSize: 13 },
-  empty: { color: "#666", padding: 16 },
-  confirmCard: {
-    backgroundColor: "#1a1a1a",
-    padding: 16,
-    borderRadius: 12,
-    marginTop: 12,
-    gap: 8,
-  },
-  confirmName: { color: "#fff", fontSize: 18, fontWeight: "700" },
-  confirmBrand: { color: "#999", fontSize: 14 },
-  confirmKcal: { color: "#999", fontSize: 13, marginBottom: 8 },
-  label: { color: "#999", fontSize: 12, marginTop: 12, fontWeight: "600" },
-  qtyInput: {
-    backgroundColor: "#252525",
-    color: "#fff",
-    padding: 12,
-    borderRadius: 8,
-    fontSize: 16,
-  },
-  mealRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  mealPill: {
-    backgroundColor: "#252525",
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 999,
-  },
-  mealPillActive: { backgroundColor: "#3b82f6" },
-  mealPillText: { color: "#999", fontSize: 14 },
-  mealPillTextActive: { color: "#fff", fontWeight: "600" },
-  logBtn: {
-    backgroundColor: "#3b82f6",
-    padding: 14,
-    borderRadius: 8,
-    alignItems: "center",
-    marginTop: 16,
-  },
-  logBtnText: { color: "#fff", fontWeight: "700", fontSize: 16 },
-  error: { color: "#f88", marginTop: 8 },
-});
