@@ -69,7 +69,7 @@ export function GymosTopNav() {
         Home
       </Link>
       <Link to="/gymos/inbox" className={tabClass(isInbox)}>
-        Inbox
+        Messages
       </Link>
       <Link to="/gymos/schedule" className={tabClass(isSchedule)}>
         Schedule

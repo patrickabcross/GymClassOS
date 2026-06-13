@@ -61,7 +61,7 @@ import { ImportLeadsDialog } from "@/components/gymos/ImportLeadsDialog";
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "react-router";
 
 export function meta() {
-  return [{ title: "GymClassOS — WhatsApp Inbox" }];
+  return [{ title: "GymClassOS — Messages" }];
 }
 
 // ─── Loader ──────────────────────────────────────────────────────────────────
@@ -650,7 +650,7 @@ export default function GymosInbox() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5">
               <h1 className="text-sm font-semibold">
-                {isLeadsView ? "Leads" : "WhatsApp Inbox"}
+                {isLeadsView ? "Leads" : "Messages"}
               </h1>
               <Badge variant="outline" className="text-[10px] h-5">
                 {data.conversations.length}
@@ -674,7 +674,7 @@ export default function GymosInbox() {
               )}
             >
               <IconInbox size={10} aria-hidden />
-              Inbox
+              Messages
             </Link>
             <Link
               to="/gymos/inbox?filter=leads"
