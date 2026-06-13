@@ -93,7 +93,16 @@
   6. Staff web defaults to light theme; dark theme is absent (not a toggle — deferred to DSGN-F1)
   7. `/embed/schedule` and the lead-capture embed both render correctly inside an iframe on both light and dark host backgrounds, themed by studio tokens
   8. The lead-capture form uses "Enquiry" vocabulary (not "Sign up" or "Contact")
-**Plans**: TBD
+**Plans**: 7 plans (2 waves)
+
+Plans:
+- [ ] R4-01-schedule-class-cards-PLAN.md (wave 1) — class cards: name/time/X-of-Y booked + 3-state capacity (amber <=3, red at 0) + accent today-cell [SWEB-01, SWEB-02]
+- [ ] R4-02-member-profile-widget-cards-PLAN.md (wave 1) — pass-balance pill + next-class card + bookings timeline with Show-all reveal [SWEB-04]
+- [ ] R4-03-members-directory-card-view-PLAN.md (wave 1) — card-default directory (avatar/membership pill/next class) + Table tab via ?view [SWEB-05]
+- [ ] R4-04-embed-widgets-token-theming-PLAN.md (wave 1) — /embed/schedule + lead form: light/white default, --studio-* token theming, Enquiry vocab; WDGT-03 light/dark host UAT checkpoint [WDGT-01, WDGT-02, WDGT-03]
+- [ ] R4-05-member-context-widget-cards-PLAN.md (wave 1) — conversation member-context rail -> Pass Balance / Next Class / Last Visit widget cards [SWEB-03]
+- [ ] R4-06-messages-responsiveness-PLAN.md (wave 2, after R4-05) — desktop 3-pane -> mobile single-column + member-context bottom Sheet [SWEB-06]
+- [ ] R4-07-role-nav-and-light-theme-PLAN.md (wave 1) — role-gated nav (admin tabs via GYMOS_ADMIN_EMAILS) + light-locked ThemeProvider, dark toggle removed [SWEB-07, SWEB-08]
 **UI hint**: yes
 
 ### Phase R5: Member Mobile App Redesign
@@ -118,7 +127,7 @@
 | R1. Audit Baseline | 3/3 | Complete    | 2026-06-12 |
 | R2. Design System Token Layer | 4/4 | Complete   | 2026-06-13 |
 | R3. Naming & IA Pass | 4/4 | Complete   | 2026-06-13 |
-| R4. Staff Web Visual Refresh + Embed Widgets | 0/TBD | Not started | - |
+| R4. Staff Web Visual Refresh + Embed Widgets | 0/7 | Not started | - |
 | R5. Member Mobile App Redesign | 0/TBD | Not started | - |
 
 **Coverage:** 30 v1.1 requirements mapped across 5 phases (R1–R5).
