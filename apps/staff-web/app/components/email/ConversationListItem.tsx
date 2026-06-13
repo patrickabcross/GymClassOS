@@ -22,7 +22,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-interface EmailListItemProps {
+interface ConversationListItemProps {
   email: EmailMessage;
   thread?: ThreadSummary;
   isSelected: boolean;
@@ -138,7 +138,7 @@ function getLabelStyle(labelId: string): { bg: string; text: string } {
   return options[Math.abs(hash) % options.length];
 }
 
-export const EmailListItem = memo(function EmailListItem({
+export const ConversationListItem = memo(function ConversationListItem({
   email,
   thread,
   isSelected,
@@ -157,7 +157,7 @@ export const EmailListItem = memo(function EmailListItem({
   onSwipeArchive,
   onSwipeSnooze,
   highlight,
-}: EmailListItemProps) {
+}: ConversationListItemProps) {
   const { allAccounts } = useAccountFilter();
   const isMultiAccount = allAccounts.length > 1;
 

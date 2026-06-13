@@ -12,7 +12,7 @@ import {
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router";
 import { cn } from "@/lib/utils";
-import { EmailListItem } from "./EmailListItem";
+import { ConversationListItem } from "./ConversationListItem";
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import {
   useEmails,
@@ -49,7 +49,7 @@ import { setUndoAction } from "@/hooks/use-undo";
 import { toast } from "sonner";
 import { groupIntoThreads, type ThreadSummary } from "@/lib/threads";
 
-interface EmailListProps {
+interface ConversationListProps {
   emails?: EmailMessage[];
   focusedId: string | null;
   setFocusedId: (id: string | null) => void;
@@ -318,7 +318,7 @@ function EmailErrorState({
 
 // ─── Email List ─────────────────────────────────────────────────────────────
 
-export function EmailList({
+export function ConversationList({
   emails: emailsProp,
   focusedId,
   setFocusedId,
@@ -328,7 +328,7 @@ export function EmailList({
   onArchived,
   onDraftOpen,
   onNavigateThread,
-}: EmailListProps) {
+}: ConversationListProps) {
   const navigate = useNavigate();
   const { view = "inbox", threadId } = useParams<{
     view: string;
@@ -1358,7 +1358,7 @@ export function EmailList({
       )}
       <div className="flex-1 overflow-y-auto">
         {threads.map((thread) => (
-          <EmailListItem
+          <ConversationListItem
             key={thread.latestMessage.id}
             email={thread.latestMessage}
             thread={thread}

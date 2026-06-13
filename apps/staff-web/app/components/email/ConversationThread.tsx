@@ -76,7 +76,7 @@ import {
 import { MobileActionBar, DEFAULT_MOBILE_ACTIONS } from "./MobileActionBar";
 import { useIsMobile } from "@/hooks/use-mobile";
 
-export function EmailThread({
+export function ConversationThread({
   activeThreadId,
   onArchived,
   emailIds = [],

@@ -2,9 +2,12 @@ import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useParams, useNavigate, useSearchParams } from "react-router";
 import { cn } from "@/lib/utils";
-import { EmailList, InboxZero } from "@/components/email/EmailList";
+import {
+  ConversationList,
+  InboxZero,
+} from "@/components/email/ConversationList";
 import { groupIntoThreads, type ThreadSummary } from "@/lib/threads";
-import { EmailThread } from "@/components/email/EmailThread";
+import { ConversationThread } from "@/components/email/ConversationThread";
 import { useComposeState } from "@/hooks/use-compose-state";
 import {
   useNavigationState,
@@ -621,7 +624,7 @@ export function InboxPage() {
       )}
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         {hasThread ? (
-          <EmailThread
+          <ConversationThread
             activeThreadId={threadId}
             onArchived={setLastArchivedId}
             emailIds={threadIds}
@@ -634,7 +637,7 @@ export function InboxPage() {
             onToggleMaximize={() => setIsMaximized((v) => !v)}
           />
         ) : (
-          <EmailList
+          <ConversationList
             emails={emails}
             focusedId={focusedId}
             setFocusedId={setFocusedId}
