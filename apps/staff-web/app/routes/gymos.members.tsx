@@ -2,7 +2,7 @@
 
 import { useLoaderData, Link, useSearchParams } from "react-router";
 import { useState, useMemo } from "react";
-import { eq, asc, sql, gt } from "drizzle-orm";
+import { eq, asc, sql } from "drizzle-orm";
 import { format } from "date-fns";
 import {
   IconSearch,
@@ -162,11 +162,6 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function capitalise(s: string | null | undefined) {
-  if (!s) return "";
-  return s.charAt(0).toUpperCase() + s.slice(1).replace(/_/g, " ");
-}
-
 function fmtDate(iso: string | null | undefined) {
   if (!iso) return "—";
   const d = new Date(iso);
@@ -174,13 +169,36 @@ function fmtDate(iso: string | null | undefined) {
   return format(d, "d MMM yyyy");
 }
 
-const GRID = "grid-cols-[2fr_1.3fr_1.1fr_1.1fr_0.9fr]";
+function fmtShortDateTime(iso: string | null | undefined) {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return null;
+  return format(d, "EEE d MMM · HH:mm");
+}
+
+function initials(firstName: string | null, lastName: string | null) {
+  return `${(firstName ?? "").charAt(0)}${(lastName ?? "").charAt(0)}`
+    .toUpperCase()
+    .trim();
+}
+
+/** Determine membership status badge for a member. Order: Expiring → Active → No Pass → Lead */
+function membershipStatus(balance: number, firstPurchaseAt: string | null) {
+  if (balance > 0 && balance < 3) return "expiring" as const;
+  if (balance > 0) return "active" as const;
+  if (firstPurchaseAt) return "no-pass" as const;
+  return "lead" as const;
+}
 
 // ─── Route ───────────────────────────────────────────────────────────────────
 
 export default function GymosMembers() {
   const data = useLoaderData<typeof loader>();
   const [query, setQuery] = useState("");
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // URL-state-driven view toggle: no ?view param = cards (default), ?view=table = table.
+  const view = searchParams.get("view") === "table" ? "table" : "cards";
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -211,7 +229,7 @@ export default function GymosMembers() {
               </Badge>
             </div>
             <p className="mt-1 text-[12px] text-muted-foreground">
-              All gym members and leads. Click a row to open profile.
+              All gym members and leads. Click a card to open profile.
             </p>
           </div>
           <Link
@@ -222,7 +240,7 @@ export default function GymosMembers() {
           </Link>
         </header>
 
-        {/* Search */}
+        {/* Search — above the tabs per spec */}
         <div className="relative mb-4 max-w-sm">
           <IconSearch
             className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none"
@@ -232,95 +250,272 @@ export default function GymosMembers() {
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search name, email or phone…"
+            placeholder="Search members..."
             className="h-9 pl-8 text-[13px]"
           />
         </div>
 
-        {/* Directory list */}
-        <div className="rounded-lg border border-border/60 bg-card/30 overflow-hidden">
-          {/* Column header row */}
-          <div
-            className={cn(
-              "grid gap-4 px-4 py-2.5 border-b border-border/60 bg-muted/30 text-[10px] uppercase tracking-wide text-muted-foreground",
-              GRID,
-            )}
-          >
-            <span>Name</span>
-            <span>Phone</span>
-            <span>Lead received</span>
-            <span>First purchase</span>
-            <span className="text-right">Pass balance</span>
-          </div>
+        {/* Card / Table toggle via shadcn Tabs with ?view URL param */}
+        <Tabs
+          value={view}
+          onValueChange={(v) => {
+            setSearchParams((prev) => {
+              const next = new URLSearchParams(prev);
+              if (v === "table") {
+                next.set("view", "table");
+              } else {
+                next.delete("view");
+              }
+              return next;
+            });
+          }}
+        >
+          <TabsList className="bg-muted rounded-md p-0.5 mb-4">
+            <TabsTrigger
+              value="cards"
+              className="flex items-center gap-1.5 text-[12px]"
+            >
+              <IconLayoutGrid size={14} aria-hidden /> Cards
+            </TabsTrigger>
+            <TabsTrigger
+              value="table"
+              className="flex items-center gap-1.5 text-[12px]"
+            >
+              <IconTable size={14} aria-hidden /> Table
+            </TabsTrigger>
+          </TabsList>
 
-          {filtered.length === 0 && (
-            <div className="px-4 py-10 text-center text-[13px] text-muted-foreground">
-              {data.members.length === 0
-                ? "No members yet — leads from your forms will appear here."
-                : "No members match your search."}
-            </div>
-          )}
+          {/* ── Card view (default) ─────────────────────────────────────────── */}
+          <TabsContent value="cards">
+            {filtered.length === 0 ? (
+              <EmptyState
+                isEmpty={data.members.length === 0}
+                hasQuery={!!query.trim()}
+              />
+            ) : (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {filtered.map((m) => {
+                  const name =
+                    `${m.firstName ?? ""} ${m.lastName ?? ""}`.trim() ||
+                    "Unnamed";
+                  const balance = data.balances[m.id] ?? 0;
+                  const status = membershipStatus(balance, m.firstPurchaseAt);
+                  const nextClass = data.nextClassByMember[m.id];
 
-          {filtered.map((m) => {
-            const name =
-              `${m.firstName ?? ""} ${m.lastName ?? ""}`.trim() || "Unnamed";
-            const balance = data.balances[m.id] ?? 0;
-            return (
-              <Link
-                key={m.id}
-                to={`/gymos/members/${m.id}`}
-                className={cn(
-                  "grid gap-4 px-4 py-3 border-b border-border/30 last:border-b-0",
-                  "items-center text-[13px] hover:bg-accent/40 transition",
-                  GRID,
-                )}
-              >
-                <div className="flex flex-col min-w-0">
-                  <span className="font-semibold truncate">{name}</span>
-                  {m.email && (
-                    <span className="text-[11px] text-muted-foreground truncate">
-                      {m.email}
-                    </span>
-                  )}
-                  {m.goal && (
-                    <span className="text-[11px] text-muted-foreground/70 capitalize">
-                      {capitalise(m.goal)}
-                    </span>
-                  )}
-                </div>
-                <div className="text-muted-foreground tabular-nums">
-                  {m.phoneE164 ?? "—"}
-                </div>
-                <div className="text-muted-foreground tabular-nums">
-                  {fmtDate(m.createdAt)}
-                </div>
-                <div className="tabular-nums">
-                  {m.firstPurchaseAt ? (
-                    <span className="text-muted-foreground">
-                      {fmtDate(m.firstPurchaseAt)}
-                    </span>
-                  ) : (
-                    <Badge
-                      variant="outline"
-                      className="text-[10px] font-normal"
+                  return (
+                    <Link
+                      key={m.id}
+                      to={`/gymos/members/${m.id}`}
+                      className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-lg"
                     >
-                      Lead
-                    </Badge>
-                  )}
-                </div>
-                <div className="text-right">
-                  <Badge
-                    variant={balance > 0 ? "default" : "outline"}
-                    className="tabular-nums text-[11px]"
-                  >
-                    {balance} credits
-                  </Badge>
-                </div>
-              </Link>
-            );
-          })}
-        </div>
+                      <Card className="p-4 hover:shadow-sm transition cursor-pointer h-full">
+                        {/* Avatar + name row */}
+                        <div className="flex items-center gap-3 mb-3">
+                          <Avatar className="h-10 w-10 shrink-0">
+                            <AvatarFallback className="text-[13px] font-semibold bg-muted text-muted-foreground">
+                              {initials(m.firstName, m.lastName)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold truncate">
+                              {name}
+                            </p>
+                            <MembershipBadge status={status} />
+                          </div>
+                        </div>
+
+                        {/* Next class */}
+                        {nextClass?.className && (
+                          <p className="text-[12px] text-muted-foreground truncate">
+                            Next class:{" "}
+                            <span className="font-medium">
+                              {nextClass.className}
+                            </span>
+                            {nextClass.startsAt
+                              ? ` · ${fmtShortDateTime(nextClass.startsAt)}`
+                              : ""}
+                          </p>
+                        )}
+
+                        {/* Pass balance */}
+                        <p className="text-[12px] text-muted-foreground mt-0.5">
+                          Pass balance:{" "}
+                          <span className="font-medium tabular-nums">
+                            {balance} credits
+                          </span>
+                        </p>
+                      </Card>
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </TabsContent>
+
+          {/* ── Table view (secondary) ──────────────────────────────────────── */}
+          <TabsContent value="table">
+            {filtered.length === 0 ? (
+              <EmptyState
+                isEmpty={data.members.length === 0}
+                hasQuery={!!query.trim()}
+              />
+            ) : (
+              <div className="rounded-lg border border-border/60 bg-card/30 overflow-hidden">
+                <table className="w-full text-[12px]">
+                  <thead>
+                    <tr className="border-b border-border/60 bg-muted/30">
+                      <th className="px-4 py-2.5 text-left text-[11px] uppercase tracking-wide text-muted-foreground font-medium">
+                        Name
+                      </th>
+                      <th className="px-4 py-2.5 text-left text-[11px] uppercase tracking-wide text-muted-foreground font-medium">
+                        Pass Balance
+                      </th>
+                      <th className="px-4 py-2.5 text-left text-[11px] uppercase tracking-wide text-muted-foreground font-medium">
+                        Next Class
+                      </th>
+                      <th className="px-4 py-2.5 text-left text-[11px] uppercase tracking-wide text-muted-foreground font-medium">
+                        Member Since
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.map((m) => {
+                      const name =
+                        `${m.firstName ?? ""} ${m.lastName ?? ""}`.trim() ||
+                        "Unnamed";
+                      const balance = data.balances[m.id] ?? 0;
+                      const nextClass = data.nextClassByMember[m.id];
+
+                      return (
+                        <tr
+                          key={m.id}
+                          className="border-b border-border/30 last:border-b-0 hover:bg-accent/40 transition"
+                          style={{ minHeight: "40px" }}
+                        >
+                          <td
+                            className="px-4 py-2.5"
+                            style={{ minHeight: "40px" }}
+                          >
+                            <Link
+                              to={`/gymos/members/${m.id}`}
+                              className="block font-semibold text-foreground hover:underline"
+                            >
+                              {name}
+                            </Link>
+                            {m.email && (
+                              <span className="text-[11px] text-muted-foreground">
+                                {m.email}
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-4 py-2.5 tabular-nums text-muted-foreground">
+                            {balance} credits
+                          </td>
+                          <td className="px-4 py-2.5 text-muted-foreground">
+                            {nextClass?.className ? (
+                              <>
+                                <span className="font-medium text-foreground">
+                                  {nextClass.className}
+                                </span>
+                                {nextClass.startsAt && (
+                                  <span className="block text-[11px] tabular-nums">
+                                    {fmtShortDateTime(nextClass.startsAt)}
+                                  </span>
+                                )}
+                              </>
+                            ) : (
+                              "—"
+                            )}
+                          </td>
+                          <td className="px-4 py-2.5 tabular-nums text-muted-foreground">
+                            {fmtDate(m.createdAt)}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
       </div>
+    </div>
+  );
+}
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+function MembershipBadge({
+  status,
+}: {
+  status: "active" | "expiring" | "no-pass" | "lead";
+}) {
+  if (status === "expiring") {
+    return (
+      <Badge
+        variant="secondary"
+        className={cn(
+          "mt-1 text-[10px]",
+          // guard:allow-color — expiring amber semantic, not a brand color
+          "text-amber-700",
+        )}
+      >
+        Expiring
+      </Badge>
+    );
+  }
+  if (status === "active") {
+    return (
+      <Badge variant="default" className="mt-1 text-[10px]">
+        Active
+      </Badge>
+    );
+  }
+  if (status === "no-pass") {
+    return (
+      <Badge variant="outline" className="mt-1 text-[10px]">
+        No Pass
+      </Badge>
+    );
+  }
+  // lead
+  return (
+    <Badge variant="secondary" className="mt-1 text-[10px]">
+      Lead
+    </Badge>
+  );
+}
+
+function EmptyState({
+  isEmpty,
+  hasQuery,
+}: {
+  isEmpty: boolean;
+  hasQuery: boolean;
+}) {
+  if (isEmpty) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-2 py-16 text-center">
+        <IconUsers size={28} className="text-muted-foreground" aria-hidden />
+        <p className="text-[13px] font-semibold text-foreground">
+          No members yet
+        </p>
+        <p className="text-[12px] text-muted-foreground max-w-xs">
+          Members appear here when they join or enquire.
+        </p>
+      </div>
+    );
+  }
+  return (
+    <div className="flex flex-col items-center justify-center gap-2 py-16 text-center">
+      <IconSearch size={28} className="text-muted-foreground" aria-hidden />
+      <p className="text-[13px] font-semibold text-foreground">
+        No members found
+      </p>
+      <p className="text-[12px] text-muted-foreground max-w-xs">
+        Try a different name or phone number.
+      </p>
     </div>
   );
 }
