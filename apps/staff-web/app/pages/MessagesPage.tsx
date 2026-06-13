@@ -213,7 +213,7 @@ function ThreadListSidebar({
 const EMPTY_ACCOUNTS: { email: string; displayName?: string }[] = [];
 const EMPTY_LABELS: string[] = [];
 
-export function InboxPage() {
+export function MessagesPage() {
   const { view = "inbox", threadId: routeThreadId } = useParams<{
     view: string;
     threadId: string;

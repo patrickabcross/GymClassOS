@@ -1,4 +1,4 @@
-import { DraftQueuePage } from "@/pages/DraftQueuePage";
+import { ScheduledMessagesPage } from "@/pages/ScheduledMessagesPage";
 import { Spinner } from "@/components/ui/spinner";
 
 export function meta() {
@@ -14,5 +14,5 @@ export function HydrateFallback() {
 }
 
 export default function DraftQueueRoute() {
-  return <DraftQueuePage />;
+  return <ScheduledMessagesPage />;
 }

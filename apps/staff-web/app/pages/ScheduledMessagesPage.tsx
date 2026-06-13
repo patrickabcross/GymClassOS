@@ -592,7 +592,7 @@ function DraftDetail({
   );
 }
 
-export function DraftQueuePage() {
+export function ScheduledMessagesPage() {
   const params = useParams();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
