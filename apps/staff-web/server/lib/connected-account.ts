@@ -9,6 +9,7 @@
  * (single-tenant, no studio_id scoping by design — one row per deploy).
  */
 
+import type Stripe from "stripe";
 import { sql } from "drizzle-orm";
 import { getDb } from "../db/index.js";
 
@@ -93,5 +94,48 @@ export async function upsertConnectedAccountId(
       now()::text
     )
     ON CONFLICT (id) DO NOTHING
+  `);
+}
+
+/**
+ * Upsert readiness flags from a freshly-retrieved Stripe.Account.
+ *
+ * Mirrors the worker's account.updated reducer
+ * (services/worker/src/domain/stripeReducers/account-updated.ts) so the
+ * settings page can refetch authoritative state from Stripe on
+ * ?stripe=return — the account.updated webhook is the normal path, but it
+ * can lag or fail to deliver, leaving the UI stuck on "pending". Reading the
+ * real account from Stripe and upserting here keeps readiness correct
+ * independent of webhook timing.
+ *
+ * guard:allow-unscoped — connected_accounts is studio-global config (single-tenant)
+ */
+export async function upsertConnectedAccountReadiness(
+  account: Stripe.Account,
+): Promise<void> {
+  const db = getDb();
+  const currentlyDue = account.requirements?.currently_due ?? [];
+  const disabledReason = account.requirements?.disabled_reason ?? null;
+  // guard:allow-unscoped — connected_accounts is studio-global config (single-tenant)
+  await (db as any).execute(sql`
+    INSERT INTO connected_accounts
+      (id, charges_enabled, payouts_enabled, requirements_due, disabled_reason, raw_json, created_at, updated_at)
+    VALUES (
+      ${account.id},
+      ${account.charges_enabled ?? false},
+      ${account.payouts_enabled ?? false},
+      ${JSON.stringify(currentlyDue)},
+      ${disabledReason},
+      ${JSON.stringify(account)},
+      now()::text,
+      now()::text
+    )
+    ON CONFLICT (id) DO UPDATE SET
+      charges_enabled  = EXCLUDED.charges_enabled,
+      payouts_enabled  = EXCLUDED.payouts_enabled,
+      requirements_due = EXCLUDED.requirements_due,
+      disabled_reason  = EXCLUDED.disabled_reason,
+      raw_json         = EXCLUDED.raw_json,
+      updated_at       = now()::text
   `);
 }

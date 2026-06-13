@@ -48,7 +48,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const stripeParam = url.searchParams.get("stripe");
 
   // Connected account state (from connected_accounts table)
-  const connectedAccount = await readConnectedAccount();
+  let connectedAccount = await readConnectedAccount();
 
   // ?stripe=refresh → Stripe's onboarding link expired or was abandoned.
   // Auto-generate a fresh Account Link and redirect immediately.
@@ -80,6 +80,26 @@ export async function loader({ request }: LoaderFunctionArgs) {
         updatedAt: null,
         lastUsedAt: null,
       };
+    }
+  }
+
+  // ?stripe=return → user came back from hosted onboarding. The account.updated
+  // webhook normally fills readiness, but it can lag or fail to deliver (e.g.
+  // misregistered endpoint / signing-secret mismatch), leaving the UI stuck on
+  // "pending" forever. Refetch the authoritative account from Stripe and upsert
+  // so readiness reflects truth immediately, independent of webhook delivery.
+  if (stripeParam === "return" && connectedAccount) {
+    try {
+      const { getPlatformStripe } = await import("../../server/lib/stripe.js");
+      const { upsertConnectedAccountReadiness } = await import(
+        "../../server/lib/connected-account.js"
+      );
+      const platform = await getPlatformStripe();
+      const acct = await platform.accounts.retrieve(connectedAccount.id);
+      await upsertConnectedAccountReadiness(acct);
+      connectedAccount = await readConnectedAccount();
+    } catch {
+      // Non-fatal — fall back to whatever the webhook has written so far.
     }
   }
 
