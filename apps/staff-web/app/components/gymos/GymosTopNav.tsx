@@ -29,7 +29,7 @@ export function GymosTopNav() {
         : "text-muted-foreground hover:bg-accent/40 hover:text-foreground",
     );
   const isHome = path === "/gymos";
-  const isInbox = path.startsWith("/gymos/inbox");
+  const isMessages = path.startsWith("/gymos/messages");
   const isSchedule = path.startsWith("/gymos/schedule");
   const isMembers = path.startsWith("/gymos/members");
   const isPayments = path.startsWith("/gymos/payments");
@@ -68,7 +68,7 @@ export function GymosTopNav() {
       <Link to="/gymos" className={tabClass(isHome)}>
         Home
       </Link>
-      <Link to="/gymos/inbox" className={tabClass(isInbox)}>
+      <Link to="/gymos/messages" className={tabClass(isMessages)}>
         Messages
       </Link>
       <Link to="/gymos/schedule" className={tabClass(isSchedule)}>
