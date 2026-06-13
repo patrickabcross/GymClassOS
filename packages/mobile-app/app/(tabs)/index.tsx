@@ -4,14 +4,14 @@ import {
   ScrollView,
   Pressable,
   ActivityIndicator,
-  StyleSheet,
 } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter, useFocusEffect } from "expo-router";
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import { Feather } from "@expo/vector-icons";
 import { apiFetch } from "../../lib/api";
 import KcalRing from "../../components/KcalRing";
+import { useTheme } from "../../lib/theme";
 
 type ProfileResponse = {
   member: {
@@ -63,6 +63,7 @@ function bookingTimeLabel(iso: string) {
 }
 
 export default function HomeScreen() {
+  const theme = useTheme();
   const router = useRouter();
   const { data, isLoading, error, refetch } = useQuery<ProfileResponse>({
     queryKey: ["profile"],
@@ -76,10 +77,104 @@ export default function HomeScreen() {
     }, [refetch]),
   );
 
+  const styles = useMemo(
+    () => ({
+      container: { flex: 1, backgroundColor: theme.colors.background },
+      center: {
+        flex: 1,
+        alignItems: "center" as const,
+        justifyContent: "center" as const,
+        backgroundColor: theme.colors.background,
+        padding: theme.spacing.xl,
+        gap: theme.spacing.lg,
+      },
+      greeting: {
+        color: theme.colors.foreground,
+        fontSize: 32,
+        fontFamily: theme.font.bold,
+      },
+      pill: {
+        flexDirection: "row" as const,
+        alignItems: "center" as const,
+        alignSelf: "flex-start" as const,
+        gap: 6,
+        backgroundColor: theme.colors.cardElevated,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: theme.radius.pill,
+        marginTop: theme.spacing.sm,
+      },
+      pillRed: { backgroundColor: theme.colors.dangerSoft },
+      pillText: {
+        color: theme.colors.foreground,
+        fontSize: 13,
+        fontFamily: theme.font.semibold,
+      },
+      card: {
+        backgroundColor: theme.colors.card,
+        borderRadius: theme.radius.md,
+        padding: theme.spacing.lg,
+        marginTop: theme.spacing.lg,
+      },
+      sectionLabel: {
+        color: theme.colors.muted,
+        fontSize: 12,
+        fontFamily: theme.font.semibold,
+        textTransform: "uppercase" as const,
+        letterSpacing: 0.5,
+        marginBottom: theme.spacing.sm,
+      },
+      bookingRow: {
+        flexDirection: "row" as const,
+        alignItems: "center" as const,
+        paddingVertical: 4,
+      },
+      bookingTitle: {
+        color: theme.colors.foreground,
+        fontSize: 18,
+        fontFamily: theme.font.semibold,
+      },
+      bookingTime: {
+        color: theme.colors.muted,
+        fontSize: 14,
+        marginTop: 4,
+        fontFamily: theme.font.regular,
+      },
+      macroLine: {
+        color: theme.colors.foreground,
+        fontSize: 16,
+        textAlign: "center" as const,
+        marginTop: theme.spacing.sm,
+        fontVariant: ["tabular-nums"] as const,
+        fontFamily: theme.font.regular,
+      },
+      macroTargets: {
+        color: theme.colors.mutedFaint,
+        fontSize: 12,
+        textAlign: "center" as const,
+        marginTop: 4,
+        fontFamily: theme.font.regular,
+      },
+      btn: {
+        backgroundColor: theme.colors.accent,
+        paddingHorizontal: theme.spacing.lg,
+        paddingVertical: 12,
+        borderRadius: theme.radius.sm,
+        alignItems: "center" as const,
+      },
+      btnText: {
+        color: theme.colors.accentForeground,
+        fontFamily: theme.font.semibold,
+      },
+      error: { color: theme.colors.danger, fontFamily: theme.font.regular },
+    }),
+    [theme],
+  );
+
   if (isLoading && !data) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator color="#fff" />
+        <ActivityIndicator color={theme.colors.foreground} />
       </View>
     );
   }
@@ -105,7 +200,7 @@ export default function HomeScreen() {
     >
       <Text style={styles.greeting}>Hi {member.firstName}</Text>
       <View style={[styles.pill, lowBalance && styles.pillRed]}>
-        <Feather name="award" size={14} color="#fff" />
+        <Feather name="award" size={14} color={theme.colors.foreground} />
         <Text style={styles.pillText}>
           {passBalance} {passBalance === 1 ? "credit" : "credits"}
         </Text>
@@ -127,7 +222,7 @@ export default function HomeScreen() {
                 {bookingTimeLabel(upcomingBooking.startsAt)}
               </Text>
             </View>
-            <Feather name="chevron-right" size={20} color="#666" />
+            <Feather name="chevron-right" size={20} color={theme.colors.mutedFaint} />
           </Pressable>
         ) : (
           <Pressable
@@ -138,7 +233,7 @@ export default function HomeScreen() {
               <Text style={styles.bookingTitle}>No upcoming class</Text>
               <Text style={styles.bookingTime}>Tap to browse the schedule</Text>
             </View>
-            <Feather name="chevron-right" size={20} color="#666" />
+            <Feather name="chevron-right" size={20} color={theme.colors.mutedFaint} />
           </Pressable>
         )}
       </View>
@@ -167,72 +262,3 @@ export default function HomeScreen() {
     </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#111" },
-  center: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#111",
-    padding: 24,
-    gap: 16,
-  },
-  greeting: { color: "#fff", fontSize: 32, fontWeight: "700" },
-  pill: {
-    flexDirection: "row",
-    alignItems: "center",
-    alignSelf: "flex-start",
-    gap: 6,
-    backgroundColor: "#1f2937",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 999,
-    marginTop: 8,
-  },
-  pillRed: { backgroundColor: "#7f1d1d" },
-  pillText: { color: "#fff", fontSize: 13, fontWeight: "600" },
-  card: {
-    backgroundColor: "#1a1a1a",
-    borderRadius: 12,
-    padding: 16,
-    marginTop: 16,
-  },
-  sectionLabel: {
-    color: "#999",
-    fontSize: 12,
-    fontWeight: "600",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-    marginBottom: 8,
-  },
-  bookingRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 4,
-  },
-  bookingTitle: { color: "#fff", fontSize: 18, fontWeight: "600" },
-  bookingTime: { color: "#999", fontSize: 14, marginTop: 4 },
-  macroLine: {
-    color: "#fff",
-    fontSize: 16,
-    textAlign: "center",
-    marginTop: 8,
-    fontVariant: ["tabular-nums"],
-  },
-  macroTargets: {
-    color: "#666",
-    fontSize: 12,
-    textAlign: "center",
-    marginTop: 4,
-  },
-  btn: {
-    backgroundColor: "#3b82f6",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: "center",
-  },
-  btnText: { color: "#fff", fontWeight: "600" },
-  error: { color: "#f88" },
-});

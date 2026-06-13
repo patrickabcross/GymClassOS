@@ -1,5 +1,6 @@
 import React from "react";
-import { View, Text, StyleSheet } from "react-native";
+import { View, Text } from "react-native";
+import { useTheme } from "../lib/theme";
 
 type Props = {
   value: number;
@@ -16,6 +17,8 @@ type Props = {
  * Implementation: two half-disc clipping rectangles are rotated to expose
  * a coloured progress arc on top of a grey background ring. Resolution is
  * 1° (good enough for demo grade).
+ *
+ * Colours come from theme tokens (no bare hex literals).
  */
 export default function KcalRing({
   value,
@@ -23,6 +26,7 @@ export default function KcalRing({
   size = 160,
   stroke = 14,
 }: Props) {
+  const theme = useTheme();
   const pct = target > 0 ? Math.min(1, Math.max(0, value / target)) : 0;
   const deg = pct * 360;
   const inner = size - 2 * stroke;
@@ -34,23 +38,21 @@ export default function KcalRing({
   const leftDeg = Math.max(0, deg - 180);
 
   return (
-    <View style={[styles.wrap, { width: size, height: size }]}>
+    <View style={{ width: size, height: size, alignItems: "center", justifyContent: "center" }}>
       {/* Background ring */}
       <View
-        style={[
-          styles.ring,
-          {
-            width: size,
-            height: size,
-            borderRadius: size / 2,
-            borderWidth: stroke,
-            borderColor: "#2a2a2a",
-          },
-        ]}
+        style={{
+          position: "absolute",
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          borderWidth: stroke,
+          borderColor: theme.colors.border,
+        }}
       />
       {/* Right half progress */}
       <View
-        style={[styles.half, { width: size, height: size }]}
+        style={{ position: "absolute", overflow: "hidden", width: size, height: size }}
         pointerEvents="none"
       >
         <View
@@ -70,7 +72,7 @@ export default function KcalRing({
               left: -size / 2,
               borderRadius: size / 2,
               borderWidth: stroke,
-              borderColor: "#3b82f6",
+              borderColor: theme.colors.accent,
               transform: [{ rotate: `${rightDeg - 180}deg` }],
             }}
           />
@@ -79,7 +81,7 @@ export default function KcalRing({
       {/* Left half progress */}
       {leftDeg > 0 && (
         <View
-          style={[styles.half, { width: size, height: size }]}
+          style={{ position: "absolute", overflow: "hidden", width: size, height: size }}
           pointerEvents="none"
         >
           <View
@@ -97,7 +99,7 @@ export default function KcalRing({
                 height: size,
                 borderRadius: size / 2,
                 borderWidth: stroke,
-                borderColor: "#3b82f6",
+                borderColor: theme.colors.accent,
                 transform: [{ rotate: `${leftDeg}deg` }],
               }}
             />
@@ -116,19 +118,26 @@ export default function KcalRing({
           justifyContent: "center",
         }}
       >
-        <Text style={styles.bigNum}>{value.toLocaleString("en-GB")}</Text>
-        <Text style={styles.small}>
+        <Text
+          style={{
+            color: theme.colors.foreground,
+            fontSize: 32,
+            fontFamily: theme.font.bold,
+          }}
+        >
+          {value.toLocaleString("en-GB")}
+        </Text>
+        <Text
+          style={{
+            color: theme.colors.muted,
+            fontSize: 12,
+            marginTop: 4,
+            fontFamily: theme.font.regular,
+          }}
+        >
           / {target.toLocaleString("en-GB")} kcal
         </Text>
       </View>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  wrap: { alignItems: "center", justifyContent: "center" },
-  ring: { position: "absolute" },
-  half: { position: "absolute", overflow: "hidden" },
-  bigNum: { color: "#fff", fontSize: 32, fontWeight: "700" },
-  small: { color: "#999", fontSize: 12, marginTop: 4 },
-});
