@@ -54,7 +54,7 @@
   5. Studio name and logo appear at the top of the staff sidebar, sourced from the active skin config
 **Plans**: 4 plans
 - [x] R2-01-token-layer-and-skins-PLAN.md (wave 1) — bare @theme tokens + --studio-* defaults in global.css; default.css + hustle.css skins; skins/config.ts registry; studios/ env contract scaffold [DSGN-01, DSGN-03]
-- [ ] R2-02-skin-injector-and-studio-identity-PLAN.md (wave 2) — root loader reads GYMOS_STUDIO_SKIN, sets data-studio on <html> (SSR, no FOUC); GymosTopNav renders skin displayName/logo [DSGN-02, DSGN-05]
+- [x] R2-02-skin-injector-and-studio-identity-PLAN.md (wave 2) — root loader reads GYMOS_STUDIO_SKIN, sets data-studio on <html> (SSR, no FOUC); GymosTopNav renders skin displayName/logo [DSGN-02, DSGN-05]
 - [ ] R2-04-self-hosted-inter-PLAN.md (wave 3) — self-hosted Inter variable woff2 in public/fonts/; @font-face in global.css + preload in root.tsx; replace Google Fonts in 3 SSR pages [DSGN-04]
 - [ ] R2-03-hex-conversion-and-ci-guard-PLAN.md (wave 4) — guard-no-hardcoded-colors.mjs + guards/prep/CI wiring; convert/allowlist remaining hex so the guard passes [DSGN-01]
 **UI hint**: yes
@@ -111,7 +111,7 @@
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | R1. Audit Baseline | 3/3 | Complete    | 2026-06-12 |
-| R2. Design System Token Layer | 1/4 | In Progress|  |
+| R2. Design System Token Layer | 2/4 | In Progress|  |
 | R3. Naming & IA Pass | 0/TBD | Not started | - |
 | R4. Staff Web Visual Refresh + Embed Widgets | 0/TBD | Not started | - |
 | R5. Member Mobile App Redesign | 0/TBD | Not started | - |
@@ -173,7 +173,7 @@ Post-v1 backlog (HealthKit + native mobile, Coach View with health context, CRM 
 4. Member context panel in the inbox shows next-class + pass-balance for the opened conversation's member (real data)
 5. Stripe Checkout link generated for a 10-pack purchase + paid in Stripe test mode + resulting pass grant visible in member profile
 
-**Plans:** 1/4 plans executed
+**Plans:** 2/4 plans executed
 
 - [x] D1-01-schedule-surface-PLAN.md — Build /gymos/schedule week-grid + book-from-occurrence dialog (SCH-01, BKG-01) — completed 2026-05-19 (commits f5cdbdc6, dd50fe62, 23ee58f2)
 - [x] D1-02-members-directory-PLAN.md — Build /gymos/members + /gymos/members/:id profile with bookings + pass balance (MEM-01, MEM-02)
