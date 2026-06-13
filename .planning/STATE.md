@@ -4,8 +4,8 @@ milestone: v1.0
 milestone_name: milestone
 status: verifying
 stopped_at: Completed quick-260613-oul (checkout link generator on member profile)
-last_updated: "2026-06-13T17:06:18.757Z"
-last_activity: 2026-06-13 - P1c.1-07 SUMMARY written; all 7 plans committed; drop-in Checkout e2e proven live against gymos-demo Neon + Vercel + Fly stack (acct_1Thn4XER2RI3cQpx, evt_1ThpQ6ER2RI3cQpxpPdL5Mkn, pay_pi_3ThpQ4ER2RI3cQpx0w5B9OF6, 1 pass credit granted)
+last_updated: "2026-06-13T17:12:19.294Z"
+last_activity: 2026-06-13
 progress:
   total_phases: 14
   completed_phases: 2
@@ -34,10 +34,10 @@ Requirements: `.planning/REQUIREMENTS.md` (130 reqs across 20 categories — see
 ## Current Position
 
 Milestone: Demo Sprint (1 of 2) — Week 1 (target ~2026-05-24 — slipped to 2026-05-26 with live-fix wave)
-Phase: P1c.1 (Stripe Connect Custom + Customer Purchase Flows) — ALL PLANS COMPLETE; AWAITING PHASE VERIFICATION
-Plan: 7 of 7 (complete)
+Phase: P1c.1
+Plan: Not started
 Status: Phase e2e smoke test PASSED (2026-06-13); VERIFICATION.md authoring deferred to phase verifier
-Last activity: 2026-06-13 - P1c.1-07 SUMMARY written; all 7 plans committed; drop-in Checkout e2e proven live against gymos-demo Neon + Vercel + Fly stack (acct_1Thn4XER2RI3cQpx, evt_1ThpQ6ER2RI3cQpxpPdL5Mkn, pay_pi_3ThpQ4ER2RI3cQpx0w5B9OF6, 1 pass credit granted)
+Last activity: 2026-06-13
 
 **P1c-WIDE VERIFICATION CONSTRAINT (accumulated context — read before executing P1c-04/05/06):** The local `agent-native dev` server cannot boot (`NitroViteError: Vite environment "nitro" is unavailable` → 503 on server routes) — same class of issue as the Vercel/Netlify Nitro-bundling crash; staff-web only runs reliably on Fly. So NO P1c plan can run a local HTTP walkthrough. Verify the SUBSTANCE by replaying the handler/action SQL against the live `gymos-demo` Neon DB via Neon MCP (and clean up test rows), OR defer runtime checks (CORS preflight 204 ordering, route mounting, honeypot/rate-limit over HTTP, `/gymos` rendering) to the P1c-07 e2e smoke test. P1c-02 was verified this way (lead upsert replayed twice → 1 member / 1 lead conversation / 2 FK-safe submissions — checker's canonical-id re-select BLOCKER confirmed working).
 

@@ -264,7 +264,7 @@ The production milestone is structured as 4 phases (preserving the prior coarse-
 7. Stripe Customer Portal (on the connected account) reachable for subscription self-service
 8. No card data stored anywhere; tokenised IDs only (STR-08 preserved)
 
-**Plans:** 6/7 plans executed
+**Plans:** 7/7 plans complete
 
 Plans:
 - [x] P1c.1-01-PLAN.md (wave 1) — additive connected_accounts table (acct_id + readiness flags, direct-to-Neon) + StripeEventPayload.stripeAccount optional field [STR-01]
