@@ -69,7 +69,7 @@ export function CodeBlockLangPicker({ editor }: CodeBlockLangPickerProps) {
           setPosition(null);
           return;
         }
-        const wrapper = domNode.closest(".compose-editor-wrapper");
+        const wrapper = domNode.closest(".message-editor-wrapper");
         if (!wrapper) {
           setPosition(null);
           return;

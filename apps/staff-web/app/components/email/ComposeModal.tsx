@@ -475,7 +475,7 @@ export function ComposeModal({
     <div
       ref={composeRef}
       className={cn(
-        "compose-window fixed z-50 flex w-full flex-col bg-card transition-[width,height,top,bottom] duration-150 sm:rounded-t-xl",
+        "message-composer-window fixed z-50 flex w-full flex-col bg-card transition-[width,height,top,bottom] duration-150 sm:rounded-t-xl",
         minimized
           ? "bottom-0 h-11 rounded-t-xl sm:w-[540px]"
           : isExpanded && !isMobile

@@ -86,7 +86,7 @@ export const ComposeEditor = forwardRef<
       }),
       CodeBlockLowlight.configure({
         lowlight,
-        HTMLAttributes: { class: "compose-code-block" },
+        HTMLAttributes: { class: "message-editor-code-block" },
       }),
       ComposeImageNode.configure({
         allowBase64: true,
@@ -98,7 +98,7 @@ export const ComposeEditor = forwardRef<
       }),
       Link.configure({
         openOnClick: false,
-        HTMLAttributes: { class: "compose-link" },
+        HTMLAttributes: { class: "message-editor-link" },
       }),
       Markdown.configure({
         html: false,
@@ -109,7 +109,7 @@ export const ComposeEditor = forwardRef<
     content,
     editorProps: {
       attributes: {
-        class: "compose-editor",
+        class: "message-editor",
       },
       handleKeyDown: (_view, event) => {
         if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
@@ -190,7 +190,7 @@ export const ComposeEditor = forwardRef<
   if (!editor) return null;
 
   return (
-    <div className="compose-editor-wrapper" style={{ position: "relative" }}>
+    <div className="message-editor-wrapper" style={{ position: "relative" }}>
       <ComposeBubbleToolbar
         editor={editor}
         onFlush={onFlush}

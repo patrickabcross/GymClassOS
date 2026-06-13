@@ -226,7 +226,7 @@ export function ComposeSlashMenu({
 
         const coords = editor.view.coordsAtPos(from);
         const editorRect = editor.view.dom
-          .closest(".compose-editor-wrapper")
+          .closest(".message-editor-wrapper")
           ?.getBoundingClientRect();
         if (editorRect) {
           setCursorCoords({

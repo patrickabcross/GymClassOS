@@ -176,7 +176,7 @@
 }
 
 /* Compose modal animations */
-.compose-window {
+.message-composer-window {
   box-shadow:
     0 20px 60px rgba(0, 0, 0, 0.5),
     0 0 0 1px hsl(var(--border));
@@ -300,11 +300,11 @@
 
 /* ===== Compose Rich Text Editor (Tiptap) ===== */
 
-.compose-editor-wrapper {
+.message-editor-wrapper {
   position: relative;
 }
 
-.compose-editor {
+.message-editor {
   outline: none;
   font-family: "Inter", sans-serif;
   color: hsl(var(--foreground));
@@ -312,12 +312,12 @@
   font-size: 0.875rem;
 }
 
-.compose-editor > *:first-child {
+.message-editor > *:first-child {
   margin-top: 0;
 }
 
 /* Headings */
-.compose-editor h1 {
+.message-editor h1 {
   font-size: 1.5em;
   font-weight: 700;
   margin: 1em 0 0.25em;
@@ -325,7 +325,7 @@
   letter-spacing: -0.02em;
 }
 
-.compose-editor h2 {
+.message-editor h2 {
   font-size: 1.25em;
   font-weight: 600;
   margin: 0.8em 0 0.2em;
@@ -333,7 +333,7 @@
   letter-spacing: -0.01em;
 }
 
-.compose-editor h3 {
+.message-editor h3 {
   font-size: 1.1em;
   font-weight: 600;
   margin: 0.6em 0 0.15em;
@@ -341,14 +341,14 @@
 }
 
 /* Paragraphs */
-.compose-editor p {
+.message-editor p {
   margin: 0.85em 0;
   min-height: 1.65em;
 }
 
 /* Placeholders */
-.compose-editor p.is-editor-empty:first-child::before,
-.compose-editor p.is-empty::before {
+.message-editor p.is-editor-empty:first-child::before,
+.message-editor p.is-empty::before {
   content: attr(data-placeholder);
   float: left;
   color: hsl(var(--muted-foreground));
@@ -357,33 +357,33 @@
 }
 
 /* Lists */
-.compose-editor ul {
+.message-editor ul {
   list-style-type: disc;
   padding-left: 1.5em;
   margin: 0.2em 0;
 }
-.compose-editor ol {
+.message-editor ol {
   list-style-type: decimal;
   padding-left: 1.5em;
   margin: 0.2em 0;
 }
-.compose-editor li {
+.message-editor li {
   margin: 0.1em 0;
 }
-.compose-editor li p {
+.message-editor li p {
   margin: 0;
 }
 
 /* Blockquote */
-.compose-editor blockquote {
+.message-editor blockquote {
   border-left: 3px solid hsl(var(--foreground));
   padding-left: 1em;
   margin: 0.4em 0;
 }
 
 /* Code block */
-.compose-editor .compose-code-block,
-.compose-editor pre {
+.message-editor .message-editor-code-block,
+.message-editor pre {
   font-family: ui-monospace, monospace;
   font-size: 0.8rem;
   background: hsl(var(--muted));
@@ -395,7 +395,7 @@
   line-height: 1.5;
   position: relative;
 }
-.compose-editor pre code {
+.message-editor pre code {
   font-family: inherit;
   background: none;
   padding: 0;
@@ -405,13 +405,13 @@
 }
 
 /* Images */
-.compose-editor .compose-image {
+.message-editor .message-editor-image {
   max-width: 100%;
   border-radius: 6px;
   display: block;
 }
 
-.compose-image-placeholder {
+.message-editor-image-placeholder {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -426,16 +426,16 @@
   font-size: 0.875rem;
   margin: 0.3em 0;
 }
-.compose-image-placeholder:hover {
+.message-editor-image-placeholder:hover {
   background: hsl(var(--accent));
   color: hsl(var(--foreground));
 }
-.compose-image-placeholder[data-selected] {
+.message-editor-image-placeholder[data-selected] {
   outline: 2px solid hsl(210 100% 52%);
   outline-offset: -2px;
 }
 
-.compose-image-wrapper {
+.message-editor-image-wrapper {
   position: relative;
   display: inline-block;
   max-width: 100%;
@@ -443,12 +443,12 @@
   overflow: hidden;
   margin: 0.3em 0;
 }
-.compose-image-wrapper[data-selected] {
+.message-editor-image-wrapper[data-selected] {
   outline: 2px solid hsl(210 100% 52%);
   outline-offset: -2px;
 }
 
-.compose-image-overlay {
+.message-editor-image-overlay {
   position: absolute;
   top: 6px;
   right: 6px;
@@ -458,7 +458,7 @@
   z-index: 10;
 }
 
-.compose-image-btn {
+.message-editor-image-btn {
   display: flex;
   align-items: center;
   gap: 4px;
@@ -475,15 +475,15 @@
   transition: background 0.15s ease;
   white-space: nowrap;
 }
-.compose-image-btn:hover {
+.message-editor-image-btn:hover {
   background: hsl(0 0% 18% / 0.85);
 }
-.compose-image-btn--danger:hover {
+.message-editor-image-btn--danger:hover {
   background: hsl(0 65% 40% / 0.85);
 }
 
 /* Inline code */
-.compose-editor code {
+.message-editor code {
   font-family: ui-monospace, monospace;
   font-size: 0.85em;
   background: hsl(var(--muted));
@@ -491,12 +491,12 @@
   padding: 0.1em 0.3em;
   border-radius: 3px;
 }
-.dark .compose-editor code {
+.dark .message-editor code {
   color: hsl(0 60% 65%);
 }
 
 /* Links */
-.compose-link {
+.message-editor-link {
   color: hsl(var(--foreground));
   text-decoration: underline;
   text-underline-offset: 3px;
@@ -504,30 +504,30 @@
   text-decoration-thickness: 1px;
   cursor: pointer;
 }
-.compose-link:hover {
+.message-editor-link:hover {
   text-decoration-color: hsl(var(--foreground));
 }
 
 /* Horizontal rule */
-.compose-editor hr {
+.message-editor hr {
   border: none;
   border-top: 1px solid hsl(var(--border));
   margin: 1em 0;
 }
 
 /* Text formatting */
-.compose-editor strong {
+.message-editor strong {
   font-weight: 600;
 }
-.compose-editor em {
+.message-editor em {
   font-style: italic;
 }
-.compose-editor s {
+.message-editor s {
   text-decoration: line-through;
 }
 
 /* Selection */
-.compose-editor ::selection {
+.message-editor ::selection {
   background: hsl(210 100% 52% / 0.2);
 }
 
@@ -589,120 +589,120 @@
 }
 
 /* ===== Syntax Highlighting (lowlight) ===== */
-.compose-editor pre code .hljs-comment,
-.compose-editor pre code .hljs-quote {
+.message-editor pre code .hljs-comment,
+.message-editor pre code .hljs-quote {
   color: hsl(var(--muted-foreground));
   font-style: italic;
 }
 
-.compose-editor pre code .hljs-keyword,
-.compose-editor pre code .hljs-selector-tag {
+.message-editor pre code .hljs-keyword,
+.message-editor pre code .hljs-selector-tag {
   color: hsl(280 70% 55%);
 }
-.dark .compose-editor pre code .hljs-keyword,
-.dark .compose-editor pre code .hljs-selector-tag {
+.dark .message-editor pre code .hljs-keyword,
+.dark .message-editor pre code .hljs-selector-tag {
   color: hsl(280 60% 70%);
 }
 
-.compose-editor pre code .hljs-string,
-.compose-editor pre code .hljs-attr,
-.compose-editor pre code .hljs-template-tag,
-.compose-editor pre code .hljs-template-variable {
+.message-editor pre code .hljs-string,
+.message-editor pre code .hljs-attr,
+.message-editor pre code .hljs-template-tag,
+.message-editor pre code .hljs-template-variable {
   color: hsl(140 50% 38%);
 }
-.dark .compose-editor pre code .hljs-string,
-.dark .compose-editor pre code .hljs-attr,
-.dark .compose-editor pre code .hljs-template-tag,
-.dark .compose-editor pre code .hljs-template-variable {
+.dark .message-editor pre code .hljs-string,
+.dark .message-editor pre code .hljs-attr,
+.dark .message-editor pre code .hljs-template-tag,
+.dark .message-editor pre code .hljs-template-variable {
   color: hsl(140 50% 60%);
 }
 
-.compose-editor pre code .hljs-number,
-.compose-editor pre code .hljs-literal {
+.message-editor pre code .hljs-number,
+.message-editor pre code .hljs-literal {
   color: hsl(20 80% 48%);
 }
-.dark .compose-editor pre code .hljs-number,
-.dark .compose-editor pre code .hljs-literal {
+.dark .message-editor pre code .hljs-number,
+.dark .message-editor pre code .hljs-literal {
   color: hsl(20 80% 65%);
 }
 
-.compose-editor pre code .hljs-built_in,
-.compose-editor pre code .hljs-type,
-.compose-editor pre code .hljs-params {
+.message-editor pre code .hljs-built_in,
+.message-editor pre code .hljs-type,
+.message-editor pre code .hljs-params {
   color: hsl(30 70% 48%);
 }
-.dark .compose-editor pre code .hljs-built_in,
-.dark .compose-editor pre code .hljs-type,
-.dark .compose-editor pre code .hljs-params {
+.dark .message-editor pre code .hljs-built_in,
+.dark .message-editor pre code .hljs-type,
+.dark .message-editor pre code .hljs-params {
   color: hsl(30 70% 65%);
 }
 
-.compose-editor pre code .hljs-function,
-.compose-editor pre code .hljs-title {
+.message-editor pre code .hljs-function,
+.message-editor pre code .hljs-title {
   color: hsl(210 70% 48%);
 }
-.dark .compose-editor pre code .hljs-function,
-.dark .compose-editor pre code .hljs-title {
+.dark .message-editor pre code .hljs-function,
+.dark .message-editor pre code .hljs-title {
   color: hsl(210 70% 65%);
 }
 
-.compose-editor pre code .hljs-tag,
-.compose-editor pre code .hljs-name,
-.compose-editor pre code .hljs-selector-id,
-.compose-editor pre code .hljs-selector-class {
+.message-editor pre code .hljs-tag,
+.message-editor pre code .hljs-name,
+.message-editor pre code .hljs-selector-id,
+.message-editor pre code .hljs-selector-class {
   color: hsl(0 65% 50%);
 }
-.dark .compose-editor pre code .hljs-tag,
-.dark .compose-editor pre code .hljs-name,
-.dark .compose-editor pre code .hljs-selector-id,
-.dark .compose-editor pre code .hljs-selector-class {
+.dark .message-editor pre code .hljs-tag,
+.dark .message-editor pre code .hljs-name,
+.dark .message-editor pre code .hljs-selector-id,
+.dark .message-editor pre code .hljs-selector-class {
   color: hsl(0 60% 68%);
 }
 
-.compose-editor pre code .hljs-attribute {
+.message-editor pre code .hljs-attribute {
   color: hsl(30 70% 48%);
 }
-.dark .compose-editor pre code .hljs-attribute {
+.dark .message-editor pre code .hljs-attribute {
   color: hsl(30 60% 65%);
 }
 
-.compose-editor pre code .hljs-regexp,
-.compose-editor pre code .hljs-link {
+.message-editor pre code .hljs-regexp,
+.message-editor pre code .hljs-link {
   color: hsl(160 50% 42%);
 }
-.dark .compose-editor pre code .hljs-regexp,
-.dark .compose-editor pre code .hljs-link {
+.dark .message-editor pre code .hljs-regexp,
+.dark .message-editor pre code .hljs-link {
   color: hsl(160 50% 60%);
 }
 
-.compose-editor pre code .hljs-symbol,
-.compose-editor pre code .hljs-bullet {
+.message-editor pre code .hljs-symbol,
+.message-editor pre code .hljs-bullet {
   color: hsl(280 55% 50%);
 }
-.dark .compose-editor pre code .hljs-symbol,
-.dark .compose-editor pre code .hljs-bullet {
+.dark .message-editor pre code .hljs-symbol,
+.dark .message-editor pre code .hljs-bullet {
   color: hsl(280 50% 68%);
 }
 
-.compose-editor pre code .hljs-meta {
+.message-editor pre code .hljs-meta {
   color: hsl(var(--muted-foreground));
 }
 
-.compose-editor pre code .hljs-deletion {
+.message-editor pre code .hljs-deletion {
   color: hsl(0 65% 50%);
   background: hsl(0 65% 50% / 0.1);
 }
 
-.compose-editor pre code .hljs-addition {
+.message-editor pre code .hljs-addition {
   color: hsl(140 50% 38%);
   background: hsl(140 50% 38% / 0.1);
 }
 
-.compose-editor pre code .hljs-emphasis {
+.message-editor pre code .hljs-emphasis {
   font-style: italic;
 }
 
-.compose-editor pre code .hljs-strong {
+.message-editor pre code .hljs-strong {
   font-weight: 700;
 }
 
