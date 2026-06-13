@@ -26,9 +26,9 @@
 
 - [x] **NAME-01**: Staff nav reads Schedule → Messages → Members → Payments → Settings, with studio identity at top
 - [x] **NAME-02**: Messaging surface is labeled "Messages" with threads as "Conversations"; "New Message" replaces Compose and "Scheduled Messages" replaces Draft Queue — no email vocabulary anywhere user-visible
-- [ ] **NAME-03**: Every renamed route ships a redirect shim (React Router `redirect()`) so the live customer's deep links and bookmarks keep working
+- [x] **NAME-03**: Every renamed route ships a redirect shim (React Router `redirect()`) so the live customer's deep links and bookmarks keep working
 - [x] **NAME-04**: Code identifiers are renamed (`InboxPage` → `MessagesPage`, `DraftQueuePage` → `ScheduledMessagesPage`, etc.) only after the label layer is stable; email-legacy CSS classes get additive aliases first, then migrate atomically with their components
-- [ ] **NAME-05**: DB enum string values and schema identifiers are untouched — display labels only (Drizzle enum-rename bug drizzle-kit#1409 + live-DB table-lock risk)
+- [x] **NAME-05**: DB enum string values and schema identifiers are untouched — display labels only (Drizzle enum-rename bug drizzle-kit#1409 + live-DB table-lock risk)
 - [x] **NAME-06**: "Book" is the primary CTA on every class surface (staff schedule, member app, booking widget) — never Reserve/Enrol/Register
 - [x] **NAME-07**: Member detail view is headed "Member Profile"; pass balance displays as "X credits"
 
@@ -104,9 +104,9 @@ Which phases cover which requirements. Updated 2026-06-12 during roadmap creatio
 | DSGN-05 | R2. Design System Token Layer | Complete |
 | NAME-01 | R3. Naming & IA Pass | Complete |
 | NAME-02 | R3. Naming & IA Pass | Complete |
-| NAME-03 | R3. Naming & IA Pass | Pending |
+| NAME-03 | R3. Naming & IA Pass | Complete |
 | NAME-04 | R3. Naming & IA Pass | Complete |
-| NAME-05 | R3. Naming & IA Pass | Pending |
+| NAME-05 | R3. Naming & IA Pass | Complete |
 | NAME-06 | R3. Naming & IA Pass | Complete |
 | NAME-07 | R3. Naming & IA Pass | Complete |
 | SWEB-01 | R4. Staff Web Visual Refresh + Embed Widgets | Pending |

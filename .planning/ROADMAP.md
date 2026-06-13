@@ -24,7 +24,7 @@
  (completed 2026-06-12)
 - [x] **Phase R2: Design System Token Layer** — Install CSS custom-property token system with skin injector; author GymClassOS default skin and Hustle skin; self-host Inter
  (completed 2026-06-13)
-- [ ] **Phase R3: Naming & IA Pass** — Rename nav labels and surface copy (labels first), then retire email-vocabulary code identifiers and routes (with redirect shims)
+- [x] **Phase R3: Naming & IA Pass** — Rename nav labels and surface copy (labels first), then retire email-vocabulary code identifiers and routes (with redirect shims) (completed 2026-06-13)
 - [ ] **Phase R4: Staff Web Visual Refresh + Embed Widgets** — Apply design-system tokens to all staff-web surfaces and public embed widgets; deliver the visual redesign
 - [ ] **Phase R5: Member Mobile App Redesign** — Align the Expo mobile app to the GymClassOS design language; rename tabs; deliver dark-first theme with token file
 
@@ -76,7 +76,7 @@
 - [x] R3-01-label-layer-PLAN.md (wave 1) — user-visible copy: nav Inbox→Messages, surface heading/meta, member back-links→Home, Member Profile heading, legacy Compose→New Message / Draft Queue→Scheduled Messages [NAME-01, NAME-02, NAME-06, NAME-07]
 - [x] R3-02-css-class-renames-PLAN.md (wave 2) — additive-alias-then-migrate .email-*/.compose-* → .conversation-*/.message-* in global.css + email components (R-12) [NAME-04]
 - [x] R3-03-identifier-renames-PLAN.md (wave 3) — EmailList*/Compose* → Conversation*/Message* components + InboxPage→MessagesPage, DraftQueuePage→ScheduledMessagesPage + import sites [NAME-04]
-- [ ] R3-04-route-renames-and-shims-PLAN.md (wave 4) — /gymos/inbox→/gymos/messages: relocate surface, 301 query-preserving redirect shim (R-06), atomic ref updates, GymosInbox→GymosMessages; NAME-05 no-DB-touch verification [NAME-03, NAME-05]
+- [x] R3-04-route-renames-and-shims-PLAN.md (wave 4) — /gymos/inbox→/gymos/messages: relocate surface, 301 query-preserving redirect shim (R-06), atomic ref updates, GymosInbox→GymosMessages; NAME-05 no-DB-touch verification [NAME-03, NAME-05]
 **UI hint**: yes
 **Internal ordering constraint**: Label-layer changes (NAME-01, NAME-02, NAME-06, NAME-07) must be deployed and verified before code-identifier renames (NAME-04) and route renames with redirect shims (NAME-03) are applied. NAME-05 (no DB renames) is a standing constraint throughout.
 
@@ -117,7 +117,7 @@
 |-------|----------------|--------|-----------|
 | R1. Audit Baseline | 3/3 | Complete    | 2026-06-12 |
 | R2. Design System Token Layer | 4/4 | Complete   | 2026-06-13 |
-| R3. Naming & IA Pass | 3/4 | In Progress|  |
+| R3. Naming & IA Pass | 4/4 | Complete   | 2026-06-13 |
 | R4. Staff Web Visual Refresh + Embed Widgets | 0/TBD | Not started | - |
 | R5. Member Mobile App Redesign | 0/TBD | Not started | - |
 
@@ -178,7 +178,7 @@ Post-v1 backlog (HealthKit + native mobile, Coach View with health context, CRM 
 4. Member context panel in the inbox shows next-class + pass-balance for the opened conversation's member (real data)
 5. Stripe Checkout link generated for a 10-pack purchase + paid in Stripe test mode + resulting pass grant visible in member profile
 
-**Plans:** 3/4 plans executed
+**Plans:** 4/4 plans complete
 
 - [x] D1-01-schedule-surface-PLAN.md — Build /gymos/schedule week-grid + book-from-occurrence dialog (SCH-01, BKG-01) — completed 2026-05-19 (commits f5cdbdc6, dd50fe62, 23ee58f2)
 - [x] D1-02-members-directory-PLAN.md — Build /gymos/members + /gymos/members/:id profile with bookings + pass balance (MEM-01, MEM-02)
