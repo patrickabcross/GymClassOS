@@ -70,6 +70,11 @@ function scanActionFiles(actionsDir: string): string[] {
     if (!f.endsWith(".ts") && !f.endsWith(".js")) return false;
     const name = f.replace(/\.(ts|js)$/, "");
     if (name.startsWith("_")) return false;
+    // Exclude co-located test files (e.g. `foo.test.ts`, `bar.spec.ts`). A
+    // static import of a test module executes its `import { ... } from "vitest"`
+    // at bundle load, crashing the serverless function — and the content gate
+    // below lets them through whenever the test mentions "defineAction".
+    if (name.endsWith(".test") || name.endsWith(".spec")) return false;
     if (SKIP_FILES.has(name)) return false;
     // Only include files that actually call defineAction or explicitly
     // re-export a package action. CLI scripts or example templates that live

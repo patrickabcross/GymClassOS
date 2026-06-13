@@ -262,6 +262,11 @@ async function loadActionsIntoRegistry(
     if (!f.endsWith(".ts") && !f.endsWith(".js")) return false;
     const name = f.replace(/\.(ts|js)$/, "");
     if (name.startsWith("_")) return false;
+    // Skip co-located test files — importing them pulls vitest into the
+    // bundle. The try/catch around import() below already tolerates the
+    // resulting crash in dev, but excluding them keeps the registry clean
+    // and mirrors the build-time scanner in vite/action-types-plugin.ts.
+    if (name.endsWith(".test") || name.endsWith(".spec")) return false;
     if (SKIP_FILES.has(name)) return false;
     return true;
   });
