@@ -659,6 +659,160 @@ function failedCopy(errorCode: string | null | undefined): string {
   return err ? `Couldn't send — ${err}` : "Couldn't send.";
 }
 
+// ─── MemberContextCards ──────────────────────────────────────────────────────
+// Reusable card stack rendered in BOTH the desktop aside (Task 1) and the
+// mobile bottom Sheet (Task 2 / R4-06 SWEB-06). Props mirror the loader fields
+// consumed by the member-context panel.
+
+interface MemberContextCardsProps {
+  member: {
+    id: string;
+    firstName?: string | null;
+    lastName?: string | null;
+    phoneE164?: string | null;
+  };
+  stats: {
+    passBalance: number;
+    passExpiresAt?: string | null;
+    lastVisit?: { className: string | null; startsAt: string } | null;
+  };
+  upcomingBooking?: {
+    className?: string | null;
+    startsAt?: string | null;
+  } | null;
+}
+
+function MemberContextCards({
+  member,
+  stats,
+  upcomingBooking,
+}: MemberContextCardsProps) {
+  return (
+    <>
+      {/* Panel header: avatar + name + phone */}
+      <div className="px-4 py-3 border-b border-border/50 flex items-center gap-2.5">
+        <Avatar className="h-8 w-8 shrink-0">
+          <AvatarFallback className="text-[11px] font-semibold">
+            {[member.firstName?.[0], member.lastName?.[0]]
+              .filter(Boolean)
+              .join("")
+              .toUpperCase() || "?"}
+          </AvatarFallback>
+        </Avatar>
+        <div className="min-w-0">
+          <div className="text-sm font-semibold truncate">
+            {[member.firstName, member.lastName].filter(Boolean).join(" ") ||
+              "Unknown"}
+          </div>
+          <div className="text-[11px] text-muted-foreground truncate">
+            {member.phoneE164 ?? ""}
+          </div>
+        </div>
+      </div>
+
+      <div className="px-4 py-3">
+        {/* ── WIDGET 1: PASS BALANCE ──────────────────────────────────── */}
+        <Card className="p-3 mt-2">
+          <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">
+            PASS BALANCE
+          </div>
+          <div className="flex items-baseline gap-1">
+            <span
+              className={
+                stats.passBalance > 0
+                  ? "text-xl font-bold text-primary tabular-nums"
+                  : "text-xl font-bold text-muted-foreground tabular-nums"
+              }
+            >
+              {stats.passBalance}
+            </span>
+            <span className="text-[12px] text-muted-foreground">credits</span>
+          </div>
+          {stats.passBalance <= 0 && (
+            <div className="text-[11px] text-muted-foreground mt-0.5">
+              No active pass
+            </div>
+          )}
+          {stats.passExpiresAt && (
+            <div className="text-[11px] text-muted-foreground mt-0.5">
+              Expires{" "}
+              {new Date(stats.passExpiresAt).toLocaleDateString("en-GB", {
+                day: "numeric",
+                month: "short",
+                year: "numeric",
+              })}
+            </div>
+          )}
+        </Card>
+
+        {/* ── WIDGET 2: NEXT CLASS ────────────────────────────────────── */}
+        <Card className="p-3 mt-2">
+          <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">
+            NEXT CLASS
+          </div>
+          {upcomingBooking ? (
+            <>
+              <div className="text-[13px] font-semibold">
+                {upcomingBooking.className}
+              </div>
+              <div className="text-[11px] text-muted-foreground tabular-nums">
+                {upcomingBooking.startsAt &&
+                  new Date(upcomingBooking.startsAt).toLocaleString("en-GB", {
+                    weekday: "short",
+                    day: "numeric",
+                    month: "short",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+              </div>
+            </>
+          ) : (
+            <div className="text-[12px] text-muted-foreground">
+              No upcoming class
+            </div>
+          )}
+        </Card>
+
+        {/* ── WIDGET 3: LAST VISIT ────────────────────────────────────── */}
+        <Card className="p-3 mt-2">
+          <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">
+            LAST VISIT
+          </div>
+          {stats.lastVisit ? (
+            <>
+              <div className="text-[13px] font-semibold tabular-nums">
+                {new Date(stats.lastVisit.startsAt).toLocaleDateString(
+                  "en-GB",
+                  {
+                    weekday: "short",
+                    day: "numeric",
+                    month: "short",
+                    year: "numeric",
+                  },
+                )}
+              </div>
+              {stats.lastVisit.className && (
+                <div className="text-[11px] text-muted-foreground">
+                  {stats.lastVisit.className}
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="text-[12px] text-muted-foreground">
+              No visits recorded
+            </div>
+          )}
+        </Card>
+
+        {/* ── Footer: View Member Profile CTA ─────────────────────────── */}
+        <Button asChild variant="outline" size="sm" className="w-full mt-3">
+          <Link to={`/gymos/members/${member.id}`}>View Member Profile</Link>
+        </Button>
+      </div>
+    </>
+  );
+}
+
 // ─── Route ───────────────────────────────────────────────────────────────────
 
 export default function GymosMessages() {
@@ -967,145 +1121,18 @@ export default function GymosMessages() {
 
       {/* ─── Member context panel (right rail) — DIFFERENTIATOR ──────────── */}
       {/* Three scannable widget cards (Pass Balance / Next Class / Last Visit)  */}
-      {/* per R4-UI-SPEC §2 — NOT a field list or data table. R4-06 will extract  */}
-      {/* this aside into a reusable component and add responsive bottom-sheet.   */}
+      {/* per R4-UI-SPEC §2 — NOT a field list or data table.                    */}
+      {/* MemberContextCards component renders the same stack in the mobile Sheet */}
+      {/* (R4-06 SWEB-06). Desktop aside hidden below md breakpoint.             */}
       {data.selectedMember && data.memberStats && (
-        <aside className="w-[300px] shrink-0 border-l border-border/50 flex flex-col bg-card/20 overflow-y-auto">
+        <aside className="hidden md:flex w-[300px] shrink-0 border-l border-border/50 flex-col bg-card/20 overflow-y-auto">
           {/* Screen-reader heading per Copywriting Contract */}
           <h3 className="sr-only">Member Context</h3>
-
-          {/* Panel header: avatar + name + phone */}
-          <div className="px-4 py-3 border-b border-border/50 flex items-center gap-2.5">
-            <Avatar className="h-8 w-8 shrink-0">
-              <AvatarFallback className="text-[11px] font-semibold">
-                {[
-                  data.selectedMember.firstName?.[0],
-                  data.selectedMember.lastName?.[0],
-                ]
-                  .filter(Boolean)
-                  .join("")
-                  .toUpperCase() || "?"}
-              </AvatarFallback>
-            </Avatar>
-            <div className="min-w-0">
-              <div className="text-sm font-semibold truncate">
-                {[data.selectedMember.firstName, data.selectedMember.lastName]
-                  .filter(Boolean)
-                  .join(" ") || "Unknown"}
-              </div>
-              <div className="text-[11px] text-muted-foreground truncate">
-                {data.selectedMember.phoneE164 ?? ""}
-              </div>
-            </div>
-          </div>
-
-          <div className="px-4 py-3">
-            {/* ── WIDGET 1: PASS BALANCE ──────────────────────────────────── */}
-            <Card className="p-3 mt-2">
-              <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">
-                PASS BALANCE
-              </div>
-              <div className="flex items-baseline gap-1">
-                <span
-                  className={
-                    data.memberStats.passBalance > 0
-                      ? "text-xl font-bold text-primary tabular-nums"
-                      : "text-xl font-bold text-muted-foreground tabular-nums"
-                  }
-                >
-                  {data.memberStats.passBalance}
-                </span>
-                <span className="text-[12px] text-muted-foreground">
-                  credits
-                </span>
-              </div>
-              {data.memberStats.passBalance <= 0 && (
-                <div className="text-[11px] text-muted-foreground mt-0.5">
-                  No active pass
-                </div>
-              )}
-              {data.memberStats.passExpiresAt && (
-                <div className="text-[11px] text-muted-foreground mt-0.5">
-                  Expires{" "}
-                  {new Date(data.memberStats.passExpiresAt).toLocaleDateString(
-                    "en-GB",
-                    {
-                      day: "numeric",
-                      month: "short",
-                      year: "numeric",
-                    },
-                  )}
-                </div>
-              )}
-            </Card>
-
-            {/* ── WIDGET 2: NEXT CLASS ────────────────────────────────────── */}
-            <Card className="p-3 mt-2">
-              <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">
-                NEXT CLASS
-              </div>
-              {data.upcomingBooking ? (
-                <>
-                  <div className="text-[13px] font-semibold">
-                    {data.upcomingBooking.className}
-                  </div>
-                  <div className="text-[11px] text-muted-foreground tabular-nums">
-                    {new Date(data.upcomingBooking.startsAt).toLocaleString(
-                      "en-GB",
-                      {
-                        weekday: "short",
-                        day: "numeric",
-                        month: "short",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      },
-                    )}
-                  </div>
-                </>
-              ) : (
-                <div className="text-[12px] text-muted-foreground">
-                  No upcoming class
-                </div>
-              )}
-            </Card>
-
-            {/* ── WIDGET 3: LAST VISIT ────────────────────────────────────── */}
-            <Card className="p-3 mt-2">
-              <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">
-                LAST VISIT
-              </div>
-              {data.memberStats.lastVisit ? (
-                <>
-                  <div className="text-[13px] font-semibold tabular-nums">
-                    {new Date(
-                      data.memberStats.lastVisit.startsAt,
-                    ).toLocaleDateString("en-GB", {
-                      weekday: "short",
-                      day: "numeric",
-                      month: "short",
-                      year: "numeric",
-                    })}
-                  </div>
-                  {data.memberStats.lastVisit.className && (
-                    <div className="text-[11px] text-muted-foreground">
-                      {data.memberStats.lastVisit.className}
-                    </div>
-                  )}
-                </>
-              ) : (
-                <div className="text-[12px] text-muted-foreground">
-                  No visits recorded
-                </div>
-              )}
-            </Card>
-
-            {/* ── Footer: View Member Profile CTA ─────────────────────────── */}
-            <Button asChild variant="outline" size="sm" className="w-full mt-3">
-              <Link to={`/gymos/members/${data.selectedMember.id}`}>
-                View Member Profile
-              </Link>
-            </Button>
-          </div>
+          <MemberContextCards
+            member={data.selectedMember}
+            stats={data.memberStats}
+            upcomingBooking={data.upcomingBooking}
+          />
         </aside>
       )}
     </div>
