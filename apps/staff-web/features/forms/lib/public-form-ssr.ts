@@ -61,11 +61,11 @@ async function getFormBySlugOrId(slugOrId: string) {
 
 /**
  * Validates a hex colour string — must be exactly `#RRGGBB` format.
- * Falls back to `#000000` to prevent CSS injection via URL params.
+ * Falls back to `#000000` to prevent CSS injection via URL params. // guard:allow-color — hex in JSDoc comment (fallback value description); not rendered
  */
 export function sanitizeHexColor(value: string | null): string {
   const v = (value ?? "").trim();
-  return /^#[0-9a-fA-F]{6}$/.test(v) ? v : "#000000";
+  return /^#[0-9a-fA-F]{6}$/.test(v) ? v : "#000000"; // guard:allow-color — validation regex + CSS injection fallback; not a rendered color value
 }
 
 /**
@@ -660,7 +660,7 @@ body{background:hsl(var(--bg));color:hsl(var(--fg));min-height:100vh;-webkit-fon
 .field-half{width:50%}
 .field-label{font-size:0.875rem;font-weight:500;color:hsl(var(--card-fg))}
 .field-desc{font-size:0.75rem;color:hsl(var(--muted-fg))}
-.req{color:#ef4444;margin-left:2px}
+.req{color:#ef4444;margin-left:2px} /* guard:allow-color — embed widget functional required-field red; no studio token equivalent */
 
 .fi{width:100%;padding:8px 12px;font-size:0.875rem;font-family:inherit;background:transparent;border:1px solid hsl(var(--input));border-radius:var(--radius);color:hsl(var(--fg));outline:none}
 .fi:focus{border-color:hsl(var(--ring));box-shadow:0 0 0 2px hsl(var(--ring)/0.15)}
@@ -674,8 +674,8 @@ select.fi option{background:hsl(var(--card));color:hsl(var(--fg))}
 
 .rating-group{display:flex;gap:4px}
 .star-btn{background:none;border:none;cursor:pointer;padding:2px;color:hsl(var(--muted-fg)/0.3)}
-.star-btn.active{color:#fbbf24;fill:#fbbf24}
-.star-btn.active svg{fill:#fbbf24}
+.star-btn.active{color:#fbbf24;fill:#fbbf24} /* guard:allow-color — embed widget star rating amber; no studio token equivalent */
+.star-btn.active svg{fill:#fbbf24} /* guard:allow-color — embed widget star rating amber SVG fill; no studio token equivalent */
 
 .scale-group{padding-top:8px}
 .slider{width:100%;accent-color:hsl(var(--fg));cursor:pointer}
@@ -712,7 +712,7 @@ html:not(.dark) .icon-moon{display:none}
   width:56px;height:56px;border-radius:50%;
   background:rgba(16,185,129,0.1);
   display:flex;align-items:center;justify-content:center;
-  color:#10b981;margin-bottom:16px;
+  color:#10b981;margin-bottom:16px; /* guard:allow-color — embed widget functional success green; no studio token equivalent */
 }
 
 .not-found{text-align:center;margin-top:120px}
@@ -731,10 +731,10 @@ html:not(.dark) .icon-moon{display:none}
   position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
   padding:10px 20px;border-radius:var(--radius);
   font-size:0.875rem;font-weight:500;z-index:100;
-  background:#1f2937;color:#f9fafb;
+  background:#1f2937;color:#f9fafb; /* guard:allow-color — embed widget functional toast colors (dark bg / light text); no studio token equivalent */
   box-shadow:0 4px 12px rgba(0,0,0,0.3);
 }
-.toast-error{background:#991b1b}
+.toast-error{background:#991b1b} /* guard:allow-color — embed widget functional error toast red; no studio token equivalent */
 
 .empty{text-align:center;color:hsl(var(--muted-fg));padding:32px 0}
 

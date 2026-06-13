@@ -8,7 +8,7 @@
  * status='lead' conversation in the gym inbox.
  *
  * URL-param theming:
- *   ?accent=#rrggbb  — accent colour (sanitised; falls back to #000000)
+ *   ?accent=#rrggbb  — accent colour (sanitised; falls back to #000000) // guard:allow-color — URL param example in JSDoc comment, never rendered
  *   ?radius=<0-32>   — border radius in px (sanitised; falls back to 6)
  *
  * postMessage events emitted to parent window:
@@ -398,7 +398,7 @@ function CSS() {
   --muted:220 10% 95%;--muted-fg:220 5% 45%;
   --border:220 10% 88%;--input:220 10% 90%;
   --ring:220 10% 40%;
-  --accent-color:var(--gym-accent,#000);
+  --accent-color:var(--gym-accent,#000); /* guard:allow-color — CSS var fallback for embed accent; actual value injected via --gym-accent URL param */
   --radius:var(--gym-radius,6px);
 }
 .dark{
@@ -439,7 +439,7 @@ body{background:hsl(var(--bg));color:hsl(var(--fg));-webkit-font-smoothing:antia
 .enquire-btn{
   display:inline-flex;align-items:center;
   padding:7px 18px;font-size:0.8125rem;font-weight:500;font-family:inherit;
-  background:var(--accent-color);color:#fff;
+  background:var(--accent-color);color:#fff; /* guard:allow-color — embed widget white text on accent button; no CSS var available in injected iframe context */
   border:none;border-radius:var(--radius);cursor:pointer;
   transition:opacity 0.15s;
 }
@@ -468,7 +468,7 @@ body{background:hsl(var(--bg));color:hsl(var(--fg));-webkit-font-smoothing:antia
 .enq-actions{display:flex;gap:8px;margin-top:4px}
 .submit-btn{
   padding:8px 20px;font-size:0.8125rem;font-weight:500;font-family:inherit;
-  background:var(--accent-color);color:#fff;
+  background:var(--accent-color);color:#fff; /* guard:allow-color — embed widget white text on accent button; no CSS var available in injected iframe context */
   border:none;border-radius:var(--radius);cursor:pointer;
 }
 .submit-btn:hover{opacity:0.85}
@@ -482,7 +482,7 @@ body{background:hsl(var(--bg));color:hsl(var(--fg));-webkit-font-smoothing:antia
 
 .enq-success{
   display:flex;align-items:center;gap:8px;
-  font-size:0.875rem;font-weight:500;color:#10b981;
+  font-size:0.875rem;font-weight:500;color:#10b981; /* guard:allow-color — embed widget functional success green; no studio token equivalent */
   padding:8px 0;
 }
 
@@ -495,10 +495,10 @@ body{background:hsl(var(--bg));color:hsl(var(--fg));-webkit-font-smoothing:antia
   position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
   padding:10px 20px;border-radius:var(--radius);
   font-size:0.875rem;font-weight:500;z-index:100;
-  background:#1f2937;color:#f9fafb;
+  background:#1f2937;color:#f9fafb; /* guard:allow-color — embed widget functional toast colors (dark bg / light text); no studio token equivalent */
   box-shadow:0 4px 12px rgba(0,0,0,0.3);
 }
-.toast-error{background:#991b1b}
+.toast-error{background:#991b1b} /* guard:allow-color — embed widget functional error toast red; no studio token equivalent */
 
 @media(max-width:540px){
   .class-info{flex-direction:column;gap:6px}

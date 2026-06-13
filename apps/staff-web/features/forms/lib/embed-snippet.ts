@@ -4,10 +4,10 @@
  * Usage on the studio's marketing site (doyouhustle.co.uk):
  *
  *   <!-- Embed a lead-capture form -->
- *   <div data-gymos-form="trial-signup" data-accent="#ff5733" data-radius="8"></div>
+ *   <div data-gymos-form="trial-signup" data-accent="#ff5733" data-radius="8"></div> // guard:allow-color — example hex in JSDoc comment only, never rendered
  *
  *   <!-- Embed the schedule widget -->
- *   <div data-gymos-schedule data-accent="#ff5733" data-radius="8"></div>
+ *   <div data-gymos-schedule data-accent="#ff5733" data-radius="8"></div> // guard:allow-color — example hex in JSDoc comment only, never rendered
  *
  *   <script src="https://gym-class-os.vercel.app/embed.js" async></script>
  *

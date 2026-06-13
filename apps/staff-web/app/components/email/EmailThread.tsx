@@ -1,3 +1,6 @@
+// guard:allow-color-file — this module injects dark-mode-adaptation CSS into untrusted
+// email HTML inside iframes; the hex values here are technical readability colors, not
+// brand tokens, and cannot use CSS vars in the injected-string context. Exempt whole file.
 import {
   useState,
   useCallback,

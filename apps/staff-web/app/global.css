@@ -40,7 +40,7 @@
   --input: 220 10% 90%;
   --ring: 220 10% 40%;
   --radius: 0.5rem;
-  /* GymClassOS default accent fallback (orange-500 #F97316 / orange-50 #FFF7ED) */
+  /* GymClassOS default accent fallback (orange-500 / orange-50) */ /* guard:allow-color — hex in comment, value lives in the token below as bare HSL */
   --studio-accent: 25 95% 53%;
   --studio-accent-soft: 33 100% 96%;
   --sidebar-background: 220 10% 97%;
