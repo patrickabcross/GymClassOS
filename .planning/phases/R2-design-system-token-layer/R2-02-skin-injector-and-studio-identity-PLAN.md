@@ -14,6 +14,7 @@ must_haves:
     - "The active skin is resolved server-side from process.env.GYMOS_STUDIO_SKIN in a root loader — zero DB round-trip"
     - "data-studio is set as a static inline SSR attribute on the <html> element (not via useEffect), so Radix portals inherit it and there is no FOUC"
     - "GymosTopNav renders the studio displayName (or logo) sourced from the active skin config, replacing the hardcoded 'GymClassOS' span"
+    - "root.tsx has no UNMARKED bare hex: the old #3B82F6 theme-color is removed, and the NEW accentHex literals (#7C3AED hustle / #F97316 default) that drive the theme-color <meta> each carry an inline // guard:allow-color marker, so plan 03's color guard (which scans root.tsx) passes without plan 03 touching root.tsx"
   artifacts:
     - path: "apps/staff-web/app/root.tsx"
       provides: "Root loader reading GYMOS_STUDIO_SKIN + Layout setting data-studio on <html>"
@@ -34,6 +35,10 @@ must_haves:
       to: "root loader data"
       via: "useRouteLoaderData('root') → skin.displayName / skin.logo"
       pattern: "useRouteLoaderData"
+    - from: "apps/staff-web/app/root.tsx accentHex literals"
+      to: "plan R2-03 color guard"
+      via: "inline // guard:allow-color marker on each accentHex hex line"
+      pattern: "guard:allow-color"
 ---
 
 <objective>
@@ -42,6 +47,8 @@ Wire the skin injector. Add the first-ever root loader to `root.tsx` that reads 
 Purpose: Satisfies DSGN-02 (deploy-time skin selection via env var, SSR-injected, zero DB round-trip) and DSGN-05 (studio name + logo at top of the nav from skin config).
 
 Output: Modified `root.tsx` (loader + data-studio + skin-aware theme-color meta) and `GymosTopNav.tsx` (skin identity).
+
+CROSS-PLAN CONTRACT (read this): this plan introduces NEW hex literals in the root loader — the `accentHex` constant (`#7C3AED` for hustle, `#F97316` for default) that feeds the `<meta name="theme-color">` value. A `<meta>` attribute is an HTML-attribute context, NOT a CSS context, so a CSS `var()` is not valid there — the hex must be a literal. Plan R2-03's color guard scans `apps/staff-web/app/**` (which includes `root.tsx`), so those literals MUST carry an inline `// guard:allow-color` marker. This plan owns that marker — plan R2-03 deliberately does NOT touch `root.tsx` and root.tsx is NOT in R2-03's file list, on the contract that this plan leaves zero UNMARKED hex behind.
 </objective>
 
 <execution_context>
@@ -105,39 +112,43 @@ Current GymosTopNav.tsx facts (verified):
     ```
     (Merge `useRouteLoaderData` into the existing destructured `react-router` import rather than duplicating the import line if cleaner.)
 
-    2. Add the root loader at module level (this file currently has NO loader — it is the first):
+    2. Add the root loader at module level (this file currently has NO loader — it is the first). The `accentHex` line(s) MUST carry an inline `// guard:allow-color` marker because they are NEW bare hex that plan R2-03's color guard will scan (root.tsx is in the guard's scan scope `apps/staff-web/app/**`), and a hex in a `<meta>` HTML attribute cannot be a CSS var. Use this EXACT shape (note the marker comments — they are load-bearing for the cross-plan contract):
     ```ts
     export async function loader(_args: Route.LoaderArgs) {
       const skinName = (process.env.GYMOS_STUDIO_SKIN ?? "default") as SkinName;
       const skin = getSkinConfig(skinName);
       // accentHex drives the <meta name="theme-color"> below — keep in sync with
-      // the skin's --primary value. Default = orange-500 #F97316; hustle placeholder
-      // indigo #7C3AED. This is the ONE place a brand hex lives outside the skin CSS.
-      const accentHex = skinName === "hustle" ? "#7C3AED" : "#F97316";
+      // the skin's --primary value. This is the ONE place a brand hex lives outside
+      // the skin CSS, because a <meta> attribute is not a CSS context (no var()).
+      const accentHex =
+        skinName === "hustle"
+          ? "#7C3AED" // guard:allow-color — theme-color <meta> hex; CSS vars not valid in HTML attribute context
+          : "#F97316"; // guard:allow-color — theme-color <meta> hex; CSS vars not valid in HTML attribute context
       return { skin: { name: skinName, ...skin }, accentHex };
     }
     ```
+    IMPORTANT: the `// guard:allow-color` marker MUST be on the SAME physical line as each hex literal (the guard checks per-line). If prettier reflows the ternary so both hex literals land on one line, ensure that one line still carries a single `// guard:allow-color` marker covering it. Do NOT remove these markers.
 
     3. In `Layout({ children })`, read the root loader data and apply it. `Layout()` is NOT a route component, so it MUST use `useRouteLoaderData("root")`, not `useLoaderData()`. Always fall back to "default" (the loader may not have resolved on the very first render for non-gymos routes):
     ```tsx
     export function Layout({ children }: { children: React.ReactNode }) {
       const data = useRouteLoaderData<typeof loader>("root");
       const studioName = data?.skin?.name ?? "default";
-      const themeColor = data?.accentHex ?? "#F97316";
+      const themeColor = data?.accentHex ?? "#F97316"; // guard:allow-color — theme-color <meta> fallback hex; HTML attribute context
       return (
         <html lang="en" suppressHydrationWarning data-studio={studioName}>
           ...
     ```
-    Replace the hardcoded `<meta name="theme-color" content="#3B82F6" />` at line 71 with `<meta name="theme-color" content={themeColor} />`. This makes the meta skin-aware and removes the only bare hex in root.tsx, so plan 03's color guard passes without an allowlist marker here.
+    Replace the hardcoded `<meta name="theme-color" content="#3B82F6" />` at line 71 with `<meta name="theme-color" content={themeColor} />`. This removes the OLD bare hex (#3B82F6) entirely. The themeColor fallback literal also carries a `// guard:allow-color` marker (same reason — HTML attribute context).
 
     Add a `<link rel="preload">` for the font is NOT this plan's job — plan 04 owns font work. Do not add font links here.
 
     Do NOT modify the ThemeProvider, the theme-init script, or any next-themes wiring. `data-studio` is a static SSR attribute only (R-15); never set it in a useEffect.
 
-    Run `npx prettier --write apps/staff-web/app/root.tsx`.
+    Run `npx prettier --write apps/staff-web/app/root.tsx`. After prettier, re-verify each remaining bare hex line still carries its `// guard:allow-color` marker (prettier should preserve trailing line comments, but confirm).
   </action>
   <verify>
-    <automated>grep -q "export async function loader" apps/staff-web/app/root.tsx && grep -q "process.env.GYMOS_STUDIO_SKIN" apps/staff-web/app/root.tsx && grep -q "data-studio={studioName}" apps/staff-web/app/root.tsx && grep -q "content={themeColor}" apps/staff-web/app/root.tsx && ! grep -q "content=\"#3B82F6\"" apps/staff-web/app/root.tsx && echo PASS</automated>
+    <automated>grep -q "export async function loader" apps/staff-web/app/root.tsx && grep -q "process.env.GYMOS_STUDIO_SKIN" apps/staff-web/app/root.tsx && grep -q "data-studio={studioName}" apps/staff-web/app/root.tsx && grep -q "content={themeColor}" apps/staff-web/app/root.tsx && ! grep -q "content=\"#3B82F6\"" apps/staff-web/app/root.tsx && grep -q "guard:allow-color" apps/staff-web/app/root.tsx && echo PASS</automated>
   </verify>
   <acceptance_criteria>
     - root.tsx contains `export async function loader` AND `process.env.GYMOS_STUDIO_SKIN`
@@ -146,9 +157,10 @@ Current GymosTopNav.tsx facts (verified):
     - `studioName` is derived with a `?? "default"` fallback (the undefined-on-non-gymos-routes guard)
     - `data-studio` is NOT set inside any `useEffect` (grep around useEffect confirms it is a JSX attribute only) (R-15)
     - The old `content="#3B82F6"` is GONE; theme-color now reads `content={themeColor}`
+    - The accentHex constant line(s) in root.tsx carry a `// guard:allow-color` marker (grep `guard:allow-color` in root.tsx returns ≥ 1; confirm the marker is on the SAME line as each remaining hex literal — `#7C3AED`, `#F97316`, and the `themeColor` fallback hex). This is the cross-plan contract that lets plan 03's guard pass without touching root.tsx.
     - root loader returns a plain object (no `json(` call — grep `json(` returns zero in the new loader)
   </acceptance_criteria>
-  <done>root.tsx has a root loader reading GYMOS_STUDIO_SKIN, Layout sets data-studio on &lt;html&gt; from loader data (SSR inline, with default fallback), and the theme-color meta is skin-derived. No useEffect, no DB round-trip, no remaining bare hex.</done>
+  <done>root.tsx has a root loader reading GYMOS_STUDIO_SKIN, Layout sets data-studio on &lt;html&gt; from loader data (SSR inline, with default fallback), and the theme-color meta is skin-derived. The OLD #3B82F6 is removed; the NEW accentHex hex literals each carry an inline // guard:allow-color marker so plan 03's color guard passes without plan 03 editing root.tsx. No useEffect, no DB round-trip, no UNMARKED bare hex.</done>
 </task>
 
 <task type="auto">
@@ -210,6 +222,7 @@ Current GymosTopNav.tsx facts (verified):
 
 <verification>
 - root.tsx has a root loader reading `process.env.GYMOS_STUDIO_SKIN`; `data-studio` is an inline attribute on `<html>` (R-14) with a `"default"` fallback; theme-color is skin-derived (no `#3B82F6`)
+- root.tsx has NO unmarked bare hex: the new accentHex literals (`#7C3AED`, `#F97316`) and the themeColor fallback each carry a `// guard:allow-color` marker on the same line, so plan 03's color guard passes without plan 03 touching root.tsx
 - GymosTopNav shows skin displayName/logo, not a hardcoded string
 - `data-studio` is never set in a useEffect (R-15)
 - DEPLOY-BASED PROOF (no local dev server): after merge + Vercel deploy with `GYMOS_STUDIO_SKIN=hustle` set in the Vercel env dashboard + redeploy — `/gymos` nav shows "Hustle" and the page renders in indigo; `<html data-studio="hustle">` visible in DevTools; opening a Dialog (Templates picker) shows indigo (proves R-14 portal inheritance); hard-reload shows no FOUC (proves R-15). Re-run `scripts/ui-baseline/capture.mjs` against the deploy for after-state captures into `.planning/ui-reviews/after-r2/`.
@@ -222,3 +235,5 @@ DSGN-02: skin resolved at request time from `GYMOS_STUDIO_SKIN` in the root load
 <output>
 After completion, create `.planning/phases/R2-design-system-token-layer/R2-02-skin-injector-and-studio-identity-SUMMARY.md`
 </output>
+</content>
+</invoke>

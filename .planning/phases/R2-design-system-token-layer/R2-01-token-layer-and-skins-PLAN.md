@@ -16,6 +16,7 @@ requirements: [DSGN-01, DSGN-03]
 must_haves:
   truths:
     - "global.css declares a bare @theme block (no @theme inline) mapping --studio-accent / --studio-accent-soft after the agent-native.css import"
+    - "In global.css, the GymClassOS @theme block appears AFTER the @import of agent-native.css (pitfall R-13), and the skin @import lines appear AFTER the .dark block's closing brace (pitfall R-09)"
     - "default.css and hustle.css both exist under apps/staff-web/app/skins/ with :root[data-studio=...] override blocks"
     - "skins/config.ts exports a typed SkinName + getSkinConfig registry with displayName + logo for default and hustle"
     - "Hustle skin values are placeholders clearly marked with a TODO comment and visibly distinct from the default orange"
@@ -312,3 +313,5 @@ DSGN-01 (token layer foundation): bare `@theme` with `--studio-*` tokens, no har
 <output>
 After completion, create `.planning/phases/R2-design-system-token-layer/R2-01-token-layer-and-skins-SUMMARY.md`
 </output>
+</content>
+</invoke>
