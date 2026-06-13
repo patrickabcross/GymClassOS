@@ -426,7 +426,7 @@ function AppLayoutInner({ children }: AppLayoutProps) {
     if (!hasPinnedFilters) {
       tabs.push({
         id: "inbox",
-        label: "Inbox",
+        label: "Messages",
         href: "/inbox",
         isActive: view === "inbox" && !activeLabel,
         type: "system",
@@ -1170,7 +1170,7 @@ function AppLayoutInner({ children }: AppLayoutProps) {
                 className="h-9 sm:h-7 px-3 text-[13px]"
                 aria-label="Compose email"
               >
-                <span>Compose</span>
+                <span>New Message</span>
               </Button>
             </TooltipTrigger>
             <TooltipContent>Compose (C)</TooltipContent>
@@ -1386,14 +1386,14 @@ function AppLayoutInner({ children }: AppLayoutProps) {
                 <div className="p-4">
                   <div className="space-y-0.5">
                     {[
-                      { id: "inbox", label: "Inbox", href: "/inbox" },
+                      { id: "inbox", label: "Messages", href: "/inbox" },
                       { id: "unread", label: "Unread", href: "/unread" },
                       { id: "starred", label: "Starred", href: "/starred" },
                       { id: "snoozed", label: "Snoozed", href: "/snoozed" },
                       { id: "sent", label: "Sent", href: "/sent" },
                       {
                         id: "draft-queue",
-                        label: "Draft queue",
+                        label: "Scheduled Messages",
                         href: "/draft-queue",
                       },
                       {
@@ -1698,7 +1698,8 @@ function StandardLayout({ children }: AppLayoutProps) {
   const fallbackTitle = (() => {
     if (location.pathname === "/settings") return "Settings";
     if (location.pathname === "/team") return "Team";
-    if (location.pathname.startsWith("/draft-queue")) return "Draft queue";
+    if (location.pathname.startsWith("/draft-queue"))
+      return "Scheduled Messages";
     if (location.pathname.startsWith("/extensions")) return "Extensions";
     return "Mail";
   })();
@@ -1744,14 +1745,14 @@ function StandardLayout({ children }: AppLayoutProps) {
             <div className="min-h-0 flex-1 overflow-y-auto p-4">
               <div className="space-y-0.5">
                 {[
-                  { id: "inbox", label: "Inbox", href: "/inbox" },
+                  { id: "inbox", label: "Messages", href: "/inbox" },
                   { id: "unread", label: "Unread", href: "/unread" },
                   { id: "starred", label: "Starred", href: "/starred" },
                   { id: "snoozed", label: "Snoozed", href: "/snoozed" },
                   { id: "sent", label: "Sent", href: "/sent" },
                   {
                     id: "draft-queue",
-                    label: "Draft queue",
+                    label: "Scheduled Messages",
                     href: "/draft-queue",
                   },
                   {
