@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed quick-260613-gh8 (embed buy flow tail — thank-you route + Stripe error hardening)
+stopped_at: Completed P1c.1-07 (Connect platform setup + live e2e smoke test validated; phase closeout)
 last_updated: "2026-06-13T00:00:00.000Z"
 last_activity: 2026-06-13
 progress:
@@ -34,10 +34,10 @@ Requirements: `.planning/REQUIREMENTS.md` (130 reqs across 20 categories — see
 ## Current Position
 
 Milestone: Demo Sprint (1 of 2) — Week 1 (target ~2026-05-24 — slipped to 2026-05-26 with live-fix wave)
-Phase: P1c.1 (Stripe Connect Custom + Customer Purchase Flows) — EXECUTING
-Plan: 7 of 7
-Status: Ready to execute
-Last activity: 2026-06-13 - Completed quick task 260613-gh8: /embed/buy/thank-you success route + Stripe error hardening with mode coercion
+Phase: P1c.1 (Stripe Connect Custom + Customer Purchase Flows) — ALL PLANS COMPLETE; AWAITING PHASE VERIFICATION
+Plan: 7 of 7 (complete)
+Status: Phase e2e smoke test PASSED (2026-06-13); VERIFICATION.md authoring deferred to phase verifier
+Last activity: 2026-06-13 - P1c.1-07 SUMMARY written; all 7 plans committed; drop-in Checkout e2e proven live against gymos-demo Neon + Vercel + Fly stack (acct_1Thn4XER2RI3cQpx, evt_1ThpQ6ER2RI3cQpxpPdL5Mkn, pay_pi_3ThpQ4ER2RI3cQpx0w5B9OF6, 1 pass credit granted)
 
 **P1c-WIDE VERIFICATION CONSTRAINT (accumulated context — read before executing P1c-04/05/06):** The local `agent-native dev` server cannot boot (`NitroViteError: Vite environment "nitro" is unavailable` → 503 on server routes) — same class of issue as the Vercel/Netlify Nitro-bundling crash; staff-web only runs reliably on Fly. So NO P1c plan can run a local HTTP walkthrough. Verify the SUBSTANCE by replaying the handler/action SQL against the live `gymos-demo` Neon DB via Neon MCP (and clean up test rows), OR defer runtime checks (CORS preflight 204 ordering, route mounting, honeypot/rate-limit over HTTP, `/gymos` rendering) to the P1c-07 e2e smoke test. P1c-02 was verified this way (lead upsert replayed twice → 1 member / 1 lead conversation / 2 FK-safe submissions — checker's canonical-id re-select BLOCKER confirmed working).
 
@@ -198,6 +198,10 @@ Decisions are logged in `PROJECT.md` Key Decisions table. Recent ones affecting 
 - [Phase P1c.1]: Extracted buildCheckoutParams/validateConnectedAccount to helpers module — defineAction wrapper can't be imported in Vitest (CJS React conflict); pure helpers are testable
 - [Phase P1c.1]: Nitro .get.ts + .post.ts split for /embed/buy — matches schedule widget convention and lets Nitro serve raw HTML bypassing RR7
 - [Phase P1c.1]: (platform.checkout.sessions.create as any)(params, opts) cast — Stripe SDK TypeScript overloads confuse { stripeAccount } as second arg; runtime is correct
+- [Phase P1c.1-07-closeout]: Connect webhook endpoint we_1Thp7oEDUyRYOcLTF1HHiAW6 registered connect=true on platform account; STRIPE_CONNECT_WEBHOOK_SECRET live on Fly gymos-edge-webhooks; platform sk_test_ set as STRIPE_SECRET_KEY on Fly + Vercel; STRIPE_PRICE_DROP_IN + STRIPE_PRICE_MEMBERSHIP set on Vercel
+- [Phase P1c.1-07-closeout]: Subscription + charge.refunded + Customer Portal + mobile /api/m/purchase end-to-end are CODE-COMPLETE but not yet live-tested with real transactions — DEFERRED to P2/quick verification, not FAILED
+- [Phase P1c.1-07-closeout]: vercel promote required after vercel deploy --prod to pin the production alias — rollback pins aliases and new deploys do not automatically win the alias back
+- [Phase P1c.1-07-closeout]: Framework bundle-leak bug (actions/*.test.ts in serverless bundle via generated registry) fixed in @agent-native/core with changeset (commit 15e86a31); integrations loader refetch-on-return added (commit 755ef804) so readiness display is not solely webhook-driven
 
 ### Pending Todos
 
