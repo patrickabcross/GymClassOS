@@ -65,7 +65,24 @@ export async function loader(_args: Route.LoaderArgs) {
     skinName === "hustle"
       ? "#7C3AED" // guard:allow-color — theme-color <meta> hex; CSS vars not valid in HTML attribute context
       : "#F97316"; // guard:allow-color — theme-color <meta> hex; CSS vars not valid in HTML attribute context
-  return { skin: { name: skinName, ...skin }, accentHex };
+
+  // SWEB-07: Admin email allowlist. Comma-separated admin emails surfaced to
+  // the client so GymosTopNav can gate admin-only tabs. Non-sensitive: these
+  // are role hints, not secrets. When unset/empty, adminOpen=true means
+  // "treat everyone as admin" (single-pilot default — mirrors the
+  // CUSTOMER_ALLOWED_EMAILS empty-list-passes-everyone pattern in auth.ts).
+  const adminEmails = (process.env.GYMOS_ADMIN_EMAILS ?? "")
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+  const adminOpen = adminEmails.length === 0;
+
+  return {
+    skin: { name: skinName, ...skin },
+    accentHex,
+    adminEmails,
+    adminOpen,
+  };
 }
 
 export function Layout({ children }: { children: React.ReactNode }) {
@@ -283,8 +300,7 @@ export default function Root() {
       <QueryClientProvider client={queryClient}>
         <ThemeProvider
           attribute={["class", "data-theme"]}
-          defaultTheme="system"
-          enableSystem
+          defaultTheme="light"
           disableTransitionOnChange
         >
           <TooltipProvider delayDuration={300}>
