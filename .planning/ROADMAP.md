@@ -117,7 +117,13 @@ Plans:
   5. The booking flow completes in three steps or fewer (select → confirm with pass/drop-in choice → done) with a persistent pass-balance pill visible throughout
   6. The Noticeboard is framed in coach voice ("From your coach" / "Studio updates") — not a generic notification feed
   7. Inter loads via `useFonts` with OTF assets compatible with Expo Go; skin is selectable via `EXPO_PUBLIC_STUDIO_SKIN` at EAS build time
-**Plans**: TBD
+**Plans**: 4 plans (2 waves)
+
+Plans:
+- [ ] R5-01-theme-foundation-PLAN.md (wave 1) — lib/theme.ts (ThemeContext + useTheme + default + Hustle skins, dark-first orange) + ThemeProvider/useFonts gate in _layout.tsx + Inter OTF assets [MOBL-01, MOBL-03, MOBL-07]
+- [ ] R5-02-tabs-and-leaf-screens-PLAN.md (wave 2) — rename/reorder tabs Home/Classes/Passes/Log/Profile + new passes.tsx + hex migration of food/profile/food-add/food-barcode/pick-member [MOBL-02, MOBL-01]
+- [ ] R5-03-home-hero-and-noticeboard-PLAN.md (wave 2) — Home hero (next class + pass balance + latest coach message cards) + coach-voice Studio updates section + index.tsx/KcalRing hex migration [MOBL-04, MOBL-06, MOBL-01]
+- [ ] R5-04-booking-flow-pass-pill-PLAN.md (wave 2) — <=3-step booking (select -> confirm with pass/drop-in choice -> done) + persistent pass-balance pill + schedule.tsx hex migration [MOBL-05, MOBL-01]
 **UI hint**: yes
 
 ## Progress
@@ -128,7 +134,7 @@ Plans:
 | R2. Design System Token Layer | 4/4 | Complete   | 2026-06-13 |
 | R3. Naming & IA Pass | 4/4 | Complete   | 2026-06-13 |
 | R4. Staff Web Visual Refresh + Embed Widgets | 7/7 | Complete   | 2026-06-13 |
-| R5. Member Mobile App Redesign | 0/TBD | Not started | - |
+| R5. Member Mobile App Redesign | 0/4 | Not started | - |
 
 **Coverage:** 30 v1.1 requirements mapped across 5 phases (R1–R5).
 
