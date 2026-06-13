@@ -189,7 +189,7 @@ function groupByDay(classes: ClassRow[]): Map<string, ClassRow[]> {
 function renderSchedule(classes: ClassRow[]): string {
   if (classes.length === 0) {
     return `<div class="empty-state">
-      <p>No upcoming classes scheduled. Check back soon!</p>
+      <p>No upcoming classes at this time.</p>
     </div>`;
   }
 
@@ -222,7 +222,7 @@ function renderPage(
   const scheduleHtml = renderSchedule(classes);
 
   return `<!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
@@ -238,6 +238,7 @@ function renderPage(
 }
   :root {
     --gym-accent: ${accent};
+    --studio-accent: ${accent};
     --gym-radius: ${radius}px;
   }
   ${CSS()}
@@ -398,7 +399,7 @@ function CSS() {
   --muted:220 10% 95%;--muted-fg:220 5% 45%;
   --border:220 10% 88%;--input:220 10% 90%;
   --ring:220 10% 40%;
-  --accent-color:var(--gym-accent,#000); /* guard:allow-color — CSS var fallback for embed accent; actual value injected via --gym-accent URL param */
+  --accent-color:var(--studio-accent,var(--gym-accent,#000)); /* guard:allow-color — CSS var fallback for embed accent; actual value injected via --studio-accent/--gym-accent URL param */
   --radius:var(--gym-radius,6px);
 }
 .dark{
