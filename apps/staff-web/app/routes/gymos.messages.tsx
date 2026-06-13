@@ -300,6 +300,33 @@ export async function loader({ request }: LoaderFunctionArgs) {
         (b) => b.status === "attended" || b.status === "booked",
       ).length;
 
+      // Derive last visit: most recent PAST booking with status='attended',
+      // falling back to 'booked' if no attended records exist. Reuses the
+      // existing bookings array — no new DB query.
+      const pastBookings = bookings.filter(
+        (b) =>
+          b.startsAt &&
+          new Date(b.startsAt) < now &&
+          (b.status === "attended" || b.status === "booked"),
+      );
+      // Prefer attended over booked; both arrays are ordered by startsAt ASC so last element = most recent
+      const lastVisitAttended = [...pastBookings]
+        .filter((b) => b.status === "attended")
+        .at(-1);
+      const lastVisitBooked = [...pastBookings]
+        .filter((b) => b.status === "booked")
+        .at(-1);
+      const lastVisitRecord = lastVisitAttended ?? lastVisitBooked ?? null;
+      const lastVisit: {
+        className: string | null;
+        startsAt: string;
+      } | null = lastVisitRecord
+        ? {
+            className: lastVisitRecord.className ?? null,
+            startsAt: lastVisitRecord.startsAt as string,
+          }
+        : null;
+
       // Recent food entries (today)
       const today = new Date().toISOString().slice(0, 10);
       const todaysFood = await db
@@ -322,6 +349,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
         todayKcal: Number(todaysFood.kcal),
         todayProtein: Number(todaysFood.protein),
         todayFoodCount: Number(todaysFood.count),
+        lastVisit,
       };
     }
   }
