@@ -1,13 +1,21 @@
-// GymClassOS Members — Demo Sprint D1. Directory of seeded gym members with pass-balance summary. Standalone for demo; will move to apps/staff-web/features/members/ post-demo.
+// GymClassOS Members — R4-03: card-default directory with Tabs card/table toggle, avatars, membership badges, search.
 
-import { useLoaderData, Link } from "react-router";
+import { useLoaderData, Link, useSearchParams } from "react-router";
 import { useState, useMemo } from "react";
-import { eq, asc, sql } from "drizzle-orm";
+import { eq, asc, sql, gt } from "drizzle-orm";
 import { format } from "date-fns";
-import { IconSearch } from "@tabler/icons-react";
+import {
+  IconSearch,
+  IconUsers,
+  IconLayoutGrid,
+  IconTable,
+} from "@tabler/icons-react";
 import { getDb, schema } from "../../server/db";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Card } from "@/components/ui/card";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import type { LoaderFunctionArgs } from "react-router";
 
@@ -111,7 +119,45 @@ export async function loader({ request }: LoaderFunctionArgs) {
     balances[m.id] = Number(m.granted) - (debitsByMember[m.id] ?? 0);
   }
 
-  return { members, balances };
+  // Next upcoming class per member — additive query, does not affect members/balances.
+  // guard:allow-unscoped — single-tenant gym tables (no ownableColumns)
+  const nowIso = new Date().toISOString();
+  const nextClassRows = await db
+    .select({
+      memberId: schema.bookings.memberId,
+      className: schema.classDefinitions.name,
+      startsAt: schema.classOccurrences.startsAt,
+    })
+    .from(schema.bookings)
+    .leftJoin(
+      schema.classOccurrences,
+      eq(schema.bookings.occurrenceId, schema.classOccurrences.id),
+    )
+    .leftJoin(
+      schema.classDefinitions,
+      eq(schema.classOccurrences.definitionId, schema.classDefinitions.id),
+    )
+    .where(
+      sql`${schema.bookings.status} = 'booked' AND ${schema.classOccurrences.startsAt} > ${nowIso}`,
+    )
+    .orderBy(asc(schema.classOccurrences.startsAt));
+
+  // Keep only the earliest upcoming class per member.
+  const nextClassByMember: Record<
+    string,
+    { className: string | null; startsAt: string }
+  > = {};
+  for (const row of nextClassRows) {
+    if (!row.memberId) continue;
+    if (!nextClassByMember[row.memberId]) {
+      nextClassByMember[row.memberId] = {
+        className: row.className ?? null,
+        startsAt: row.startsAt ?? "",
+      };
+    }
+  }
+
+  return { members, balances, nextClassByMember };
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
