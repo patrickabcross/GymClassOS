@@ -95,6 +95,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
         />
         <meta name="apple-mobile-web-app-title" content="Mail" />
         <link rel="apple-touch-icon" href={appPath("/icon-180.svg")} />
+        <link
+          rel="preload"
+          as="font"
+          type="font/woff2"
+          crossOrigin="anonymous"
+          href="/fonts/inter-variable.woff2"
+        />
         <Meta />
         <Links />
       </head>
