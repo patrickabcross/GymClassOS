@@ -308,7 +308,7 @@ function renderFormPage(
   const fieldsHtml = fields.map(renderField).join("\n");
 
   return `<!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
@@ -324,6 +324,7 @@ ${form.description ? `<meta name="description" content="${escapeHtml(form.descri
 }
   :root {
     --gym-accent: ${accent};
+    --studio-accent: ${accent};
     --gym-radius: ${radius}px;
   }
   ${CSS()}
@@ -355,7 +356,7 @@ ${form.description ? `<meta name="description" content="${escapeHtml(form.descri
         ${fieldsHtml || '<p class="empty">This form has no fields yet.</p>'}
       </div>
       ${turnstileSiteKey ? `<div id="turnstile" class="turnstile-wrap"></div>` : ""}
-      <button type="submit" class="submit-btn" id="submitBtn">${escapeHtml(settings.submitText || "Submit")}</button>
+      <button type="submit" class="submit-btn" id="submitBtn">${escapeHtml(settings.submitText || "Send Enquiry")}</button>
     </form>
   </div>
 
@@ -364,7 +365,7 @@ ${form.description ? `<meta name="description" content="${escapeHtml(form.descri
       <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
     </div>
     <h1>Response submitted</h1>
-    <p class="desc">${escapeHtml(settings.successMessage || "Thank you! Your response has been recorded.")}</p>
+    <p class="desc">${escapeHtml(settings.successMessage || "Thanks for your enquiry! We'll be in touch soon.")}</p>
   </div>
 </div>
 
@@ -377,10 +378,14 @@ ${form.description ? `<meta name="description" content="${escapeHtml(form.descri
   var TURNSTILE_KEY = ${JSON.stringify(turnstileSiteKey)};
   var FIELDS = ${JSON.stringify(fields.map((f) => ({ id: f.id, type: f.type, required: f.required, validation: f.validation, label: f.label, conditional: f.conditional })))};
 
-  // Theme toggle
+  // Theme toggle — default is light (no .dark on <html>).
+  // When NOT embedded, honour a saved "dark" preference. When embedded, stay light.
   var html = document.documentElement;
-  var saved = localStorage.getItem("theme");
-  if (saved === "light") html.classList.remove("dark");
+  var embedded = html.classList.contains("embedded");
+  if (!embedded) {
+    var saved = localStorage.getItem("theme");
+    if (saved === "dark") html.classList.add("dark");
+  }
   document.getElementById("themeToggle").onclick = function() {
     var dark = html.classList.toggle("dark");
     localStorage.setItem("theme", dark ? "dark" : "light");
@@ -574,9 +579,9 @@ ${form.description ? `<meta name="description" content="${escapeHtml(form.descri
       }
     })
     .catch(function(err) {
-      showToast(err.message || "Failed to submit form");
+      showToast(err.message || "Something went wrong. Please try again or call us directly.");
       submitting = false;
-      btn.textContent = ${JSON.stringify(settings.submitText || "Submit")};
+      btn.textContent = ${JSON.stringify(settings.submitText || "Send Enquiry")};
       btn.disabled = false;
     });
   };
@@ -592,7 +597,7 @@ ${form.description ? `<meta name="description" content="${escapeHtml(form.descri
 
 function notFoundPage() {
   return `<!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
@@ -687,7 +692,7 @@ select.fi option{background:hsl(var(--card));color:hsl(var(--fg))}
 .submit-btn{
   margin-top:16px;padding:10px 24px;
   font-size:0.875rem;font-weight:500;font-family:inherit;
-  background:hsl(var(--fg));color:hsl(var(--bg));
+  background:var(--studio-accent,var(--gym-accent,#000));color:#fff; /* guard:allow-color — embed widget accent button; --studio-accent injected from URL param; #000/#fff are CSS var fallbacks only */
   border:none;border-radius:var(--radius);cursor:pointer;
 }
 .submit-btn:hover{opacity:0.9}
