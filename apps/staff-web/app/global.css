@@ -91,7 +91,7 @@
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
   /* Prevent text selection on double-click for keyboard nav UX */
-  .email-list-row {
+  .conversation-row {
     user-select: none;
   }
 }
@@ -112,8 +112,8 @@
   background: hsl(var(--muted-foreground) / 0.4);
 }
 
-/* Email body prose reset */
-.email-body-content {
+/* Message body prose reset */
+.message-body-content {
   font-size: 0.9375rem;
   line-height: 1.7;
   color: hsl(var(--foreground));
@@ -121,20 +121,20 @@
   overflow-wrap: break-word;
   word-break: break-word;
 }
-.email-body-content a {
+.message-body-content a {
   color: hsl(var(--primary));
   text-decoration: underline;
   text-underline-offset: 3px;
 }
-.email-body-content p {
+.message-body-content p {
   margin-bottom: 0.75rem;
 }
-.email-body-content img {
+.message-body-content img {
   max-width: 100%;
   height: auto;
 }
-.email-body-content pre,
-.email-body-content table {
+.message-body-content pre,
+.message-body-content table {
   max-width: 100%;
   overflow-x: auto;
 }
@@ -157,21 +157,21 @@
   letter-spacing: 0;
 }
 
-/* Highlight focused email row */
-.email-list-row.focused {
+/* Highlight focused conversation row */
+.conversation-row.focused {
   background: hsl(var(--accent));
 }
 
-/* Selected email row — stronger highlight */
-.email-list-row.selected {
+/* Selected conversation row — stronger highlight */
+.conversation-row.selected {
   background: hsl(var(--secondary));
 }
 
-/* Multi-selected email rows */
-.email-list-row.multi-selected {
+/* Multi-selected conversation rows */
+.conversation-row.multi-selected {
   background: hsl(var(--primary) / 0.06);
 }
-.email-list-row.multi-selected.focused {
+.conversation-row.multi-selected.focused {
   background: hsl(var(--primary) / 0.12);
 }
 
@@ -197,8 +197,8 @@
   max-width: 120px;
 }
 
-/* Date/actions container on email rows — reserve enough room for actions. */
-.email-list-row .row-action-rail {
+/* Date/actions container on conversation rows — reserve enough room for actions. */
+.conversation-row .row-action-rail {
   position: relative;
   display: flex;
   width: 3rem;
@@ -210,12 +210,12 @@
 }
 
 @media (min-width: 640px) {
-  .email-list-row .row-action-rail {
+  .conversation-row .row-action-rail {
     width: 9rem;
   }
 }
 
-.email-list-row .hover-actions {
+.conversation-row .hover-actions {
   position: absolute;
   inset: 0;
   display: flex;
@@ -227,31 +227,31 @@
   transition: opacity 120ms ease;
   z-index: 2;
 }
-.email-list-row.focused .hover-actions,
-.email-list-row:hover .hover-actions {
+.conversation-row.focused .hover-actions,
+.conversation-row:hover .hover-actions {
   opacity: 1;
   pointer-events: auto;
 }
-.email-list-row.focused .hover-actions {
+.conversation-row.focused .hover-actions {
   background: hsl(var(--accent));
 }
-.email-list-row.selected .hover-actions {
+.conversation-row.selected .hover-actions {
   background: hsl(var(--secondary));
 }
-.email-list-row.focused .row-time,
-.email-list-row:hover .row-time {
+.conversation-row.focused .row-time,
+.conversation-row:hover .row-time {
   visibility: hidden;
 }
 
 @media (max-width: 639px) {
-  .email-list-row:hover .hover-actions,
-  .email-list-row.focused .hover-actions {
+  .conversation-row:hover .hover-actions,
+  .conversation-row.focused .hover-actions {
     opacity: 0;
     pointer-events: none;
   }
 
-  .email-list-row:hover .row-time,
-  .email-list-row.focused .row-time {
+  .conversation-row:hover .row-time,
+  .conversation-row.focused .row-time {
     visibility: visible;
   }
 }

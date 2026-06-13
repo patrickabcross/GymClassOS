@@ -2151,7 +2151,7 @@ function PlainTextBody({
   let cumulativeMatches = 0;
 
   return (
-    <div ref={containerRef} className="email-body-content">
+    <div ref={containerRef} className="message-body-content">
       {visibleLines.map((line, i) => {
         const offset = cumulativeMatches;
         cumulativeMatches += countMatchesInText(line);

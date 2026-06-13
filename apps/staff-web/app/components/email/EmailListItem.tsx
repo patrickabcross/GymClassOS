@@ -421,7 +421,7 @@ export const EmailListItem = memo(function EmailListItem({
             : undefined
         }
         className={cn(
-          "email-list-row group relative flex cursor-pointer items-center h-[48px] sm:h-[38px] px-3 transition-colors",
+          "conversation-row group relative flex cursor-pointer items-center h-[48px] sm:h-[38px] px-3 transition-colors",
           isSelected && "selected",
           isFocused && !isSelected && "focused",
           isMultiSelected && "multi-selected",
