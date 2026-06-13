@@ -125,7 +125,7 @@
 > **Continuing on `master` — NOT this branch's scope.**
 > All v1.0 work (phases D0–D2, P0, P1a, P1b, P1b.1, P1c, P2, P3) continues independently on `master`. The content below is preserved as reference for merge-time context. Do not execute v1.0 plans from `redesign/ui-refresh`.
 
-### Overview
+## Overview
 
 GymClassOS v1 ships in **two milestones**:
 
@@ -137,18 +137,18 @@ The demo deliberately cuts corners that production cannot: skipping atomic trans
 
 Post-v1 backlog (HealthKit + native mobile, Coach View with health context, CRM campaigns + segments, Knowledge Base, Reporting, bsport-migration productisation, A2A) lives in REQUIREMENTS.md and PLATFORM-VISION.md.
 
-### Milestones
+## Milestones
 
 - [ ] **Milestone 1: Demo Sprint** (Week 1) — vertical slice for customer's first look
 - [ ] **Milestone 2: Production v1** (Weeks 2–9) — harden + extend to production-ready
 
-### Milestone 1: Demo Sprint
+## Milestone 1: Demo Sprint
 
 **Window:** 2026-05-17 → ~2026-05-24 (~7 days)
 **Quality bar:** Prototype. Stubs OK. Hardcoded data OK on non-demo paths. Golden-path flows must work.
 **Demo delivery:** URLs on customer's devices — staff back-office on laptop, member PWA installed to home screen on phone.
 
-#### Phase D0: Fork + Schema + Deploys (Days 1–2)
+### Phase D0: Fork + Schema + Deploys (Days 1–2)
 
 **Goal:** Fork agent-native, get the workspace running locally, deploy a hello-world staff-web to Vercel against a Neon database, schema in place.
 
@@ -160,7 +160,7 @@ Post-v1 backlog (HealthKit + native mobile, Coach View with health context, CRM 
 3. Drizzle migration creates the demo-subset of tables on a fresh Neon project; `pnpm db:studio` shows them
 4. No `studio_id` column anywhere in the schema (`grep -r "studio_id" packages/db` returns zero)
 
-#### Phase D1: Staff Surfaces Adapted from Mail + Calendar (Days 2–4)
+### Phase D1: Staff Surfaces Adapted from Mail + Calendar (Days 2–4)
 
 **Goal:** The staff back-office shows recognisable Mail-as-inbox and Calendar-as-schedule surfaces with seeded data, plus a member directory and basic payments view.
 
@@ -173,14 +173,14 @@ Post-v1 backlog (HealthKit + native mobile, Coach View with health context, CRM 
 4. Member context panel in the inbox shows next-class + pass-balance for the opened conversation's member (real data)
 5. Stripe Checkout link generated for a 10-pack purchase + paid in Stripe test mode + resulting pass grant visible in member profile
 
-**Plans:** 4/4 plans complete
+**Plans:** 4 plans
 
 - [x] D1-01-schedule-surface-PLAN.md — Build /gymos/schedule week-grid + book-from-occurrence dialog (SCH-01, BKG-01) — completed 2026-05-19 (commits f5cdbdc6, dd50fe62, 23ee58f2)
 - [x] D1-02-members-directory-PLAN.md — Build /gymos/members + /gymos/members/:id profile with bookings + pass balance (MEM-01, MEM-02)
 - [ ] D1-03-payments-stripe-checkout-PLAN.md — Build /gymos/payments with Stripe test-mode Checkout + pass grant (PAY-01, STR-01, STR-02)
 - [x] D1-04-inbox-gap-fill-PLAN.md — Add top-nav strip + send acknowledgement + INBX-* audit comments (INBX-01, INBX-02, INBX-03, INBX-06 thin, INBX-07)
 
-#### Phase D2: Member Mobile App + Calorie Counter + Agent (Days 4–7)
+### Phase D2: Member Mobile App + Calorie Counter + Agent (Days 4–7)
 
 **Goal:** Member opens an Expo Go link on their phone, loads the GymClassOS member app (forked from agent-native's `packages/mobile-app`), logs in (demo-stub picker), browses + books a class, logs a meal via search + barcode, and chats with the in-app agent that can `greet` / `book_class` (with confirmation) / `log_food_nl`. At least one real WhatsApp message round-trip (inbound + outbound) lands in the staff inbox.
 
@@ -216,14 +216,14 @@ Post-v1 backlog (HealthKit + native mobile, Coach View with health context, CRM 
 
 **UI hint:** yes
 
-### Milestone 2: Production v1
+## Milestone 2: Production v1
 
 **Window:** ~2026-05-25 → ~2026-07-15 (~8 weeks)
 **Quality bar:** Production. Atomic transactions. Idempotent everything. PII redacted logs. Per-studio deploy script. Real customer cutover lands in this window.
 
 The production milestone is structured as 4 phases (preserving the prior coarse-grained roadmap shape). Each phase hardens demo corner-cuts AND adds the requirements that didn't make the demo.
 
-#### Phase P0: Audit & De-Risk (~3–5 days)
+### Phase P0: Audit & De-Risk (~3–5 days)
 
 **Goal:** Long-lead-time and architectural risks neutralised before production code is written. Template audit completed. WhatsApp templates submitted to Meta (≤48h approval). `@great-detail/whatsapp` mirrored. Customer onboarding checklist signed off.
 
@@ -236,7 +236,7 @@ The production milestone is structured as 4 phases (preserving the prior coarse-
 4. All four WhatsApp templates (`class_reminder`, `waitlist_offer`, `payment_failed`, `pass_expiring`) submitted to Meta — approval status visible in Meta Business Manager
 5. Customer onboarding checklist signed off (Meta Business Manager + WhatsApp phone clean + Stripe account created + restricted key generated)
 
-#### Phase P1a: Data Foundation, Auth & Deploy (~2 weeks)
+### Phase P1a: Data Foundation, Auth & Deploy (~2 weeks)
 
 **Goal:** Coach + Member can log in to a production-deployed staff-web + member-PWA; schema has every table required by P1b and P2; adding a new studio is a single scripted command.
 
@@ -251,7 +251,7 @@ The production milestone is structured as 4 phases (preserving the prior coarse-
 6. PWA passes a Lighthouse PWA audit (installable, service worker, manifest); installs to home screen on iOS Safari + Android Chrome
 7. `/healthz` on edge-webhooks returns latency + queue-depth + last-processed JSON
 
-#### Phase P1b: Webhook + Worker Spine (Stripe + WhatsApp) (~2 weeks)
+### Phase P1b: Webhook + Worker Spine (Stripe + WhatsApp) (~2 weeks)
 
 **Goal:** Every external event from Stripe or Meta is received, signature-verified, persisted idempotently, processed by a pg-boss worker. Every outbound WhatsApp send is gated at the worker layer by 24h-window + opt-in checks. Stripe restricted-key flow is rotation-capable.
 
@@ -286,7 +286,7 @@ The production milestone is structured as 4 phases (preserving the prior coarse-
 - [x] P1b-08-staffweb-outbound-rotation-PLAN.md — /gymos Send action refactored to enqueue (no direct Meta) + loader exposes whatsapp_window_state + opt-in; UI badges + Send gate + D-19 failed-bubble copy; /gymos/settings/integrations Stripe key rotation (WA-05/08)
 - [ ] P1b-09-validation-cutover-PLAN.md — WA-08 daily template-sync cron via pg-boss schedule + integration tests for the 4 D-23 scenarios + Meta/Stripe URL flip + DELETE templates/mail/webhooks.whatsapp.tsx (D-05 last task) (WA-08)
 
-#### Phase P1b.1: Customer Pilot Enablement (INSERTED — 2026-05-25)
+### Phase P1b.1: Customer Pilot Enablement (INSERTED — 2026-05-25)
 
 **Goal:** Hand the deployed staff-web to the signed customer as a real pilot tool. After the successful 2026-05-25 demo, the customer immediately needs (a) accounts to log in with and (b) the ability to actually send WhatsApp messages from the inbox via approved templates. Plus the cosmetic + functional cleanup the demo exposed: `/gymos` looks like an email client, the AI sidebar isn't gym-aware, and Analytics is missing from the top-nav.
 
@@ -329,7 +329,7 @@ The production milestone is structured as 4 phases (preserving the prior coarse-
 1. **WhatsApp integration deep wire** — migrate `services/worker/` and `services/edge-webhooks/` to read Meta credentials from `app_secrets` (so the in-app Settings UI is the single source of truth, not `fly secrets set`); wire WA-08 template sync cron to replace seeded stubs with real Meta approvals; end-to-end test of outbound send + inbound delivery/read callbacks against the verified WABA.
 2. **Mobile app (member surface)** — resume D2 work (Task 4 of in-app agent was pending; D2-06 verification deferred); cut an EAS preview build under the customer's existing Apple Developer Account so the studio can hand the member experience to a real test cohort.
 
-#### Phase P1c: Public Site Integrations (~2–3 weeks — DRAFT, not yet planned)
+### Phase P1c: Public Site Integrations (~2–3 weeks — DRAFT, not yet planned)
 
 **Goal:** Productize the pilot for *visitors* — people who land on the studio's marketing site (`doyouhustle.co.uk`) but haven't signed in to anything. Two surfaces:
 
@@ -371,7 +371,45 @@ The production milestone is structured as 4 phases (preserving the prior coarse-
 
 ---
 
-#### Phase P2: Staff + Member Product Surfaces (~3–4 weeks)
+### Phase P1c.1: Stripe Connect (Custom) + Customer Purchase Flows (INSERTED — 2026-06-12)
+
+**Goal:** Replace the direct restricted-API-key Stripe model with a GymClassOS **platform** account using **Custom connected accounts** (white-label — studio never sees Stripe branding), onboarded via Stripe-hosted Account Links (full embedded self-serve onboarding stays in backlog 999.3-adjacent territory). All charges are **direct charges on the connected account with NO application fee** (fee model deferred — one parameter to add later). Customers can purchase packs/drop-ins AND recurring membership subscriptions from three surfaces.
+
+> **Decision record (2026-06-12, user):** Reverses the 2026-05-17 "direct restricted-key, NOT Connect" decision. Locked: Custom account type; no platform fee for now; packs + subscriptions; all three purchase surfaces.
+
+**Requirements:** STR-01 (reworked for Connect), STR-02, PAY-01, PAY-02, PAY-03, PAY-04, plus closes milestone-audit gaps (Demo Sprint PAY-01/STR-02)
+
+**Success criteria:**
+1. Platform Stripe account configured; a Custom connected account exists for Hustle, onboarded to `charges_enabled && payouts_enabled` via an Account Link flow launched from /gymos/settings (account id stored server-side; `account.updated` webhook keeps readiness state current)
+2. Checkout sessions (one-off packs/drop-ins AND subscription memberships) are created **on the connected account**; completing a test-mode checkout grants the pass / activates the subscription via the existing P1b-07 reducers (idempotency preserved; reducers refetch account-scoped)
+3. Connect webhooks (events carrying the `account` field) verified + routed through edge-webhooks → pg-boss → worker, same idempotency spine as before
+4. Coach can generate and send a checkout link from the inbox/member profile (staff surface)
+5. Public embed (P1c widgets) supports a buy flow that links the Checkout to a lead/member by email/phone
+6. Member mobile app has a purchase screen (opens Checkout in a browser sheet) — **prerequisite: fix the /api/m/* 404 on the Vercel deploy first**
+7. Stripe Customer Portal (on the connected account) reachable for subscription self-service
+8. No card data stored anywhere; tokenised IDs only (STR-08 preserved)
+
+**Plans:** 7 plans (3 waves)
+
+Plans:
+- [ ] P1c.1-01-PLAN.md (wave 1) — additive connected_accounts table (acct_id + readiness flags, direct-to-Neon) + StripeEventPayload.stripeAccount optional field [STR-01]
+- [ ] P1c.1-02-PLAN.md (wave 2) — POST /webhooks/stripe-connect Connect endpoint (separate whsec_, reads event.account, same idempotency spine) [STR-01]
+- [ ] P1c.1-03-PLAN.md (wave 3) — thread stripeAccount through all 6 reducers refetch + new account.updated readiness reducer [STR-01, STR-02, PAY-01, PAY-02]
+- [ ] P1c.1-04-PLAN.md (wave 1) — getPlatformStripe() + create-connect-account (controller props) + create-account-link + settings Connect/readiness UI; restricted-key path dormant [STR-01]
+- [ ] P1c.1-05-PLAN.md (wave 2) — rework create-checkout-link (Connect + subscription mode + subscription_data.metadata.memberId) + create-portal-link + public /embed/buy [STR-02, PAY-01, PAY-02, PAY-03, PAY-04]
+- [ ] P1c.1-06-PLAN.md (wave 1) — fix /api/m/* 404 on Vercel + /api/m/purchase endpoint + mobile purchase screen (Checkout in browser sheet) [PAY-01, STR-02]
+- [ ] P1c.1-07-PLAN.md (wave 3) — CHECKPOINT: user enables platform Connect + registers Connect webhook + sets secrets + onboards Hustle; then live Stripe CLI e2e → VERIFICATION.md [STR-01, STR-02, PAY-01, PAY-02, PAY-03, PAY-04]
+
+**Wave structure (parallelism):**
+- **Wave 1** (no platform-account dependency — pure code/test): 01 (schema + queue contract), 04 (onboarding actions + settings UI), 06 (mobile 404 fix + purchase screen)
+- **Wave 2** (depend on wave-1 code): 02 (Connect endpoint, needs 01 queue field), 05 (purchase surfaces, needs 04 resolver)
+- **Wave 3** (depend on wave-2): 03 (reducers, needs 01+02), 07 (manual prereqs CHECKPOINT + live e2e, needs 02-06)
+
+**Manual prerequisites (Plan 07 checkpoint — executor must NOT fake):** GymClassOS platform Stripe account + Connect enabled; register a SECOND webhook endpoint /webhooks/stripe-connect with connect=true; set STRIPE_SECRET_KEY (platform key) + new STRIPE_CONNECT_WEBHOOK_SECRET as Fly/Vercel secrets; complete the Hustle Account Link onboarding with Stripe TEST verification values.
+
+---
+
+### Phase P2: Staff + Member Product Surfaces (~3–4 weeks)
 
 **Goal:** Production-quality versions of every surface the demo showed, plus the surfaces the demo skipped. Coach runs a full day from staff-web; member runs their fitness life from the PWA.
 
@@ -397,7 +435,7 @@ The production milestone is structured as 4 phases (preserving the prior coarse-
 
 **UI hint:** yes
 
-#### Phase P3: AI Noticeboard Home (~1–2 weeks)
+### Phase P3: AI Noticeboard Home (~1–2 weeks)
 
 **Goal:** Replace the `/gymos` post-login landing with an old-school noticeboard/bulletin-board dashboard (Polsia-style; fits the gym brand). A board of section cards is the first thing a coach/manager sees after login. The existing right-rail agent chat stays but gains the ability to **author** dashboard content — turning the agent from read-only Q&A into a human-in-the-loop operator that surfaces recommendations and recently-taken actions, and maintains a prioritized Tasks list.
 
@@ -437,7 +475,7 @@ Plans:
 - [x] P3-ai-noticeboard-06-agent-posture-PLAN.md (wave 3) — system prompt + AGENTS.md suggest-and-act rewrite + navigate vocabulary [SC-6]
 - [ ] P3-ai-noticeboard-07-e2e-smoke-PLAN.md (wave 5) — live Vercel + Neon e2e: board render, agent authoring, propose->approve->execute with worker gate proof [SC-1..SC-6]
 
-### v1.0 Progress
+## Progress
 
 **Execution Order:**
 Demo Sprint runs first (D0 → D1 → D2 over 7 days). Production v1 runs after (P0 → P1a → P1b → P2 over 8 weeks).
@@ -455,9 +493,9 @@ Demo Sprint runs first (D0 → D1 → D2 over 7 days). Production v1 runs after 
 | **P1b.1. Customer Pilot Enablement** | 8 | ✓ **Live-accepted** | **2026-05-26** (8/8 plans + live-fix wave) |
 | **P1c. Public Site Integrations** | 10 | ✓ **Complete** (7/7 plans; lead funnel verified live on deploy; Stripe Checkout deferred to studio Stripe setup) | **2026-06-01** |
 | P2. Staff + Member Product Surfaces | 50+ | Not started | - |
-| P3. AI Noticeboard Home | 6/7 | In Progress | |
+| P3. AI Noticeboard Home | 6/7 | In Progress|  |
 
-**Active workstreams (next up — master branch):**
+**Active workstreams (next up):**
 - **WhatsApp deep wire** — migrate worker + edge-webhooks credentials from `process.env` to `app_secrets`; wire WA-08 template sync (P1b-09); live test against verified WABA
 - **Mobile app** — finish D2-06 Task 4 + cut EAS build for customer's Apple Developer Account
 - **Studio Stripe setup** — restricted key + Products tagged with pack keywords (`10-pack`/`5-pack`/`drop-in`); unblocks D1-03 payments AND the P1c Checkout-link → pass loop (customer task)
@@ -516,9 +554,11 @@ Plans:
 
 ---
 
-*v1.0 Roadmap created: 2026-05-17*
-*v1.0 Revised: 2026-05-17 — major restructure (Demo Sprint + Production v1 two-milestone shape; mobile = PWA; Stripe direct; calorie counter in v1)*
-*v1.0 Revised: 2026-05-19 — D2 plan list registered (6 plans), success criteria realigned to native Expo flow (was inherited PWA wording), MEMBR-06 dropped from D2 (PWA manifest is N/A for native Expo Go; rolled into P1a EAS work)*
-*v1.0 Revised: 2026-06-01 — P1c Public Site Integrations planned (7 plans) + executed + verified live on deploy → marked Complete. Migrations 0003+0004 applied to gymos-demo Neon. FORMS-01..04 + EMBED-01..06 added (140 reqs total). Checkout-link + visual-browser checks deferred (studio Stripe setup / dev-server NitroViteError).*
-*v1.1 Roadmap added: 2026-06-12 — Milestone v1.1 UI Redesign phases R1–R5 defined on branch redesign/ui-refresh. 30 requirements mapped.*
+*Roadmap created: 2026-05-17*
+*Revised: 2026-05-17 — major restructure (Demo Sprint + Production v1 two-milestone shape; mobile = PWA; Stripe direct; calorie counter in v1)*
+*Revised: 2026-05-19 — D2 plan list registered (6 plans), success criteria realigned to native Expo flow (was inherited PWA wording), MEMBR-06 dropped from D2 (PWA manifest is N/A for native Expo Go; rolled into P1a EAS work)*
+*Revised: 2026-06-01 — P1c Public Site Integrations planned (7 plans) + executed + verified live on deploy → marked Complete. Migrations 0003+0004 applied to gymos-demo Neon. FORMS-01..04 + EMBED-01..06 added (140 reqs total). Checkout-link + visual-browser checks deferred (studio Stripe setup / dev-server NitroViteError).*
 *Out of v1 scope: Native mobile (v1.x), HealthKit, Coach View with health context, CRM campaigns + segments, Knowledge Base, Operational Reporting, bsport-migration productisation, A2A. See REQUIREMENTS.md §Post-v1 Backlog and PLATFORM-VISION.md.*
+
+*v1.1 Roadmap (R1–R5 UI Redesign) lives in the v1.1 section above; defined 2026-06-12 on branch `redesign/ui-refresh`. 30 v1.1 requirements mapped.*
+*Merged `origin/master` → `redesign/ui-refresh` on 2026-06-13 to absorb P1c.1 (Stripe Connect) phase plans + v1.0 milestone audit; v1.0 body below reflects master (reference only — do not execute from this branch).*
