@@ -37,7 +37,7 @@ Milestone: Demo Sprint (1 of 2) — Week 1 (target ~2026-05-24 — slipped to 20
 Phase: P1c.1 (Stripe Connect Custom + Customer Purchase Flows) — EXECUTING
 Plan: 7 of 7
 Status: Ready to execute
-Last activity: 2026-06-12
+Last activity: 2026-06-13 - Completed quick task 260613-ey3: real /gymos/payments page (list-payments action + table)
 
 **P1c-WIDE VERIFICATION CONSTRAINT (accumulated context — read before executing P1c-04/05/06):** The local `agent-native dev` server cannot boot (`NitroViteError: Vite environment "nitro" is unavailable` → 503 on server routes) — same class of issue as the Vercel/Netlify Nitro-bundling crash; staff-web only runs reliably on Fly. So NO P1c plan can run a local HTTP walkthrough. Verify the SUBSTANCE by replaying the handler/action SQL against the live `gymos-demo` Neon DB via Neon MCP (and clean up test rows), OR defer runtime checks (CORS preflight 204 ordering, route mounting, honeypot/rate-limit over HTTP, `/gymos` rendering) to the P1c-07 e2e smoke test. P1c-02 was verified this way (lead upsert replayed twice → 1 member / 1 lead conversation / 2 FK-safe submissions — checker's canonical-id re-select BLOCKER confirmed working).
 
