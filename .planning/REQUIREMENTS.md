@@ -55,7 +55,7 @@
 - [x] **MOBL-02**: Bottom tabs are renamed Home / Classes / Passes / Log / Profile
 - [x] **MOBL-03**: High-contrast dark theme is the member app default (gym/workout usage context)
 - [x] **MOBL-04**: Home tab shows next class, pass balance, and latest coach message as hero content
-- [ ] **MOBL-05**: Booking flow is ≤3 steps (select → confirm with pass/drop-in choice → done) with a persistent pass-balance pill
+- [x] **MOBL-05**: Booking flow is ≤3 steps (select → confirm with pass/drop-in choice → done) with a persistent pass-balance pill
 - [x] **MOBL-06**: Noticeboard is reframed in coach voice ("From your coach" / "Studio updates") — not a notification feed
 - [x] **MOBL-07**: Inter loads via `useFonts` with OTF assets (Expo Go compatible); skin is selected via `EXPO_PUBLIC_STUDIO_SKIN` at EAS build time
 
@@ -124,7 +124,7 @@ Which phases cover which requirements. Updated 2026-06-12 during roadmap creatio
 | MOBL-02 | R5. Member Mobile App Redesign | Complete |
 | MOBL-03 | R5. Member Mobile App Redesign | Complete |
 | MOBL-04 | R5. Member Mobile App Redesign | Complete |
-| MOBL-05 | R5. Member Mobile App Redesign | Pending |
+| MOBL-05 | R5. Member Mobile App Redesign | Complete |
 | MOBL-06 | R5. Member Mobile App Redesign | Complete |
 | MOBL-07 | R5. Member Mobile App Redesign | Complete |
 
