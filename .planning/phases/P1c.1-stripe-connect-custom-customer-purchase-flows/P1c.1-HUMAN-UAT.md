@@ -14,7 +14,7 @@ updated: 2026-06-13
 
 ### 1. Staff checkout-link from inbox / member profile (Success Criterion 4)
 expected: A coach can generate + send a Stripe checkout link directly from the inbox conversation or a member profile (staff surface).
-result: [pending] — POSSIBLE GAP. `create-checkout-link` is wired and works, but is only reachable via the noticeboard Revenue card's propose→approve flow (`BoardCard.tsx`). No direct "send checkout link" button exists in `gymos.inbox.tsx` or `gymos.members_.$id.tsx`. If the propose→approve path satisfies the criterion, this passes; if a literal button on those surfaces is required, a small UI addition is needed.
+result: RESOLVED (2026-06-13, quick task 260613-oul) — a `CheckoutLinkButton` ("Payment link" dropdown → Drop-in / Membership → Dialog with the Checkout URL + copy-to-clipboard) is now on the member profile header (`gymos.members_.$id.tsx`), calling `create-checkout-link` with the member's id + a server-resolved `productKey` (no price IDs on the client). Deployed + promoted to production; route loads 200. WhatsApp send and the inbox-header affordance were intentionally deferred (copy-to-clipboard MVP; send would require routing through the worker's compliance chokepoint).
 
 ### 2. Membership subscription purchase — live end-to-end (Success Criterion 2b)
 expected: Completing a test-mode subscription checkout on the connected account activates the subscription and records it via the invoice.paid reducer.
@@ -31,12 +31,13 @@ result: [pending] — `/api/m/purchase` is live (non-404, auth-gated); needs an 
 ## Summary
 
 total: 4
-passed: 0
+passed: 1
 issues: 0
-pending: 4
+pending: 3
 skipped: 0
 blocked: 0
 
 ## Gaps
 
-- Criterion 4 (checkout-link from inbox/member profile) is the only item that may require a code change rather than just a manual test. Decision needed: does the existing noticeboard propose→approve flow satisfy it, or is a direct UI trigger required?
+- Criterion 4 RESOLVED via quick task 260613-oul (direct checkout-link button on member profile, deployed to prod).
+- Remaining 3 items (subscription purchase live, Customer Portal live, mobile purchase on device) are manual live-tests of already-code-complete, mechanism-proven paths — tracked as follow-up UAT, not code gaps.
