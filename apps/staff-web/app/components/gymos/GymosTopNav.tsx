@@ -9,7 +9,15 @@
 // only ever rendered on the inbox; extracted during the P1b-01 hotfix when
 // /gymos children weren't rendering at all (gymos.tsx was a parent route
 // without an <Outlet />, latent since D1).
+//
+// SWEB-07: Admin tabs (Payments/Analytics/Campaigns/Forms/Settings) are
+// DOM-omitted for coaches. Role is determined client-side by comparing the
+// signed-in email (fetched from /_agent-native/auth/session on mount) against
+// the GYMOS_ADMIN_EMAILS allowlist surfaced through the root loader.
+// While the session resolves, isAdmin defaults to false → coach-level tabs
+// only (safe fallback per R4-UI-SPEC §6).
 
+import { useState, useEffect } from "react";
 import { Link, useLocation, useRouteLoaderData } from "react-router";
 import { cn } from "@/lib/utils";
 
@@ -17,10 +25,40 @@ export function GymosTopNav() {
   const location = useLocation();
   const path = location.pathname;
   const rootData = useRouteLoaderData("root") as
-    | { skin?: { displayName?: string; logo?: string | null } }
+    | {
+        skin?: { displayName?: string; logo?: string | null };
+        adminEmails?: string[];
+        adminOpen?: boolean;
+      }
     | undefined;
   const displayName = rootData?.skin?.displayName ?? "GymClassOS";
   const logo = rootData?.skin?.logo ?? null;
+  const adminEmails = rootData?.adminEmails ?? [];
+  const adminOpen = rootData?.adminOpen ?? false;
+
+  // SWEB-07: Fetch the signed-in user's email once on mount to compare against
+  // the admin allowlist. Defaults to null → isAdmin=false (coach-level) until
+  // the session resolves, per R4-UI-SPEC §6 "Fallback: undefined role → coach".
+  const [email, setEmail] = useState<string | null>(null);
+  useEffect(() => {
+    let active = true;
+    fetch("/_agent-native/auth/session", { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((s) => {
+        if (active) setEmail(s?.user?.email ?? null);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // When no allowlist is configured (adminOpen), everyone is admin
+  // (single-pilot default). When the session hasn't resolved yet (email==null
+  // and not adminOpen), isAdmin is false → coach-level tabs only.
+  const isAdmin =
+    adminOpen || (email != null && adminEmails.includes(email.toLowerCase()));
+
   const tabClass = (active: boolean) =>
     cn(
       "px-2.5 py-1 rounded text-[12px] transition",
@@ -65,6 +103,7 @@ export function GymosTopNav() {
           displayName
         )}
       </span>
+      {/* Coach-level tabs — always rendered */}
       <Link to="/gymos" className={tabClass(isHome)}>
         Home
       </Link>
@@ -77,27 +116,47 @@ export function GymosTopNav() {
       <Link to="/gymos/members" className={tabClass(isMembers)}>
         Members
       </Link>
-      <Link to="/gymos/payments" className={tabClass(isPayments)}>
-        Payments
-      </Link>
-      <Link to="/gymos/analytics" className={tabClass(isAnalytics)}>
-        Analytics
-      </Link>
-      <Link to="/gymos/campaigns" className={tabClass(isCampaigns)}>
-        Campaigns
-      </Link>
-      <Link to="/gymos/forms" className={tabClass(isForms)}>
-        Forms
-      </Link>
-      <Link
-        to="/gymos/settings/integrations"
-        className={cn(tabClass(isSettings), "ml-auto")}
-      >
-        Settings
-      </Link>
-      <button type="button" onClick={handleSignOut} className={tabClass(false)}>
-        Sign out
-      </button>
+      {/* Admin-only tabs — DOM-omitted for coaches (not CSS-hidden) */}
+      {isAdmin && (
+        <Link to="/gymos/payments" className={tabClass(isPayments)}>
+          Payments
+        </Link>
+      )}
+      {isAdmin && (
+        <Link to="/gymos/analytics" className={tabClass(isAnalytics)}>
+          Analytics
+        </Link>
+      )}
+      {isAdmin && (
+        <Link to="/gymos/campaigns" className={tabClass(isCampaigns)}>
+          Campaigns
+        </Link>
+      )}
+      {isAdmin && (
+        <Link to="/gymos/forms" className={tabClass(isForms)}>
+          Forms
+        </Link>
+      )}
+      {/* Right-aligned cluster: Settings (admin-only) + Sign out (always).
+          ml-auto is on the group container so Sign out stays right-aligned
+          regardless of whether Settings renders. */}
+      <div className="flex items-center gap-1 ml-auto">
+        {isAdmin && (
+          <Link
+            to="/gymos/settings/integrations"
+            className={tabClass(isSettings)}
+          >
+            Settings
+          </Link>
+        )}
+        <button
+          type="button"
+          onClick={handleSignOut}
+          className={tabClass(false)}
+        >
+          Sign out
+        </button>
+      </div>
     </nav>
   );
 }
