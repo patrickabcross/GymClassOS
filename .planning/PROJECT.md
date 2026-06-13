@@ -23,6 +23,7 @@ Coaches and studio managers run their entire day from one inbox-and-schedule sur
 - [x] **Gym-aware right-rail agent** — 5 gym actions (`list-fill-rate`, `list-classes`, `list-members`, `list-renewals`, `list-at-risk-members`) + `list-revenue` registered as `defineAction` LLM tools; gym systemPrompt forbids email vocabulary. *Validated in Phase P1b.1 (2026-05-26).*
 - [x] **Customer Pilot Enablement** — auth allowlist, `/access-denied` branded denial page, sign-out, Templates dialog (WhatsApp template send through worker chokepoint), demo seed of 3 months of activity (260 members / 423 classes / 4,162 bookings / 200 active subs). *Validated in Phase P1b.1 (2026-05-26, live-accepted in lieu of formal walkthrough).*
 - [x] **Webhook + worker spine** — `services/edge-webhooks/` (Hono receiver, Stripe + WhatsApp signature verification) + `services/worker/` (pg-boss subscriber, sendMessage chokepoint with opt-in / 24h-window / template-approved gates). *Validated in Phase P1b (8/9 plans, 2026-05-23).*
+- [x] **Stripe Connect (Custom-equivalent) + customer purchase flows** — GymClassOS platform account with a white-label connected account (`acct_1Thn4XER2RI3cQpx`, onboarded to charges/payouts-enabled via Account Link); separate `/webhooks/stripe-connect` endpoint (signature-verified, idempotent, account-scoped reducers); direct charges on the connected account for drop-ins (pass grant) + membership subscriptions; staff `/gymos/payments` list + member-profile checkout-link button; public `/embed/buy`. STR-01, STR-02, PAY-01–04. *Validated end-to-end in Phase P1c.1 (2026-06-13, live test-mode purchase → webhook → payment row + pass credit). Deferred manual UAT: subscription/refund/portal/mobile live-tests (mechanism proven).*
 
 ### Active
 
@@ -150,6 +151,6 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-26 — P1b.1 Customer Pilot Enablement live-accepted on `gym-class-os.vercel.app` after iterative live-fix wave; P1c Public Site Integrations drafted (forms fork + `/embed/schedule` booking widget); validated requirements section refreshed from "(None yet)" to the shipped surfaces; next-up workstreams: WhatsApp deep wire + Mobile EAS build + P1c plan-phase.*
+*Last updated: 2026-06-13 — P1c.1 Stripe Connect (Custom-equivalent) + customer purchase flows completed and validated end-to-end against production (live test-mode drop-in purchase flowed Checkout → Connect webhook → payment row + pass credit). STR-01/02 + PAY-01–04 moved to Validated. Deferred manual UAT (subscription/refund/Customer Portal/mobile live-tests) tracked in P1c.1-HUMAN-UAT.md — all extensions of the now-proven mechanism.*
 
 *Earlier: 2026-05-17 — major scope revision (Demo Sprint + Production v1 two-milestone shape; mobile = native Expo not PWA; Stripe direct restricted-key; calorie counter in v1; pg-boss replaces BullMQ/Redis). See PLATFORM-VISION.md for the reconciliation log.*
