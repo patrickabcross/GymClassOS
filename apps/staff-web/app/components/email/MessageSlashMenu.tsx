@@ -20,7 +20,7 @@ import {
   IconPhoto,
 } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
-interface ComposeSlashMenuProps {
+interface MessageSlashMenuProps {
   editor: Editor;
   onGenerate: () => void;
 }
@@ -127,10 +127,10 @@ function createCommands(onGenerate: () => void): CommandItem[] {
   ];
 }
 
-export function ComposeSlashMenu({
+export function MessageSlashMenu({
   editor,
   onGenerate,
-}: ComposeSlashMenuProps) {
+}: MessageSlashMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);

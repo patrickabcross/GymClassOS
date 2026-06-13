@@ -13,8 +13,8 @@ import {
   useImperativeHandle,
   forwardRef,
 } from "react";
-import { ComposeSlashMenu } from "./ComposeSlashMenu";
-import { ComposeBubbleToolbar } from "./ComposeBubbleToolbar";
+import { MessageSlashMenu } from "./MessageSlashMenu";
+import { MessageBubbleToolbar } from "./MessageBubbleToolbar";
 import { CodeBlockLangPicker } from "./CodeBlockLangPicker";
 import {
   Dialog,
@@ -29,7 +29,7 @@ import { Input } from "@/components/ui/input";
 
 const lowlight = createLowlight(common);
 
-export interface ComposeEditorHandle {
+export interface MessageEditorHandle {
   toggleBold: () => void;
   toggleItalic: () => void;
   setLink: () => void;
@@ -37,7 +37,7 @@ export interface ComposeEditorHandle {
   getEditor: () => Editor | null;
 }
 
-interface ComposeEditorProps {
+interface MessageEditorProps {
   content: string;
   onChange: (markdown: string) => void;
   onGenerate: () => void;
@@ -52,10 +52,10 @@ interface ComposeEditorProps {
   }) => void;
 }
 
-export const ComposeEditor = forwardRef<
-  ComposeEditorHandle,
-  ComposeEditorProps
->(function ComposeEditor(
+export const MessageEditor = forwardRef<
+  MessageEditorHandle,
+  MessageEditorProps
+>(function MessageEditor(
   {
     content,
     onChange,
@@ -191,13 +191,13 @@ export const ComposeEditor = forwardRef<
 
   return (
     <div className="message-editor-wrapper" style={{ position: "relative" }}>
-      <ComposeBubbleToolbar
+      <MessageBubbleToolbar
         editor={editor}
         onFlush={onFlush}
         isGenerating={isGenerating}
         sendToAgent={sendToAgent}
       />
-      <ComposeSlashMenu editor={editor} onGenerate={onGenerate} />
+      <MessageSlashMenu editor={editor} onGenerate={onGenerate} />
       <CodeBlockLangPicker editor={editor} />
       <EditorContent editor={editor} />
 

@@ -41,7 +41,7 @@ import { useAgentChatGenerating } from "@agent-native/core";
 import { toast } from "sonner";
 import type { ComposeState, EmailMessage } from "@shared/types";
 import { RecipientInput } from "./RecipientInput";
-import { ComposeEditor, type ComposeEditorHandle } from "./ComposeEditor";
+import { MessageEditor, type MessageEditorHandle } from "./MessageEditor";
 import { openFilePicker, uploadFiles } from "@/lib/upload";
 import { canUseAgentGenerate } from "@/lib/agent-generate";
 import { AttachmentStrip } from "./AttachmentStrip";
@@ -93,7 +93,7 @@ export const InlineReplyComposer = forwardRef<
   const addOptimisticReply = useAddOptimisticReply();
   const { data: settings } = useSettings();
   const { data: aliases = [] } = useAliases();
-  const editorRef = useRef<ComposeEditorHandle>(null);
+  const editorRef = useRef<MessageEditorHandle>(null);
   const composerRef = useRef<HTMLDivElement>(null);
   const sendingRef = useRef(false);
 
@@ -408,7 +408,7 @@ export const InlineReplyComposer = forwardRef<
           }
         }}
       >
-        <ComposeEditor
+        <MessageEditor
           ref={editorRef}
           content={hasQuote ? editableContent : draft.body}
           onChange={(md) => {

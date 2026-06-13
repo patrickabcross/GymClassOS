@@ -47,7 +47,7 @@ import { useAgentChatGenerating } from "@agent-native/core";
 import { toast } from "sonner";
 import type { ComposeState } from "@shared/types";
 import { RecipientInput } from "./RecipientInput";
-import { ComposeEditor, type ComposeEditorHandle } from "./ComposeEditor";
+import { MessageEditor, type MessageEditorHandle } from "./MessageEditor";
 import { openFilePicker, uploadFiles } from "@/lib/upload";
 import { useAccountFilter } from "@/hooks/use-account-filter";
 import { canUseAgentGenerate } from "@/lib/agent-generate";
@@ -125,7 +125,7 @@ function FromAccountSelector({
   );
 }
 
-interface ComposeModalProps {
+interface MessageComposerModalProps {
   drafts: ComposeState[];
   activeId: string | null;
   activeDraft: ComposeState | null;
@@ -139,7 +139,7 @@ interface ComposeModalProps {
   onReopen: (state: Omit<ComposeState, "id">) => void;
 }
 
-export function ComposeModal({
+export function MessageComposerModal({
   drafts,
   activeId,
   activeDraft,
@@ -151,7 +151,7 @@ export function ComposeModal({
   onNewDraft,
   onFlush,
   onReopen,
-}: ComposeModalProps) {
+}: MessageComposerModalProps) {
   const isMobile = useIsMobile();
   const [minimized, setMinimized] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -193,7 +193,7 @@ export function ComposeModal({
   const { data: aliases = [] } = useAliases();
   const { data: settings } = useSettings();
   const { allAccounts } = useAccountFilter();
-  const editorRef = useRef<ComposeEditorHandle>(null);
+  const editorRef = useRef<MessageEditorHandle>(null);
   const promptRef = useRef<HTMLTextAreaElement>(null);
   const sendingIdsRef = useRef<Set<string>>(new Set());
 
@@ -695,7 +695,7 @@ export function ComposeModal({
           </div>
 
           {/* Body */}
-          <ComposeBody
+          <MessageComposerBody
             activeDraft={activeDraft}
             activeId={activeId!}
             editorRef={editorRef}
@@ -864,7 +864,7 @@ export function ComposeModal({
  * Compose body area — splits quoted history from editable content.
  * Shows "..." toggle for quoted content in reply/forward mode.
  */
-function ComposeBody({
+function MessageComposerBody({
   activeDraft,
   activeId,
   editorRef,
@@ -880,7 +880,7 @@ function ComposeBody({
 }: {
   activeDraft: ComposeState;
   activeId: string;
-  editorRef: React.RefObject<ComposeEditorHandle | null>;
+  editorRef: React.RefObject<MessageEditorHandle | null>;
   onUpdate: (id: string, partial: Partial<ComposeState>) => void;
   onFlush: (id: string) => Promise<unknown> | undefined;
   onClose: (id: string) => void;
@@ -915,7 +915,7 @@ function ComposeBody({
         }
       }}
     >
-      <ComposeEditor
+      <MessageEditor
         ref={editorRef}
         content={hasQuote ? editableContent : activeDraft.body}
         onChange={(md) => {

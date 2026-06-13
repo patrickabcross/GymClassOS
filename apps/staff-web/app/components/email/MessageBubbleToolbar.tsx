@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/tooltip";
 import { createPortal } from "react-dom";
 
-interface ComposeBubbleToolbarProps {
+interface MessageBubbleToolbarProps {
   editor: Editor;
   onFlush: () => Promise<unknown> | undefined;
   isGenerating: boolean;
@@ -40,12 +40,12 @@ const TOOLBAR_GAP = 8;
  * a portal so selections on the first compose line are not clipped by the
  * scrollable compose body.
  */
-export function ComposeBubbleToolbar({
+export function MessageBubbleToolbar({
   editor,
   onFlush,
   isGenerating,
   sendToAgent,
-}: ComposeBubbleToolbarProps) {
+}: MessageBubbleToolbarProps) {
   const [visible, setVisible] = useState(false);
   const [position, setPosition] = useState({ top: 0, left: 0 });
   const [activeMarks, setActiveMarks] = useState({

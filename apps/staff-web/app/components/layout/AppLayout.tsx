@@ -3,7 +3,7 @@ import { Link, useNavigate, useLocation, useSearchParams } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { CommandPalette } from "./CommandPalette";
-import { ComposeModal } from "@/components/email/ComposeModal";
+import { MessageComposerModal } from "@/components/email/MessageComposerModal";
 import { useComposeState } from "@/hooks/use-compose-state";
 import {
   useKeyboardShortcuts,
@@ -1560,7 +1560,7 @@ function AppLayoutInner({ children }: AppLayoutProps) {
         const popoutActiveDraft =
           popoutDrafts.find((d) => d.id === popoutActiveId) ?? null;
         return (
-          <ComposeModal
+          <MessageComposerModal
             drafts={popoutDrafts}
             activeId={popoutActiveId}
             activeDraft={popoutActiveDraft}
