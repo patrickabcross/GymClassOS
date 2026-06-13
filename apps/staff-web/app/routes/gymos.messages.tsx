@@ -696,6 +696,14 @@ export default function GymosMessages() {
             </Link>
           </div>
         </header>
+        {/* R3-SC2: "Conversations" section label — gym-domain vocabulary per NAME-02 / D-02 */}
+        {!isLeadsView && (
+          <div className="px-4 py-2 border-b border-border/30 bg-muted/20">
+            <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+              Conversations
+            </span>
+          </div>
+        )}
         <div className="flex-1 overflow-y-auto">
           {data.conversations.map((c) => {
             const isSelected = c.id === selectedId;
