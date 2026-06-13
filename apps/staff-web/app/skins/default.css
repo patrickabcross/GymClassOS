@@ -1,0 +1,12 @@
+/* GymClassOS default skin — energetic orange accent on light neutral base (R2 D-01/D-02).
+   Activated when <html data-studio="default">. Always-available fallback. */
+:root[data-studio="default"] {
+  --primary: 24 95% 53%; /* orange-500 #F97316 */
+  --primary-foreground: 0 0% 100%; /* white text on accent */
+  --accent: 33 100% 96%; /* orange-50 #FFF7ED tint for pills/active tabs */
+  --accent-foreground: 24 80% 30%;
+  --ring: 24 80% 53%;
+  --radius: 0.5rem; /* soft-modern, matches shadcn defaults (R2 D-03) */
+  --studio-accent: 24 95% 53%;
+  --studio-accent-soft: 33 100% 96%;
+}
