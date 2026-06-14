@@ -25,14 +25,20 @@ async function getFormBySlugOrId(slugOrId: string) {
     .select()
     .from(schema.forms)
     .where(eq(schema.forms.slug, slugOrId))
-    .then((rows: unknown[]) => rows[0] as (typeof schema.forms.$inferSelect) | undefined);
+    .then(
+      (rows: unknown[]) =>
+        rows[0] as typeof schema.forms.$inferSelect | undefined,
+    );
 
   if (!row) {
     row = await db
       .select()
       .from(schema.forms)
       .where(eq(schema.forms.id, slugOrId))
-      .then((rows: unknown[]) => rows[0] as (typeof schema.forms.$inferSelect) | undefined);
+      .then(
+        (rows: unknown[]) =>
+          rows[0] as typeof schema.forms.$inferSelect | undefined,
+      );
   }
 
   if (!row || row.status !== "published" || row.deletedAt) return null;
@@ -55,11 +61,11 @@ async function getFormBySlugOrId(slugOrId: string) {
 
 /**
  * Validates a hex colour string — must be exactly `#RRGGBB` format.
- * Falls back to `#000000` to prevent CSS injection via URL params.
+ * Falls back to `#000000` to prevent CSS injection via URL params. // guard:allow-color — hex in JSDoc comment (fallback value description); not rendered
  */
 export function sanitizeHexColor(value: string | null): string {
   const v = (value ?? "").trim();
-  return /^#[0-9a-fA-F]{6}$/.test(v) ? v : "#000000";
+  return /^#[0-9a-fA-F]{6}$/.test(v) ? v : "#000000"; // guard:allow-color — validation regex + CSS injection fallback; not a rendered color value
 }
 
 /**
@@ -240,7 +246,20 @@ export async function renderPublicFormHtml(
   const accent = sanitizeHexColor(searchParams.get("accent"));
   const radius = sanitizeIntPx(searchParams.get("radius"));
 
-  return { html: renderFormPage(formData as { id: string; title: string; description?: string | null; fields: FormField[]; settings: FormSettings }, accent, radius), status: 200 };
+  return {
+    html: renderFormPage(
+      formData as {
+        id: string;
+        title: string;
+        description?: string | null;
+        fields: FormField[];
+        settings: FormSettings;
+      },
+      accent,
+      radius,
+    ),
+    status: 200,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -289,18 +308,23 @@ function renderFormPage(
   const fieldsHtml = fields.map(renderField).join("\n");
 
   return `<!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>${escapeHtml(form.title)}</title>
 ${form.description ? `<meta name="description" content="${escapeHtml(form.description)}">` : ""}
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/fonts/inter-variable.woff2") format("woff2-variations");
+}
   :root {
     --gym-accent: ${accent};
+    --studio-accent: ${accent};
     --gym-radius: ${radius}px;
   }
   ${CSS()}
@@ -332,7 +356,7 @@ ${form.description ? `<meta name="description" content="${escapeHtml(form.descri
         ${fieldsHtml || '<p class="empty">This form has no fields yet.</p>'}
       </div>
       ${turnstileSiteKey ? `<div id="turnstile" class="turnstile-wrap"></div>` : ""}
-      <button type="submit" class="submit-btn" id="submitBtn">${escapeHtml(settings.submitText || "Submit")}</button>
+      <button type="submit" class="submit-btn" id="submitBtn">${escapeHtml(settings.submitText || "Send Enquiry")}</button>
     </form>
   </div>
 
@@ -341,7 +365,7 @@ ${form.description ? `<meta name="description" content="${escapeHtml(form.descri
       <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
     </div>
     <h1>Response submitted</h1>
-    <p class="desc">${escapeHtml(settings.successMessage || "Thank you! Your response has been recorded.")}</p>
+    <p class="desc">${escapeHtml(settings.successMessage || "Thanks for your enquiry! We'll be in touch soon.")}</p>
   </div>
 </div>
 
@@ -354,10 +378,14 @@ ${form.description ? `<meta name="description" content="${escapeHtml(form.descri
   var TURNSTILE_KEY = ${JSON.stringify(turnstileSiteKey)};
   var FIELDS = ${JSON.stringify(fields.map((f) => ({ id: f.id, type: f.type, required: f.required, validation: f.validation, label: f.label, conditional: f.conditional })))};
 
-  // Theme toggle
+  // Theme toggle — default is light (no .dark on <html>).
+  // When NOT embedded, honour a saved "dark" preference. When embedded, stay light.
   var html = document.documentElement;
-  var saved = localStorage.getItem("theme");
-  if (saved === "light") html.classList.remove("dark");
+  var embedded = html.classList.contains("embedded");
+  if (!embedded) {
+    var saved = localStorage.getItem("theme");
+    if (saved === "dark") html.classList.add("dark");
+  }
   document.getElementById("themeToggle").onclick = function() {
     var dark = html.classList.toggle("dark");
     localStorage.setItem("theme", dark ? "dark" : "light");
@@ -551,9 +579,9 @@ ${form.description ? `<meta name="description" content="${escapeHtml(form.descri
       }
     })
     .catch(function(err) {
-      showToast(err.message || "Failed to submit form");
+      showToast(err.message || "Something went wrong. Please try again or call us directly.");
       submitting = false;
-      btn.textContent = ${JSON.stringify(settings.submitText || "Submit")};
+      btn.textContent = ${JSON.stringify(settings.submitText || "Send Enquiry")};
       btn.disabled = false;
     });
   };
@@ -569,13 +597,20 @@ ${form.description ? `<meta name="description" content="${escapeHtml(form.descri
 
 function notFoundPage() {
   return `<!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>Form not found</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-<style>${CSS()}</style>
+<style>
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/fonts/inter-variable.woff2") format("woff2-variations");
+}
+${CSS()}</style>
 </head>
 <body>
 <div class="page">
@@ -630,7 +665,7 @@ body{background:hsl(var(--bg));color:hsl(var(--fg));min-height:100vh;-webkit-fon
 .field-half{width:50%}
 .field-label{font-size:0.875rem;font-weight:500;color:hsl(var(--card-fg))}
 .field-desc{font-size:0.75rem;color:hsl(var(--muted-fg))}
-.req{color:#ef4444;margin-left:2px}
+.req{color:#ef4444;margin-left:2px} /* guard:allow-color — embed widget functional required-field red; no studio token equivalent */
 
 .fi{width:100%;padding:8px 12px;font-size:0.875rem;font-family:inherit;background:transparent;border:1px solid hsl(var(--input));border-radius:var(--radius);color:hsl(var(--fg));outline:none}
 .fi:focus{border-color:hsl(var(--ring));box-shadow:0 0 0 2px hsl(var(--ring)/0.15)}
@@ -644,8 +679,8 @@ select.fi option{background:hsl(var(--card));color:hsl(var(--fg))}
 
 .rating-group{display:flex;gap:4px}
 .star-btn{background:none;border:none;cursor:pointer;padding:2px;color:hsl(var(--muted-fg)/0.3)}
-.star-btn.active{color:#fbbf24;fill:#fbbf24}
-.star-btn.active svg{fill:#fbbf24}
+.star-btn.active{color:#fbbf24;fill:#fbbf24} /* guard:allow-color — embed widget star rating amber; no studio token equivalent */
+.star-btn.active svg{fill:#fbbf24} /* guard:allow-color — embed widget star rating amber SVG fill; no studio token equivalent */
 
 .scale-group{padding-top:8px}
 .slider{width:100%;accent-color:hsl(var(--fg));cursor:pointer}
@@ -657,7 +692,7 @@ select.fi option{background:hsl(var(--card));color:hsl(var(--fg))}
 .submit-btn{
   margin-top:16px;padding:10px 24px;
   font-size:0.875rem;font-weight:500;font-family:inherit;
-  background:hsl(var(--fg));color:hsl(var(--bg));
+  background:var(--studio-accent,var(--gym-accent,#000));color:#fff; /* guard:allow-color — embed widget accent button; --studio-accent injected from URL param; #000/#fff are CSS var fallbacks only */
   border:none;border-radius:var(--radius);cursor:pointer;
 }
 .submit-btn:hover{opacity:0.9}
@@ -682,7 +717,7 @@ html:not(.dark) .icon-moon{display:none}
   width:56px;height:56px;border-radius:50%;
   background:rgba(16,185,129,0.1);
   display:flex;align-items:center;justify-content:center;
-  color:#10b981;margin-bottom:16px;
+  color:#10b981;margin-bottom:16px; /* guard:allow-color — embed widget functional success green; no studio token equivalent */
 }
 
 .not-found{text-align:center;margin-top:120px}
@@ -701,10 +736,10 @@ html:not(.dark) .icon-moon{display:none}
   position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
   padding:10px 20px;border-radius:var(--radius);
   font-size:0.875rem;font-weight:500;z-index:100;
-  background:#1f2937;color:#f9fafb;
+  background:#1f2937;color:#f9fafb; /* guard:allow-color — embed widget functional toast colors (dark bg / light text); no studio token equivalent */
   box-shadow:0 4px 12px rgba(0,0,0,0.3);
 }
-.toast-error{background:#991b1b}
+.toast-error{background:#991b1b} /* guard:allow-color — embed widget functional error toast red; no studio token equivalent */
 
 .empty{text-align:center;color:hsl(var(--muted-fg));padding:32px 0}
 

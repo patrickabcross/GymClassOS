@@ -1,19 +1,23 @@
-// GymClassOS Member Profile — Demo Sprint D1. Per-member detail: pass balance, bookings, recent food, deep-link to WhatsApp conversation.
+// GymClassOS Member Profile — R4-02 visual refresh: pass-balance pill + next-class card + bookings timeline.
 //
-// URL: /gymos/members/:id (dollar-prefix file convention = dynamic segment,
-// matches the existing $view.$threadId.tsx route in this directory).
+// URL: /gymos/members/:id
 //
-// The "Open WhatsApp conversation" button is the key cross-surface link —
-// closes the inbox ↔ profile loop so coaches can pivot between the contact's
-// chat history and their gym record in one click.
+// Loader already returns { member, passes, passBalance, bookings, foodEntries, conversation }.
+// No loader/schema changes in this plan (SWEB-04 scope only).
 
 import { useLoaderData, Link } from "react-router";
 import { eq, desc, sql } from "drizzle-orm";
+import { useState } from "react";
 import { getDb, schema } from "../../server/db";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { CheckoutLinkButton } from "@/components/gymos/CheckoutLinkButton";
 import type { LoaderFunctionArgs } from "react-router";
 
@@ -125,13 +129,10 @@ function fmtDate(iso: string | null) {
   });
 }
 
-function statusVariant(
-  status: string,
-): "default" | "secondary" | "outline" | "destructive" {
-  if (status === "attended") return "default";
-  if (status === "booked") return "secondary";
-  if (status === "cancelled" || status === "no_show") return "destructive";
-  return "outline";
+function getInitials(firstName: string | null, lastName: string | null) {
+  const f = (firstName ?? "").charAt(0).toUpperCase();
+  const l = (lastName ?? "").charAt(0).toUpperCase();
+  return f + l || "?";
 }
 
 // ─── Route ───────────────────────────────────────────────────────────────────
@@ -148,9 +149,20 @@ export default function GymosMemberProfile() {
   const upcoming = bookings.filter(
     (b) => b.startsAt && new Date(b.startsAt) > now && b.status === "booked",
   );
-  const past = bookings.filter(
-    (b) => !b.startsAt || new Date(b.startsAt) <= now || b.status !== "booked",
+
+  // First active pass: null or future expiresAt
+  const activePass = passes.find(
+    (p) => !p.expiresAt || new Date(p.expiresAt) > now,
   );
+
+  // Collapsible state — pass breakdown + bookings show-all
+  const [passesOpen, setPassesOpen] = useState(false);
+  const [bookingsOpen, setBookingsOpen] = useState(false);
+
+  // Bookings: first 5 visible, rest behind Collapsible
+  const VISIBLE_COUNT = 5;
+  const visibleBookings = bookings.slice(0, VISIBLE_COUNT);
+  const hiddenBookings = bookings.slice(VISIBLE_COUNT);
 
   return (
     <div className="h-full w-full overflow-y-auto bg-background text-foreground">
@@ -164,187 +176,277 @@ export default function GymosMemberProfile() {
             ← All members
           </Link>
           <div className="mt-3 flex items-start justify-between gap-4">
-            <div>
-              <h1 className="text-sm font-semibold">{fullName}</h1>
-              <div className="mt-1 flex flex-wrap items-center gap-3 text-[13px] text-muted-foreground">
-                {member.phoneE164 && (
-                  <span className="tabular-nums">{member.phoneE164}</span>
+            <div className="flex items-start gap-3">
+              {/* Avatar with initials fallback */}
+              <Avatar className="h-12 w-12 shrink-0">
+                <AvatarFallback className="bg-muted text-[14px] font-semibold text-muted-foreground">
+                  {getInitials(member.firstName, member.lastName)}
+                </AvatarFallback>
+              </Avatar>
+
+              <div>
+                <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                  Member Profile
+                </div>
+                <h1 className="text-sm font-semibold">{fullName}</h1>
+                <div className="mt-1 flex flex-wrap items-center gap-3 text-[12px] text-muted-foreground">
+                  {member.phoneE164 && (
+                    <span className="tabular-nums">{member.phoneE164}</span>
+                  )}
+                  {member.email && <span>{member.email}</span>}
+                </div>
+                {member.createdAt && (
+                  <div className="mt-0.5 text-[11px] text-muted-foreground">
+                    Member since {fmtDate(member.createdAt)}
+                  </div>
                 )}
-                {member.email && <span>{member.email}</span>}
-              </div>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {member.goal && (
-                  <Badge variant="outline" className="capitalize text-[11px]">
-                    Goal: {capitalise(member.goal)}
-                  </Badge>
-                )}
-                {member.activityLevel && (
-                  <Badge variant="outline" className="capitalize text-[11px]">
-                    {capitalise(member.activityLevel)}
-                  </Badge>
-                )}
-                {member.sex && (
-                  <Badge variant="outline" className="capitalize text-[11px]">
-                    {capitalise(member.sex)}
-                  </Badge>
-                )}
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {member.goal && (
+                    <Badge variant="outline" className="capitalize text-[11px]">
+                      Goal: {capitalise(member.goal)}
+                    </Badge>
+                  )}
+                  {member.activityLevel && (
+                    <Badge variant="outline" className="capitalize text-[11px]">
+                      {capitalise(member.activityLevel)}
+                    </Badge>
+                  )}
+                  {member.sex && (
+                    <Badge variant="outline" className="capitalize text-[11px]">
+                      {capitalise(member.sex)}
+                    </Badge>
+                  )}
+                </div>
               </div>
             </div>
 
             {/* Header actions: payment link (always shown) + WhatsApp pivot (when conversation exists) */}
             <div className="flex items-center gap-2">
               <CheckoutLinkButton memberId={member.id} memberName={fullName} />
+              {/* Cross-surface deep-link to inbox — the differentiator pivot */}
               {conversation && (
                 <Link to={`/gymos?conversation=${conversation.id}`}>
-                  <Button size="sm">Open WhatsApp conversation</Button>
+                  <Button size="sm" variant="outline">
+                    Open WhatsApp conversation
+                  </Button>
                 </Link>
               )}
             </div>
           </div>
         </div>
 
-        {/* ─── Pass balance ───────────────────────────────────────────── */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold">
-              Pass balance
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div>
-              <div className="text-sm font-semibold tabular-nums">
-                {passBalance}
-                <span className="ml-1 text-[12px] font-normal text-muted-foreground">
-                  credits
-                </span>
-              </div>
-              <div className="text-[11px] text-muted-foreground">
-                Grant total − debits ledger
-              </div>
+        {/* ─── Widget card row: Pass Balance + Next Class ─────────────── */}
+        {/* TASK 1: Two side-by-side widget cards per R4-UI-SPEC §3 */}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {/* Card A: PASS BALANCE */}
+          <Card className="p-4">
+            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+              PASS BALANCE
             </div>
-            {passes.length > 0 ? (
-              <div className="space-y-1.5 border-t border-border/40 pt-3">
-                {passes.map((p) => (
-                  <div
-                    key={p.id}
-                    className="flex items-center justify-between text-[12px]"
-                  >
-                    <div>
-                      <span className="font-semibold">
-                        {p.productName ?? capitalise(p.source)}
-                      </span>
-                      <span className="ml-2 text-muted-foreground">
-                        +{p.granted} credits
-                      </span>
-                    </div>
-                    <div className="text-[11px] text-muted-foreground">
-                      {p.expiresAt
-                        ? `expires ${fmtDate(p.expiresAt)}`
-                        : "no expiry"}
-                    </div>
+            <div className="mt-1.5 flex items-baseline gap-1.5">
+              {passBalance > 0 ? (
+                <span className="text-xl font-bold text-primary tabular-nums">
+                  {passBalance}
+                </span>
+              ) : (
+                <span className="text-xl font-bold text-muted-foreground tabular-nums">
+                  0
+                </span>
+              )}
+              <span className="text-[12px] text-muted-foreground">credits</span>
+            </div>
+            {passBalance <= 0 && (
+              <div className="text-[11px] text-muted-foreground mt-0.5">
+                No active pass
+              </div>
+            )}
+            {passBalance > 0 && activePass?.expiresAt && (
+              <div className="text-[11px] text-muted-foreground mt-0.5">
+                Expires {fmtDate(activePass.expiresAt)}
+              </div>
+            )}
+
+            {/* Progressive disclosure: pass breakdown list */}
+            {passes.length > 0 && (
+              <Collapsible open={passesOpen} onOpenChange={setPassesOpen}>
+                <CollapsibleTrigger asChild>
+                  <button className="mt-2 text-[11px] text-muted-foreground underline underline-offset-2 hover:text-foreground transition">
+                    {passesOpen ? "Hide passes" : "Show passes"}
+                  </button>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="mt-2 space-y-1.5 border-t border-border/40 pt-2">
+                    {passes.map((p) => (
+                      <div
+                        key={p.id}
+                        className="flex items-center justify-between text-[12px]"
+                      >
+                        <div>
+                          <span className="font-semibold">
+                            {p.productName ?? capitalise(p.source)}
+                          </span>
+                          <span className="ml-2 text-muted-foreground">
+                            +{p.granted} credits
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-muted-foreground">
+                          {p.expiresAt
+                            ? `expires ${fmtDate(p.expiresAt)}`
+                            : "no expiry"}
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                ))}
+                </CollapsibleContent>
+              </Collapsible>
+            )}
+          </Card>
+
+          {/* Card B: NEXT CLASS */}
+          <Card className="p-4">
+            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+              NEXT CLASS
+            </div>
+            {upcoming[0] ? (
+              <div className="mt-1.5">
+                <div className="text-[13px] font-semibold">
+                  {upcoming[0].className ?? "Class"}
+                </div>
+                <div className="text-[11px] text-muted-foreground tabular-nums mt-0.5">
+                  {fmtDateTime(upcoming[0].startsAt)}
+                </div>
               </div>
             ) : (
-              <p className="text-[12px] text-muted-foreground italic">
-                No passes on file.
-              </p>
+              <div className="text-[12px] text-muted-foreground mt-1.5">
+                No upcoming class
+              </div>
             )}
-          </CardContent>
-        </Card>
+          </Card>
+        </div>
 
-        {/* ─── Bookings ───────────────────────────────────────────────── */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold">Bookings</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Upcoming */}
-            <div>
-              <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-2">
-                Upcoming
-              </div>
-              {upcoming.length === 0 ? (
-                <p className="text-[12px] text-muted-foreground italic">
-                  No upcoming classes booked.
-                </p>
-              ) : (
-                <div className="space-y-1.5">
-                  {upcoming.map((b) => (
-                    <div
-                      key={b.id}
-                      className="flex items-center justify-between gap-3 text-[12px] rounded-md border border-border/40 px-3 py-2"
-                    >
-                      <div className="min-w-0 flex-1">
-                        <div className="font-semibold truncate">
-                          {b.className ?? "Class"}
-                        </div>
-                        <div className="text-[11px] text-muted-foreground">
-                          {fmtDateTime(b.startsAt)}
-                        </div>
-                      </div>
-                      <Badge
-                        variant={statusVariant(b.status)}
-                        className="capitalize text-[10px]"
-                      >
-                        {b.status.replace(/_/g, " ")}
-                      </Badge>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+        {/* ─── Bookings timeline ──────────────────────────────────────── */}
+        {/* TASK 2: Chronological card timeline with status badges + progressive disclosure */}
+        <div>
+          <div className="text-[12px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+            BOOKINGS
+          </div>
 
-            {/* Past */}
-            <div>
-              <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-2">
-                Past
-              </div>
-              {past.length === 0 ? (
-                <p className="text-[12px] text-muted-foreground italic">
-                  No past bookings.
-                </p>
-              ) : (
-                <div className="space-y-1.5">
-                  {past.map((b) => (
-                    <div
-                      key={b.id}
-                      className={cn(
-                        "flex items-center justify-between gap-3 text-[12px] rounded-md border border-border/30 px-3 py-2",
-                        b.status === "cancelled" || b.status === "no_show"
-                          ? "opacity-60"
-                          : "",
-                      )}
-                    >
-                      <div className="min-w-0 flex-1">
-                        <div className="font-semibold truncate">
-                          {b.className ?? "Class"}
-                        </div>
-                        <div className="text-[11px] text-muted-foreground">
-                          {fmtDateTime(b.startsAt)}
-                        </div>
-                      </div>
-                      <Badge
-                        variant={statusVariant(b.status)}
-                        className="capitalize text-[10px]"
-                      >
-                        {b.status.replace(/_/g, " ")}
+          {bookings.length === 0 ? (
+            <p className="text-[13px] text-muted-foreground text-center py-6">
+              No bookings yet
+            </p>
+          ) : (
+            <ul className="flex flex-col gap-1.5">
+              {/* First 5 always visible */}
+              {visibleBookings.map((b) => (
+                <li key={b.id}>
+                  <Card className="flex items-center gap-3 p-2 border-border/40">
+                    <span className="text-[12px] text-muted-foreground tabular-nums w-36 shrink-0">
+                      {fmtDateTime(b.startsAt)}
+                    </span>
+                    <span className="text-[13px] font-semibold flex-1 truncate">
+                      {b.className ?? "Class"}
+                    </span>
+                    {b.status === "booked" && (
+                      <Badge variant="secondary">Booked</Badge>
+                    )}
+                    {b.status === "attended" && (
+                      <Badge variant="outline">Attended</Badge>
+                    )}
+                    {b.status === "no_show" && (
+                      // guard:allow-color — no_show semantic state, not a brand color
+                      <Badge className="bg-destructive/10 text-destructive border-0">
+                        No-show
                       </Badge>
-                    </div>
-                  ))}
-                </div>
+                    )}
+                    {b.status === "cancelled" && (
+                      <Badge
+                        variant="outline"
+                        className="text-muted-foreground"
+                      >
+                        Cancelled
+                      </Badge>
+                    )}
+                    {/* Fallback for unexpected statuses */}
+                    {!["booked", "attended", "no_show", "cancelled"].includes(
+                      b.status,
+                    ) && (
+                      <Badge variant="outline" className="capitalize">
+                        {b.status}
+                      </Badge>
+                    )}
+                  </Card>
+                </li>
+              ))}
+
+              {/* Remaining bookings behind Collapsible */}
+              {hiddenBookings.length > 0 && (
+                <Collapsible open={bookingsOpen} onOpenChange={setBookingsOpen}>
+                  <CollapsibleContent>
+                    <ul className="flex flex-col gap-1.5">
+                      {hiddenBookings.map((b) => (
+                        <li key={b.id}>
+                          <Card className="flex items-center gap-3 p-2 border-border/40">
+                            <span className="text-[12px] text-muted-foreground tabular-nums w-36 shrink-0">
+                              {fmtDateTime(b.startsAt)}
+                            </span>
+                            <span className="text-[13px] font-semibold flex-1 truncate">
+                              {b.className ?? "Class"}
+                            </span>
+                            {b.status === "booked" && (
+                              <Badge variant="secondary">Booked</Badge>
+                            )}
+                            {b.status === "attended" && (
+                              <Badge variant="outline">Attended</Badge>
+                            )}
+                            {b.status === "no_show" && (
+                              // guard:allow-color — no_show semantic state, not a brand color
+                              <Badge className="bg-destructive/10 text-destructive border-0">
+                                No-show
+                              </Badge>
+                            )}
+                            {b.status === "cancelled" && (
+                              <Badge
+                                variant="outline"
+                                className="text-muted-foreground"
+                              >
+                                Cancelled
+                              </Badge>
+                            )}
+                            {![
+                              "booked",
+                              "attended",
+                              "no_show",
+                              "cancelled",
+                            ].includes(b.status) && (
+                              <Badge variant="outline" className="capitalize">
+                                {b.status}
+                              </Badge>
+                            )}
+                          </Card>
+                        </li>
+                      ))}
+                    </ul>
+                  </CollapsibleContent>
+                  <CollapsibleTrigger asChild>
+                    <button className="mt-1.5 w-full text-[12px] text-muted-foreground hover:text-foreground transition text-center py-1.5 border border-border/40 rounded-md">
+                      {bookingsOpen
+                        ? "Show less"
+                        : `Show all (${bookings.length} total)`}
+                    </button>
+                  </CollapsibleTrigger>
+                </Collapsible>
               )}
-            </div>
-          </CardContent>
-        </Card>
+            </ul>
+          )}
+        </div>
 
         {/* ─── Recent food ────────────────────────────────────────────── */}
+        {/* Intentionally unchanged — out of SWEB-04 scope */}
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold">
-              Recent food entries
-            </CardTitle>
-          </CardHeader>
+          <div className="px-4 pt-4 pb-2">
+            <div className="text-sm font-semibold">Recent food entries</div>
+          </div>
           <CardContent>
             {foodEntries.length === 0 ? (
               <p className="text-[12px] text-muted-foreground italic">

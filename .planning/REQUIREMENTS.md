@@ -1,47 +1,47 @@
-# Requirements: GymClassOS
+# Requirements: GymClassOS — Milestone v1.1 UI Redesign
 
-**Defined:** 2026-05-17 (revised 2026-05-17 — major scope pivot)
-**Core Value:** Coaches and studio managers run their entire day from one inbox-and-schedule surface (WhatsApp + class bookings + member context). Members book, pay, and log activity / nutrition from a native iOS/Android app (forked from agent-native's `packages/mobile-app`) that includes an in-app coaching agent.
+**Defined:** 2026-06-12
+**Core Value:** Coaches and studio managers run their entire day from one inbox-and-schedule surface (WhatsApp + class bookings + member context). Members book, pay, and log activity / nutrition from a native iOS/Android Expo app with an in-app coaching agent.
 
-> **MOBILE NOTE:** "PWA" and "web app" references in MEMBR-*, MEMAUTH-*, and CAL-* requirements below are stale — corrected mid-session after discovering `packages/mobile-app` upstream. Read those reqs as native Expo / RN equivalents. The intent is identical (book class, log food, chat with agent on phone); the mechanism is native, not web PWA. Surgical corrections at the requirement level not done due to time pressure — implementations will use Expo APIs where the requirement text says browser APIs (e.g. `expo-camera` instead of `MediaDevices.getUserMedia`).
+> **Milestone scope note:** This file holds the **v1.1 UI Redesign** requirements only (branch `redesign/ui-refresh`). The v1.0 Demo Sprint / Production v1 requirements (130 reqs, 20 categories) live in this file's git history on `master` and remain authoritative for v1.0 work. This milestone is a visual + naming + IA redesign — it changes how existing features look and what they're called, not what they do.
 
-> **Two milestones:**
-> - **Demo Sprint** — week 1 (by ~2026-05-24). Prototype quality. Vertical slice across all surfaces.
-> - **Production v1** — weeks 2–9 (by ~2026-07-15). Hardens + extends the demo.
->
-> Items marked **D** ship in the Demo Sprint. Items marked **P** ship in Production v1. Items marked **D+P** start in demo as a stub/thin slice and harden to production in v1.
+> **Milestone goal:** Replace the agent-native template-fork look with a studio-skinnable GymClassOS design system and gym-domain naming across all three surfaces (staff web, public embed widgets, member mobile app), so the product reads as a real vertical product sellable beyond Hustle.
 
-## v1 Requirements
+## v1.1 Requirements
 
-### Foundation
+### Baseline Audit
 
-- [ ] **FND-01** [P]: Each adapted agent-native template audited with `audit/<template>.md` + `audit/decision.md` ruling fork-clean vs adapt vs build-fresh per surface (Mail → inbox, Calendar → schedule; others noted for post-v1)
-- [ ] **FND-02** [D]: Workspace bootstrapped from `BuilderIO/agent-native` fork; `pnpm install` succeeds; `pnpm dev` runs the Mail + Calendar templates locally
-- [ ] **FND-03** [D]: Hello-world `apps/staff-web` (RR v7 + Better-auth + Neon) deployed to Vercel — validates the framework × host pairing flagged MEDIUM in research
-- [ ] **FND-04** [P]: Two git remotes configured (`origin` + `upstream` = `BuilderIO/agent-native`); `MODIFICATIONS.md` committed at repo root tracking every modification to vendored upstream code
-- [ ] **FND-05** [P]: `@great-detail/whatsapp` mirrored to studio org's GitHub; package pinned to mirror's git SHA (not npm)
-- [ ] **FND-06** [P]: WhatsApp templates submitted to Meta for approval: `class_reminder`, `waitlist_offer`, `payment_failed`, `pass_expiring`
-- [ ] **FND-07** [P]: Customer onboarding checklist completed — Meta Business Manager set up; WhatsApp number 2FA off, no personal-WhatsApp history; class-mix confirmed (no spot-picking / 1:1 PT / 24-7 door); studio's own Stripe account created + restricted API key generated
-- [ ] **FND-08** [P]: Test strategy committed — Vitest for non-UI, Playwright for UI/E2E
+- [x] **AUDT-01**: Before-state screenshots of every staff-web surface, embed widget, and mobile screen are captured from the deployed apps into `.planning/ui-reviews/baseline/` (no local dev server exists — regressions are otherwise invisible)
+- [x] **AUDT-02**: A complete rename inventory (every email-vocabulary UI label, code identifier, CSS class, and route) exists as a naming decision record, with each item classified by rename layer (label / CSS / identifier / route)
 
-### Schema & Database
+### Design System
 
-- [ ] **DB-01** [D]: Drizzle schema deployed to Neon including (demo subset): `members`, `coaches`, `conversations`, `messages`, `class_definitions`, `class_occurrences`, `bookings`, `passes`, `pass_debits`, `food_items`, `food_entries`, `agent_sessions`, `webhook_events`
-- [ ] **DB-02** [D+P]: NO `studio_id` column anywhere in the schema (single-tenant code, multi-tenant deploy)
-- [ ] **DB-03** [P]: Drizzle schema extended to production: `waitlist`, `whatsapp_templates`, `whatsapp_window_state`, `whatsapp_opt_in`, `stripe_customers`, `stripe_subscriptions`, `payments`, `audit_log`, `agent_skills`, `agent_memory`, plus `pgboss.*` queue schema
-- [ ] **DB-04** [P]: `pass_debits` is append-only — balance = `sum(grants) − sum(debits)`. Postgres CHECK constraint guarantees balance ≥ 0 atomically (verified by 50-concurrent test)
-- [ ] **DB-05** [P]: Recurring schedules stored as `schedule_rule (weekday, local_time, timezone IANA)` + materialised `class_occurrence` rows (NOT `timestamptz` snapshots) — DST-safe by construction (demo can hardcode a week of occurrences directly)
-- [ ] **DB-06** [P]: `webhook_events` table with `external_id` PK + `provider`, `event_type`, `received_at`, `processed_at`, `payload_raw` — idempotency foundation
-- [ ] **DB-07** [P]: Migrations managed by `drizzle-kit generate + migrate` only; `drizzle-kit push` blocked by `guard:no-drizzle-push` script
+- [x] **DSGN-01**: All staff-web colors, typography, and radius resolve from CSS custom-property tokens via bare `@theme` — no `@theme inline`, no hardcoded hex in GymClassOS app code (CI grep guard included)
+- [x] **DSGN-02**: Studio skin is selected at deploy time via `studios/<studio>/env.yml` (`GYMOS_STUDIO_SKIN`) and injected into every SSR `<head>` by a skin-injector server plugin — zero DB round-trip per request
+- [x] **DSGN-03**: Hustle skin (`apps/staff-web/app/skins/hustle.css`) renders the staff web in Hustle brand colors/logo; a `default.css` GymClassOS skin exists as fallback
+- [x] **DSGN-04**: Inter is self-hosted on web surfaces — no `fonts.googleapis.com` request on any page load
+- [x] **DSGN-05**: Studio name + logo appear at the top of the staff sidebar, sourced from skin config
 
-### Webhook & Worker Spine
+### Naming & Information Architecture
 
-- [x] **WEB-01** [P]: `apps/edge-webhooks` deployed to Fly.io as Hono app with `min_machines = 1` (always-on)
-- [x] **WEB-02** [P]: Webhook receiver verifies HMAC against raw body BEFORE any JSON parsing (Stripe + WhatsApp)
-- [x] **WEB-03** [P]: Webhook receiver inserts into `webhook_events` with `ON CONFLICT DO NOTHING`, enqueues via pg-boss, returns 200 in <100ms — does NO business logic
-- [x] **WEB-04** [P]: `apps/worker` deployed to Fly.io (sibling process to edge-webhooks) running pg-boss subscribers against the same Neon Postgres instance (NO Redis)
-- [x] **WEB-05** [P]: Worker job processing is idempotent — re-running with the same `external_id` produces the same DB state, never duplicates writes
-- [x] **WEB-06** [P]: Stripe webhook handler wraps `webhook_events` insert + business work in a single DB transaction; refetches event from Stripe API rather than trusting payload; `apiVersion` explicitly pinned in Stripe SDK init
+- [x] **NAME-01**: Staff nav reads Schedule → Messages → Members → Payments → Settings, with studio identity at top
+- [x] **NAME-02**: Messaging surface is labeled "Messages" with threads as "Conversations"; "New Message" replaces Compose and "Scheduled Messages" replaces Draft Queue — no email vocabulary anywhere user-visible
+- [x] **NAME-03**: Every renamed route ships a redirect shim (React Router `redirect()`) so the live customer's deep links and bookmarks keep working
+- [x] **NAME-04**: Code identifiers are renamed (`InboxPage` → `MessagesPage`, `DraftQueuePage` → `ScheduledMessagesPage`, etc.) only after the label layer is stable; email-legacy CSS classes get additive aliases first, then migrate atomically with their components
+- [x] **NAME-05**: DB enum string values and schema identifiers are untouched — display labels only (Drizzle enum-rename bug drizzle-kit#1409 + live-DB table-lock risk)
+- [x] **NAME-06**: "Book" is the primary CTA on every class surface (staff schedule, member app, booking widget) — never Reserve/Enrol/Register
+- [x] **NAME-07**: Member detail view is headed "Member Profile"; pass balance displays as "X credits"
+
+### Staff Web Visual Refresh
+
+- [x] **SWEB-01**: Class cards show class name, time, instructor, and "X / Y booked" on the staff schedule
+- [x] **SWEB-02**: Capacity display turns amber/red when ≤3 spots remain
+- [x] **SWEB-03**: Member Context panel in conversations shows pass-balance pill, next-class card, and last visit as prominent scannable widgets — card hierarchy, not a data table
+- [x] **SWEB-04**: Member Profile shows pass-balance pill, next-class card, and bookings timeline
+- [x] **SWEB-05**: Members directory defaults to card view (avatar, membership pill, next class); table remains as a secondary/filter view
+- [x] **SWEB-06**: Messages is responsive — single column at mobile widths with member context as a bottom sheet (coaches check from phones on the gym floor)
+- [x] **SWEB-07**: Role-based nav — coaches see Schedule/Messages/Members; admins additionally see Payments/Settings
+- [x] **SWEB-08**: Staff web defaults to light theme (studio back-office is a lit environment)
 
 ### Stripe Integration (direct restricted-API-key, NOT Connect)
 
@@ -54,44 +54,36 @@
 - [x] **STR-07** [P]: All Stripe handlers idempotent (verified by replaying the same event twice in tests — no duplicate `payments` or pass-balance changes)
 - [ ] **STR-08** [D+P]: No card data ever stored — only Stripe tokenised IDs in DB
 
-### WhatsApp Integration (Meta direct)
+### Public Widgets
 
-- [x] **WA-01** [D]: Demo can receive at least one inbound WhatsApp message from a real phone and surface it in the inbox UI (HMAC verified, message + conversation persisted)
-- [x] **WA-02** [D]: Demo can send at least one outbound WhatsApp message from the inbox UI (in-window free-text to a member who recently messaged in)
-- [x] **WA-03** [P]: Inbound webhook materialises `conversations` + `messages` from Meta payloads; dedup on `(provider_event_type, external_id)`
-- [x] **WA-04** [P]: Message status webhooks (`sent`/`delivered`/`read`/`failed`) update `messages.status` via ordinal-guarded UPDATE (never downgrades)
-- [x] **WA-05** [P]: Single `sendMessage()` chokepoint in the worker is the only path to Meta's send API — `staff-web` enqueues, never calls Meta directly
-- [x] **WA-06** [P]: `sendMessage()` enforces the 24-hour window at call time by reading `conversations.last_inbound_at` from the DB (authoritative — UI hints are not trusted); sends outside the window MUST be approved templates or are rejected with a typed error
-- [x] **WA-07** [P]: `whatsapp_opt_in` table tracks per-member opt-in evidence; `sendMessage()` refuses to send if no opt-in is recorded
-- [x] **WA-08** [P]: WhatsApp template send path uses the approved template list from `whatsapp_templates` (synced daily by a worker housekeeping job)
-- [x] **WA-09** [P]: WhatsApp client wrapped in a thin adapter (`packages/whatsapp/`) so swapping `@great-detail/whatsapp` for hand-rolled Graph API calls is a one-file change
+- [x] **WDGT-01**: `/embed/schedule` renders a clean card-based layout with no admin chrome, themed by studio tokens (existing iframe isolation retained — no Shadow DOM work)
+- [x] **WDGT-02**: Lead-capture form is styled with studio tokens and uses "Enquiry" vocabulary (UK boutique convention — Hustle is Norwich, UK)
+- [ ] **WDGT-03**: Both embeds verified rendering correctly inside an iframe on a test host page (light and dark host backgrounds)
 
-### Staff Authentication
+### Member Mobile App
 
-- [x] **AUTH-01** [D]: Coach can sign in to staff-web with email + password via Better-auth (demo can use seeded test accounts)
-- [ ] **AUTH-02** [D+P]: Coach session persists across browser refresh and SSR loaders
-- [ ] **AUTH-03** [P]: Coach can sign out from any page
-- [ ] **AUTH-04** [P]: Two roles supported (`admin`, `coach`); `admin` can manage class definitions + Stripe settings, `coach` cannot
-- [ ] **AUTH-05** [P]: Better-auth wired via `runAuthGuard` from `@agent-native/core/server` (matches upstream pattern)
+- [x] **MOBL-01**: `packages/mobile-app/lib/theme.ts` token file exists; all hardcoded hex values across mobile screens are replaced with theme references
+- [x] **MOBL-02**: Bottom tabs are renamed Home / Classes / Passes / Log / Profile
+- [x] **MOBL-03**: High-contrast dark theme is the member app default (gym/workout usage context)
+- [x] **MOBL-04**: Home tab shows next class, pass balance, and latest coach message as hero content
+- [x] **MOBL-05**: Booking flow is ≤3 steps (select → confirm with pass/drop-in choice → done) with a persistent pass-balance pill
+- [x] **MOBL-06**: Noticeboard is reframed in coach voice ("From your coach" / "Studio updates") — not a notification feed
+- [x] **MOBL-07**: Inter loads via `useFonts` with OTF assets (Expo Go compatible); skin is selected via `EXPO_PUBLIC_STUDIO_SKIN` at EAS build time
 
-### Member Authentication (PWA)
+## Future Requirements
 
-- [x] **MEMAUTH-01** [D]: Member can log in to the PWA with email magic-link (demo can stub the email send and show the link in a dev tray)
-- [ ] **MEMAUTH-02** [P]: Magic-link emails sent via WhatsApp template (member-channel-only constraint — no email transactional in v1)
-- [ ] **MEMAUTH-03** [P]: Member session via Better-auth (same auth system as staff, different role)
-- [ ] **MEMAUTH-04** [P]: PWA Web App Manifest + service worker — installable to home screen on iOS/Android; offline shell for already-cached routes
+Deferred — tracked but not in the v1.1 roadmap.
 
-### Per-Customer Deploy
+### Design System
 
-- [ ] **DEP-01** [P]: `scripts/deploy.sh <studio>` deploys all 3 apps (staff-web → Vercel, edge-webhooks + worker → Fly) for the named studio — no manual deploys
-- [ ] **DEP-02** [P]: Per-studio config lives in `studios/<studio>/env.yml` (sops-encrypted); no per-studio config rows in the DB
-- [ ] **DEP-03** [P]: Boot-time Zod validation of env vars — missing or malformed config fails the deploy fast
-- [ ] **DEP-04** [P]: `scripts/deploy-all.sh` deploys every studio in `studios/` (for when N > 1)
+- **DSGN-F1**: Dark-mode toggle for staff web (light stays default)
+- **DSGN-F2**: style-dictionary token pipeline (only if a second studio brings Figma-managed brand tokens)
+- **DSGN-F3**: react-native-unistyles theming (blocked until EAS Dev Client replaces Expo Go)
 
-### Observability & Hygiene
+### Public Widgets
 
-- [ ] **OBS-01** [P]: Pino logger configured across all 3 apps with PII redaction (phone numbers, emails, card last4 masked in logs)
-- [ ] **OBS-02** [P]: `/healthz` endpoint on edge-webhooks reports webhook receive latency, queue depth, last-processed timestamps
+- **WDGT-F1**: Script-injected (non-iframe) embed mode — requires Shadow DOM from day one (PITFALLS R-05 standing constraint)
+- **WDGT-F2**: `?theme=light|dark` URL param for embed host pages
 
 ### Staff Web App — Inbox Surface (Mail template adaptation)
 
@@ -289,42 +281,65 @@ Explicitly excluded from v1. Reasoning preserved to prevent re-adding under dead
 | Referral programs | Defer until requested. |
 | Multi-location / franchise support | One studio per deploy. |
 
+**v1.1 UI redesign-specific exclusions:**
+
+| Feature | Reason |
+|---------|--------|
+| DB schema / enum value renames | drizzle-kit#1409 generates DROP TYPE + recreate (table-locks the live Hustle DB); display labels achieve the product goal |
+| Removing the Analytics nav item | Research recommended hiding "empty" analytics — but `/gymos/analytics` shipped in P1b.1 with live metrics (fill rate, MRR, ARPM). Keep it. |
+| New workspace token package (`packages/gymos-tokens`) | The `@theme` seam already exists in `packages/core/src/styles/agent-native.css`; skins-as-CSS-files + mobile `theme.ts` need no shared package at this scale |
+| NativeWind for mobile | v5 pre-release / v4 complexity; hand-rolled theme.ts (~60 lines) suffices |
+| Shadow DOM for current embeds | Existing iframe architecture already provides hard CSS isolation (verified in embed-snippet.ts) |
+| "Inbox" / "Compose" / "Draft Queue" vocabulary | Email mental-model cluster — the redesign's core anti-feature |
+| "Clients" / "Enrol" vocabulary | PT/education framing; Hustle is a community studio — "Members" / "Book" |
+| Dark default for staff web | Back-office work happens in lit environments; dark is a future toggle |
+| Dense data tables as primary member view | Cold/enterprise feel at boutique scale (100-400 members); cards default, table secondary |
+| Editing `templates/*` or `packages-vendored/*` | Hard fork-boundary rule — preserves upstream merge tractability |
+
 ## Traceability
 
-Populated by the roadmapper when ROADMAP.md is created. Demo-Sprint vs Production-v1 mapping is intrinsic to each requirement via [D] / [P] / [D+P] markers.
+Which phases cover which requirements. Updated 2026-06-12 during roadmap creation.
 
-**Counts:**
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| AUDT-01 | R1. Audit Baseline | Complete |
+| AUDT-02 | R1. Audit Baseline | Complete |
+| DSGN-01 | R2. Design System Token Layer | Complete |
+| DSGN-02 | R2. Design System Token Layer | Complete |
+| DSGN-03 | R2. Design System Token Layer | Complete |
+| DSGN-04 | R2. Design System Token Layer | Complete |
+| DSGN-05 | R2. Design System Token Layer | Complete |
+| NAME-01 | R3. Naming & IA Pass | Complete |
+| NAME-02 | R3. Naming & IA Pass | Complete |
+| NAME-03 | R3. Naming & IA Pass | Complete |
+| NAME-04 | R3. Naming & IA Pass | Complete |
+| NAME-05 | R3. Naming & IA Pass | Complete |
+| NAME-06 | R3. Naming & IA Pass | Complete |
+| NAME-07 | R3. Naming & IA Pass | Complete |
+| SWEB-01 | R4. Staff Web Visual Refresh + Embed Widgets | Complete |
+| SWEB-02 | R4. Staff Web Visual Refresh + Embed Widgets | Complete |
+| SWEB-03 | R4. Staff Web Visual Refresh + Embed Widgets | Complete |
+| SWEB-04 | R4. Staff Web Visual Refresh + Embed Widgets | Complete |
+| SWEB-05 | R4. Staff Web Visual Refresh + Embed Widgets | Complete |
+| SWEB-06 | R4. Staff Web Visual Refresh + Embed Widgets | Complete |
+| SWEB-07 | R4. Staff Web Visual Refresh + Embed Widgets | Complete |
+| SWEB-08 | R4. Staff Web Visual Refresh + Embed Widgets | Complete |
+| WDGT-01 | R4. Staff Web Visual Refresh + Embed Widgets | Complete |
+| WDGT-02 | R4. Staff Web Visual Refresh + Embed Widgets | Complete |
+| WDGT-03 | R4. Staff Web Visual Refresh + Embed Widgets | Pending |
+| MOBL-01 | R5. Member Mobile App Redesign | Complete |
+| MOBL-02 | R5. Member Mobile App Redesign | Complete |
+| MOBL-03 | R5. Member Mobile App Redesign | Complete |
+| MOBL-04 | R5. Member Mobile App Redesign | Complete |
+| MOBL-05 | R5. Member Mobile App Redesign | Complete |
+| MOBL-06 | R5. Member Mobile App Redesign | Complete |
+| MOBL-07 | R5. Member Mobile App Redesign | Complete |
 
-| Category | Demo | Production | Both | Total |
-|---|---|---|---|---|
-| Foundation | 2 | 6 | 0 | 8 |
-| Schema & Database | 1 | 5 | 1 | 7 |
-| Webhook & Worker Spine | 0 | 6 | 0 | 6 |
-| Stripe Integration | 1 | 5 | 2 | 8 |
-| WhatsApp Integration | 2 | 7 | 0 | 9 |
-| Staff Authentication | 1 | 3 | 1 | 5 |
-| Member Authentication (PWA) | 1 | 3 | 0 | 4 |
-| Per-Customer Deploy | 0 | 4 | 0 | 4 |
-| Observability & Hygiene | 0 | 2 | 0 | 2 |
-| Inbox Surface | 3 | 3 | 2 | 8 |
-| Members (CRM) | 2 | 5 | 0 | 7 |
-| Schedule & Bookings | 2 | 11 | 0 | 13 |
-| Waitlist | 0 | 6 | 0 | 6 |
-| Payments | 1 | 4 | 0 | 5 |
-| Member PWA — Booking + Profile | 3 | 4 | 0 | 7 |
-| Member PWA — Calorie Counter | 3 | 8 | 0 | 11 |
-| Member PWA — In-App Agent | 3 | 6 | 0 | 9 |
-| Notifications & Jobs | 0 | 5 | 0 | 5 |
-| Reply-to-Confirm | 0 | 3 | 0 | 3 |
-| Settings | 0 | 3 | 0 | 3 |
-| **Total v1** | **25** | **99** | **6** | **130** |
-
-**Demo Sprint scope:** 25 [D] requirements + the 6 [D+P] (start as stub) = ~31 things to deliver in week 1.
-**Production v1 scope:** 109 [P] requirements + harden the 6 [D+P] = 115 things to deliver in weeks 2–9 (+10 from P1c public-site integrations, added 2026-06-01).
-**Total v1:** 140 requirements across 21 categories (P1c Public Site Integrations added 2026-06-01).
-
-(Detailed phase mapping table is in ROADMAP.md.)
+**Coverage:**
+- v1.1 requirements: 30 total
+- Mapped to phases: 30
+- Unmapped: 0 ✓
 
 ---
-*Requirements defined: 2026-05-17*
-*Last updated: 2026-05-17 — major scope revision (Demo Sprint + Production v1; mobile = PWA; Stripe direct; calorie counter in v1; pg-boss replaces BullMQ)*
+*Requirements defined: 2026-06-12*
+*Last updated: 2026-06-12 — traceability section populated (roadmap R1–R5 created)*

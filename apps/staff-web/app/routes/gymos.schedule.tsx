@@ -238,9 +238,9 @@ export default function GymosSchedule() {
   const byDay = groupByDay(data.occurrences);
   const gridDays = monthGridDays(monthAnchor);
   const selectedKey = format(selectedDate, "yyyy-MM-dd");
-  const selectedOccurrences = (byDay.get(selectedKey) ?? []).slice().sort(
-    (a, b) => a.startsAt.localeCompare(b.startsAt),
-  );
+  const selectedOccurrences = (byDay.get(selectedKey) ?? [])
+    .slice()
+    .sort((a, b) => a.startsAt.localeCompare(b.startsAt));
 
   // ─── Nav helpers — preserve other params; only swap calendar params ─────
   function navigateTo(updates: Record<string, string | null>) {
@@ -291,7 +291,10 @@ export default function GymosSchedule() {
 
   const totalThisMonth = gridDays
     .filter((d) => isSameMonth(d, monthAnchor))
-    .reduce((sum, d) => sum + (byDay.get(format(d, "yyyy-MM-dd"))?.length ?? 0), 0);
+    .reduce(
+      (sum, d) => sum + (byDay.get(format(d, "yyyy-MM-dd"))?.length ?? 0),
+      0,
+    );
 
   return (
     <div className="flex h-full w-full flex-col overflow-hidden bg-background text-foreground">
@@ -391,7 +394,8 @@ export default function GymosSchedule() {
                     "flex flex-col items-start gap-1.5 rounded-md border px-2 py-1.5 text-left transition",
                     "border-border/40 bg-background/40 hover:bg-accent/40",
                     !inMonth && "opacity-40",
-                    today && "border-foreground/40",
+                    today &&
+                      "border-[color:var(--studio-accent)]/30 bg-[color:var(--studio-accent)]/10",
                     isSelected &&
                       "border-foreground bg-accent ring-1 ring-foreground/20",
                   )}
@@ -420,7 +424,10 @@ export default function GymosSchedule() {
                     )}
                   </div>
                   {count > 0 ? (
-                    <span className="h-1 w-1 rounded-full bg-foreground/60" aria-hidden />
+                    <span
+                      className="h-1 w-1 rounded-full bg-foreground/60"
+                      aria-hidden
+                    />
                   ) : (
                     <span className="h-1 w-1" aria-hidden />
                   )}
@@ -471,6 +478,16 @@ export default function GymosSchedule() {
                   const booked = data.bookingCounts[o.id] ?? 0;
                   const full = booked >= o.capacity;
                   const cancelled = o.status === "cancelled";
+                  const spotsLeft = o.capacity - booked;
+                  const capacityClass = cn(
+                    "rounded px-1.5 py-0.5 text-[11px] tabular-nums",
+                    full
+                      ? "bg-destructive/10 text-destructive"
+                      : spotsLeft <= 3
+                        ? // guard:allow-color — capacity-warning amber semantic, not a brand color
+                          "bg-amber-100 text-amber-700"
+                        : "text-muted-foreground",
+                  );
                   return (
                     <li key={o.id}>
                       <Card
@@ -488,15 +505,9 @@ export default function GymosSchedule() {
                                 {formatTime(o.endsAt)}
                               </span>
                             </span>
-                            <span
-                              className={cn(
-                                "text-[11px] tabular-nums",
-                                full
-                                  ? "text-amber-600 dark:text-amber-400"
-                                  : "text-muted-foreground",
-                              )}
-                            >
+                            <span className={capacityClass}>
                               {booked} / {o.capacity}
+                              {full && " · Full"}
                             </span>
                           </div>
                           <div className="text-[13px] font-semibold">
@@ -575,12 +586,17 @@ export default function GymosSchedule() {
                   <span
                     className={cn(
                       "tabular-nums",
-                      occFull && "text-amber-600 dark:text-amber-400",
+                      occFull
+                        ? "text-destructive"
+                        : occ.capacity - occBookedCount <= 3
+                          ? // guard:allow-color — capacity-warning amber semantic, not a brand color
+                            "text-amber-700"
+                          : "",
                     )}
                   >
                     {occBookedCount} / {occ.capacity} booked
                   </span>
-                  {occFull && " · At capacity"}
+                  {occFull && " · Full"}
                 </DialogDescription>
               </DialogHeader>
 

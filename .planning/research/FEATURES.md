@@ -1,386 +1,349 @@
-# Feature Research — GymClassOS
+# Feature Research — GymClassOS v1.1 UI Redesign
 
-**Domain:** Boutique fitness studio management platform (staff web + WhatsApp + Stripe + member-mobile-integration)
-**Researched:** 2026-05-17
-**Confidence:** HIGH on the table-stakes set (verified across Mindbody, Glofox, TeamUp, Mariana Tek, PushPress, Pike13, Arketa, Zen Planner, Vibefam, Virtuagym, Wellyx, StudioGrowth, ClassPass); HIGH on the WhatsApp-direct anti-features and rule constraints (verified against Meta's pricing change of 2025-07-01 and the 24h-window mechanics); MEDIUM on exact debit semantics for hybrid pass+membership cases (varies by competitor).
+**Domain:** Boutique fitness studio management platform — UI/naming/IA redesign
+**Researched:** 2026-06-12
+**Confidence:** HIGH on competitor vocabulary (cross-verified across 7 platforms via live docs/support sites); MEDIUM on visual convention claims (derived from published design articles and product marketing, not direct app access); LOW on Hustle-specific current stack (confirmed ClubRight historically via doyouhustle.clubright.co.uk; may have changed).
 
----
-
-## TL;DR for the Roadmap
-
-GymClassOS's competitive moat is **two things**:
-1. **WhatsApp as the canonical comms channel for staff↔member**, with a real shared inbox UX (not a Twilio bot, not a notification firehose) — Mindbody/Glofox/TeamUp/Mariana Tek all default to SMS+email and their WhatsApp stories are weak-to-nonexistent.
-2. **Member context surfaced inside the conversation** (next class, pass balance, last attendance, payment status) so the coach replies with full context in one screen instead of swivel-chairing between inbox + CRM + scheduler.
-
-Everything else in v1 has to clear the bar: *table stakes that the signed customer will not switch without*. Below is the explicit MoSCoW cut so the roadmap has a knife-edge on what's in v1 vs deferred.
-
-The hardest scope discipline: **resist building Marketing Automation, Branded Member App From Scratch, Multi-Location, Reporting Dashboard, and a Web Member Portal in v1.** Every one is "table stakes" at incumbents and every one will eat the whole 2-month window. The project doc already cuts most of these — this file re-derives why and adds the next layer of cuts.
+> **Scope note.** This file supersedes the 2026-05-17 FEATURES.md for the v1.1 UI Redesign milestone. That file covered functional feature scope for v1.0. This file covers *naming vocabulary, IA conventions, and visual design patterns* needed to execute the redesign. The functional feature set is unchanged — only surfaces, labels, and design language are in scope here.
 
 ---
 
-## Feature Landscape
+## Competitor Vocabulary Map
 
-### Table Stakes (Studios Will Not Switch Without These)
+The primary research deliverable. Seven platforms analysed: Mindbody, Glofox, Gymdesk, Wodify, TeamUp, ABC Trainerize, Bsport/ClubRight. Hustle (the first customer) was historically on ClubRight (confirmed via doyouhustle.clubright.co.uk redirect).
 
-These are the "if you don't have it, the customer leaves you on Mindbody" features. Anything missing here is a no-deal at the signed customer.
+### Schedule Surface
+
+| Platform | What they call it | Notes |
+|----------|-------------------|-------|
+| Mindbody | **Booking Pages** (section header); sub-tabs: **Classes**, **Appointments**, **Courses**, **Rooms**, **Check-in** | Left-nav section renamed from "Schedule" to "Booking Pages" in 2024 redesign. "Courses" renamed from "Enrollments". |
+| Glofox | **Timetable** (primary label); also **Calendar** (alternate view mode) | Staff can switch between Calendar (day/week/month) and Timetable (list). |
+| Gymdesk | **Schedule** (top-level nav); views: **List view** and **Grid view** | Grid = calendar layout with drag-and-drop editing. |
+| Wodify | **Class & Appointment Management**; staff app shows **Schedule** tab | "Classes Dashboard" in analytics context. |
+| TeamUp | **Calendar** (primary); also references **Timetable** in member-facing contexts | Calendar supports day/week/month. |
+| ABC Trainerize | **Appointments and classes** (feature label) | Trainer-centric; leans more on "appointments" than "classes" for 1:1. |
+| Bsport | **Class scheduling & booking** (feature label) | No distinct top-level nav label exposed in public docs. |
+| ClubRight | **Timetable** | Members "view timetables and book classes". |
+| PushPress | **Schedule** → **Calendar** (sub-section) | "Build and manage your class schedule". |
+
+**Dominant industry term:** "Schedule" (staff mental model) + "Timetable" (member mental model in UK market). "Classes" is the tab label when schedule splits by type.
+
+**Recommended GymClassOS name:** `Schedule` for the top-level nav item; sub-tabs `Classes` (group) and `Appointments` (1:1, if/when added). Current code names `InboxPage`, `DraftQueuePage` — these are email shapes and have zero precedent in gym software.
+
+---
+
+### Messaging / Communications Surface
+
+| Platform | What they call it | Notes |
+|----------|-------------------|-------|
+| Mindbody | **Messenger[ai]** (AI front-desk feature); comms handled via **Marketing** section + SMS/email automation | No shared staff inbox. Template sends under Marketing. |
+| Glofox | **Messages** (sidebar nav item); contextual: "Group Messaging" for class groups | "Getting Started With Messages (Emails)" — Glofox's messages are primarily email-based; WhatsApp not native. |
+| Gymdesk | **Marketing** section (top-level nav); sub-features: Automated Email Notifications, Email Templates, Text Messaging, Marketing Automations | No real-time inbox concept. |
+| Wodify | **Inbox** (explicit section label); described as "One Place for Every Message" — unifies email, SMS, in-app chat. Also **Conversations** (row-level label inside the Inbox) | Wodify launched "Unified Inbox" in mid-2025. Conversation rows show channel, timestamp, unread count, Scheduled/Draft badges. |
+| TeamUp | **Messages** (feature area); automated emails + white-label notifications | No real-time shared inbox. |
+| ABC Trainerize | **In-app messages** (feature label); 1:1 and group messaging | Coach-centric; no WhatsApp native. |
+| Bsport | **Marketing essentials** (section label) | No WhatsApp inbox concept; email/SMS marketing. |
+| ClubRight | **Two-way text, email and marketing** (feature description) | No dedicated inbox nav label exposed publicly. |
+| PushPress | Not named as a standalone inbox; referenced within member profiles/conversations | Staff communicate via in-app notes + external WhatsApp. |
+
+**Key insight:** No major competitor has a WhatsApp-native shared inbox with member context. The closest is Wodify's "Unified Inbox" / "Conversations" model (email+SMS+in-app, not WhatsApp). GymClassOS's WhatsApp inbox is genuinely differentiated and needs a gym-native name that avoids email vocabulary.
+
+**Current GymClassOS code names to retire:** `InboxPage` (reads as email), `DraftQueuePage` (email-shaped). `Compose` button (email shape).
+
+**Recommended GymClassOS names:**
+- Top-level nav item: `Messages` (industry standard label — Glofox, Wodify both use it; neutral to channel)
+- Individual threads: `Conversations` (Wodify's row label; also used by Gymdesk in CRM context)
+- Send action: `Send` or `Reply` (not "Compose" — that's email)
+- Pending outbound (out-of-window): `Scheduled` (Wodify badge label) — not "Draft Queue"
+- Template send: `Send Template` or `Use Template` (not "Draft")
+
+---
+
+### Members vs Clients vs Leads
+
+| Platform | Active paying | Prospect / enquiry | Churned/inactive |
+|----------|--------------|-------------------|-----------------|
+| Mindbody | **Clients** (primary term) | Not separately named in staff nav | Inactive client |
+| Glofox | **Members** | Not separately named | — |
+| Gymdesk | **Members** (active membership) | **Leads** (separate section); **Visitors** (no membership, can check in) | Expired / Canceled member |
+| Wodify | **Clients** (external-facing); **Members** (membership context) | **Leads** (lead board / lead management) | — |
+| TeamUp | **Customers** (primary nav label) | Not separately named | Inactive customer |
+| ABC Trainerize | **Clients** (primary term throughout) | **Prospects** (prospect booking feature) | — |
+| Bsport | **Members** (primary throughout) | Not surfaced in public nav | — |
+| ClubRight | **Members** and **Clients** (used interchangeably) | — | — |
+| PushPress | **Members** (member app, membership management) | **Leads** (lead board) | — |
+
+**Pattern:** "Members" dominates boutique-studio platforms (Glofox, Bsport, PushPress, Gymdesk). "Clients" appears at more PT/coaching-centric platforms (Mindbody, Trainerize, Wodify). TeamUp is the outlier with "Customers". Boutique fitness studios say "members" — this is the correct term for Hustle's context.
+
+**Recommended GymClassOS names:**
+- Nav section: `Members`
+- Individual record: `member` (lowercase in code)
+- Lead/prospect (when needed in v1.1+): `Lead` (Gymdesk/Wodify/PushPress all use "Lead")
+- Detail page: `Member Profile` (not "Client Detail" or "Contact")
+
+---
+
+### Passes / Credits / Memberships
+
+| Platform | Recurring subscription | Pre-paid class pack | Single drop-in | Terminology notes |
+|----------|----------------------|--------------------|-----------------|--------------------|
+| Mindbody | **Memberships** (autopay) | **Pricing options** / **Service pricing** | Drop-in rate | "Pricing" covers both recurring and pack types |
+| Glofox | **Memberships** | **Class packs** / **Passes** | Drop-in | "Flexible plans and passes" — both under Memberships section |
+| Gymdesk | **Membership** (recurring, auto-renew) | **Punch card** / **Limited-session membership** | Drop-in | "Session Deduction" = credit debit; "Session Rollover" = carry-over |
+| Wodify | **Memberships** (recurring) | **Class packs** | Drop-in | "Customizable memberships" covers recurring plans, class packs, drop-ins, and trials |
+| TeamUp | **Memberships** | **Class packs** | Pay-as-you-go | Tiered memberships (standard, gold, platinum) |
+| ABC Trainerize | **Coaching subscriptions** / **Digital memberships** | **Class packs** | Drop-in | More coaching-centric framing |
+| Bsport | **Recurring and unlimited memberships** | **Pass bundles** / **Class credits** | Drop-in | "Flexible plans and passes" |
+| ClubRight | **Membership fees** / **Memberships** | Not separately named publicly | — | "Automated payment features" |
+| PushPress | **Memberships** (plans) | **Class packs** | Drop-in | "Recurring plans, class packs, drop ins, and trials" |
+
+**Pattern:** "Membership" = recurring subscription (universal). "Pass" or "class pack" = pre-paid credits (dominant). "Punch card" = older Gymdesk/TeamUp term. "Credits" = ClassPass-specific term for the marketplace; studios themselves say "class pack" or "pass". "Drop-in" = single-session purchase (universal).
+
+**Current GymClassOS schema:** `pass` table, `pass_debits` ledger — correct domain names.
+
+**Recommended GymClassOS UI labels:**
+- Recurring subscription: `Membership`
+- Pre-paid credits: `Pass` (short, works for both 10-class packs and intro packs)
+- Credit balance on a pass: `Credits` (e.g., "8 credits remaining")
+- Single-session: `Drop-in`
+- Pass purchase action: `Buy Pass` or `Add Pass`
+- Pass detail: `Pass Balance`
+
+---
+
+### Booking Widget (Public Embed)
+
+| Platform | What they call it | Notes |
+|----------|-------------------|-------|
+| Mindbody | **Branded Web** / **Booking Pages** | Embedded via script tag; customisable tabs |
+| Glofox | **Web Portal** / **Booking portal** | Member-facing web booking; separate from staff dashboard |
+| Gymdesk | **Booking Widget** (explicit term) | "Embeddable widget on website displaying schedule" |
+| Wodify | **Online Sales Pages** | Lead conversion and booking interface |
+| TeamUp | **Online Booking** / **Booking platform** | "Complete booking platform" embedded on studio site |
+| Bsport | **Member app** + web booking | "Browse classes, choose their favourite spot, and book" |
+| ClubRight | **Timetable** embed | Members view timetables and book via the embedded widget |
+| PushPress | **Members App** (bookings via app, not widget per se) | Kiosk Mode for in-person self-serve |
+
+**Pattern:** "Booking Widget" (Gymdesk) is the clearest generic name. "Widget" is understood by studio owners who want to embed on their Squarespace/Wix site. Current GymClassOS path `/embed/schedule` is already descriptive.
+
+**Recommended GymClassOS names:**
+- Feature name: `Booking Widget` (matches Gymdesk; understood by studio owners)
+- URL pattern: keep `/embed/schedule` (already works, no rename needed for the path)
+- Lead capture: `Enquiry Form` or `Lead Form` (not "onboarding form" — too internal)
+
+---
+
+### Member-Facing App Sections
+
+Based on patterns across Glofox, PushPress, Wodify, Mindbody member apps and published UX reviews:
+
+| Section | Most common label(s) | Notes |
+|---------|---------------------|-------|
+| Home / dashboard | **Home** (universal) | Upcoming class, pass balance, announcements/noticeboard |
+| Class browser | **Classes** or **Schedule** | Glofox: "Timetable"; most others: "Classes" |
+| Booking flow | **Book** (CTA) / **Reserve** | "Book a spot" is the dominant phrase |
+| Pass/membership | **Passes** or **Memberships** | Glofox/Bsport: "Memberships"; PushPress: "Passes" |
+| Food/nutrition | **Nutrition** or **Food Log** | No industry standard; fitness apps use both |
+| AI coach | **Coach** (ABC Trainerize uses "Coach" as a top nav section) | Novel to GymClassOS; no direct competitor |
+| Profile / account | **Profile** or **Account** | Universal bottom-tab |
+
+**Recommended GymClassOS mobile app tabs (bottom nav, 5 max):**
+1. `Home` — upcoming classes, pass balance, coach messages
+2. `Classes` — browse and book schedule
+3. `Passes` — pass balance and purchase history
+4. `Log` — food/calorie tracking (differentiator)
+5. `Profile` — account settings, membership management
+
+Current agent-native mobile app structure may use non-gym labels — these should map to the above.
+
+---
+
+## Table Stakes (UI Redesign)
+
+Features the redesign must deliver. Missing these = product looks unfinished to a studio owner evaluating it against Mindbody/Glofox.
 
 | Feature | Why Expected | Complexity | Notes |
-|---|---|---|---|
-| **Class schedule (recurring + one-off + cancel-this-instance)** | Universal at every competitor (Mindbody, Glofox, TeamUp, Mariana Tek, PushPress, Pike13). Recurring weekly schedule with per-instance overrides is the *minimum* a coach needs. | M | Calendar template fork. Must support: weekly recurrence with start/end dates, per-instance cancellation, per-instance instructor swap. Stored as `class_template` (recurrence rule) + materialized `class_instance` rows for the upcoming window — do NOT compute occurrences on the fly per request. |
-| **Member-facing class booking with capacity limit** | Universal. "Book a spot" + "9 of 12 spots left" is what members see at every competitor. | M | One-row insert into `booking` with a `UNIQUE (class_instance_id, member_id)` constraint and an atomic capacity check via row-level lock on `class_instance`. Race-condition pitfall — see PITFALLS. |
-| **Waitlist (auto-promote on cancel)** | Standard since 2010 at boutique studios. Vibefam, StudioGrowth, Mariana Tek all auto-promote within 15 minutes of a cancel. A waitlist that doesn't auto-promote is functionally useless. | M | FIFO waitlist table; on cancellation, transactionally promote head-of-waitlist and trigger WhatsApp notification. Member must confirm acceptance (some studios) or auto-confirms with opt-out (others) — pick auto-confirm with a "decline" button in WhatsApp for v1, it's simpler. |
-| **Pass / package balance with debit-on-book** | Universal. The dominant non-membership pricing is "buy a 10-pack, decrement on each booking". Sources: ClassPass-style credits, Mariana Tek packs, Glofox class packs, TeamUp punch cards. | M | `pass` table with `credits_remaining`, `expires_at`. Decrement happens at booking time inside the same transaction as the booking insert. Refund credit on cancel-before-window. **The hard parts are expiry, refund-on-late-cancel, and "which pass to debit when member has multiple" — see ARCHITECTURE for the priority rule.** |
-| **Recurring membership subscription (monthly auto-charge)** | Universal. The membership business model is what these studios run on. Stripe Subscriptions is the canonical implementation. | M | `stripe.subscriptions.create()` with monthly price; webhook `invoice.paid` / `invoice.payment_failed` drives state changes. Idempotent handlers are non-negotiable per project constraints. |
-| **Drop-in single-class purchase (one-off)** | Universal. Members without a pass or membership pay per class. Stripe Checkout or Payment Intents. | S | Stripe Checkout link, success webhook creates a 1-credit pass that's immediately debited by the booking. Simpler than treating drop-in as a separate code path. |
-| **Cancel booking with cancellation window** | Universal. "Cancel up to 12h before class, no penalty" is the standard at every studio. Inside the window = no refund. | S | Stored on `class_template.cancellation_window_hours`; booking-time `cancel()` checks `class_instance.start_at - now > window`. |
-| **Late-cancel / no-show fee or pass-forfeit** | Universal. StudioGrowth, Mariana Tek, Glofox all enforce. Reduces no-shows by ~75% per documented case studies. Without it, the studio bleeds capacity. | M | Two enforcement modes, pick ONE for v1: (a) forfeit the pass credit (no Stripe charge — simpler), or (b) charge a $X late-cancel fee via Stripe. Pick (a) for v1 because it doesn't require storing a payment method on file beyond what the subscription/checkout already captured. |
-| **WhatsApp inbound conversation with member** | The customer signed *because* of WhatsApp-first. Meta direct = locked-in by project. | L | Webhook receiver (Hono on Fly) → signature-verify → upsert `member` by phone number → insert `message` → notify staff via SSE or polling. The inbound side is straightforward; the outbound side (next row) is where the complexity lives. |
-| **WhatsApp outbound message from staff inbox (free-text, in-window)** | Universal expectation once WhatsApp is the channel. Coach types in the inbox, member gets a WhatsApp message. | M | Send via Cloud API. **Hard constraint:** must reject sends outside the 24h window unless they go via an approved template. Enforce at the sender layer (database trigger or service-layer guard), not just UI greying. |
-| **WhatsApp outbound template message (out-of-window)** | Required for: class reminders, payment failed, pass expiring, waitlist spot offered. These all fire outside the 24h window in practice. | M | Maintain a small library of approved templates: `class_reminder`, `waitlist_offer`, `payment_failed`, `pass_expiring`, `intro_followup`. Template approval takes up to 48h per Meta — submit the v1 set in Phase 0 so they're approved by ship. |
-| **Member directory / search by name or phone** | Universal. Every staff app has one. | S | Index on `members(name, phone)`; full-text search in Postgres with `pg_trgm` for typo tolerance. |
-| **Member profile with attendance + payment + comms history** | Universal in CRM features across StudioGrowth, FLiiP, Pipedrive Gym CRM, Mindbody. The single-pane-of-glass timeline. | M | Single member profile route showing: bookings (past + upcoming), passes (active + used), Stripe payments, WhatsApp message timeline. **This is also the differentiator surface** — when accessed *from* a conversation, it's the "context panel" that makes coaches faster. |
-| **Coach / instructor assignment to class** | Universal. A class without an instructor isn't a class. | S | FK from `class_instance.instructor_id → coach.id`. Per-instance override on top of `class_template.default_instructor_id`. |
-| **Staff login with role (admin vs coach)** | Universal. Coaches see schedule + inbox; admins additionally see billing + member-level edits. | S | Better-auth (already in agent-native). Two roles is enough for v1 — full RBAC is overkill. |
-| **Stripe payment-failed handling** | Required by every subscription business. Card declines, expired cards, insufficient funds — all happen weekly at studios with hundreds of members. | M | `invoice.payment_failed` webhook → mark subscription `past_due` → fire WhatsApp template asking member to update payment → on `customer.subscription.updated` to `unpaid` after dunning fails → suspend bookings. |
-| **Time-zone correct class display** | Boutique studios are single-location; classes are always in the studio's local TZ. Members in other TZs (e.g., traveling) get confused if not handled. | S | Store class times as `timestamp with time zone` (Postgres) anchored to studio TZ stored in env. Use `date-fns-tz` (already in STACK) for render. |
+|---------|--------------|------------|-------|
+| **Gym-domain nav labels throughout staff web** | Every competitor uses gym vocabulary (Schedule, Members, Passes, Payments). Email vocabulary (InboxPage, DraftQueuePage, Compose) is a trust-killer in a sales demo. | LOW | Pure rename — no logic changes. 10-20 files, mostly route names and page titles. |
+| **Schedule surface named "Schedule" not "Calendar fork"** | Staff mental model is "the schedule" (when are classes). Calendar = datepicker. | LOW | Route rename `/gymos/schedule` stays; page heading changes from agent-native default to "Schedule". |
+| **Messages surface named "Messages" not "Inbox"** | "Inbox" is acceptable (Wodify uses it) but combined with "Draft Queue" and "Compose" the email cluster is broken. | LOW | Route can stay `/gymos/messages`; retire DraftQueuePage, InboxPage component names in favor of MessagesPage, ConversationsPage. |
+| **Member profile named "Member Profile"** | Every competitor calls the detail view "Member Profile" or "Client Profile". | LOW | Rename from whatever agent-native default calls it. |
+| **"Members" in nav, not "Contacts" or "Clients"** | Boutique studio vocabulary. Hustle's audience are "members". | LOW | Nav label change only. |
+| **Gym color palette / tokens (not email-app greys)** | Staff web currently reads as an email client. Boutique fitness = energy, vibrancy, brand. | MEDIUM | Design token layer: primary brand color (from studio config), dark/light surface tokens, accent. Hustle skin is the first. |
+| **Typography that reads as sport, not enterprise SaaS** | Mindbody 2024 redesign went bold sans-serif. Glofox uses bold weight on class cards. Boutique-fitness apps consistently use strong type hierarchy. | MEDIUM | Font token in design system. Consider DM Sans / Inter (neutral) vs a more "fitness" cut. Avoid the light-weight office-suite look of the agent-native mail template. |
+| **Logo / studio name visible in staff nav** | Glofox, Mindbody, Wodify all show the studio name/logo in the top of the sidebar. Signals "this is YOUR tool". | LOW | Logo token + studio name from config. |
+| **Class cards show spots remaining** | Booking-confidence signal. Glofox, Mariana Tek, Mindbody all show "X of Y spots" on the class card in both staff and member views. | LOW | Data is already in schema (`class_occurrences.capacity`, booking count). Surface it on schedule cards. |
+| **Passes section named "Passes" with credit balance visible** | Pass balance is a primary operational widget. Staff need to see at a glance. Gymdesk, Glofox surface it on the member profile. | LOW | Label + prominent credit display on member profile and in conversation context panel. |
+| **"Book" as the primary CTA on class cards** | Universal. Not "Reserve", not "Enrol", not "Register" — "Book" is the dominant boutique-studio verb. | LOW | CTA label change. |
+| **Mobile app bottom-tab labels matching gym vocabulary** | Member app currently uses agent-native defaults. Should match industry-standard tab names. | LOW | Tab label rename in Expo app. |
+| **Public booking widget styled to embed on a studio site** | The widget at `/embed/schedule` must not look like an admin dashboard fragment. Needs a clean card-based layout suitable for a white background or dark studio site. | MEDIUM | Isolated style context for the embed; inherits studio color token but no nav chrome. |
 
-### Differentiators (Why a Studio Picks GymClassOS Over Mindbody)
+---
 
-These are the features that make GymClassOS *better* than the incumbents for the signed customer, not just *equal*. Pick the smallest set that the signed customer will actually value — each one costs days.
+## Differentiators (Redesign-Specific)
+
+Features of the redesign that go beyond "looks like a gym product" to "looks like *our* gym product".
 
 | Feature | Value Proposition | Complexity | Notes |
-|---|---|---|---|
-| **Member context panel inside the WhatsApp conversation** | The signature feature. When the coach opens a thread, the right rail shows: next booked class, pass balance, last 5 attendances, subscription status, any flags (late-cancel streak, payment past_due). **No competitor does this** — they all force a swivel-chair to a separate member profile. | M | Same data as the member-profile route, rendered as a side panel in the inbox. Reuses the same queries — just a UI assembly. Re-fetches on conversation open. |
-| **WhatsApp as the *canonical* notification channel (not SMS/email)** | Every competitor sends class reminders, waitlist offers, payment-failed, pass-expiring via SMS+email. GymClassOS sends them via WhatsApp — 98%+ open rates, conversational reply path back into the inbox. The signed customer's members already live in WhatsApp. | M | Just a routing decision once the template library + sender exist. The infra cost is the template approvals and the rate-limit-aware sender queue (BullMQ on Fly per STACK). |
-| **Reply-to-confirm / reply-to-cancel for waitlist offers and reminders** | When a member gets a WhatsApp "Spot opened in 6pm cycle, reply YES to confirm" message, they can just reply YES. The inbound webhook parses it and confirms the booking. No app open, no link tap. This is the *real* unlock of WhatsApp-as-channel. | M | Lightweight inbound message classifier on a per-conversation `pending_action` row. Don't try to build a generic NLP layer for v1 — just match exact keywords (`YES`, `CONFIRM`, `1`, `Y`, language-localised). When `pending_action.expires_at < now`, ignore and fall through to inbox. |
-| **Coach can book a member into a class from the WhatsApp conversation** | Member asks "can you put me in tomorrow's 6pm" — coach hits a "Book into class" action in the conversation, picks the class, books it, confirms back via the same thread. No swivel-chair to scheduler. | M | An inline action in the inbox UI. Reuses the same booking transaction. Sends a WhatsApp template confirmation if message is out of window, or free-text confirmation if in. |
-| **Studio-branded inside the customer's existing mobile app (Phase 3+)** | Member-facing surface lives inside the studio's existing branded RN app — no separate "GymClassOS app" to install. Mariana Tek and Glofox do this with their *own* branded apps; GymClassOS goes one better by embedding into what the studio already ships. | L | Post-v1. Phase 3. Defer all design work until v1 ships and the audit of the customer's RN repo is done. |
-| **Single-tenant deploy = per-studio data isolation by infrastructure, not by query filter** | A common boutique-studio concern: "my member data is mixed with 10,000 other studios in Mindbody's DB". GymClassOS = one Neon project, one Vercel deploy, one Fly app per studio. Whole tenants can be backed up, exported, restored, deleted by infra commands. | — (architectural, not a feature) | This is in the STACK already. It surfaces as a *sales talking point*, not a feature with code. |
-| **Coach voice/photo replies** | Coaches frequently respond in voice messages or photos at boutique studios (more personal). WhatsApp's media support is native — competitors using SMS lose this entirely. | S | Inbound: store media URL from webhook payload, fetch via Graph API media endpoint, store in object storage (S3-compatible, can be on Fly Volumes for v1). Outbound: upload to Graph API then send the media ID. **Optional for v1** — text-only inbox ships day 1, media added once text path is stable. |
-
-### Anti-Features (Commonly Requested, Specifically NOT for v1)
-
-This is the ruthless cut list. Every item here is "yes that's in Mindbody, no we're not building it in v1". Each has a reason and an alternative.
-
-| Anti-Feature | Why Requested | Why Problematic (v1) | Alternative |
-|---|---|---|---|
-| **Branded mobile app built from scratch** | "Mindbody has it, Glofox has it, Mariana Tek's whole pitch is the branded app." | Already cut by project constraint — mobile = update to customer's existing RN app, no new App Store / Play Store submission. Building a fresh branded app is 4+ weeks of submission + review friction *per studio*. | Phase 3: integrate into the signed customer's existing RN app. No Apple Developer Account flow. |
-| **Multi-location / franchise management** | "Studios grow, they want one dashboard for 3 locations." | The signed customer is one location. Multi-location forces every entity to gain a `location_id` and every query to scope by it. With single-tenant-per-deploy, multi-location = multi-deploy = a different product. | Defer until a second location at the same customer signs the requirement. Then revisit *whether it's separate deploys or a real location entity*. |
-| **Web member portal / self-service site** | "Members want to manage on the web too." | Cut by project constraint — member surface is mobile only in v1. A web portal doubles the auth + UI surface. | Members use the studio's existing branded mobile app (Phase 3+). For v1, members interact via WhatsApp + Stripe Customer Portal (which is hosted by Stripe — free). |
-| **Marketing automation / drip campaigns / lead nurture** | "Mariana Tek, Mindbody, Glofox all have it. It drives revenue." | Building campaign sequencing, trigger conditions, A/B tests, audience segments is 3-4 weeks of solo work. The signed customer didn't sign for this. | v1 ships hand-crafted templates (class reminder, waitlist offer, payment failed, pass expiring). Post-v1 layer adds the orchestration. |
-| **Operational reporting dashboard with charts** | "I need to see revenue, attendance, retention metrics." | Already in project — Analytics template is Phases 3-5. A read-replica + a Metabase / Grafana panel can serve interim needs in Phase 2 if pressed. | Phase 4 (Analytics template fork). Until then, raw SQL access via Neon for the studio owner. |
-| **Knowledge base / content CMS** | "Class descriptions, policies, FAQs need a home." | Already Phases 3-5 — Content template fork. v1 stores class descriptions as a `description` column on `class_template`; that's enough for booking-flow display. | Phase 4 (Content template fork). |
-| **Calorie counter / nutrition tracking** | Already in project — explicitly Phase 5. | OpenFoodFacts integration + LLM-fill + meal logging is its own subproduct. Zero connection to the v1 booking/comms loop. | Phase 5 (Calorie tracker template fork). |
-| **Spot picking / floor-plan / reformer selection** | Mariana Tek's signature feature; very loud in the cycling/Pilates segment. | Floor-plan editor + per-spot booking + spot-swap logic is L-complexity on its own. The signed customer's class types likely don't need it (verify in Phase 0 / requirements). | If the signed customer needs it: defer to Phase 3+ as a feature flag. v1 capacity-only. **Flag for Phase 0 audit**: confirm with customer whether reformer/bike studios are in their class mix. |
-| **Door access control / Kisi integration / QR check-in hardware** | Standard at 24/7 gyms. Kisi integrates with Mindbody, Glofox, TeamUp. | The signed customer is a boutique studio (likely staffed check-in, not 24/7 access). Even if eventually wanted, this is a hardware integration with per-customer setup — not v1. | Confirm staffed-only with signed customer (Phase 0). If yes, defer indefinitely. Manual check-in by staff via the inbox or schedule view is enough for v1. |
-| **In-app retail / merch / smoothie POS** | Standard at Glofox, PushPress, Mariana Tek. | Whole orthogonal subsystem: SKU catalog, inventory, POS UI, tax handling, receipt printer integration. Multi-week build. | If the studio sells retail today, they keep using their existing POS (Square is the typical answer). GymClassOS does *services* in v1, not goods. |
-| **Personal training / 1:1 appointment booking with per-coach calendars** | Standard. Mindbody, TeamUp, Pike13 all do appointment booking alongside class booking. | A whole second booking primitive (`appointment` vs `class`), with per-coach availability rules, buffer times, double-booking prevention. | If the signed customer offers 1:1, defer to Phase 3+. v1 = group classes only. **Flag for Phase 0**: confirm class-only with customer. |
-| **Multi-currency / international tax / VAT compliance** | Required for international studios. | Stripe handles currency natively but tax compliance is real work (Stripe Tax adds a config layer). | Whatever currency + tax setup the signed customer's Stripe account already has — inherit it via Stripe Connect OAuth. Don't add new tax logic. |
-| **Push notifications outside WhatsApp** | "What if WhatsApp is down? What if the member doesn't have WhatsApp?" | WhatsApp-first is the strategic bet. Adding fallback SMS / push doubles the comms infra. | Document the bet. If the signed customer's segment doesn't have WhatsApp coverage, this is the wrong customer / wrong project. |
-| **Member self-cancel of recurring membership from the app** | Standard at all consumer-facing tools. | Members cancel via Stripe Customer Portal (hosted by Stripe — free, no build cost). | Send a Stripe Customer Portal link via WhatsApp template when member asks. Zero code. |
-| **Refunds UI for staff** | Standard. | Stripe Dashboard already provides this. Building a refunds UI inside GymClassOS = duplicating Stripe's UX. | Staff use Stripe Dashboard for refunds in v1. GymClassOS shows refund events on the member profile (read-only) via the `charge.refunded` webhook. |
-| **Email marketing / newsletter sending** | Standard. | A whole second channel + IP warming + deliverability work + unsubscribe-management compliance (CAN-SPAM, CASL). | WhatsApp is the channel. Studio can use Mailchimp/Beehiiv externally if they need email broadcast. |
-| **Real-time presence / "who's in the studio right now"** | Asked by tech-forward studio owners. | Requires check-in hardware or manual staff toggling per-member-per-class. Limited operational value vs cost. | Booked-but-not-yet-cancelled count on a class instance is the proxy. |
-| **AI-suggested replies in the inbox** | Trendy 2026 feature. | Tempting because the parent project is `agent-native`. But hooking up an LLM, prompt engineering for studio voice, handling hallucinations, getting the customer comfortable — multi-week. | Defer to Phase 3+. v1 inbox is plain. The architectural choice of `agent-native` keeps the door open without paying the cost now. |
-| **Inbound voice calls** | A Glofox competitive miss (called out in reviews — no 24/7 AI receptionist). | Voice is a different infra stack (Twilio Voice, IVR). Not in scope. | Out of scope permanently. WhatsApp voice messages cover the conversational use case. |
-| **Booking via SMS or web form** | Standard at TeamUp, Pike13. | Two more code paths (`Booking via SMS` and `Booking via web form`) for the same primitive. | v1 booking paths: (a) staff books via web app, (b) member books via WhatsApp reply ("YES to confirm" pattern), (c) member books via the customer's existing RN app starting Phase 3. |
-| **Family / household / sub-account memberships** | Common at family-oriented studios. | A second entity (`household`) with billing on the parent, bookings on the children. Real complexity. | Out of v1. If the signed customer needs it, defer to a real requirement in Phase 3+. |
-| **Gift cards** | Common. | A whole second pricing primitive. | Out of v1. Stripe issues gift cards via Customer Balance if desperately needed; defer. |
-| **Referral programs / member-get-member tracking** | Common. | Tracking codes + attribution + reward fulfillment = real work. | Out of v1. |
-| **In-product analytics for member-facing app (heatmaps, funnel)** | Common at growth-stage SaaS. | Not relevant — member-facing surface in v1 is WhatsApp, which Meta owns the analytics for. | Use Meta Business Manager's WhatsApp insights for v1. |
+|---------|-------------------|------------|-------|
+| **Studio-skinnable design token system** | Every competitor hardcodes their own brand. GymClassOS skins per studio at deploy time. A Hustle-branded deploy looks like Hustle's product, not a white-label. | MEDIUM | Token file per studio (colors, logo, radius, font). Hustle skin is first. Swap at build time or runtime via CSS custom properties. |
+| **Coaching agent visible in member app with gym-aware personality** | No competitor (Mindbody, Glofox, TeamUp) has an in-app AI coach. ABC Trainerize's "Coach" section is human coaching delivery. GymClassOS's AI coach knows the member's class history, pass balance, food log. | HIGH | Already built in v1. Redesign task: make the chat surface feel like a coach (not a chatbot), with appropriate iconography and personality language. |
+| **Context panel in Messages shows "next class, pass, last visit"** | Differentiator established in v1. Redesign task: make this panel visually prominent and scannable — not tucked away. Use card hierarchy, not a data table. | MEDIUM | Visual redesign of the right rail: pass balance as a pill badge, next class as a card with time/name/spots, attendance streak as a metric. |
+| **"Spots remaining" as a motion/animation trigger** | High-energy boutique studios use urgency design. When spots drop to ≤3, color changes (red or amber). Mindbody and Mariana Tek both do this. | LOW | Conditional CSS class on the capacity display. |
+| **Announcement/noticeboard surface in member app home** | Already exists (AI noticeboard home per PROJECT.md). Differentiator: framed as the coach's voice, not a notification panel. | LOW | Label and copy reframe: "From your coach" or "Studio updates" — not "Notifications" or "Feed". |
 
 ---
 
-## Feature Dependencies
+## Anti-Features (Redesign-Specific)
 
-```
-WhatsApp Inbound Webhook (table-stakes)
-  ├──requires──> Meta WhatsApp Business Account + verified business + phone number
-  ├──requires──> Public HTTPS endpoint with stable IP (Fly app per STACK)
-  └──requires──> Signature verification (built into @great-detail/whatsapp)
+Design patterns that seem gym-appropriate but should be explicitly avoided.
 
-WhatsApp Outbound Free-text (table-stakes)
-  └──requires──> 24h-window check against last_inbound_message_at on conversation
-        └──requires──> Conversation entity tracking last_inbound_message_at
-
-WhatsApp Outbound Template (table-stakes)
-  └──requires──> Approved templates in Meta Business Manager (up-to-48h approval)
-        └──requires──> Template content + variables defined ahead of submission
-
-Class Booking (table-stakes)
-  ├──requires──> Class Schedule (table-stakes) — class_instance must exist
-  ├──requires──> Member entity (created via WhatsApp inbound or staff add)
-  └──requires──> Capacity check (atomic with insert)
-
-Pass Debit-on-Book (table-stakes)
-  ├──requires──> Class Booking
-  ├──requires──> Pass entity with credits_remaining > 0 and not expired
-  └──requires──> Priority rule: which pass to debit when member has multiple
-                  (recommended: earliest expiry first, then smallest balance)
-
-Membership Subscription (table-stakes)
-  ├──requires──> Stripe Connect OAuth onboarded for the studio's account
-  ├──requires──> Stripe customer entity for the member
-  └──requires──> Idempotent webhook handlers for invoice.* and customer.subscription.*
-
-Drop-in Single-Class Purchase (table-stakes)
-  ├──requires──> Stripe Connect OAuth onboarded
-  └──requires──> checkout.session.completed webhook → creates 1-credit pass
-
-Late-Cancel / No-Show Enforcement (table-stakes)
-  ├──requires──> Cancellation window stored on class_template
-  ├──requires──> Cancel-booking action that checks window
-  └──requires──> No-show detection (post-class scheduled job — pg-boss worker)
-        └──requires──> A "class ended, mark no-shows" job per class_instance.start_at
-
-Waitlist Auto-Promote (table-stakes)
-  ├──requires──> Cancel-booking transaction
-  ├──requires──> WhatsApp Outbound Template ("spot opened, reply YES")
-  └──requires──> Inbound message classifier for reply-to-confirm
-
-Member Context Panel in Inbox (DIFFERENTIATOR)
-  ├──requires──> Conversation entity linked to member
-  ├──requires──> Member profile data (bookings, passes, payments)
-  └──enhances──> WhatsApp Inbound Conversation
-
-Coach-Books-Member-From-Conversation (DIFFERENTIATOR)
-  ├──requires──> Member Context Panel (already shows next class etc.)
-  ├──requires──> Class Booking transaction reusable from inbox UI
-  └──requires──> WhatsApp Outbound confirmation (in-window free-text or template)
-
-Reply-To-Confirm (DIFFERENTIATOR)
-  ├──requires──> Inbound message classifier (keyword match)
-  ├──requires──> pending_action entity attached to conversation
-  └──requires──> Action handlers: confirm_booking, decline_booking, confirm_waitlist
-
-Class Reminders via WhatsApp (table-stakes per industry; ours via WhatsApp)
-  ├──requires──> WhatsApp Outbound Template
-  ├──requires──> Scheduled job per booking (e.g., 24h-before and 2h-before)
-  └──requires──> pg-boss `sendAfter` delayed-job for scheduling
-```
-
-### Dependency Notes
-
-- **Pass debit and Subscription billing share the same "what entitles this booking" question.** Recommend a single `entitlement` resolver at booking time: subscription (if active + class type is included) > pass with earliest expiry > prompt for drop-in purchase. This avoids a tangle of `if/else` between class types.
-- **Idempotent Stripe webhook handlers gate every paid feature.** The Stripe Connect OAuth flow, subscription creation, drop-in checkout, and dunning all depend on this being right. Get it right *first*, then build features on top.
-- **WhatsApp template approvals are calendar dependencies, not engineering dependencies.** Submit `class_reminder`, `waitlist_offer`, `payment_failed`, `pass_expiring`, `intro_followup` templates to Meta in Phase 0 (before they're needed) so they're approved by Phase 2 ship.
-- **Reply-to-confirm conflicts with free-text inbox replies.** If a member types "yes" in the middle of a normal conversation, the classifier might fire a confirmation. Solution: `pending_action` has a TTL (e.g., 1 hour) and is scoped to a specific offered action. Outside that window, "yes" is just a message.
-- **Coach-books-from-conversation depends on the member context panel existing first.** Both differentiators ship together or neither does.
+| Anti-Feature | Why Requested | Why Problematic | Alternative |
+|--------------|---------------|-----------------|-------------|
+| **"Inbox" as the primary nav label for the Messages surface** | Familiar; Wodify uses "Inbox". | "Inbox" triggers email mental model, especially combined with "Compose" and "Draft". Even if kept, all subordinate labels must be gym-native to break the cluster. | Use `Messages` as the top-level label; `Conversations` inside; `Replies` not "Drafts". |
+| **"Compose" button for starting a WhatsApp message** | Standard in every email client from Gmail to Superhuman. | Pure email vocabulary. A gym coach does not "compose" a WhatsApp message to a member. | Label the action `New Message` or a context-specific verb (`Message [Name]`). |
+| **"Draft Queue" for scheduled/pending messages** | Logical extension of email metaphor. | No gym platform uses "Draft Queue". Wojify uses "Scheduled" badge. | Call it `Scheduled Messages` or show as a status badge `Scheduled` on the conversation row. |
+| **Side-by-side three-panel layout for Messages at mobile widths** | Natural extension of desktop email client (list + thread + context panel). | At 375px the three-panel collapses unreadably. Gym staff frequently check from mobile phones on the floor. | Responsive: mobile = single column with swipe-to-open context panel or bottom sheet for member context. |
+| **Mindbody-style dense data tables everywhere** | Mindbody's heritage is enterprise gym (hundreds of studios). Boutique studios have 100-400 members — density is less valuable. | Data tables for 100 members look like overkill and feel cold. Hustle's brand is personal/community. | Card-based member list with photo avatar, membership pill, and next-class time. Table as a secondary/filter view. |
+| **Dark mode as default for staff web** | Fitness apps often use dark theme. | Boutique studio back-office work happens in a bright studio or café. A dark default increases eye strain in lit environments for admin tasks. Dark is a preference option, not a mandate. | Light default with dark mode toggle. Member mobile app: dark is acceptable as default (used in gym/workout context). |
+| **"Analytics" as a top-level nav item in staff web (v1.1)** | Mindbody, Glofox, Wodify all have Analytics/Reports as top-nav. | Analytics are Phase 4 features. Surfacing an empty Analytics section in the redesign = placeholder embarrassment. | Keep analytics-adjacent data (fill rate, pass utilisation, MRR) as widgets on the Schedule and Members pages rather than a top-level empty section. Add `Analytics` nav item only when Phase 4 ships. |
+| **Generic sans-serif + blue = "SaaS app" aesthetic** | Fastest path to a clean-looking redesign. | Looks like every B2B dashboard from 2015-2023. Boutique fitness studios have strong visual identities. | Brand color comes from the studio token (Hustle's red/black). Typography: bold weight, higher contrast. Imagery/iconography: physical, energetic (dumbbells, calendar, chat bubble — not abstract shapes). |
+| **"Enrol" instead of "Book"** | Used by Mindbody for courses/workshops. | "Enrol" = education/course register. Boutique studios say "book a class" — it's transactional and time-bound. | `Book` as the universal verb. "Enrol" only if the studio explicitly offers multi-week courses (not relevant for Hustle). |
+| **"Clients" in nav for Hustle's context** | Mindbody, Trainerize use "Clients". | Hustle is a community studio; "clients" is too transactional/PT-service. | `Members` — consistent with Glofox, Bsport, PushPress, and the boutique-fitness community framing. |
 
 ---
 
-## MVP Definition
+## IA Conventions Worth Adopting
 
-### Launch With (v1 — Phases 0-2, ship by ~2026-07-15)
+Observed across Mindbody (2024 redesign), Glofox, Wodify, Gymdesk:
 
-The *narrowest* set that makes the signed customer's day-to-day work. Re-derived from the project's "Active" requirements with explicit feature-level granularity.
+### Staff Web App
 
-**Onboarding / setup (one-time per studio deploy):**
-- [ ] Studio config: name, timezone, default cancellation window, default class capacity
-- [ ] Stripe Connect OAuth flow for the studio's existing account
-- [ ] Meta WhatsApp Business Account connection: phone number ID, business account ID, webhook URL registered
-- [ ] Approved template library: `class_reminder`, `waitlist_offer`, `payment_failed`, `pass_expiring`
-- [ ] First admin user invite (Better-auth)
+1. **Left sidebar navigation (vertical), collapsible.** Industry standard since Mindbody's 2024 nav overhaul explicitly cited Nielsen Norman research: vertical list search is more efficient. Glofox, Gymdesk, Wodify all use left sidebar. The agent-native mail template already has this shape — keep it, rename the items.
 
-**Member lifecycle:**
-- [ ] Member auto-created from inbound WhatsApp message (phone number is the natural key)
-- [ ] Member manually addable by staff (name + phone + email)
-- [ ] Member profile route with: bookings (past + upcoming), passes, payments, message timeline
-- [ ] Member directory with search (name, phone)
+2. **Top-of-sidebar: booking/scheduling surfaces first.** Mindbody explicitly puts "Booking Pages" (schedule) at the top of the left nav as the primary access point. This is where coaches go first every day.
 
-**Class scheduling:**
-- [ ] Class template: name, description, default capacity, default instructor, recurrence (weekly), cancellation window hours
-- [ ] Class instance materialisation (pg-boss scheduled job to roll the window forward weekly)
-- [ ] Per-instance: cancel, swap instructor, change capacity
-- [ ] Calendar view (week + day, from agent-native Calendar template)
+3. **Messages second** (or accessible via notification badge from anywhere). Staff check messages constantly — should be one click, not buried.
 
-**Booking + waitlist:**
-- [ ] Book member into class (staff action from member profile or class detail)
-- [ ] Atomic capacity check + entitlement check + pass debit (or drop-in upsell) in one transaction
-- [ ] Cancel booking (refund credit if before window, forfeit if inside window)
-- [ ] Waitlist join (when class full); auto-promote on cancel; WhatsApp offer with reply-to-confirm
+4. **Members third.** Less frequent than schedule + messages.
 
-**Payment / passes / subscriptions:**
-- [ ] Pass purchase via Stripe Checkout (admin generates link or sends via WhatsApp)
-- [ ] Drop-in single-class purchase via Stripe Checkout (creates 1-credit pass)
-- [ ] Recurring membership via Stripe Subscription (admin sets up the price, sends Checkout link)
-- [ ] Stripe webhook handlers for: `checkout.session.completed`, `invoice.paid`, `invoice.payment_failed`, `customer.subscription.updated`, `customer.subscription.deleted`, `charge.refunded`
-- [ ] Subscription status visible on member profile; payment-failed triggers WhatsApp template
+5. **Payments, Analytics last** (or hidden for coach role).
 
-**WhatsApp inbox (staff web app):**
-- [ ] Conversation list (left rail), sorted by last activity
-- [ ] Conversation view (center), threaded
-- [ ] Member context panel (right rail) — next class, pass balance, subscription status, recent attendance
-- [ ] Send free-text (in-window only — UI disables and explains when out)
-- [ ] Send approved template (out-of-window)
-- [ ] Inbound webhook → message stored → conversation surfaces in inbox
+6. **Studio name + logo at top of sidebar.** Every major competitor. Signals ownership.
 
-**Differentiator surface:**
-- [ ] Coach can "Book into class" from a conversation (inline action)
-- [ ] Reply-to-confirm for waitlist offers
-- [ ] WhatsApp template for class reminders (24h-before, 2h-before)
+7. **Class cards show: class name, time, instructor, spots (X/Y).** This four-element class card is consistent across Mindbody, Glofox, Gymdesk. Capacity is always visible on the staff schedule, not just member-facing.
 
-**No-show / late-cancel:**
-- [ ] No-show detection job (runs N minutes after class start)
-- [ ] Late-cancel = forfeit pass credit (v1 mode; defer fee charging)
-- [ ] No-show count visible on member profile
+8. **Member context in conversation: pass balance + next class as primary info.** The most critical operational question a coach has in a WhatsApp thread is "are they a current member, how many credits do they have, what's their next class?" Surface these three data points prominently.
 
-### Add After Validation (v1.x — first weeks post-launch, before Phase 3)
+9. **Role-based nav simplification.** Coaches see: Schedule, Messages, Members. Admins see: all of the above + Payments, Settings. Mindbody and Glofox both implement role-based access restricting billing/settings to admins.
 
-Things to hold until the customer reports actual pain.
+### Member Mobile App
 
-- [ ] **Voice + photo message support** in the inbox — trigger: customer says "members keep sending voice notes". Add inbound media fetch + storage + outbound media send. ~3 days.
-- [ ] **Late-cancel fee charging** (replace forfeit-only mode) — trigger: customer wants $X fee. Add Stripe Charges on stored payment method. ~2 days.
-- [ ] **Stripe Customer Portal link generator** — trigger: members ask to update card. Wire a "send portal link" action in the inbox. ~1 day.
-- [ ] **Class series / blocks (multi-week)** — trigger: customer runs a 6-week beginner series. Add a `class_series` parent linking N `class_instance`s sold as one product. ~3 days.
-- [ ] **Pause subscription** — trigger: member goes on vacation. Wire `subscription.pause` from inbox. ~1 day.
-- [ ] **Intro offer flow** — trigger: customer wants paid intro tracked separately. Add an `intro_pass` variant of pass with conversion-tracking on next purchase. ~3 days.
+1. **Bottom tab bar, 4-5 items max.** Industry-wide convention (Glofox Pro app, PushPress member app, Mindbody member app). Five tabs is the upper bound — more than five fragments into an overwhelming set of icons.
 
-### Future Consideration (Post-v1, Phases 3-5)
+2. **Home tab shows: upcoming booking, pass balance, last coach message.** The "at a glance" surface. All leading apps prioritise the next class and membership status as the home screen hero content.
 
-Already documented in PROJECT.md but listed here for completeness as feature scope.
+3. **Classes tab (or Schedule tab) is a vertical list by day.** Not a month-grid (too dense on mobile). Day-by-day scroll with time, class name, instructor, and a `Book` button is the standard pattern. Glofox, PushPress, Wodify member apps all use this.
 
-- [ ] **Mobile features in customer's RN app** — class browser, booking, pass balance, profile, push notifications (Phase 3).
-- [ ] **Operational reporting** — revenue, attendance, retention, instructor performance (Phase 4, Analytics template fork).
-- [ ] **Knowledge base** — staff playbook + member-facing FAQ (Phase 4, Content template fork).
-- [ ] **Calorie counter** — meal logging, OpenFoodFacts lookup, LLM-fill for natural language (Phase 5, Calorie tracker template fork).
-- [ ] **Spot picking / floor plan** — only if signed customer or future studio actually needs it (reformer / bike studios).
-- [ ] **Marketing automation / drip sequences** — once the manual template flow is stable and the studio asks for orchestration.
-- [ ] **AI-suggested replies / draft assist** — leverage the `agent-native` foundation once the inbox is in production use.
-- [ ] **Multi-location** — only if the signed customer opens a second location AND wants unified ops. Otherwise: a second deploy.
+4. **Booking flow: 3 steps max.** (1) Select class → (2) Confirm + choose payment method (pass/membership/drop-in) → (3) Confirmation. Mariana Tek's signature UX claim is "book in a few taps". Mindbody's redesign philosophy was explicitly "fewer clicks, clearer actions".
+
+5. **Pass balance as a persistent widget.** PushPress, Glofox, Wodify all surface pass balance prominently. Members are anxious about running out of credits. A "8 classes remaining, expires June 30" pill on the home screen or classes tab prevents support messages.
+
+6. **Dark or high-contrast palette for member app.** Member app is used at the gym, outdoors, during workouts. High contrast (dark bg + bright accent) is standard across fitness consumer apps. Staff web = light default; member app = dark or high-contrast default is acceptable.
 
 ---
 
-## Feature Prioritization Matrix
+## Naming Recommendations Table
 
-| Feature | User Value | Implementation Cost | Priority |
-|---|---|---|---|
-| WhatsApp inbound webhook | HIGH | M | **P1** |
-| WhatsApp outbound free-text (in-window) | HIGH | M | **P1** |
-| WhatsApp outbound template (out-of-window) | HIGH | M | **P1** |
-| Class schedule (template + instance materialisation) | HIGH | M | **P1** |
-| Class booking with capacity + atomic entitlement | HIGH | M | **P1** |
-| Waitlist auto-promote with reply-to-confirm | HIGH | M | **P1** |
-| Pass purchase + debit-on-book | HIGH | M | **P1** |
-| Drop-in single-class purchase | HIGH | S | **P1** |
-| Recurring membership (Stripe Subscription) | HIGH | M | **P1** |
-| Cancel-with-window + late-cancel forfeit | HIGH | S | **P1** |
-| No-show detection (post-class job) | HIGH | S | **P1** |
-| Member profile (bookings/passes/payments/comms) | HIGH | M | **P1** |
-| Member directory + search | MEDIUM | S | **P1** |
-| Member context panel inside conversation (DIFFERENTIATOR) | HIGH | M | **P1** |
-| Coach-books-member-from-conversation (DIFFERENTIATOR) | HIGH | M | **P1** |
-| Class reminders via WhatsApp template | HIGH | S | **P1** |
-| Staff login + role (admin vs coach) | HIGH | S | **P1** |
-| Stripe webhook handlers (the named set) | HIGH | M | **P1** |
-| Stripe Connect OAuth onboarding | HIGH | S | **P1** |
-| Voice + photo messages in inbox | MEDIUM | S | P2 |
-| Late-cancel **fee charging** (vs forfeit-only) | MEDIUM | S | P2 |
-| Stripe Customer Portal link sending | MEDIUM | XS | P2 |
-| Pause subscription | MEDIUM | XS | P2 |
-| Class series / multi-week blocks | MEDIUM | S | P2 |
-| Intro-offer tracking + conversion | MEDIUM | S | P2 |
-| Mobile features in customer's RN app | HIGH | L | P2 (Phase 3) |
-| Operational reporting dashboard | MEDIUM | L | P3 (Phase 4) |
-| Knowledge base | LOW | M | P3 (Phase 4) |
-| Calorie counter | MEDIUM | L | P3 (Phase 5) |
-| Spot picking / floor plan | LOW (for this customer) | L | P3 (defer) |
-| Marketing automation orchestration | MEDIUM | L | P3 |
-| AI-suggested replies | MEDIUM | M | P3 |
-| Multi-location / franchise | LOW (for this customer) | XL | P3 (probably never) |
-| Branded mobile app built-from-scratch | LOW | XL | **OUT OF SCOPE permanently** |
-| Web member portal | LOW | L | **OUT OF SCOPE for v1** |
-| Door access / Kisi integration | LOW | M | **OUT OF SCOPE** unless customer asks |
-| Retail / POS / merch | LOW | L | **OUT OF SCOPE** — use Square externally |
-| 1:1 personal training appointments | LOW (for this customer) | M | **OUT OF SCOPE for v1** |
-| Inbound voice calls / IVR | LOW | XL | **OUT OF SCOPE permanently** |
-| Email marketing channel | LOW | M | **OUT OF SCOPE** — WhatsApp is the channel |
+**Current GymClassOS name → Recommended gym-domain name.**
 
-**Priority key:**
-- **P1**: Must ship in v1 (Phases 0-2, ~2026-07-15)
-- **P2**: Add in v1.x post-launch as the customer reports concrete pain
-- **P3**: Phase 3+ deferred — covered by the agent-native templates not yet adapted
+| Surface / Label | Current Name (agent-native origin) | Recommended Name | Rationale |
+|-----------------|-------------------------------------|------------------|-----------|
+| Staff web main nav: messaging section | `InboxPage` (route component) | `MessagesPage` | "Messages" is the industry label (Glofox, Wodify). Breaks email vocabulary cluster. |
+| Staff web: conversation list route | `/gymos` (root, maps to inbox) | `/gymos/messages` | Explicit gym-domain path. |
+| Staff web: individual thread view | Inbox thread / conversation | `Conversation` | Wodify uses "Conversations" as the row label. Natural language. |
+| Staff web: send new message action | "Compose" button | `New Message` | "Compose" = email. "New Message" = neutral, familiar for WhatsApp/SMS. |
+| Staff web: queued/pending sends | `DraftQueuePage` | `Scheduled Messages` | Wodify uses "Scheduled" badge. Describes the state accurately without email framing. |
+| Staff web: scheduling surface | `SchedulePage` (already correct name, check) | `Schedule` | Keep if already gym-domain. Verify no agent-native email bleed in headings. |
+| Staff web: class list/calendar | Any agent-native calendar default | `Schedule` (top level) → `Classes` (tab) | Industry pattern: Schedule nav → Classes as the content label. |
+| Staff web: member list route | `/gymos/members` (likely correct) | `Members` | Already correct if in place. Verify page heading. |
+| Staff web: individual member record | Member detail / contact | `Member Profile` | Universal competitor term. |
+| Staff web: pass/credit management | Passes (schema term) | `Passes` (nav) + `Credits` (balance display) | Schema is already correct. UI label "Pass Balance: 8 credits" is clear. |
+| Staff web: analytics/reporting | Analytics (if exists as nav item) | Remove from nav or rename `Fill Rate` widget | Analytics is Phase 4. Don't expose an empty section. Surface key stats as widgets. |
+| Staff web: left nav studio name | Not present / generic | Studio name + logo (from config token) | Industry standard. Signals "this is Hustle's tool". |
+| Member app: home tab | Unknown (agent-native default) | `Home` | Universal. Shows next class, pass balance, coach messages. |
+| Member app: class browser tab | Unknown | `Classes` | Dominant industry label for group fitness. |
+| Member app: pass/membership tab | Unknown | `Passes` | Boutique studios use "Passes" more than "Memberships" for the credits concept. |
+| Member app: food/calorie tab | Unknown | `Log` or `Nutrition` | "Log" is shorter for a tab label. Fitness apps use both; "Log" fits 4-char tab constraint. |
+| Member app: AI coach section | Unknown | `Coach` | ABC Trainerize uses "Coach" as a top-level section label. Natural for a coaching product. |
+| Member app: profile/account tab | Unknown | `Profile` | Universal. |
+| Member app: class booking CTA | Unknown | `Book` | Dominant boutique fitness verb. Not "Reserve", "Enrol", "Register". |
+| Public embed booking widget | `/embed/schedule` (route) | `Booking Widget` (feature name) | Gymdesk's explicit term; understood by studio owners. Route path stays. |
+| Public embed: lead capture form | Lead form / onboarding form | `Enquiry Form` | UK boutique studio context (Hustle is Norwich, UK). "Enquiry" is the local convention. |
+| WhatsApp conversation context panel | Right rail / sidebar | `Member Context` or `Member Details` | Descriptive. Avoids "pane" (engineering jargon) or "panel" (acceptable). |
+| Pass balance in context panel | Credits remaining | `Pass Balance` + `X credits` | Clear, matches member app label for consistency. |
+| Capacity display on class cards | N/A (may not exist yet) | `X spots left` (member view) / `X / Y booked` (staff view) | Member view: urgency framing. Staff view: operational framing. Both are industry standard. |
 
 ---
 
-## Competitor Feature Analysis
+## Feature Prioritization Matrix (Redesign Scope)
 
-| Feature | Mindbody | Glofox | TeamUp | Mariana Tek | PushPress | Pike13 | **GymClassOS (v1)** |
-|---|---|---|---|---|---|---|---|
-| Class schedule + booking | Yes (clunky UI) | Yes | Yes | Yes (high-end UX) | Yes | Yes | **Yes (Calendar template fork)** |
-| Waitlist auto-promote | Yes | Yes | Yes | Yes (≤15min fill) | Yes | Yes | **Yes** |
-| Pass / class pack | Yes | Yes | Yes (punch card) | Yes (pack) | Yes | Yes | **Yes** |
-| Recurring membership | Yes | Yes | Yes | Yes | Yes | Yes | **Yes (Stripe Subscription)** |
-| Drop-in purchase | Yes | Yes | Yes | Yes | Yes | Yes | **Yes (Stripe Checkout → 1-credit pass)** |
-| Late-cancel / no-show fees | Yes | Yes | Yes | Yes | Yes | Yes | **Yes (forfeit credit in v1; fee in v1.x)** |
-| WhatsApp as primary comms | NO (SMS+email) | NO (SMS+email; some WA via Twilio) | NO | NO | NO | NO | **YES — direct Meta Cloud API** |
-| Shared inbox UX for WhatsApp | NO | Limited | NO | NO | NO | NO | **YES — full inbox with member context panel** |
-| Reply-to-confirm via messaging | Limited (SMS) | Limited | NO | NO | NO | NO | **YES — WhatsApp keyword classifier** |
-| Member context inside conversation | NO (separate CRM view) | NO | NO | NO | NO | NO | **YES — DIFFERENTIATOR** |
-| Branded member mobile app | Yes (paid add-on) | Yes (core) | Yes ($89/mo add-on) | Yes (signature feature) | Yes | Limited | **No (Phase 3: integrate into customer's existing RN app)** |
-| Spot picking / floor plan | Limited | NO | NO | Yes (signature feature) | NO | NO | **NO (defer; not in scope unless customer needs)** |
-| Multi-location | Yes | Yes (enterprise tier) | Yes | Yes | Yes (higher tier) | Yes | **NO (single-tenant deploy model)** |
-| Door access / hardware | Yes (via integrations) | Yes (Kisi) | Yes (Kisi) | Yes | Limited | Limited | **NO** |
-| Retail POS | Yes | Yes | Limited | Yes | Yes | Yes | **NO (use external POS)** |
-| Marketing automation | Yes (paid tier) | Yes (paid tier) | Limited | Yes (Growth tier) | Yes | NO | **NO in v1 (template library + hand-fire only)** |
-| Operational reporting | Yes (paid tier) | Yes | Yes | Yes (Premium tier) | Yes | Yes | **NO in v1 (Phase 4)** |
-| Per-month pricing | $159-$595+ | $100-$600+ | Scales with members | $$$$ | $159-$559 + free tier | $139-$249 | **Internal cost only** |
+| Redesign Task | User Value | Cost | Priority |
+|---------------|------------|------|----------|
+| Retire email vocabulary in nav labels (InboxPage → MessagesPage, DraftQueuePage → Scheduled Messages, Compose → New Message) | HIGH | LOW | P1 |
+| Rename staff nav: Schedule, Messages, Members, Payments, Settings | HIGH | LOW | P1 |
+| Rename member app tabs: Home, Classes, Passes, Log, Profile | HIGH | LOW | P1 |
+| Design token system (color, typography, logo, radius) | HIGH | MEDIUM | P1 |
+| Hustle skin (first studio config) | HIGH | LOW | P1 |
+| Class cards with spots remaining (X/Y) | HIGH | LOW | P1 |
+| Member profile: "Member Profile" heading, pass balance pill, next class card | HIGH | LOW | P1 |
+| Context panel: pass balance + next class + last visit as primary widgets | HIGH | MEDIUM | P1 |
+| Studio name/logo in sidebar | MEDIUM | LOW | P1 |
+| Public booking widget styled for embed (no nav chrome, clean card layout) | HIGH | MEDIUM | P1 |
+| "Book" as primary CTA on all class surfaces | HIGH | LOW | P1 |
+| `New Message` replaces "Compose"; `Scheduled` replaces "Draft Queue" | HIGH | LOW | P1 |
+| Mobile-responsive Messages (single column with context as bottom sheet) | MEDIUM | MEDIUM | P2 |
+| Card-based member list (not dense table as default) | MEDIUM | MEDIUM | P2 |
+| Role-based nav simplification (coach vs admin) | MEDIUM | MEDIUM | P2 |
+| Spots-remaining urgency color (amber/red at ≤3) | LOW | LOW | P2 |
+| Dark mode toggle for staff web | LOW | MEDIUM | P3 |
+| High-contrast default for member app | MEDIUM | LOW | P1 |
+| "From your coach" framing for noticeboard in member app | LOW | LOW | P2 |
 
-**Pattern:** Every incumbent does the same broad feature set, differentiated by polish (Mariana Tek), price-per-member (TeamUp), all-in-one breadth (Mindbody), or vertical-fit (Glofox for boutique). The whitespace where GymClassOS competes is **conversational channel + context**, not feature breadth. Trying to beat Mindbody on feature breadth in 2 months is suicide; not trying to is the strategy.
+**Priority key:** P1 = must ship in v1.1 redesign milestone. P2 = add when core rename is stable. P3 = nice to have, post v1.1.
 
 ---
 
 ## Sources
 
-**Competitor analysis (web-researched 2026-05-17):**
-- [Top 5 Mindbody Alternatives for Studio Management in 2026 — Vibefam](https://vibefam.com/top-5-mindbody-alternatives-for-studio-management-in-2026/)
-- [Top 10 Mariana Tek Alternatives & Competitors — G2](https://www.g2.com/products/mariana-tek/competitors/alternatives)
-- [Mariana Tek vs Mindbody — Xplor Mariana Tek](https://www.marianatek.com/mariana-tek-vs-mindbody/)
-- [Best Fitness Studio Software for 2026: Top 15 Platforms — StudioGrowth](https://studiogrowth.com/best-fitness-studio-software/)
-- [Best Gym & Fitness Studio Software 2026 — Zenoti](https://www.zenoti.com/thecheckin/best-fitness-gym-software-2026)
-- [Mindbody vs Glofox: I Used Both — StudioGrowth](https://studiogrowth.com/mindbody-glofox/)
-- [Glofox vs Mindbody — Wellyx](https://wellyx.com/comparison/glofox-vs-mindbody/)
-- [Compare ABC Glofox vs PushPress — Capterra](https://www.capterra.com/compare/136861-172781/Glofox-vs-PushPress)
-- [Switching from Glofox to PushPress — PushPress](https://www.pushpress.com/blog/switching-from-glofox-to-pushpress)
-- [Mariana Tek for Pilates / Cycling Studios (spot picking)](https://www.marianatek.com/pilates-studio-software/) and [indoor cycling](https://www.marianatek.com/indoor-cycling-studio-software/)
-- [Mariana Tek vs Glofox](https://www.marianatek.com/mariana-tek-vs-glofox/)
-- [Fitness Studio Software with Automated Late Cancellation Fees — StudioGrowth](https://studiogrowth.com/fitness-studio-software-late-cancellation-fees/)
-- [How to Reduce No-Shows in Pilates & Yoga Studios 2026 — Vibefam](https://vibefam.com/how-to-reduce-no-shows-in-pilates-yoga-studios-2026-guide/)
-- [Studio Booking Software — Glofox](https://www.glofox.com/blog/studio-booking-software/)
-- [Best Fitness Class Scheduling Software — Glofox](https://www.glofox.com/blog/fitness-class-scheduling-software/)
-- [How ClassPass Credits Work — ClassPass](https://classpass.com/blog/how-classpass-credits-work/)
-- [Fitness CRM for boutique studios — StudioGrowth](https://studiogrowth.com/features/fitness-crm/)
-- [How to Use Gym CRM Software to Keep Members Longer — FLiiP](https://myfliip.com/blog/how-to-use-gym-crm-software-to-keep-members-longer-a-simple-5-step-guide/)
-- [Top Gym CRM — Pipedrive](https://www.pipedrive.com/en/industries/gym-crm)
-- [Stop No-Shows: Proven Tactics — WellnessLiving](https://www.wellnessliving.com/blog/stop-no-shows-proven-tactics-for-fitness-studios/)
-- [Best Gym Check In System — Glofox](https://www.glofox.com/blog/gym-check-in-system/)
+**Competitor nav labels and terminology:**
+- [Mindbody Updated Navigation (April 2024)](https://www.mindbodyonline.com/business/education/blog/updated-enterprise-navigation-April-2024) — LEFT SIDEBAR structure, "Booking Pages", "Insights", "Courses" rename
+- [Mindbody Staff Handbook](https://support.mindbodyonline.com/s/article/207272238-Staff-Handbook-quick-reference-guide-for-staff-members) — "Schedule", "Clients", "Staff" nav labels
+- [Glofox Dashboard Sneak Peek](https://www.glofox.com/blog/whats-new-with-glofox-the-admin-dashboard/) — "Calendar View", "Group Messaging", "Report Builder"
+- [Glofox Getting Started With Messages](https://support.glofox.com/hc/en-us/articles/360004874758-Getting-Started-With-Messages-Emails) — "Messages" as nav label
+- [Gymdesk Glossary](https://docs.gymdesk.com/en/help/docs/gymdesk-glossary-0) — comprehensive vocabulary: Members/Visitors/Leads, Schedule, Booking Widget, Membership Pricing, Check-In methods
+- [Gymdesk Schedule Management](https://docs.gymdesk.com/help/schedule) — "Schedule" top-level nav, List view / Grid view
+- [Wodify Unified Inbox](https://help.wodify.com/hc/en-us/articles/33536760810007-Understand-Wodify-s-Inbox) — "Inbox", "Conversations", "Scheduled/Draft badges"
+- [Wodify In-App Chat](https://help.wodify.com/hc/en-us/articles/10575390410007-Learn-About-In-App-Chat) — "Unified Inbox", channel labels
+- [Wodify Features](https://www.wodify.com/products/core/features) — "One Place for Every Message", "Class & Appointment Management", "Reporting & Insights"
+- [TeamUp Review (MyPersonalTrainerWebsite)](https://mypersonaltrainerwebsite.com/blog/teamup-fitness-business-management-software-review) — "Calendar" (staff), "Customers" section, "Memberships", "Classes", "Courses"
+- [ABC Trainerize Features](https://www.trainerize.com/features/) — "Coach", "Engage", "Manage" nav; "In-app messages", "Appointments and classes", "Prospect booking", "Clients"
+- [Bsport Studio Management Features](https://pro.bsport.io/en/features/studio-management) — "Class scheduling & booking", "Flexible plans and passes", "Class credits", "Pass bundles", "Team & payroll", "Marketing essentials"
+- [PushPress Core](https://www.pushpress.com/products/core) — "Scheduling and Booking", "Membership Management", "Members App", "Staff App", "Committed Club"
+- [ClubRight Boutique Fitness](https://clubright.co.uk/businesses/boutique-fitness/) — "Timetables", "Membership Management", "Bookings & Classes", "Sales & Marketing"
 
-**WhatsApp Business API constraints (verified 2026-05-17):**
-- [WhatsApp Business API 24-hour Messaging Window — smsmode](https://www.smsmode.com/en/whatsapp-business-api-customer-care-window-ou-templates-comment-les-utiliser/)
-- [WhatsApp Business Platform 24 Hour Rule — Enchant](https://www.enchant.com/whatsapp-business-platform-24-hour-rule)
-- [WhatsApp Business API Pricing 2026 — Uptail](https://www.uptail.ai/blog/whatsapp-business-api-pricing-2026-what-it-costs-and-how-billing-works)
-- [Pricing on the WhatsApp Business Platform — Meta for Developers](https://developers.facebook.com/documentation/business-messaging/whatsapp/pricing)
-- [WhatsApp API Message Templates: Complete Guide — Gurusup](https://gurusup.com/blog/whatsapp-api-message-templates)
-- [WhatsApp Multi-Agent: Support with Multiple Agents — Gurusup](https://gurusup.com/blog/whatsapp-multi-agent)
-- [WhatsApp Team Inbox Guide — AiSensy](https://m.aisensy.com/blog/whatsapp-team-inbox/)
+**Hustle customer context:**
+- [doyouhustle.clubright.co.uk](https://doyouhustle.clubright.co.uk/register) — confirms Hustle (Norwich) was/is on ClubRight; ClubRight uses "Timetable" vocabulary
+- [Hustle Terms & Conditions](https://www.doyouhustle.co.uk/terms-conditions) — 6-hour cancellation policy, confirms boutique boxing studio context
 
-**Stripe Connect + Subscriptions (verified 2026-05-17):**
-- [Create subscriptions with Stripe Billing — Stripe Docs](https://docs.stripe.com/connect/subscriptions)
-- [Pause subscriptions — Stripe Docs](https://docs.stripe.com/billing/subscriptions/pause)
-- [Automated billing system for gyms — Stripe](https://stripe.com/resources/more/automated-billing-for-gyms-101-a-guide-for-businesses)
-
-**Retention + intro-offer benchmarks:**
-- [Fitness Studio Member Retention Plan — fitDEGREE](https://www.fitdegree.com/post/how-to-build-a-90-day-member-retention-system-for-your-boutique-studio)
-- [Fitness Studio Member Retention Key Stats 2026 — Regulr](https://regulr.ai/blog/fitness-member-retention-stats)
-- [Winning Intro Offers for Fitness Studios — Mariana Tek](https://www.marianatek.com/blog/winning-intro-offers-for-fitness-studios-a-complete-guide/)
-- [Intro Offers That Work — Hapana](https://www.hapana.com/blog/when-designing-your-fitness-businesss-intro-offer-is-a-free-trial-really-better)
-
-**MVP scope discipline:**
-- [MVP Scope Creep — EVNE Developers](https://evnedev.com/blog/development/mvp-score-creep/)
-- [How to Build an MVP for a Fitness App — Onix Systems](https://onix-systems.com/blog/how-to-build-an-mvp-for-a-fitness-application)
+**Visual design conventions:**
+- [Mindbody Modern Workflows UX](https://www.mindbodyonline.com/business/education/blog/mindbody-ui-ux-todays-modern-workflows) — "fewer clicks, clearer actions", "card-style layout", "larger touch targets"
+- [Tubik Studio: Manuva Gym App Case Study](https://blog.tubikstudio.com/case-study-manuva-uiux-design-gym-fitness-app/) — bottom tab bar navigation, brand accent color system, goal-selection onboarding
+- [Glofox Fitness Class Booking App](https://www.glofox.com/blog/fitness-class-booking-app/) — "Pick Your Spot floor mapping" (Mariana Tek), "Deskless staff app", "Glofox Pro staff app"
+- [Fitness App UX Design Principles — Eastern Peak](https://easternpeak.com/blog/fitness-app-design-best-practices/) — tab bar navigation best practices, 3-5 tab limit
 
 ---
 
-*Feature research for: boutique fitness studio management platform (GymClassOS)*
-*Researched: 2026-05-17*
-*Confidence: HIGH on table-stakes (verified across 7+ competitors); HIGH on WhatsApp/Stripe constraint rules; MEDIUM on exact debit-priority semantics for hybrid pass+membership cases (varies by competitor — recommended rule is opinionated, not industry-standard).*
+*Feature research for: GymClassOS v1.1 UI Redesign — naming, IA, visual conventions*
+*Researched: 2026-06-12*
+*Confidence: HIGH on competitor vocabulary (Gymdesk glossary, Mindbody nav update, Wodify help docs, TeamUp review all primary sources); MEDIUM on visual conventions (marketing material + design articles, not direct app screenshots); LOW on Hustle current stack (ClubRight historically confirmed, current state unverified).*

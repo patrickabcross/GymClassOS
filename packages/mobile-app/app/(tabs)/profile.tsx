@@ -1,6 +1,6 @@
 // Profile tab — shows the picked member's name + pass balance + a purchase
 // surface that lists studio products and opens Stripe Checkout in a browser
-// sheet. Long-press switches demo persona (D-05).
+// sheet. Long-press switches demo persona (D-05). Themed via useTheme.
 //
 // Purchase flow (P1c.1-06 / PAY-01):
 //   1. On mount, GET /api/m/purchase → product list (label, description, mode)
@@ -9,7 +9,7 @@
 //   4. On sheet close, invalidate ['profile'] so pass balance refreshes
 //
 // No SVGs per D2-04 policy. Tabler/RN icon convention.
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -24,6 +24,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as WebBrowser from "expo-web-browser";
 import { apiFetch } from "../../lib/api";
 import { clearCurrentMemberId } from "../../lib/current-member";
+import { useTheme } from "../../lib/theme";
 
 interface Product {
   priceId: string;
@@ -35,6 +36,7 @@ interface Product {
 export default function ProfileScreen() {
   const router = useRouter();
   const qc = useQueryClient();
+  const theme = useTheme();
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["profile"],
@@ -82,6 +84,164 @@ export default function ProfileScreen() {
 
   const [confirming, setConfirming] = useState(false);
 
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        scroll: {
+          flex: 1,
+          backgroundColor: theme.colors.background,
+        },
+        container: {
+          padding: 24,
+          gap: 16,
+          paddingBottom: 48,
+        },
+        header: {
+          gap: 8,
+        },
+        center: {
+          flex: 1,
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: theme.colors.background,
+          gap: 12,
+        },
+        errorText: {
+          color: theme.colors.danger,
+          fontFamily: theme.font.regular,
+          fontSize: 15,
+        },
+        name: {
+          color: theme.colors.foreground,
+          fontSize: 28,
+          fontFamily: theme.font.bold,
+          marginTop: 32,
+        },
+        subtitle: {
+          color: theme.colors.muted,
+          fontSize: 16,
+          fontFamily: theme.font.regular,
+        },
+        hint: {
+          color: theme.colors.mutedFaint,
+          fontSize: 12,
+          marginTop: 24,
+          fontFamily: theme.font.regular,
+        },
+        btn: {
+          backgroundColor: theme.colors.accent,
+          paddingHorizontal: 16,
+          paddingVertical: 12,
+          borderRadius: theme.radius.sm,
+        },
+        btnSecondary: {
+          backgroundColor: theme.colors.cardElevated,
+        },
+        btnText: {
+          color: theme.colors.accentForeground,
+          fontFamily: theme.font.semibold,
+        },
+        confirmBox: {
+          backgroundColor: theme.colors.card,
+          padding: 16,
+          borderRadius: theme.radius.md,
+          marginTop: 32,
+          gap: 12,
+        },
+        confirmText: {
+          color: theme.colors.foreground,
+          fontFamily: theme.font.regular,
+        },
+        confirmRow: {
+          flexDirection: "row",
+          gap: 12,
+          justifyContent: "flex-end",
+        },
+
+        balanceCard: {
+          backgroundColor: theme.colors.card,
+          borderRadius: theme.radius.md,
+          padding: 16,
+          alignItems: "center",
+          borderWidth: 1,
+          borderColor: theme.colors.accent,
+          gap: 4,
+        },
+        balanceLabel: {
+          color: theme.colors.muted,
+          fontSize: 13,
+          fontFamily: theme.font.regular,
+        },
+        balanceValue: {
+          color: theme.colors.accent,
+          fontSize: 40,
+          fontFamily: theme.font.bold,
+        },
+        balanceUnit: {
+          color: theme.colors.mutedFaint,
+          fontSize: 12,
+          fontFamily: theme.font.regular,
+        },
+
+        section: { gap: 12 },
+        sectionTitle: {
+          color: theme.colors.foreground,
+          fontSize: 18,
+          fontFamily: theme.font.bold,
+          marginBottom: 4,
+        },
+        emptyText: {
+          color: theme.colors.mutedFaint,
+          fontSize: 14,
+          fontFamily: theme.font.regular,
+        },
+
+        productCard: {
+          backgroundColor: theme.colors.card,
+          borderRadius: theme.radius.md,
+          padding: 16,
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 12,
+          borderWidth: 1,
+          borderColor: theme.colors.border,
+        },
+        productInfo: { flex: 1, gap: 4 },
+        productLabel: {
+          color: theme.colors.foreground,
+          fontSize: 16,
+          fontFamily: theme.font.semibold,
+        },
+        productDesc: {
+          color: theme.colors.muted,
+          fontSize: 13,
+          fontFamily: theme.font.regular,
+        },
+        productTag: {
+          color: theme.colors.accent,
+          fontSize: 11,
+          fontFamily: theme.font.semibold,
+          textTransform: "uppercase",
+          letterSpacing: 0.5,
+        },
+        buyBtn: {
+          backgroundColor: theme.colors.accent,
+          paddingHorizontal: 18,
+          paddingVertical: 10,
+          borderRadius: theme.radius.sm,
+          minWidth: 60,
+          alignItems: "center",
+        },
+        buyBtnDisabled: { opacity: 0.5 },
+        buyBtnText: {
+          color: theme.colors.accentForeground,
+          fontFamily: theme.font.bold,
+          fontSize: 14,
+        },
+      }),
+    [theme],
+  );
+
   async function switchMember() {
     await clearCurrentMemberId();
     router.replace("/pick-member");
@@ -90,14 +250,14 @@ export default function ProfileScreen() {
   if (isLoading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator color="#fff" />
+        <ActivityIndicator color={theme.colors.accent} />
       </View>
     );
   }
   if (error || !data?.member) {
     return (
       <View style={styles.center}>
-        <Text style={{ color: "#f88" }}>Couldn't load profile</Text>
+        <Text style={styles.errorText}>Couldn't load profile</Text>
         <Pressable onPress={switchMember} style={styles.btn}>
           <Text style={styles.btnText}>Switch member</Text>
         </Pressable>
@@ -201,91 +361,3 @@ export default function ProfileScreen() {
     </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  scroll: { flex: 1, backgroundColor: "#111" },
-  container: { padding: 24, gap: 16, paddingBottom: 48 },
-  header: { gap: 8 },
-  center: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#111",
-    gap: 12,
-  },
-  name: { color: "#fff", fontSize: 28, fontWeight: "700", marginTop: 32 },
-  subtitle: { color: "#999", fontSize: 16 },
-  hint: { color: "#555", fontSize: 12, marginTop: 8 },
-
-  btn: {
-    backgroundColor: "#3b82f6",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  btnSecondary: { backgroundColor: "#333" },
-  btnText: { color: "#fff", fontWeight: "600" },
-
-  confirmBox: {
-    backgroundColor: "#1a1a1a",
-    padding: 16,
-    borderRadius: 12,
-    marginTop: 8,
-    gap: 12,
-  },
-  confirmText: { color: "#fff" },
-  confirmRow: { flexDirection: "row", gap: 12, justifyContent: "flex-end" },
-
-  balanceCard: {
-    backgroundColor: "#1a1a2e",
-    borderRadius: 12,
-    padding: 16,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#3b82f6",
-    gap: 4,
-  },
-  balanceLabel: { color: "#9ca3af", fontSize: 13 },
-  balanceValue: { color: "#3b82f6", fontSize: 40, fontWeight: "700" },
-  balanceUnit: { color: "#6b7280", fontSize: 12 },
-
-  section: { gap: 12 },
-  sectionTitle: {
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: "700",
-    marginBottom: 4,
-  },
-  emptyText: { color: "#555", fontSize: 14 },
-
-  productCard: {
-    backgroundColor: "#1a1a1a",
-    borderRadius: 12,
-    padding: 16,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    borderWidth: 1,
-    borderColor: "#2a2a2a",
-  },
-  productInfo: { flex: 1, gap: 4 },
-  productLabel: { color: "#fff", fontSize: 16, fontWeight: "600" },
-  productDesc: { color: "#9ca3af", fontSize: 13 },
-  productTag: {
-    color: "#60a5fa",
-    fontSize: 11,
-    fontWeight: "600",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-  buyBtn: {
-    backgroundColor: "#3b82f6",
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    borderRadius: 8,
-    minWidth: 60,
-    alignItems: "center",
-  },
-  buyBtnDisabled: { opacity: 0.5 },
-  buyBtnText: { color: "#fff", fontWeight: "700", fontSize: 14 },
-});

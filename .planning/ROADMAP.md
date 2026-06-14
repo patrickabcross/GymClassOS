@@ -1,5 +1,146 @@
 # Roadmap: GymClassOS
 
+---
+
+## v1.1 — UI Redesign: GymClassOS Design System
+
+> **Branch:** `redesign/ui-refresh` | **Started:** 2026-06-12 | **Merges when ready** (not coupled to v1.0 ship date)
+>
+> **Goal:** Replace the agent-native template-fork look with a studio-skinnable GymClassOS design system and gym-domain naming across all three surfaces (staff web, public embed widgets, member mobile app), so the product reads as a real vertical product sellable beyond Hustle.
+>
+> **Phase prefix:** R (for Redesign) — avoids `.planning/phases/` directory collisions when this branch merges into master.
+
+### Key constraints baked into every phase
+
+- **No local dev server** — `NitroViteError` prevents `pnpm dev` on staff-web. Verification is via Vercel/Fly deploy (staff web + embeds) and Expo Go / EAS (mobile).
+- **Live customer (Hustle) on the deployed app** — route renames require redirect shims (`React Router redirect()`); no DB enum or schema renames (drizzle-kit#1409 + live-DB table-lock risk).
+- **Fork boundary holds** — `templates/*` and `packages-vendored/*` are never edited. Redesign work lands in `apps/staff-web/features/*`, `apps/staff-web/app/*`, `apps/staff-web/app/skins/*`, and `packages/mobile-app`.
+- **Hustle brand hex values are a live dependency** — `hustle.css` cannot be finalised until Hustle confirms their brand hex values. This is flagged as an open dependency in R2.
+- **Token-before-label ordering** — design tokens must resolve cleanly before UI label changes land; label changes must be stable before code identifier and route renames proceed (pitfall-enforced sequencing from research).
+
+## Phases
+
+- [x] **Phase R1: Audit Baseline** — Screenshot every deployed surface; produce the naming decision record (email-vocabulary inventory + rename classification)
+ (completed 2026-06-12)
+- [x] **Phase R2: Design System Token Layer** — Install CSS custom-property token system with skin injector; author GymClassOS default skin and Hustle skin; self-host Inter
+ (completed 2026-06-13)
+- [x] **Phase R3: Naming & IA Pass** — Rename nav labels and surface copy (labels first), then retire email-vocabulary code identifiers and routes (with redirect shims) (completed 2026-06-13)
+- [x] **Phase R4: Staff Web Visual Refresh + Embed Widgets** — Apply design-system tokens to all staff-web surfaces and public embed widgets; deliver the visual redesign (completed 2026-06-13)
+- [x] **Phase R5: Member Mobile App Redesign** — Align the Expo mobile app to the GymClassOS design language; rename tabs; deliver dark-first theme with token file (completed 2026-06-13)
+
+## Phase Details
+
+### Phase R1: Audit Baseline
+**Goal**: The before-state of every surface is documented so regressions are detectable; every email-vocabulary item is inventoried and classified so R2–R5 have a concrete target list
+**Depends on**: Nothing
+**Requirements**: AUDT-01, AUDT-02
+**Success Criteria** (what must be TRUE):
+  1. Screenshots of every staff-web route, every embed widget, and every mobile screen are committed to `.planning/ui-reviews/baseline/` and can be diffed against post-redesign captures
+  2. A naming decision record exists listing every email-vocabulary UI label, code identifier, CSS class, and route, with each item tagged by rename layer (label / CSS / identifier / route)
+  3. The naming record is comprehensive enough that a reader can derive the full scope of R3 without re-auditing the codebase
+**Plans**: 3 plans
+- [x] R1-01-naming-decision-record-PLAN.md (wave 1) — grep-driven naming decision record: 4 per-layer tables (label/CSS/identifier/route) across all three surfaces [AUDT-02]
+- [x] R1-02-capture-tooling-PLAN.md (wave 1) — parameterized Playwright capture script + light/dark embed test pages + README (reused by R2-R5) [AUDT-01]
+- [x] R1-03-run-captures-and-manifest-PLAN.md (wave 2) — auth checkpoint + run web/embed captures + mobile Expo Go capture checkpoint + INDEX.md manifest with deploy SHA [AUDT-01]
+
+### Phase R2: Design System Token Layer
+**Goal**: All staff-web colors, typography, and radius resolve from CSS custom-property tokens; the skin injector selects the right skin at deploy time; Hustle and GymClassOS default skins exist; Inter is self-hosted
+**Depends on**: Phase R1 (audit establishes the token surface area)
+**Requirements**: DSGN-01, DSGN-02, DSGN-03, DSGN-04, DSGN-05
+**Success Criteria** (what must be TRUE):
+  1. A CI grep guard fails if any hardcoded hex color appears in GymClassOS app code (outside skin files)
+  2. Setting `GYMOS_STUDIO_SKIN=hustle` at deploy time and redeploying to Vercel causes the staff web to render Hustle brand colors and logo — no code change required
+  3. `apps/staff-web/app/skins/default.css` and `apps/staff-web/app/skins/hustle.css` both exist; switching between them requires only an env-var change
+  4. No `fonts.googleapis.com` request appears in the network tab on any staff-web page load (Inter is served from the same origin)
+  5. Studio name and logo appear at the top of the staff sidebar, sourced from the active skin config
+**Plans**: 4 plans
+- [x] R2-01-token-layer-and-skins-PLAN.md (wave 1) — bare @theme tokens + --studio-* defaults in global.css; default.css + hustle.css skins; skins/config.ts registry; studios/ env contract scaffold [DSGN-01, DSGN-03]
+- [x] R2-02-skin-injector-and-studio-identity-PLAN.md (wave 2) — root loader reads GYMOS_STUDIO_SKIN, sets data-studio on <html> (SSR, no FOUC); GymosTopNav renders skin displayName/logo [DSGN-02, DSGN-05]
+- [x] R2-04-self-hosted-inter-PLAN.md (wave 3) — self-hosted Inter variable woff2 in public/fonts/; @font-face in global.css + preload in root.tsx; replace Google Fonts in 3 SSR pages [DSGN-04]
+- [x] R2-03-hex-conversion-and-ci-guard-PLAN.md (wave 4) — guard-no-hardcoded-colors.mjs + guards/prep/CI wiring; convert/allowlist remaining hex so the guard passes [DSGN-01]
+**UI hint**: yes
+**Open dependency**: Hustle brand hex values must be confirmed by the customer before `hustle.css` can be finalised. Until received, `hustle.css` uses placeholder values clearly marked `/* TODO: replace with Hustle brand values */`.
+
+### Phase R3: Naming & IA Pass
+**Goal**: Every user-visible surface uses gym-domain vocabulary; email-mental-model labels are eliminated; code identifiers and routes are renamed to match; the live customer's deep links continue working via redirect shims
+**Depends on**: Phase R2 (token layer must be stable before identifier renames, to avoid conflating token-refactor diffs with naming diffs)
+**Requirements**: NAME-01, NAME-02, NAME-03, NAME-04, NAME-05, NAME-06, NAME-07
+**Success Criteria** (what must be TRUE):
+  1. The staff nav reads exactly: Schedule | Messages | Members | Payments | Settings, with studio identity at the top — no "Inbox", "Compose", or "Draft Queue" appears anywhere user-visible
+  2. The messaging surface shows "Messages" as the heading, threads are labeled "Conversations", and the send button reads "New Message" — zero email vocabulary is visible
+  3. Navigating to any pre-rename route (e.g. the old inbox or draft-queue path) redirects correctly to the new route rather than returning a 404
+  4. "Book" is the primary booking CTA on every class surface — no "Reserve", "Enrol", or "Register" appears
+  5. Member detail view is headed "Member Profile"; pass balance displays as "X credits"
+  6. DB enum string values and schema column names are untouched (display labels only)
+**Plans**: 4 plans
+- [x] R3-01-label-layer-PLAN.md (wave 1) — user-visible copy: nav Inbox→Messages, surface heading/meta, member back-links→Home, Member Profile heading, legacy Compose→New Message / Draft Queue→Scheduled Messages [NAME-01, NAME-02, NAME-06, NAME-07]
+- [x] R3-02-css-class-renames-PLAN.md (wave 2) — additive-alias-then-migrate .email-*/.compose-* → .conversation-*/.message-* in global.css + email components (R-12) [NAME-04]
+- [x] R3-03-identifier-renames-PLAN.md (wave 3) — EmailList*/Compose* → Conversation*/Message* components + InboxPage→MessagesPage, DraftQueuePage→ScheduledMessagesPage + import sites [NAME-04]
+- [x] R3-04-route-renames-and-shims-PLAN.md (wave 4) — /gymos/inbox→/gymos/messages: relocate surface, 301 query-preserving redirect shim (R-06), atomic ref updates, GymosInbox→GymosMessages; NAME-05 no-DB-touch verification [NAME-03, NAME-05]
+**UI hint**: yes
+**Internal ordering constraint**: Label-layer changes (NAME-01, NAME-02, NAME-06, NAME-07) must be deployed and verified before code-identifier renames (NAME-04) and route renames with redirect shims (NAME-03) are applied. NAME-05 (no DB renames) is a standing constraint throughout.
+
+### Phase R4: Staff Web Visual Refresh + Embed Widgets
+**Goal**: Staff-web surfaces and public embed widgets are visually redesigned using the token system; the product reads as a purpose-built gym platform, not an adapted email client
+**Depends on**: Phase R3 (naming and tokens must be stable before applying the full visual layer)
+**Requirements**: SWEB-01, SWEB-02, SWEB-03, SWEB-04, SWEB-05, SWEB-06, SWEB-07, SWEB-08, WDGT-01, WDGT-02, WDGT-03
+**Success Criteria** (what must be TRUE):
+  1. Class cards on the staff schedule show class name, time, instructor, and "X / Y booked"; capacity turns amber or red when three or fewer spots remain
+  2. The Member Context panel in a conversation shows pass-balance pill, next-class card, and last visit as scannable widget cards — not a data table
+  3. Members directory defaults to card view (avatar, membership pill, next class); a table view is available as a secondary option
+  4. The Messages surface is responsive at mobile widths — single column with member context in a bottom sheet
+  5. Coaches see Schedule / Messages / Members in the nav; admins additionally see Payments / Settings
+  6. Staff web defaults to light theme; dark theme is absent (not a toggle — deferred to DSGN-F1)
+  7. `/embed/schedule` and the lead-capture embed both render correctly inside an iframe on both light and dark host backgrounds, themed by studio tokens
+  8. The lead-capture form uses "Enquiry" vocabulary (not "Sign up" or "Contact")
+**Plans**: 7 plans (2 waves)
+
+Plans:
+- [x] R4-01-schedule-class-cards-PLAN.md (wave 1) — class cards: name/time/X-of-Y booked + 3-state capacity (amber <=3, red at 0) + accent today-cell [SWEB-01, SWEB-02]
+- [x] R4-02-member-profile-widget-cards-PLAN.md (wave 1) — pass-balance pill + next-class card + bookings timeline with Show-all reveal [SWEB-04]
+- [x] R4-03-members-directory-card-view-PLAN.md (wave 1) — card-default directory (avatar/membership pill/next class) + Table tab via ?view [SWEB-05]
+- [x] R4-04-embed-widgets-token-theming-PLAN.md (wave 1) — /embed/schedule + lead form: light/white default, --studio-* token theming, Enquiry vocab; WDGT-03 light/dark host UAT checkpoint [WDGT-01, WDGT-02, WDGT-03]
+- [x] R4-05-member-context-widget-cards-PLAN.md (wave 1) — conversation member-context rail -> Pass Balance / Next Class / Last Visit widget cards [SWEB-03]
+- [x] R4-06-messages-responsiveness-PLAN.md (wave 2, after R4-05) — desktop 3-pane -> mobile single-column + member-context bottom Sheet [SWEB-06]
+- [x] R4-07-role-nav-and-light-theme-PLAN.md (wave 1) — role-gated nav (admin tabs via GYMOS_ADMIN_EMAILS) + light-locked ThemeProvider, dark toggle removed [SWEB-07, SWEB-08]
+**UI hint**: yes
+
+### Phase R5: Member Mobile App Redesign
+**Goal**: The Expo member app is aligned to the GymClassOS design language with a dark-first theme, renamed tabs, and a token file replacing all hardcoded hex values
+**Depends on**: Phase R2 (token approach established; mobile uses a parallel `theme.ts` pattern rather than CSS custom properties)
+**Requirements**: MOBL-01, MOBL-02, MOBL-03, MOBL-04, MOBL-05, MOBL-06, MOBL-07
+**Success Criteria** (what must be TRUE):
+  1. `packages/mobile-app/lib/theme.ts` exists and all hardcoded hex values in mobile screens reference it — no bare hex strings remain in component files
+  2. Bottom tabs are labeled Home / Classes / Passes / Log / Profile (in that order)
+  3. The app opens in a high-contrast dark theme by default
+  4. The Home tab hero area shows next class, pass balance, and latest coach message as prominent cards
+  5. The booking flow completes in three steps or fewer (select → confirm with pass/drop-in choice → done) with a persistent pass-balance pill visible throughout
+  6. The Noticeboard is framed in coach voice ("From your coach" / "Studio updates") — not a generic notification feed
+  7. Inter loads via `useFonts` with OTF assets compatible with Expo Go; skin is selectable via `EXPO_PUBLIC_STUDIO_SKIN` at EAS build time
+**Plans**: 4 plans (2 waves)
+
+Plans:
+- [x] R5-01-theme-foundation-PLAN.md (wave 1) — lib/theme.ts (ThemeContext + useTheme + default + Hustle skins, dark-first orange) + ThemeProvider/useFonts gate in _layout.tsx + Inter OTF assets [MOBL-01, MOBL-03, MOBL-07]
+- [x] R5-02-tabs-and-leaf-screens-PLAN.md (wave 2) — rename/reorder tabs Home/Classes/Passes/Log/Profile + new passes.tsx + hex migration of food/profile/food-add/food-barcode/pick-member [MOBL-02, MOBL-01]
+- [x] R5-03-home-hero-and-noticeboard-PLAN.md (wave 2) — Home hero (next class + pass balance + latest coach message cards) + coach-voice Studio updates section + index.tsx/KcalRing hex migration [MOBL-04, MOBL-06, MOBL-01]
+- [x] R5-04-booking-flow-pass-pill-PLAN.md (wave 2) — <=3-step booking (select -> confirm with pass/drop-in choice -> done) + persistent pass-balance pill + schedule.tsx hex migration [MOBL-05, MOBL-01]
+**UI hint**: yes
+
+## Progress
+
+| Phase | Plans Complete | Status | Completed |
+|-------|----------------|--------|-----------|
+| R1. Audit Baseline | 3/3 | Complete    | 2026-06-12 |
+| R2. Design System Token Layer | 4/4 | Complete   | 2026-06-13 |
+| R3. Naming & IA Pass | 4/4 | Complete   | 2026-06-13 |
+| R4. Staff Web Visual Refresh + Embed Widgets | 7/7 | Complete   | 2026-06-13 |
+| R5. Member Mobile App Redesign | 4/4 | Complete   | 2026-06-13 |
+
+**Coverage:** 30 v1.1 requirements mapped across 5 phases (R1–R5).
+
+---
+## v1.0 — Demo Sprint + Production v1
+
 ## Overview
 
 GymClassOS v1 ships in **two milestones**:
@@ -433,5 +574,6 @@ Plans:
 *Revised: 2026-05-17 — major restructure (Demo Sprint + Production v1 two-milestone shape; mobile = PWA; Stripe direct; calorie counter in v1)*
 *Revised: 2026-05-19 — D2 plan list registered (6 plans), success criteria realigned to native Expo flow (was inherited PWA wording), MEMBR-06 dropped from D2 (PWA manifest is N/A for native Expo Go; rolled into P1a EAS work)*
 *Revised: 2026-06-01 — P1c Public Site Integrations planned (7 plans) + executed + verified live on deploy → marked Complete. Migrations 0003+0004 applied to gymos-demo Neon. FORMS-01..04 + EMBED-01..06 added (140 reqs total). Checkout-link + visual-browser checks deferred (studio Stripe setup / dev-server NitroViteError).*
+*Revised: 2026-06-14 — merged `redesign/ui-refresh` into master. v1.1 UI Redesign roadmap (R1–R5, complete) now leads this file above the v1.0 section.*
 *Out of v1 scope: Native mobile (v1.x), HealthKit, Coach View with health context, CRM campaigns + segments, Knowledge Base, Operational Reporting, bsport-migration productisation, A2A. See REQUIREMENTS.md §Post-v1 Backlog and PLATFORM-VISION.md.*
 

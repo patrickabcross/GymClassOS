@@ -34,7 +34,7 @@ export function ComposeImageBlock({
     return (
       <NodeViewWrapper>
         <div
-          className="compose-image-placeholder"
+          className="message-editor-image-placeholder"
           data-selected={selected || undefined}
           onClick={() => void handlePickImage()}
         >
@@ -58,23 +58,23 @@ export function ComposeImageBlock({
   return (
     <NodeViewWrapper>
       <div
-        className="compose-image-wrapper"
+        className="message-editor-image-wrapper"
         data-selected={selected || undefined}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
-        <img src={src} className="compose-image" draggable={false} />
+        <img src={src} className="message-editor-image" draggable={false} />
         {(isHovered || selected) && (
-          <div className="compose-image-overlay">
+          <div className="message-editor-image-overlay">
             <button
               onClick={() => void handlePickImage()}
-              className="compose-image-btn"
+              className="message-editor-image-btn"
             >
               Replace
             </button>
             <button
               onClick={deleteNode}
-              className="compose-image-btn compose-image-btn--danger"
+              className="message-editor-image-btn message-editor-image-btn--danger"
             >
               <IconX size={12} />
             </button>

@@ -1,8 +1,8 @@
-import { DraftQueuePage } from "@/pages/DraftQueuePage";
+import { ScheduledMessagesPage } from "@/pages/ScheduledMessagesPage";
 import { Spinner } from "@/components/ui/spinner";
 
 export function meta() {
-  return [{ title: "Draft Queue — Mail" }];
+  return [{ title: "Scheduled Messages — GymClassOS" }];
 }
 
 export function HydrateFallback() {
@@ -14,5 +14,5 @@ export function HydrateFallback() {
 }
 
 export default function DraftQueueRoute() {
-  return <DraftQueuePage />;
+  return <ScheduledMessagesPage />;
 }
