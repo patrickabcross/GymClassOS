@@ -45,7 +45,7 @@ import {
   redirect,
   Link,
 } from "react-router";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { eq, ne, desc, sql, inArray } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import {
@@ -65,6 +65,10 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
+import {
+  extractBodyText,
+  resolveTemplateMessageBody,
+} from "@/lib/templateBody";
 import { TemplatesDialog } from "@/components/gymos/TemplatesDialog";
 import { ImportLeadsDialog } from "@/components/gymos/ImportLeadsDialog";
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "react-router";
@@ -833,6 +837,19 @@ export default function GymosMessages() {
     : false;
   const canSendText = Boolean(selectedWs?.inWindow) && selectedHasOptIn;
 
+  // FIX 2 (quick-260615-lyu): map template name → real BODY text so template
+  // message bubbles render the actual template copy (with {{N}} vars filled)
+  // instead of the stored "[template: <name>]" placeholder. Built once from the
+  // loader's existing templates list (no new query); extractBodyText never
+  // throws and yields null for templates without a parseable BODY.
+  const bodyByName = useMemo(() => {
+    const map: Record<string, string | null> = {};
+    for (const t of data.templates) {
+      map[t.name] = extractBodyText(t.componentsJson);
+    }
+    return map;
+  }, [data.templates]);
+
   return (
     <div className="flex h-full w-full overflow-hidden">
       {/* ─── Conversation list (left rail) ──────────────────────────────── */}
@@ -1111,7 +1128,10 @@ export default function GymosMessages() {
                         : "bg-muted/70",
                     )}
                   >
-                    {m.body}
+                    {m.messageType === "template"
+                      ? (resolveTemplateMessageBody(m.payload, bodyByName)
+                          ?.text ?? m.body)
+                      : m.body}
                   </div>
                   <span className="text-[10px] text-muted-foreground mt-1 px-1">
                     {relativeTime(m.createdAt)}
