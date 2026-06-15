@@ -428,6 +428,7 @@ export async function action({ request }: ActionFunctionArgs) {
       }
       const phoneNumberId =
         (await readAppSecretByKey("MYUTIK_PHONE_NUMBER_ID")) ??
+        (await readAppSecretByKey("WHATSAPP_PHONE_NUMBER_ID")) ??
         "302631896256150";
 
       const baseUrl = new URL(
