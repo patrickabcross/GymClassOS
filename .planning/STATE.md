@@ -246,6 +246,7 @@ Key patterns discovered during v1.0 execution that apply to v1.1:
 | 260611-rrh | Fix WhatsApp webhook consumer dropping MYÜTIK outbound mirrors | 2026-06-11 | 00863fc1 | Done |
 | 260615-k8m | AI food analysis (photo + text → calorie estimate): POST /api/m/foods/analyze (Claude vision), food-ai.tsx mobile screen, FAB menu entry | 2026-06-15 | 4ddd89dc | Done |
 | 260615-lyu | Make outbound WhatsApp message state honest: worker marks stuck-queued sends 'failed' on exhausted retries; inbox renders real template body (var-substituted from whatsapp_templates) instead of `[template: name]` | 2026-06-15 | 752a2b9f | Done |
+| fast | Fix inbox "Update templates" MYÜTIK 404 — sync-templates falls back to WHATSAPP_PHONE_NUMBER_ID app_secret before the stale hardcoded phoneNumberId (number-change fix) | 2026-06-15 | cda1dd10 | Done |
 | Phase R1 P02 | 3 | 2 tasks | 5 files |
 | Phase R1 P01 | 185 | 2 tasks | 1 files |
 | Phase R1-audit-baseline P03 | 240 | 5 tasks | 15 files |
