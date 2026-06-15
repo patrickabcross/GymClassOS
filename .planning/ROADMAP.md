@@ -570,6 +570,29 @@ Plans:
 
 ---
 
+### Phase 999.4: Apple Health (HealthKit) integration for the member app (BACKLOG)
+
+**Goal:** Let a member link their Apple device so the member app reads HealthKit data — workouts/exercise "sessions" (`HKWorkout`) + activity/energy — and reconciles it with GymClassOS class attendance / member activity. Feeds the long-planned staff "Coach View".
+
+**Why:** Requested by the user 2026-06-15. Promotes the previously-deferred "HealthKit / Coach View" item from out-of-scope to a planned feature.
+
+**Hard constraints (shape the whole phase):**
+- iOS-native only — no web, no react-native-web, no Expo Go. The local-web testing recipe does NOT apply; testing requires a physical iPhone running a custom build.
+- Needs a native module (`react-native-health` or an Expo HealthKit config plugin) + an **EAS dev-client/preview build**; HealthKit entitlement + `NSHealthShareUsageDescription` in iOS config.
+- **Prerequisite blocker:** EAS is still pointed at the upstream agent-native account (`owner: steve8708`, bundle `com.agentnative.mobile`). Must be re-pointed to the customer's Apple Developer account with HealthKit capability enabled before any build.
+- Patrick develops on Windows → iOS builds must go through **EAS cloud** (no local Xcode).
+
+**Context:** Surfaced 2026-06-15. Already anticipated as "Coach View (depends on HealthKit landing)" (backlog) and REQUIREMENTS §Out-of-Scope-v1 "HealthKit". Full detail in memory `project_gymos_apple_health.md`.
+
+**Requirements:** TBD
+**Plans:** 0 plans
+**Scope:** Large — 4-area feature (onboarding/permission link step, HealthKit reader→session mapping, additive `/api/m/*` sync endpoint, member UI + later staff Coach View) gated on the EAS/Apple-account prerequisite.
+
+Plans:
+- [ ] TBD (promote with /gsd:review-backlog when ready)
+
+---
+
 *Roadmap created: 2026-05-17*
 *Revised: 2026-05-17 — major restructure (Demo Sprint + Production v1 two-milestone shape; mobile = PWA; Stripe direct; calorie counter in v1)*
 *Revised: 2026-05-19 — D2 plan list registered (6 plans), success criteria realigned to native Expo flow (was inherited PWA wording), MEMBR-06 dropped from D2 (PWA manifest is N/A for native Expo Go; rolled into P1a EAS work)*
