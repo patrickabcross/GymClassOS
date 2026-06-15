@@ -38,7 +38,7 @@ Milestone: v1.0 Production (P1c.1 complete) + v1.1 UI Redesign merged in (R1–R
 Phase: P1c.1 complete; v1.1 R1–R5 complete
 Plan: Not started (next v1.0 phase unscheduled)
 Status: v1.1 redesign merged into master 2026-06-14; P1c.1 e2e smoke test PASSED (2026-06-13)
-Last activity: 2026-06-13
+Last activity: 2026-06-15 - Completed quick task 260615-lyu (honest outbound WhatsApp message state)
 
 > **Branch note:** All v1.0 Demo Sprint position/detail in the Accumulated Context section below reflects `master` state at branch time (2026-06-12) and is kept for reference. Do not execute v1.0 work from this branch.
 
@@ -245,6 +245,7 @@ Key patterns discovered during v1.0 execution that apply to v1.1:
 | 260611-dxv | CSV bulk-upload interface for Leads view | 2026-06-11 | cf3b76df | Done |
 | 260611-rrh | Fix WhatsApp webhook consumer dropping MYÜTIK outbound mirrors | 2026-06-11 | 00863fc1 | Done |
 | 260615-k8m | AI food analysis (photo + text → calorie estimate): POST /api/m/foods/analyze (Claude vision), food-ai.tsx mobile screen, FAB menu entry | 2026-06-15 | 4ddd89dc | Done |
+| 260615-lyu | Make outbound WhatsApp message state honest: worker marks stuck-queued sends 'failed' on exhausted retries; inbox renders real template body (var-substituted from whatsapp_templates) instead of `[template: name]` | 2026-06-15 | 752a2b9f | Done |
 | Phase R1 P02 | 3 | 2 tasks | 5 files |
 | Phase R1 P01 | 185 | 2 tasks | 1 files |
 | Phase R1-audit-baseline P03 | 240 | 5 tasks | 15 files |
