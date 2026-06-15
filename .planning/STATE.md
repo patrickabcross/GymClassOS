@@ -244,6 +244,7 @@ Key patterns discovered during v1.0 execution that apply to v1.1:
 | 260609-qe9 | Route worker outbound WhatsApp sends through MYÜTIK | 2026-06-09 | 5cc4ab82 | Done |
 | 260611-dxv | CSV bulk-upload interface for Leads view | 2026-06-11 | cf3b76df | Done |
 | 260611-rrh | Fix WhatsApp webhook consumer dropping MYÜTIK outbound mirrors | 2026-06-11 | 00863fc1 | Done |
+| 260615-k8m | AI food analysis (photo + text → calorie estimate): POST /api/m/foods/analyze (Claude vision), food-ai.tsx mobile screen, FAB menu entry | 2026-06-15 | 4ddd89dc | Done |
 | Phase R1 P02 | 3 | 2 tasks | 5 files |
 | Phase R1 P01 | 185 | 2 tasks | 1 files |
 | Phase R1-audit-baseline P03 | 240 | 5 tasks | 15 files |
