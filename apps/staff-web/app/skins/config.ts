@@ -14,7 +14,8 @@ const skins: Record<SkinName, SkinConfig> = {
     logo: null, // wordmark only for default (R2 D-04)
   },
   hustle: {
-    // TODO: confirm display name + supply /logos/hustle.svg with Hustle brand assets
+    // Brand confirmed from doyouhustle.co.uk: black "HUSTLE" wordmark + Poppins.
+    // Logo is wordmark-only, so the styled-wordmark fallback (logo: null) matches brand.
     displayName: "Hustle",
     logo: null,
   },
