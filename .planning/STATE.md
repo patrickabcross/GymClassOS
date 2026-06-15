@@ -38,7 +38,7 @@ Milestone: v1.0 Production (P1c.1 complete) + v1.1 UI Redesign merged in (R1–R
 Phase: P1c.1 complete; v1.1 R1–R5 complete
 Plan: Not started (next v1.0 phase unscheduled)
 Status: v1.1 redesign merged into master 2026-06-14; P1c.1 e2e smoke test PASSED (2026-06-13)
-Last activity: 2026-06-15 - Completed quick task 260615-lyu (honest outbound WhatsApp message state)
+Last activity: 2026-06-15 - Completed quick task 260615-phi (inbound WhatsApp from unknown numbers auto-creates member; stale template pruning on sync)
 
 > **Branch note:** All v1.0 Demo Sprint position/detail in the Accumulated Context section below reflects `master` state at branch time (2026-06-12) and is kept for reference. Do not execute v1.0 work from this branch.
 
@@ -247,6 +247,7 @@ Key patterns discovered during v1.0 execution that apply to v1.1:
 | 260615-k8m | AI food analysis (photo + text → calorie estimate): POST /api/m/foods/analyze (Claude vision), food-ai.tsx mobile screen, FAB menu entry | 2026-06-15 | 4ddd89dc | Done |
 | 260615-lyu | Make outbound WhatsApp message state honest: worker marks stuck-queued sends 'failed' on exhausted retries; inbox renders real template body (var-substituted from whatsapp_templates) instead of `[template: name]` | 2026-06-15 | 752a2b9f | Done |
 | fast | Fix inbox "Update templates" MYÜTIK 404 — sync-templates falls back to WHATSAPP_PHONE_NUMBER_ID app_secret before the stale hardcoded phoneNumberId (number-change fix) | 2026-06-15 | cda1dd10 | Done |
+| 260615-phi | Inbound WhatsApp from unknown numbers auto-creates gym_member + open conversation + opt-in (worker, race-safe onConflict + re-select); on-demand template sync prunes stale templates from a previous account (staff-web, syncStartedAt watermark) | 2026-06-15 | 6e3afe28 | Done |
 | Phase R1 P02 | 3 | 2 tasks | 5 files |
 | Phase R1 P01 | 185 | 2 tasks | 1 files |
 | Phase R1-audit-baseline P03 | 240 | 5 tasks | 15 files |
