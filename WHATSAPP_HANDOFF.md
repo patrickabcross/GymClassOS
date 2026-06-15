@@ -1,10 +1,35 @@
-# WhatsApp Send/Receive — Handoff (updated 2026-06-09 EOD)
+# WhatsApp Send/Receive — Handoff (updated 2026-06-15 EOD)
 
 **Goal:** send AND receive WhatsApp messages in the GymClassOS `/gymos` inbox.
 
 ---
 
-## 2026-06-09 EOD — OUTBOUND SEND REWIRED TO MYÜTIK + DEPLOYED (pick up here)
+## 2026-06-15 EOD — SEND + RECEIVE + TEMPLATES ALL WORKING END-TO-END ✅
+
+**TL;DR:** Everything is live and verified. Outbound sends, inbound from new numbers, in-window template sends, and on-demand template sync all work. The remaining "send didn't arrive" item from 2026-06-09 was never a code bug — it was activation/config (worker couldn't read its MYÜTIK key, and the studio's WhatsApp number had changed so the stored phoneNumberId was stale).
+
+**Root causes found + fixed this session:**
+1. **Worker couldn't read `MYUTIK_API_KEY`.** The Fly worker app `gymos-edge-webhooks` had no `BETTER_AUTH_SECRET`/`SECRETS_ENCRYPTION_KEY`, so `readAppSecretByKey` returned null for everything (silent), `getMyutikApiKey` threw "No MYÜTIK API key available", every `outbound-whatsapp` job failed 3× and the `messages` row stayed `queued` forever. **`BETTER_AUTH_SECRET` is UNREADABLE from Vercel** (`vercel env pull` returns empty for all project secrets), so it cannot be copied to the worker — **the worker therefore relies on Fly ENV for creds, not `app_secrets`.** Fix: `fly secrets set MYUTIK_API_KEY=… -a gymos-edge-webhooks` (value from staff-web Settings → API Keys "Get key").
+2. **Studio moved to a NEW WhatsApp number → phoneNumberId changed.** Old `302631896256150` now 404s "phoneNumberId not found for this account". The phoneNumberId must be updated in **TWO** places: the Fly worker env `WHATSAPP_PHONE_NUMBER_ID` (send path) AND staff-web Settings `app_secrets WHATSAPP_PHONE_NUMBER_ID` (inbound matching + on-demand template sync).
+3. **MYÜTIK send contract is window-driven** (confirmed in `myutik-br1/apps/api/src/modules/messaging/whatsapp/wa.routes.ts:450-482`): `requiresTemplate = waSessionService.requiresTemplate(conversationId)` → window CLOSED ⇒ template branch (needs `templateName`); window OPEN ⇒ free-form branch (needs `text`, **ignores `templateName`**, returns `400 "text is required for free-form messages"` if absent). So a template sent to an in-window member used to 400.
+4. **MYÜTIK's relay does not carry the contact's profile name** (0/31 stored payloads have a `profile` field; genuine inbound has no `contacts` block). Auto-created members are therefore named by their E.164 number until renamed.
+
+**Code shipped this session (all on `master`, deployed):**
+- `quick-260615-lyu` (`752a2b9f`): worker marks a `messages` row `failed` (with `error_code`) when a non-gate error exhausts retries (no more eternal `queued`); inbox renders the **real var-substituted template body** from `whatsapp_templates.components_json` instead of `[template:name]`.
+- `quick fast` (`cda1dd10`): inbox "Update templates" sync falls back to `app_secrets WHATSAPP_PHONE_NUMBER_ID` before the stale hardcoded `302631896256150` (fixed the post-number-change 404).
+- `quick-260615-phi` (`6e3afe28` / `9e7c019c`): inbound from an **unknown number auto-creates a `gym_member` + open conversation + opt-in** (race-safe `onConflictDoNothing` on the `phone_e164` partial unique index + re-select; name = WhatsApp profile name → E.164 fallback). Template sync **prunes** templates not returned by the latest successful sync (clears a previous account's templates). **Verified live** with a synthetic inbound (test rows cleaned up).
+- `quick-260615-r6t` (`964671b3`): when a template is sent to an **in-window** member, the worker renders the template's BODY text (with vars) and sends it as **free-form text** via MYÜTIK; out-of-window still sends a real template; empty render falls back to the template path; WA-08 approved gate fires in both states. **Verified live** (re-sent a stuck template to an in-window conversation → `status=sent` with a real wamid).
+
+**Deploy commands (reference):** staff-web auto-deploys from `master` via Vercel; the **Fly worker does NOT** — a git push alone never deploys it. Worker deploy: `fly deploy --config services/edge-webhooks/fly.toml -a gymos-edge-webhooks` (build context = repo root, Dockerfile at root). myutik-api source = `C:\Users\dimet\myutik-br1`.
+
+**Remaining housekeeping (operational, no code):**
+- Click **"Update templates"** in the inbox to pull the new account's templates and prune the old-account leftovers.
+- Auto-created prospects show as their phone number (MYÜTIK relay carries no profile name) — rename in the member profile, or enrich later.
+- Optional follow-ups: hide/disable the Templates button while in-window (now redundant since templates work in-window), and STOP-keyword opt-out parsing on inbound (write path + gate already exist).
+
+---
+
+## 2026-06-09 EOD — OUTBOUND SEND REWIRED TO MYÜTIK + DEPLOYED (superseded by 2026-06-15)
 
 **TL;DR for morning:** The send path is now wired to MYÜTIK and **deployed to the Fly worker**. The one thing left is to **send a fresh template from the inbox and confirm it actually arrives** — everything upstream is green.
 
