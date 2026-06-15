@@ -295,7 +295,11 @@ export default function FoodScreen() {
                 router.push("/food-add");
               }}
             >
-              <Feather name="search" size={20} color={theme.colors.foreground} />
+              <Feather
+                name="search"
+                size={20}
+                color={theme.colors.foreground}
+              />
               <Text style={styles.addOptionText}>Search</Text>
             </Pressable>
             <Pressable
@@ -305,8 +309,22 @@ export default function FoodScreen() {
                 router.push("/food-barcode");
               }}
             >
-              <Feather name="camera" size={20} color={theme.colors.foreground} />
+              <Feather
+                name="camera"
+                size={20}
+                color={theme.colors.foreground}
+              />
               <Text style={styles.addOptionText}>Scan barcode</Text>
+            </Pressable>
+            <Pressable
+              style={styles.addOption}
+              onPress={() => {
+                setAddOpen(false);
+                router.push("/food-ai");
+              }}
+            >
+              <Feather name="zap" size={20} color={theme.colors.foreground} />
+              <Text style={styles.addOptionText}>AI estimate</Text>
             </Pressable>
           </Pressable>
         </Pressable>
