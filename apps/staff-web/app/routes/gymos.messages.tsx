@@ -438,6 +438,12 @@ export async function action({ request }: ActionFunctionArgs) {
       baseUrl.searchParams.set("limit", "200");
 
       const db = getDb();
+      // Capture BEFORE the fetch loop — every row refreshed by THIS sync sets
+      // lastSyncedAt = new Date().toISOString() (later than syncStartedAt), so
+      // rows with last_synced_at < syncStartedAt were NOT seen by this account
+      // and are pruned below. TEXT vs TEXT: ISO strings sort lexicographically
+      // === chronologically.
+      const syncStartedAt = new Date().toISOString();
       let synced = 0;
       let after: string | undefined;
       for (let page = 0; page < 20; page++) {
@@ -496,7 +502,19 @@ export async function action({ request }: ActionFunctionArgs) {
         if (next) after = next;
         else break;
       }
-      return { syncResult: { ok: true, synced } };
+      // Prune stale templates left over from a previously-connected account.
+      // ONLY after a successful sync (the !res.ok / missing-API-key paths
+      // early-return before reaching here) AND only when synced > 0 — the guard
+      // prevents wiping the picker on a transient/empty pull from a new account.
+      let pruned = 0;
+      if (synced > 0) {
+        // guard:allow-unscoped — single-tenant; templates are studio-wide
+        const delResult: any = await (db as any).execute(
+          sql`delete from whatsapp_templates where last_synced_at < ${syncStartedAt}`,
+        );
+        pruned = delResult?.rowCount ?? delResult?.rows?.length ?? 0;
+      }
+      return { syncResult: { ok: true, synced, pruned } };
     } catch (err) {
       return {
         syncResult: {
