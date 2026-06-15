@@ -10,6 +10,7 @@ import { hasOptIn } from "./gates/optInGate.js";
 import { isInWindow } from "./gates/windowGate.js";
 import { isTemplateApproved } from "./gates/templateGate.js";
 import { sendViaMyutik } from "./sendViaMyutik.js";
+import { renderApprovedTemplateBody } from "./templateBody.js";
 import { getMyutikApiKey, getMyutikPhoneNumberId } from "../lib/secrets.js";
 
 export type SendMessagePayload =
@@ -41,7 +42,15 @@ export type SendMessageResult = { externalId: string };
  * Gate order (D-10):
  *   1. opt-in (WA-07; PITFALL #17)  — refuse if member never opted in
  *   2. window (WA-06; PITFALL #1)   — refuse free-text outside 24h
- *   3. template approved (WA-08)    — refuse unapproved template name
+ *   3. template approved (WA-08)    — refuse unapproved template name (fires
+ *                                     for template payloads in BOTH window
+ *                                     states)
+ *
+ * Template send strategy (quick-260615-r6t):
+ *   - IN window:  render the approved template's BODY (vars substituted) and
+ *                 send it as free `text` (a real sentence). If the render is
+ *                 null/empty, fall back to the real template send below.
+ *   - OUT of window: send the real approved template (Meta policy requires it).
  *
  * Then relay through MYÜTIK (POST myutik.com/api/channels/whatsapp/send);
  * update messages.status based on result. The GymClassOS Meta app is not
@@ -93,12 +102,23 @@ export async function sendMessage(
     ? new Date(conversation.lastInboundAt)
     : null;
 
-  // 4. Window gate (WA-06) — applies to free-text only. Templates bypass.
-  if (payload.type === "text" && !isInWindow(lastInboundAt)) {
+  // 4. Window state — computed ONCE here for both the text gate and the
+  //    template send-strategy decision below. Inside the 24h window we may
+  //    render an approved template's BODY and send it as free text (a real
+  //    sentence the member can read); outside the window Meta requires the
+  //    real approved-template send.
+  const inWindow = isInWindow(lastInboundAt);
+
+  // 4a. Window gate (WA-06) — applies to free-text only. Out-of-window text is
+  //     refused at the sender layer (CONTEXT.md: not just discouraged in UI).
+  if (payload.type === "text" && !inWindow) {
     throw new WindowExpiredError(memberId, lastInboundAt);
   }
 
-  // 5. Template-approved gate (WA-08)
+  // 5. Template-approved gate (WA-08) — MUST fire for template payloads in BOTH
+  //    window states. In-window we still render+send the approved body, so the
+  //    template name must be approved regardless of whether we send it as a real
+  //    template (out-of-window) or as rendered text (in-window).
   if (payload.type === "template") {
     if (!(await isTemplateApproved(payload.name, db))) {
       throw new TemplateNotApprovedError(payload.name);
@@ -125,28 +145,59 @@ export async function sendMessage(
       });
       externalId = result.wamid;
     } else {
-      // Build a SINGLE body component with params ordered by placeholder number
-      // ({{1}}, {{2}}, ...). Empty vars → omit templateComponents entirely.
-      const orderedValues = Object.entries(payload.vars)
-        .sort(([a], [b]) => Number(a) - Number(b))
-        .map(([, v]) => v);
-      const templateComponents = orderedValues.length
-        ? [
-            {
-              type: "body",
-              parameters: orderedValues.map((v) => ({ type: "text", text: v })),
-            },
-          ]
-        : undefined;
-      const result = await sendViaMyutik({
-        apiKey,
-        phoneNumberId,
-        to,
-        templateName: payload.name,
-        templateLanguage: payload.language ?? "en_US",
-        templateComponents,
-      });
-      externalId = result.wamid;
+      // In-window template path: render the approved template's BODY text
+      // (vars substituted) and send it as free `text`, so the member reads a
+      // real sentence rather than a templated message. Out-of-window we MUST
+      // use the real approved-template send (Meta policy). If the in-window
+      // render comes back null/empty we fall back to the template send — we
+      // never send empty text (MYÜTIK's text branch rejects it).
+      let renderedBody: string | null = null;
+      if (inWindow) {
+        // guard:allow-unscoped — template list is studio-global, not per-user
+        const templateRows = await db
+          .select({ componentsJson: schema.whatsappTemplates.componentsJson })
+          .from(schema.whatsappTemplates)
+          .where(eq(schema.whatsappTemplates.name, payload.name))
+          .limit(1);
+        const componentsJson = templateRows[0]?.componentsJson;
+        renderedBody = renderApprovedTemplateBody(componentsJson, payload.vars);
+      }
+
+      if (renderedBody) {
+        const result = await sendViaMyutik({
+          apiKey,
+          phoneNumberId,
+          to,
+          text: renderedBody,
+        });
+        externalId = result.wamid;
+      } else {
+        // Build a SINGLE body component with params ordered by placeholder
+        // number ({{1}}, {{2}}, ...). Empty vars → omit templateComponents.
+        const orderedValues = Object.entries(payload.vars)
+          .sort(([a], [b]) => Number(a) - Number(b))
+          .map(([, v]) => v);
+        const templateComponents = orderedValues.length
+          ? [
+              {
+                type: "body",
+                parameters: orderedValues.map((v) => ({
+                  type: "text",
+                  text: v,
+                })),
+              },
+            ]
+          : undefined;
+        const result = await sendViaMyutik({
+          apiKey,
+          phoneNumberId,
+          to,
+          templateName: payload.name,
+          templateLanguage: payload.language ?? "en_US",
+          templateComponents,
+        });
+        externalId = result.wamid;
+      }
     }
   } catch (err: unknown) {
     // 4xx from MYÜTIK is terminal — mark failed, don't retry.

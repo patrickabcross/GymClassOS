@@ -13,6 +13,12 @@ vi.mock("./gates/templateGate.js", () => ({ isTemplateApproved }));
 const sendViaMyutik = vi.fn();
 vi.mock("./sendViaMyutik.js", () => ({ sendViaMyutik }));
 
+// renderApprovedTemplateBody is exercised by its own unit suite
+// (templateBody.test.ts). Mock it here so sendMessage tests control the
+// in-window template-vs-text decision deterministically.
+const renderApprovedTemplateBody = vi.fn();
+vi.mock("./templateBody.js", () => ({ renderApprovedTemplateBody }));
+
 // Mock the secrets readers so creds are resolved without a real DB call.
 vi.mock("../lib/secrets.js", () => ({
   getMyutikApiKey: vi.fn().mockResolvedValue("myutik_test_key"),
@@ -50,6 +56,7 @@ vi.mock("../lib/db.js", () => ({
     gymMembers: { id: {}, phoneE164: {} },
     conversations: { memberId: {}, channel: {}, id: {} },
     messages: { id: {} },
+    whatsappTemplates: { name: {}, componentsJson: {} },
   },
 }));
 
@@ -63,6 +70,7 @@ describe("sendMessage chokepoint (D-10)", () => {
     isInWindow.mockReset();
     isTemplateApproved.mockReset();
     sendViaMyutik.mockReset();
+    renderApprovedTemplateBody.mockReset();
     selectChain.limit.mockReset();
     updateChain.set.mockClear();
     updateChain.where.mockClear();
@@ -103,12 +111,14 @@ describe("sendMessage chokepoint (D-10)", () => {
     expect(sendViaMyutik).not.toHaveBeenCalled();
   });
 
-  it("allows template send OUTSIDE window (WA-06 + WA-08 happy path)", async () => {
+  it("sends the REAL template OUTSIDE window — window CLOSED (WA-06 + WA-08)", async () => {
     hasOptIn.mockResolvedValueOnce(true);
     selectChain.limit
       .mockResolvedValueOnce([{ id: "mem_1", phoneE164: "+447700900000" }])
       .mockResolvedValueOnce([{ id: "conv_1", lastInboundAt: null }]);
     isTemplateApproved.mockResolvedValueOnce(true);
+    // Window CLOSED → real approved-template send (Meta policy).
+    isInWindow.mockReturnValueOnce(false);
     sendViaMyutik.mockResolvedValueOnce({ wamid: "wamid_sent_abc" });
 
     const result = await sendMessage({
@@ -133,8 +143,99 @@ describe("sendMessage chokepoint (D-10)", () => {
         { type: "body", parameters: [{ type: "text", text: "Yoga" }] },
       ],
     });
-    // isInWindow should NOT have been consulted (template path)
-    expect(isInWindow).not.toHaveBeenCalled();
+    // isInWindow IS now consulted for template payloads (computed once for both
+    // branches) — and out-of-window we never render an approved body to text.
+    expect(isInWindow).toHaveBeenCalled();
+    expect(renderApprovedTemplateBody).not.toHaveBeenCalled();
+  });
+
+  it("renders approved BODY to TEXT for in-window template send (r6t)", async () => {
+    hasOptIn.mockResolvedValueOnce(true);
+    selectChain.limit
+      // member, conversation (in-window), then whatsapp_templates row
+      .mockResolvedValueOnce([{ id: "mem_1", phoneE164: "+447700900000" }])
+      .mockResolvedValueOnce([
+        { id: "conv_1", lastInboundAt: new Date().toISOString() },
+      ])
+      .mockResolvedValueOnce([
+        {
+          componentsJson: JSON.stringify({
+            components: [{ type: "BODY", text: "Hi {{1}}, see you at {{2}}!" }],
+          }),
+        },
+      ]);
+    isTemplateApproved.mockResolvedValueOnce(true);
+    isInWindow.mockReturnValueOnce(true);
+    renderApprovedTemplateBody.mockReturnValueOnce(
+      "Hi Patrick, see you at Yoga!",
+    );
+    sendViaMyutik.mockResolvedValueOnce({ wamid: "wamid_text_render" });
+
+    const result = await sendMessage({
+      memberId: "mem_1",
+      messageId: "msg_render",
+      payload: {
+        type: "template",
+        name: "class_reminder",
+        vars: { 1: "Patrick", 2: "Yoga" },
+      },
+      db: mockDb as any,
+    });
+    expect(result.externalId).toBe("wamid_text_render");
+    // WA-08 gate still fired for the template payload even though we send text.
+    expect(isTemplateApproved).toHaveBeenCalledWith(
+      "class_reminder",
+      expect.anything(),
+    );
+    // Rendered body is sent as free TEXT — NOT as a template.
+    expect(sendViaMyutik).toHaveBeenCalledWith({
+      apiKey: "myutik_test_key",
+      phoneNumberId: "302631896256150",
+      to: "+447700900000",
+      text: "Hi Patrick, see you at Yoga!",
+    });
+    const sendArgs = sendViaMyutik.mock.calls[0][0];
+    expect(sendArgs.templateName).toBeUndefined();
+  });
+
+  it("falls back to the real template send when in-window render is empty (r6t)", async () => {
+    hasOptIn.mockResolvedValueOnce(true);
+    selectChain.limit
+      .mockResolvedValueOnce([{ id: "mem_1", phoneE164: "+447700900000" }])
+      .mockResolvedValueOnce([
+        { id: "conv_1", lastInboundAt: new Date().toISOString() },
+      ])
+      // template row present but renderApprovedTemplateBody returns null below
+      .mockResolvedValueOnce([{ componentsJson: "not-json" }]);
+    isTemplateApproved.mockResolvedValueOnce(true);
+    isInWindow.mockReturnValueOnce(true);
+    renderApprovedTemplateBody.mockReturnValueOnce(null);
+    sendViaMyutik.mockResolvedValueOnce({ wamid: "wamid_fallback" });
+
+    const result = await sendMessage({
+      memberId: "mem_1",
+      messageId: "msg_fallback",
+      payload: {
+        type: "template",
+        name: "class_reminder",
+        vars: { 1: "Yoga" },
+      },
+      db: mockDb as any,
+    });
+    expect(result.externalId).toBe("wamid_fallback");
+    // Never sends empty text — falls back to the real template send.
+    expect(sendViaMyutik).toHaveBeenCalledWith({
+      apiKey: "myutik_test_key",
+      phoneNumberId: "302631896256150",
+      to: "+447700900000",
+      templateName: "class_reminder",
+      templateLanguage: "en_US",
+      templateComponents: [
+        { type: "body", parameters: [{ type: "text", text: "Yoga" }] },
+      ],
+    });
+    const sendArgs = sendViaMyutik.mock.calls[0][0];
+    expect(sendArgs.text).toBeUndefined();
   });
 
   it("throws TemplateNotApprovedError for unapproved template name (WA-08)", async () => {
