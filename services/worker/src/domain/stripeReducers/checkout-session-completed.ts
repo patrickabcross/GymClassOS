@@ -22,13 +22,20 @@ export async function checkoutSessionCompleted(
   event: Stripe.Event,
   tx: TxClient,
   stripe: Stripe,
+  stripeAccount?: string,
 ): Promise<void> {
   const session = event.data.object as Stripe.Checkout.Session;
 
   // REFETCH for current state (PITFALL #4 + WEB-06).
-  const fullSession = await stripe.checkout.sessions.retrieve(session.id, {
-    expand: ["line_items.data.price.product", "customer"],
-  });
+  // Pass { stripeAccount } so the refetch resolves against the connected account
+  // (not the platform) — Pitfall 3. When stripeAccount is undefined (platform
+  // event), the opts arg is undefined which is a no-op to the SDK.
+  const opts = stripeAccount ? { stripeAccount } : undefined;
+  const fullSession = await stripe.checkout.sessions.retrieve(
+    session.id,
+    { expand: ["line_items.data.price.product", "customer"] },
+    opts,
+  );
 
   const customerId =
     typeof fullSession.customer === "string"

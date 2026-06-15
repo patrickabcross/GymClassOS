@@ -139,11 +139,7 @@ Plans:
 **Coverage:** 30 v1.1 requirements mapped across 5 phases (R1–R5).
 
 ---
-
 ## v1.0 — Demo Sprint + Production v1
-
-> **Continuing on `master` — NOT this branch's scope.**
-> All v1.0 work (phases D0–D2, P0, P1a, P1b, P1b.1, P1c, P2, P3) continues independently on `master`. The content below is preserved as reference for merge-time context. Do not execute v1.0 plans from `redesign/ui-refresh`.
 
 ## Overview
 
@@ -193,7 +189,7 @@ Post-v1 backlog (HealthKit + native mobile, Coach View with health context, CRM 
 4. Member context panel in the inbox shows next-class + pass-balance for the opened conversation's member (real data)
 5. Stripe Checkout link generated for a 10-pack purchase + paid in Stripe test mode + resulting pass grant visible in member profile
 
-**Plans:** 4/4 plans complete
+**Plans:** 4 plans
 
 - [x] D1-01-schedule-surface-PLAN.md — Build /gymos/schedule week-grid + book-from-occurrence dialog (SCH-01, BKG-01) — completed 2026-05-19 (commits f5cdbdc6, dd50fe62, 23ee58f2)
 - [x] D1-02-members-directory-PLAN.md — Build /gymos/members + /gymos/members/:id profile with bookings + pass balance (MEM-01, MEM-02)
@@ -409,15 +405,15 @@ The production milestone is structured as 4 phases (preserving the prior coarse-
 7. Stripe Customer Portal (on the connected account) reachable for subscription self-service
 8. No card data stored anywhere; tokenised IDs only (STR-08 preserved)
 
-**Plans:** 7 plans (3 waves)
+**Plans:** 7/7 plans complete
 
 Plans:
-- [ ] P1c.1-01-PLAN.md (wave 1) — additive connected_accounts table (acct_id + readiness flags, direct-to-Neon) + StripeEventPayload.stripeAccount optional field [STR-01]
-- [ ] P1c.1-02-PLAN.md (wave 2) — POST /webhooks/stripe-connect Connect endpoint (separate whsec_, reads event.account, same idempotency spine) [STR-01]
-- [ ] P1c.1-03-PLAN.md (wave 3) — thread stripeAccount through all 6 reducers refetch + new account.updated readiness reducer [STR-01, STR-02, PAY-01, PAY-02]
-- [ ] P1c.1-04-PLAN.md (wave 1) — getPlatformStripe() + create-connect-account (controller props) + create-account-link + settings Connect/readiness UI; restricted-key path dormant [STR-01]
-- [ ] P1c.1-05-PLAN.md (wave 2) — rework create-checkout-link (Connect + subscription mode + subscription_data.metadata.memberId) + create-portal-link + public /embed/buy [STR-02, PAY-01, PAY-02, PAY-03, PAY-04]
-- [ ] P1c.1-06-PLAN.md (wave 1) — fix /api/m/* 404 on Vercel + /api/m/purchase endpoint + mobile purchase screen (Checkout in browser sheet) [PAY-01, STR-02]
+- [x] P1c.1-01-PLAN.md (wave 1) — additive connected_accounts table (acct_id + readiness flags, direct-to-Neon) + StripeEventPayload.stripeAccount optional field [STR-01]
+- [x] P1c.1-02-PLAN.md (wave 2) — POST /webhooks/stripe-connect Connect endpoint (separate whsec_, reads event.account, same idempotency spine) [STR-01]
+- [x] P1c.1-03-PLAN.md (wave 3) — thread stripeAccount through all 6 reducers refetch + new account.updated readiness reducer [STR-01, STR-02, PAY-01, PAY-02]
+- [x] P1c.1-04-PLAN.md (wave 1) — getPlatformStripe() + create-connect-account (controller props) + create-account-link + settings Connect/readiness UI; restricted-key path dormant [STR-01]
+- [x] P1c.1-05-PLAN.md (wave 2) — rework create-checkout-link (Connect + subscription mode + subscription_data.metadata.memberId) + create-portal-link + public /embed/buy [STR-02, PAY-01, PAY-02, PAY-03, PAY-04]
+- [x] P1c.1-06-PLAN.md (wave 1) — fix /api/m/* 404 on Vercel + /api/m/purchase endpoint + mobile purchase screen (Checkout in browser sheet) [PAY-01, STR-02]
 - [ ] P1c.1-07-PLAN.md (wave 3) — CHECKPOINT: user enables platform Connect + registers Connect webhook + sets secrets + onboards Hustle; then live Stripe CLI e2e → VERIFICATION.md [STR-01, STR-02, PAY-01, PAY-02, PAY-03, PAY-04]
 
 **Wave structure (parallelism):**
@@ -574,11 +570,33 @@ Plans:
 
 ---
 
+### Phase 999.4: Apple Health (HealthKit) integration for the member app (BACKLOG)
+
+**Goal:** Let a member link their Apple device so the member app reads HealthKit data — workouts/exercise "sessions" (`HKWorkout`) + activity/energy — and reconciles it with GymClassOS class attendance / member activity. Feeds the long-planned staff "Coach View".
+
+**Why:** Requested by the user 2026-06-15. Promotes the previously-deferred "HealthKit / Coach View" item from out-of-scope to a planned feature.
+
+**Hard constraints (shape the whole phase):**
+- iOS-native only — no web, no react-native-web, no Expo Go. The local-web testing recipe does NOT apply; testing requires a physical iPhone running a custom build.
+- Needs a native module (`react-native-health` or an Expo HealthKit config plugin) + an **EAS dev-client/preview build**; HealthKit entitlement + `NSHealthShareUsageDescription` in iOS config.
+- **Prerequisite blocker:** EAS is still pointed at the upstream agent-native account (`owner: steve8708`, bundle `com.agentnative.mobile`). Must be re-pointed to the customer's Apple Developer account with HealthKit capability enabled before any build.
+- Patrick develops on Windows → iOS builds must go through **EAS cloud** (no local Xcode).
+
+**Context:** Surfaced 2026-06-15. Already anticipated as "Coach View (depends on HealthKit landing)" (backlog) and REQUIREMENTS §Out-of-Scope-v1 "HealthKit". Full detail in memory `project_gymos_apple_health.md`.
+
+**Requirements:** TBD
+**Plans:** 0 plans
+**Scope:** Large — 4-area feature (onboarding/permission link step, HealthKit reader→session mapping, additive `/api/m/*` sync endpoint, member UI + later staff Coach View) gated on the EAS/Apple-account prerequisite.
+
+Plans:
+- [ ] TBD (promote with /gsd:review-backlog when ready)
+
+---
+
 *Roadmap created: 2026-05-17*
 *Revised: 2026-05-17 — major restructure (Demo Sprint + Production v1 two-milestone shape; mobile = PWA; Stripe direct; calorie counter in v1)*
 *Revised: 2026-05-19 — D2 plan list registered (6 plans), success criteria realigned to native Expo flow (was inherited PWA wording), MEMBR-06 dropped from D2 (PWA manifest is N/A for native Expo Go; rolled into P1a EAS work)*
 *Revised: 2026-06-01 — P1c Public Site Integrations planned (7 plans) + executed + verified live on deploy → marked Complete. Migrations 0003+0004 applied to gymos-demo Neon. FORMS-01..04 + EMBED-01..06 added (140 reqs total). Checkout-link + visual-browser checks deferred (studio Stripe setup / dev-server NitroViteError).*
+*Revised: 2026-06-14 — merged `redesign/ui-refresh` into master. v1.1 UI Redesign roadmap (R1–R5, complete) now leads this file above the v1.0 section.*
 *Out of v1 scope: Native mobile (v1.x), HealthKit, Coach View with health context, CRM campaigns + segments, Knowledge Base, Operational Reporting, bsport-migration productisation, A2A. See REQUIREMENTS.md §Post-v1 Backlog and PLATFORM-VISION.md.*
 
-*v1.1 Roadmap (R1–R5 UI Redesign) lives in the v1.1 section above; defined 2026-06-12 on branch `redesign/ui-refresh`. 30 v1.1 requirements mapped.*
-*Merged `origin/master` → `redesign/ui-refresh` on 2026-06-13 to absorb P1c.1 (Stripe Connect) phase plans + v1.0 milestone audit; v1.0 body below reflects master (reference only — do not execute from this branch).*

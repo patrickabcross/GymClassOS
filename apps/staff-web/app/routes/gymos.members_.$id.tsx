@@ -18,6 +18,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { CheckoutLinkButton } from "@/components/gymos/CheckoutLinkButton";
 import type { LoaderFunctionArgs } from "react-router";
 
 export function meta() {
@@ -219,14 +220,18 @@ export default function GymosMemberProfile() {
               </div>
             </div>
 
-            {/* Cross-surface deep-link to inbox — the differentiator pivot */}
-            {conversation && (
-              <Link to={`/gymos?conversation=${conversation.id}`}>
-                <Button size="sm" variant="outline">
-                  Open WhatsApp conversation
-                </Button>
-              </Link>
-            )}
+            {/* Header actions: payment link (always shown) + WhatsApp pivot (when conversation exists) */}
+            <div className="flex items-center gap-2">
+              <CheckoutLinkButton memberId={member.id} memberName={fullName} />
+              {/* Cross-surface deep-link to inbox — the differentiator pivot */}
+              {conversation && (
+                <Link to={`/gymos?conversation=${conversation.id}`}>
+                  <Button size="sm" variant="outline">
+                    Open WhatsApp conversation
+                  </Button>
+                </Link>
+              )}
+            </div>
           </div>
         </div>
 

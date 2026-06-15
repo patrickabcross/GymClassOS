@@ -45,7 +45,8 @@ describe("chargeRefunded (STR-06)", () => {
     });
     const event = { data: { object: { id: "ch_refund_1" } } } as any;
     await chargeRefunded(event, mockTx as any, mockStripe);
-    expect(chargeRetrieve).toHaveBeenCalledWith("ch_refund_1");
+    // Called with (id, {}, opts) — opts is undefined for platform events
+    expect(chargeRetrieve).toHaveBeenCalledWith("ch_refund_1", {}, undefined);
   });
 
   it("inserts negative pass_debits entry with deterministic ID + ON CONFLICT DO NOTHING (idempotency assertion)", async () => {

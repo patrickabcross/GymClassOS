@@ -9,6 +9,28 @@ const config = getDefaultConfig(projectRoot);
 // Watch the monorepo root for changes in shared packages
 config.watchFolders = [monorepoRoot];
 
+// On Windows without Watchman, watching the whole monorepo root times out
+// ("Failed to start watch mode" → 500 on the bundle). Exclude the heavy dirs
+// the mobile app never imports from (each carries its own node_modules too):
+// other apps/services, the 22 upstream templates, build output, and planning
+// artifacts. This shrinks Metro's crawl/watch tree dramatically.
+const heavyDirBlocks = [
+  /[/\\]\.git[/\\]/,
+  /[/\\]\.planning[/\\]/,
+  /[/\\]\.output[/\\]/,
+  /[/\\]\.vercel[/\\]/,
+  /[/\\]graphify-out[/\\]/,
+  /[/\\]apps[/\\]/, // staff-web, edge-webhooks — not imported by mobile
+  /[/\\]services[/\\]/, // worker — not imported by mobile
+  /[/\\]templates[/\\]/, // 22 upstream agent-native templates
+];
+const existingBlockList = config.resolver.blockList;
+config.resolver.blockList = Array.isArray(existingBlockList)
+  ? [...existingBlockList, ...heavyDirBlocks]
+  : existingBlockList
+    ? [existingBlockList, ...heavyDirBlocks]
+    : heavyDirBlocks;
+
 // Resolve modules from both the project and monorepo node_modules
 config.resolver.nodeModulesPaths = [
   path.resolve(projectRoot, "node_modules"),

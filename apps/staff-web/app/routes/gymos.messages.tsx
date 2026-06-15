@@ -45,7 +45,7 @@ import {
   redirect,
   Link,
 } from "react-router";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { eq, ne, desc, sql, inArray } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import {
@@ -65,6 +65,10 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
+import {
+  extractBodyText,
+  resolveTemplateMessageBody,
+} from "@/lib/templateBody";
 import { TemplatesDialog } from "@/components/gymos/TemplatesDialog";
 import { ImportLeadsDialog } from "@/components/gymos/ImportLeadsDialog";
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "react-router";
@@ -314,12 +318,12 @@ export async function loader({ request }: LoaderFunctionArgs) {
           (b.status === "attended" || b.status === "booked"),
       );
       // Prefer attended over booked; both arrays are ordered by startsAt ASC so last element = most recent
-      const lastVisitAttended = [...pastBookings]
-        .filter((b) => b.status === "attended")
-        .at(-1);
-      const lastVisitBooked = [...pastBookings]
-        .filter((b) => b.status === "booked")
-        .at(-1);
+      const attendedBookings = pastBookings.filter(
+        (b) => b.status === "attended",
+      );
+      const lastVisitAttended = attendedBookings[attendedBookings.length - 1];
+      const bookedBookings = pastBookings.filter((b) => b.status === "booked");
+      const lastVisitBooked = bookedBookings[bookedBookings.length - 1];
       const lastVisitRecord = lastVisitAttended ?? lastVisitBooked ?? null;
       const lastVisit: {
         className: string | null;
@@ -424,6 +428,7 @@ export async function action({ request }: ActionFunctionArgs) {
       }
       const phoneNumberId =
         (await readAppSecretByKey("MYUTIK_PHONE_NUMBER_ID")) ??
+        (await readAppSecretByKey("WHATSAPP_PHONE_NUMBER_ID")) ??
         "302631896256150";
 
       const baseUrl = new URL(
@@ -433,6 +438,12 @@ export async function action({ request }: ActionFunctionArgs) {
       baseUrl.searchParams.set("limit", "200");
 
       const db = getDb();
+      // Capture BEFORE the fetch loop — every row refreshed by THIS sync sets
+      // lastSyncedAt = new Date().toISOString() (later than syncStartedAt), so
+      // rows with last_synced_at < syncStartedAt were NOT seen by this account
+      // and are pruned below. TEXT vs TEXT: ISO strings sort lexicographically
+      // === chronologically.
+      const syncStartedAt = new Date().toISOString();
       let synced = 0;
       let after: string | undefined;
       for (let page = 0; page < 20; page++) {
@@ -491,7 +502,19 @@ export async function action({ request }: ActionFunctionArgs) {
         if (next) after = next;
         else break;
       }
-      return { syncResult: { ok: true, synced } };
+      // Prune stale templates left over from a previously-connected account.
+      // ONLY after a successful sync (the !res.ok / missing-API-key paths
+      // early-return before reaching here) AND only when synced > 0 — the guard
+      // prevents wiping the picker on a transient/empty pull from a new account.
+      let pruned = 0;
+      if (synced > 0) {
+        // guard:allow-unscoped — single-tenant; templates are studio-wide
+        const delResult: any = await (db as any).execute(
+          sql`delete from whatsapp_templates where last_synced_at < ${syncStartedAt}`,
+        );
+        pruned = delResult?.rowCount ?? delResult?.rows?.length ?? 0;
+      }
+      return { syncResult: { ok: true, synced, pruned } };
     } catch (err) {
       return {
         syncResult: {
@@ -833,6 +856,19 @@ export default function GymosMessages() {
     : false;
   const canSendText = Boolean(selectedWs?.inWindow) && selectedHasOptIn;
 
+  // FIX 2 (quick-260615-lyu): map template name → real BODY text so template
+  // message bubbles render the actual template copy (with {{N}} vars filled)
+  // instead of the stored "[template: <name>]" placeholder. Built once from the
+  // loader's existing templates list (no new query); extractBodyText never
+  // throws and yields null for templates without a parseable BODY.
+  const bodyByName = useMemo(() => {
+    const map: Record<string, string | null> = {};
+    for (const t of data.templates) {
+      map[t.name] = extractBodyText(t.componentsJson);
+    }
+    return map;
+  }, [data.templates]);
+
   return (
     <div className="flex h-full w-full overflow-hidden">
       {/* ─── Conversation list (left rail) ──────────────────────────────── */}
@@ -1111,7 +1147,10 @@ export default function GymosMessages() {
                         : "bg-muted/70",
                     )}
                   >
-                    {m.body}
+                    {m.messageType === "template"
+                      ? (resolveTemplateMessageBody(m.payload, bodyByName)
+                          ?.text ?? m.body)
+                      : m.body}
                   </div>
                   <span className="text-[10px] text-muted-foreground mt-1 px-1">
                     {relativeTime(m.createdAt)}

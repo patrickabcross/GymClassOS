@@ -15,6 +15,12 @@ const messageInsertChain = {
 const conversationInsertChain = {
   values: vi.fn().mockResolvedValue(undefined),
 };
+// gym_members INSERT chain (auto-create path): values → onConflictDoNothing.
+// Mirrors the messages.externalId onConflict-with-where pattern; no .returning.
+const memberInsertChain = {
+  values: vi.fn().mockReturnThis(),
+  onConflictDoNothing: vi.fn().mockResolvedValue(undefined),
+};
 // opt-in INSERT chain: values → onConflictDoNothing (no .returning)
 const optInInsertChain = {
   values: vi.fn().mockReturnThis(),
@@ -26,14 +32,16 @@ const updateChain = {
 };
 
 // Insert call sequence: controls which chain is returned per insert call.
-// "conversation" | "message" | "optIn"
-let insertCallSequence: ("conversation" | "message" | "optIn")[] = [];
+// "member" | "conversation" | "message" | "optIn"
+let insertCallSequence: ("member" | "conversation" | "message" | "optIn")[] =
+  [];
 const mockDb = {
   select: vi.fn().mockReturnValue(selectChain),
   insert: vi.fn().mockImplementation((_table: any) => {
     // table identity is mocked — we route by call order rather than introspection.
     // The test sequences below control which call goes to which chain.
     const next = insertCallSequence.shift() ?? "message";
+    if (next === "member") return memberInsertChain;
     if (next === "conversation") return conversationInsertChain;
     if (next === "optIn") return optInInsertChain;
     return messageInsertChain;
@@ -75,6 +83,8 @@ describe("upsertConversationAndMessage", () => {
     messageInsertChain.onConflictDoNothing.mockClear();
     messageInsertChain.returning.mockReset();
     conversationInsertChain.values.mockClear();
+    memberInsertChain.values.mockClear();
+    memberInsertChain.onConflictDoNothing.mockClear();
     optInInsertChain.values.mockClear();
     optInInsertChain.onConflictDoNothing.mockClear();
     updateChain.set.mockClear();
@@ -83,20 +93,160 @@ describe("upsertConversationAndMessage", () => {
     insertCallSequence = [];
   });
 
-  it("returns unknown_phone if no member matches", async () => {
-    selectChain.then.mockResolvedValueOnce(null); // no member
+  // ── Auto-create-member path (inbound from an unknown number) ──────────────
+
+  it("Test A: unknown phone → auto-creates gym_member, open conversation, message, opt-in; returns processed:true", async () => {
+    selectChain.then
+      .mockResolvedValueOnce(null) // 1) member lookup → no match
+      .mockResolvedValueOnce({ id: "RGRbwDb_auto", phoneE164: "+447700900123" }) // 2) re-select after INSERT → winner row
+      .mockResolvedValueOnce(null); // 3) no existing conversation
+    insertCallSequence = ["member", "conversation", "message", "optIn"];
+    messageInsertChain.returning.mockResolvedValueOnce([{ id: "msg_auto" }]);
+
     const result = await upsertConversationAndMessage(
       mockDb as any,
       {
-        id: "wamid_new",
-        from: "447700900099",
+        id: "wamid_auto",
+        from: "447700900123",
+        type: "text",
+        text: { body: "hi, interested in classes" },
+      },
+      JSON.stringify({
+        entry: [
+          {
+            changes: [
+              {
+                value: { contacts: [{ profile: { name: "Jordan Prospect" } }] },
+              },
+            ],
+          },
+        ],
+      }),
+    );
+
+    expect(result.processed).toBe(true);
+    // gym_members INSERT happened with firstName = resolved profile name
+    expect(memberInsertChain.values).toHaveBeenCalledWith(
+      expect.objectContaining({
+        firstName: "Jordan Prospect",
+        lastName: null,
+        phoneE164: "+447700900123",
+      }),
+    );
+    // race-safe: onConflictDoNothing on phone_e164
+    expect(memberInsertChain.onConflictDoNothing).toHaveBeenCalled();
+    const onConflictArgs =
+      memberInsertChain.onConflictDoNothing.mock.calls[0][0];
+    expect(onConflictArgs?.target).toBeDefined();
+    // an open conversation was created
+    expect(conversationInsertChain.values).toHaveBeenCalled();
+    const convVals = conversationInsertChain.values.mock.calls[0][0];
+    expect(convVals.status).toBe("open");
+    expect(convVals.memberId).toBe("RGRbwDb_auto");
+    // opt-in captured with source=inbound_reply
+    expect(optInInsertChain.values).toHaveBeenCalledWith(
+      expect.objectContaining({
+        memberId: "RGRbwDb_auto",
+        source: "inbound_reply",
+      }),
+    );
+  });
+
+  it("Test B: name resolution — profile.name when present, E.164 fallback when absent / synthetic", async () => {
+    // B1: profile.name present → firstName = profile name
+    selectChain.then
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ id: "mem_b1", phoneE164: "+447700900200" })
+      .mockResolvedValueOnce(null);
+    insertCallSequence = ["member", "conversation", "message", "optIn"];
+    messageInsertChain.returning.mockResolvedValueOnce([{ id: "msg_b1" }]);
+    await upsertConversationAndMessage(
+      mockDb as any,
+      {
+        id: "wamid_b1",
+        from: "447700900200",
+        type: "text",
+        text: { body: "x" },
+      },
+      JSON.stringify({
+        entry: [
+          {
+            changes: [
+              {
+                value: { contacts: [{ profile: { name: "  Sam Lifter  " } }] },
+              },
+            ],
+          },
+        ],
+      }),
+    );
+    expect(memberInsertChain.values).toHaveBeenLastCalledWith(
+      expect.objectContaining({ firstName: "Sam Lifter" }), // trimmed
+    );
+
+    // B2: synthetic fallback payload (no contacts) → firstName = E.164
+    memberInsertChain.values.mockClear();
+    selectChain.then
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ id: "mem_b2", phoneE164: "+447700900201" })
+      .mockResolvedValueOnce(null);
+    insertCallSequence = ["member", "conversation", "message", "optIn"];
+    messageInsertChain.returning.mockResolvedValueOnce([{ id: "msg_b2" }]);
+    await upsertConversationAndMessage(
+      mockDb as any,
+      {
+        id: "wamid_b2",
+        from: "447700900201",
+        type: "text",
+        text: { body: "y" },
+      },
+      JSON.stringify({ synthetic: true, from: "447700900201" }),
+    );
+    expect(memberInsertChain.values).toHaveBeenLastCalledWith(
+      expect.objectContaining({ firstName: "+447700900201" }),
+    );
+
+    // B3: malformed JSON → never throws, firstName = E.164
+    memberInsertChain.values.mockClear();
+    selectChain.then
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ id: "mem_b3", phoneE164: "+447700900202" })
+      .mockResolvedValueOnce(null);
+    insertCallSequence = ["member", "conversation", "message", "optIn"];
+    messageInsertChain.returning.mockResolvedValueOnce([{ id: "msg_b3" }]);
+    const r3 = await upsertConversationAndMessage(
+      mockDb as any,
+      {
+        id: "wamid_b3",
+        from: "447700900202",
+        type: "text",
+        text: { body: "z" },
+      },
+      "{not valid json",
+    );
+    expect(r3.processed).toBe(true);
+    expect(memberInsertChain.values).toHaveBeenLastCalledWith(
+      expect.objectContaining({ firstName: "+447700900202" }),
+    );
+  });
+
+  it("Test member_create_failed: re-select still null returns processed:false, member_create_failed", async () => {
+    selectChain.then
+      .mockResolvedValueOnce(null) // member lookup → no match
+      .mockResolvedValueOnce(null); // re-select after INSERT → STILL null (defensive)
+    insertCallSequence = ["member"];
+    const result = await upsertConversationAndMessage(
+      mockDb as any,
+      {
+        id: "wamid_fail",
+        from: "447700900299",
         type: "text",
         text: { body: "x" },
       },
       "{}",
     );
     expect(result.processed).toBe(false);
-    expect(result.reason).toBe("unknown_phone");
+    expect(result.reason).toBe("member_create_failed");
   });
 
   it("creates conversation + message for known member with no prior conversation", async () => {
@@ -244,6 +394,8 @@ describe("materialiseOutboundMirror", () => {
     messageInsertChain.onConflictDoNothing.mockClear();
     messageInsertChain.returning.mockReset();
     conversationInsertChain.values.mockClear();
+    memberInsertChain.values.mockClear();
+    memberInsertChain.onConflictDoNothing.mockClear();
     optInInsertChain.values.mockClear();
     optInInsertChain.onConflictDoNothing.mockClear();
     updateChain.set.mockClear();

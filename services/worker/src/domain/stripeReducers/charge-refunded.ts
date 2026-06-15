@@ -23,10 +23,14 @@ export async function chargeRefunded(
   event: Stripe.Event,
   tx: any,
   stripe: Stripe,
+  stripeAccount?: string,
 ): Promise<void> {
   const charge = event.data.object as Stripe.Charge;
   // REFETCH (PITFALL #4) — current refund state.
-  const full = await stripe.charges.retrieve(charge.id);
+  // Pass { stripeAccount } so the refetch resolves against the connected account
+  // (not the platform) — Pitfall 3. undefined opts = platform event = no-op.
+  const opts = stripeAccount ? { stripeAccount } : undefined;
+  const full = await stripe.charges.retrieve(charge.id, {}, opts);
 
   const piId =
     typeof full.payment_intent === "string"

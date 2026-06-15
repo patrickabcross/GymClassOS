@@ -490,3 +490,29 @@ export const dashboardProposals = table("dashboard_proposals", {
   rejectedAt: text("rejected_at"),
   resultJson: text("result_json"),
 });
+
+// ---------------------------------------------------------------------------
+// P1c.1 additions (2026-06-12) — Stripe Connect: connected (Custom-equivalent)
+// account. Strictly additive. Applied direct to gymos-demo Neon (migration
+// 0006_p1c1_connected_accounts.sql). Single-tenant: no studio_id FK.
+// ---------------------------------------------------------------------------
+
+// STR-01 (P1c.1): the connected account (Custom-equivalent) for the studio.
+// One row expected per deploy. Holds acct_id + readiness flags so reducers
+// (Plan 03) and actions can gate operations on chargesEnabled/payoutsEnabled
+// without re-fetching from Stripe on every request.
+export const connectedAccounts = table("connected_accounts", {
+  id: text("id").primaryKey(), // "acct_xxx"
+  studioLabel: text("studio_label"), // descriptive only; single-tenant, no studio_id FK
+  chargesEnabled: integer("charges_enabled", { mode: "boolean" })
+    .notNull()
+    .default(false),
+  payoutsEnabled: integer("payouts_enabled", { mode: "boolean" })
+    .notNull()
+    .default(false),
+  requirementsDue: text("requirements_due"), // JSON array string of requirements.currently_due
+  disabledReason: text("disabled_reason"),
+  rawJson: text("raw_json").notNull().default("{}"),
+  createdAt: text("created_at").notNull().default(now()),
+  updatedAt: text("updated_at").notNull().default(now()),
+});

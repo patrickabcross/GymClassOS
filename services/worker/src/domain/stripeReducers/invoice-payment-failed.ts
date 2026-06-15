@@ -23,13 +23,19 @@ export async function invoicePaymentFailed(
   event: Stripe.Event,
   tx: any,
   stripe: Stripe,
+  stripeAccount?: string,
 ): Promise<void> {
   const invoice = event.data.object as Stripe.Invoice;
+  // Pass { stripeAccount } so the refetch resolves against the connected account
+  // (not the platform) — Pitfall 3. undefined opts = platform event = no-op.
+  const opts = stripeAccount ? { stripeAccount } : undefined;
   // See invoice-paid.ts — cast to `any` for legacy top-level fields
   // (`subscription` / `payment_intent`) on the dahlia API surface.
-  const full = (await stripe.invoices.retrieve(invoice.id!, {
-    expand: ["subscription"],
-  })) as any;
+  const full = (await stripe.invoices.retrieve(
+    invoice.id!,
+    { expand: ["subscription"] },
+    opts,
+  )) as any;
 
   const subId =
     typeof full.subscription === "string"

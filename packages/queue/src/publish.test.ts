@@ -1,10 +1,25 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   OutboundWhatsAppPayload,
   InboundWhatsAppPayload,
   StripeEventPayload,
   QUEUE_NAMES,
 } from "./types.js";
+
+// ---------------------------------------------------------------------------
+// Mock startBoss for enqueueStripeEvent tests (P1c.1)
+// vi.hoisted ensures the mock factory runs before module-level vi.mock() hoisting.
+// Pattern established in P1b-04 SUMMARY: shared mocks must be hoisted.
+// ---------------------------------------------------------------------------
+const { mockSend, mockStartBoss } = vi.hoisted(() => {
+  const mockSend = vi.fn().mockResolvedValue("job_id_123");
+  const mockStartBoss = vi.fn().mockResolvedValue({ send: mockSend });
+  return { mockSend, mockStartBoss };
+});
+
+vi.mock("./boss.js", () => ({
+  startBoss: mockStartBoss,
+}));
 
 describe("payload schemas", () => {
   it("OutboundWhatsAppPayload accepts text send", () => {
@@ -154,5 +169,68 @@ describe("QUEUE_NAMES", () => {
     expect(QUEUE_NAMES.OUTBOUND_WHATSAPP).toBe("outbound-whatsapp");
     expect(QUEUE_NAMES.INBOUND_WHATSAPP).toBe("inbound-whatsapp");
     expect(QUEUE_NAMES.STRIPE_EVENT).toBe("stripe-event");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// P1c.1 — StripeEventPayload stripeAccount field + enqueueStripeEvent threading
+// ---------------------------------------------------------------------------
+describe("StripeEventPayload stripeAccount (P1c.1)", () => {
+  it("parses platform event (no stripeAccount) — backward compatible", () => {
+    // Platform events don't carry an account; stripeAccount should be undefined
+    const result = StripeEventPayload.parse({ eventId: "evt_1" });
+    expect(result.stripeAccount).toBeUndefined();
+  });
+
+  it("parses Connect event (with stripeAccount) and preserves the value", () => {
+    const result = StripeEventPayload.parse({
+      eventId: "evt_1",
+      stripeAccount: "acct_x",
+    });
+    expect(result.stripeAccount).toBe("acct_x");
+  });
+
+  it("rejects stripeAccount that does not start with acct_", () => {
+    const result = StripeEventPayload.safeParse({
+      eventId: "evt_1",
+      stripeAccount: "not_an_account",
+    });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe("enqueueStripeEvent (P1c.1)", () => {
+  beforeEach(() => {
+    mockSend.mockClear();
+    mockStartBoss.mockClear();
+  });
+
+  it("threads stripeAccount into boss.send data", async () => {
+    const { enqueueStripeEvent } = await import("./publish.js");
+    await enqueueStripeEvent({ eventId: "evt_1", stripeAccount: "acct_x" });
+
+    expect(mockSend).toHaveBeenCalledOnce();
+    const [, data] = mockSend.mock.calls[0];
+    expect(data.stripeAccount).toBe("acct_x");
+  });
+
+  it("singletonKey is keyed on eventId only, not stripeAccount", async () => {
+    const { enqueueStripeEvent } = await import("./publish.js");
+    await enqueueStripeEvent({ eventId: "evt_1", stripeAccount: "acct_x" });
+
+    expect(mockSend).toHaveBeenCalledOnce();
+    const [, , opts] = mockSend.mock.calls[0];
+    expect(opts.singletonKey).toBe("stripe-event:stripe_evt_1");
+    expect(opts.singletonKey).not.toContain("acct_x");
+  });
+
+  it("platform events (no stripeAccount) still enqueue correctly", async () => {
+    const { enqueueStripeEvent } = await import("./publish.js");
+    await enqueueStripeEvent({ eventId: "evt_2" });
+
+    expect(mockSend).toHaveBeenCalledOnce();
+    const [, data, opts] = mockSend.mock.calls[0];
+    expect(data.stripeAccount).toBeUndefined();
+    expect(opts.singletonKey).toBe("stripe-event:stripe_evt_2");
   });
 });

@@ -59,10 +59,11 @@ export async function action({ request }: ActionFunctionArgs) {
       carbsPer100g?: number;
       fatPer100g?: number;
       servingSizeG?: number | null;
-      source?: "openfoodfacts" | "custom";
+      source?: "openfoodfacts" | "custom" | "llm_estimate";
     };
     quantityG: number;
     mealType: "breakfast" | "lunch" | "dinner" | "snack";
+    entrySource?: "manual" | "barcode" | "search" | "favourite" | "agent";
   };
 
   if (
@@ -113,7 +114,7 @@ export async function action({ request }: ActionFunctionArgs) {
     proteinG: (pi * q) / 100,
     carbsG: (ci * q) / 100,
     fatG: (fi * q) / 100,
-    source: body.foodItem.barcode ? "barcode" : "search",
+    source: body.entrySource ?? (body.foodItem.barcode ? "barcode" : "search"),
   });
 
   return new Response(JSON.stringify({ entryId: feId }), {

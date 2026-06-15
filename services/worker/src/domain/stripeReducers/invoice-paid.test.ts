@@ -46,6 +46,65 @@ describe("invoicePaid (STR-04)", () => {
     insertCount = 0;
   });
 
+  it("passes { stripeAccount } to both stripe.invoices.retrieve and stripe.subscriptions.retrieve (Pitfall 3 + P1c.1-03)", async () => {
+    invoiceRetrieve.mockResolvedValueOnce({
+      id: "in_x",
+      subscription: "sub_x",
+      customer: "cus_x",
+      payment_intent: "pi_x",
+      amount_paid: 5000,
+      currency: "gbp",
+      created: 1700000000,
+      metadata: {},
+    });
+    subRetrieve.mockResolvedValueOnce({
+      id: "sub_x",
+      status: "active",
+      current_period_end: 1700100000,
+      metadata: { memberId: "mem_sub" },
+    });
+    const event = { data: { object: { id: "in_x" } } } as any;
+    await invoicePaid(event, mockTx as any, mockStripe, "acct_connect");
+    // Both retrieves must carry { stripeAccount } as their final arg
+    expect(invoiceRetrieve).toHaveBeenCalledWith(
+      "in_x",
+      expect.any(Object),
+      { stripeAccount: "acct_connect" },
+    );
+    expect(subRetrieve).toHaveBeenCalledWith(
+      "sub_x",
+      {},
+      { stripeAccount: "acct_connect" },
+    );
+  });
+
+  it("platform event (stripeAccount undefined): both retrieves called without stripeAccount header", async () => {
+    invoiceRetrieve.mockResolvedValueOnce({
+      id: "in_platform",
+      subscription: "sub_platform",
+      customer: "cus_p",
+      payment_intent: "pi_platform",
+      amount_paid: 5000,
+      currency: "gbp",
+      created: 1700000000,
+      metadata: {},
+    });
+    subRetrieve.mockResolvedValueOnce({
+      id: "sub_platform",
+      status: "active",
+      current_period_end: 1700100000,
+      metadata: {},
+    });
+    const event = { data: { object: { id: "in_platform" } } } as any;
+    await invoicePaid(event, mockTx as any, mockStripe);
+    expect(invoiceRetrieve).toHaveBeenCalledWith(
+      "in_platform",
+      expect.any(Object),
+      undefined,
+    );
+    expect(subRetrieve).toHaveBeenCalledWith("sub_platform", {}, undefined);
+  });
+
   it("refetches invoice AND subscription from Stripe (PITFALL #4)", async () => {
     invoiceRetrieve.mockResolvedValueOnce({
       id: "in_x",
@@ -65,8 +124,8 @@ describe("invoicePaid (STR-04)", () => {
     });
     const event = { data: { object: { id: "in_x" } } } as any;
     await invoicePaid(event, mockTx as any, mockStripe);
-    expect(invoiceRetrieve).toHaveBeenCalledWith("in_x", expect.any(Object));
-    expect(subRetrieve).toHaveBeenCalledWith("sub_x");
+    expect(invoiceRetrieve).toHaveBeenCalledWith("in_x", expect.any(Object), undefined);
+    expect(subRetrieve).toHaveBeenCalled();
   });
 
   it("uses onConflictDoNothing on payments and onConflictDoUpdate on subscriptions (idempotency assertion — STR-07 replay safety)", async () => {

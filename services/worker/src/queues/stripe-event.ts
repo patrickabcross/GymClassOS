@@ -38,6 +38,7 @@ export async function registerStripeEventWorker(boss: PgBoss) {
     async (jobs: any) => {
       const job = Array.isArray(jobs) ? jobs[0] : jobs;
       const data = StripeEventPayload.parse(job.data);
+      const stripeAccount = data.stripeAccount; // threaded from Plan 01 payload field
       const db = getDb();
       const stripe = await getStripe(db);
 
@@ -92,7 +93,10 @@ export async function registerStripeEventWorker(boss: PgBoss) {
       // 2. SINGLE TRANSACTION (WEB-06): reducer + processedAt UPDATE atomic.
       // guard:allow-unscoped — webhook processor
       await db.transaction(async (tx) => {
-        await reducer(event, tx as any, stripe);
+        // Pass stripeAccount as 4th arg (undefined for platform events) so
+        // every reducer's stripe.X.retrieve carries the Stripe-Account header
+        // and resolves against the connected account — Pitfall 3.
+        await reducer(event, tx as any, stripe, stripeAccount);
         await tx
           .update(schema.webhookEvents)
           .set({ processedAt: new Date().toISOString() })

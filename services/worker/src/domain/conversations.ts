@@ -33,6 +33,35 @@ export type InboundMessage = {
 };
 
 /**
+ * Resolve a display name for an auto-created member from the raw inbound
+ * payload, falling back to the E.164 number.
+ *
+ * rawPayload is either the full Meta webhook envelope (a JSON string) or a
+ * synthetic `{synthetic:true,...}` fallback (see inbound-whatsapp.ts ~L108).
+ * The Meta envelope carries the sender's WhatsApp profile name at
+ * entry[0].changes[0].value.contacts[0].profile.name.
+ *
+ * MUST NEVER throw: JSON.parse is wrapped, every lookup is optional-chained,
+ * and an empty/whitespace name falls back to the E.164 number.
+ */
+function resolveInboundDisplayName(
+  rawPayload: string,
+  fromE164: string,
+): string {
+  try {
+    const parsed: any = JSON.parse(rawPayload);
+    const name =
+      parsed?.entry?.[0]?.changes?.[0]?.value?.contacts?.[0]?.profile?.name;
+    if (typeof name === "string" && name.trim().length > 0) {
+      return name.trim();
+    }
+  } catch {
+    // Malformed JSON (or synthetic fallback) — fall through to E.164.
+  }
+  return fromE164;
+}
+
+/**
  * Upsert conversation + insert messages row for an inbound WA message (WA-03).
  *
  * Race-safe (HIGH #4): messages.external_id is the partial UNIQUE index
@@ -54,7 +83,7 @@ export async function upsertConversationAndMessage(
 
   // 1. Look up member by phone (natural key)
   //    guard:allow-unscoped — webhook processor
-  const member = await db
+  let member = await db
     .select()
     .from(schema.gymMembers)
     .where(eq(schema.gymMembers.phoneE164, fromE164))
@@ -62,10 +91,46 @@ export async function upsertConversationAndMessage(
     .then((r: any) => r[0] ?? null);
 
   if (!member) {
-    // Demo parity (the deleted templates/mail/.../webhooks.whatsapp.tsx
-    // behaved the same way at line 117). Full WA-03 "stub member" path is
-    // deferred — CONTEXT does not lock it in.
-    return { processed: false, reason: "unknown_phone" };
+    // WA-INBOUND-UNKNOWN: an inbound from a number not yet in gym_members is a
+    // NEW prospect. Auto-create the member so the conversation surfaces in the
+    // staff inbox, then fall through into the EXISTING conversation/message/
+    // opt-in logic below — exactly like a known member.
+    const resolvedName = resolveInboundDisplayName(rawPayload, fromE164);
+
+    // Race-safe INSERT mirroring the messages.externalId onConflict pattern
+    // already used in this file. The phone_e164 partial UNIQUE index is
+    // `WHERE phone_e164 IS NOT NULL`, so the matching predicate must be
+    // supplied (else Postgres raises 42P10). Bare nanoid() matches the existing
+    // gym_members id convention (no prefix).
+    // guard:allow-unscoped — webhook processor
+    await db
+      .insert(schema.gymMembers)
+      .values({
+        id: nanoid(),
+        firstName: resolvedName,
+        lastName: null,
+        phoneE164: fromE164,
+      })
+      .onConflictDoNothing({
+        target: schema.gymMembers.phoneE164,
+        where: sql`${schema.gymMembers.phoneE164} is not null`,
+      });
+
+    // Re-SELECT by phone so concurrent inbound from the same new number
+    // resolves to ONE member: the loser of the onConflict race reads the
+    // winner's row (no duplicate at localConcurrency=5).
+    // guard:allow-unscoped — webhook processor
+    member = await db
+      .select()
+      .from(schema.gymMembers)
+      .where(eq(schema.gymMembers.phoneE164, fromE164))
+      .limit(1)
+      .then((r: any) => r[0] ?? null);
+
+    if (!member) {
+      // Defensive guard — should not happen (we just inserted-or-conflicted).
+      return { processed: false, reason: "member_create_failed" };
+    }
   }
 
   // 2. Upsert conversation

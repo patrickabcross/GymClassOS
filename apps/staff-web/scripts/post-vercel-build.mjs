@@ -47,3 +47,51 @@ fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2));
 console.log(
   "[postbuild] Added pg + pg-boss to .vercel/output/functions/__server.func/package.json",
 );
+
+// ---------------------------------------------------------------------------
+// Fix: Route /api/m/*, /api/submit/*, /api/forms/*, /webhooks/* to __server.
+//
+// Why: Vercel's file-based routing treats /api/* as a serverless function
+// directory. Paths under /api/* that don't have a physical output function in
+// .vercel/output/functions/api/ are 404'd by Vercel's edge router BEFORE the
+// Nitro-generated catch-all route (`/?(?<page>.+) -> /[...page]`) fires.
+//
+// These paths are React Router resource routes served by the Nitro SSR handler.
+// The Nitro server handles them, but Vercel never forwards the request to it.
+//
+// Fix: prepend explicit src→dest route entries for these paths in the Nitro-
+// generated config.json, BEFORE the `handle: filesystem` entry, so Vercel
+// routes them directly to the __server Lambda without filesystem lookup.
+// ---------------------------------------------------------------------------
+const configPath = path.resolve(".vercel/output/config.json");
+
+if (!fs.existsSync(configPath)) {
+  console.warn("[postbuild] .vercel/output/config.json not found; skipping route fix.");
+} else {
+  const config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
+
+  // Paths that Vercel's /api directory routing would otherwise intercept.
+  // Routes to the dedicated /api/m/[...all] Lambda (registered by the new
+  // server/routes/api/m/[...all].get.ts Nitro catch-all, which delegates to
+  // the React Router SSR handler). Dest uses the function path as Vercel
+  // registers it in the output (no leading slash for api/* functions).
+  //
+  // /api/submit, /api/forms: route to __server (no dedicated func yet).
+  // /webhooks: route to __server (the Nitro app's own webhook handlers).
+  const gymosMobileRoutes = [
+    { src: "^/api/m(/.*)?$", dest: "/api/m/[...all]" },
+    { src: "^/api/submit(/.*)?$", dest: "/__server" },
+    { src: "^/api/forms(/.*)?$", dest: "/__server" },
+    { src: "^/webhooks(/.*)?$", dest: "/__server" },
+  ];
+
+  // Insert before `handle: filesystem` so these routes fire first.
+  const filesystemIdx = config.routes.findIndex((r) => r.handle === "filesystem");
+  const insertAt = filesystemIdx >= 0 ? filesystemIdx : 0;
+  config.routes.splice(insertAt, 0, ...gymosMobileRoutes);
+
+  fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+  console.log(
+    "[postbuild] Prepended /api/m, /api/submit, /api/forms, /webhooks routes to .vercel/output/config.json",
+  );
+}

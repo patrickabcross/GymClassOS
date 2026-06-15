@@ -1111,6 +1111,9 @@ importers:
       expo-dev-client:
         specifier: ~55.0.28
         version: 55.0.28(expo@55.0.17)
+      expo-font:
+        specifier: ~55.0.0
+        version: 55.0.6(expo@55.0.17)(react-native@0.83.9(@babel/core@7.29.0)(@react-native/metro-config@0.85.3(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.5))(react@19.2.5)
       expo-linking:
         specifier: ^55.0.14
         version: 55.0.14(expo@55.0.17)(react-native@0.83.9(@babel/core@7.29.0)(@react-native/metro-config@0.85.3(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.5))(react@19.2.5)

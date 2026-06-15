@@ -41,6 +41,7 @@ Coaches and studio managers run their entire day from one inbox-and-schedule sur
 - [x] **Gym-aware right-rail agent** — 5 gym actions (`list-fill-rate`, `list-classes`, `list-members`, `list-renewals`, `list-at-risk-members`) + `list-revenue` registered as `defineAction` LLM tools; gym systemPrompt forbids email vocabulary. *Validated in Phase P1b.1 (2026-05-26).*
 - [x] **Customer Pilot Enablement** — auth allowlist, `/access-denied` branded denial page, sign-out, Templates dialog (WhatsApp template send through worker chokepoint), demo seed of 3 months of activity (260 members / 423 classes / 4,162 bookings / 200 active subs). *Validated in Phase P1b.1 (2026-05-26, live-accepted in lieu of formal walkthrough).*
 - [x] **Webhook + worker spine** — `services/edge-webhooks/` (Hono receiver, Stripe + WhatsApp signature verification) + `services/worker/` (pg-boss subscriber, sendMessage chokepoint with opt-in / 24h-window / template-approved gates). *Validated in Phase P1b (8/9 plans, 2026-05-23).*
+- [x] **Stripe Connect (Custom-equivalent) + customer purchase flows** — GymClassOS platform account with a white-label connected account (`acct_1Thn4XER2RI3cQpx`, onboarded to charges/payouts-enabled via Account Link); separate `/webhooks/stripe-connect` endpoint (signature-verified, idempotent, account-scoped reducers); direct charges on the connected account for drop-ins (pass grant) + membership subscriptions; staff `/gymos/payments` list + member-profile checkout-link button; public `/embed/buy`. STR-01, STR-02, PAY-01–04. *Validated end-to-end in Phase P1c.1 (2026-06-13, live test-mode purchase → webhook → payment row + pass credit). Deferred manual UAT: subscription/refund/portal/mobile live-tests (mechanism proven).*
 - [x] **v1.1 Audit baseline (AUDT-01, AUDT-02)** — before-state screenshots of all three surfaces (20 staff-web + 3 embed + 8 mobile PNGs, INDEX.md manifest with deploy SHA) in `.planning/ui-reviews/baseline/`; NAMING-RECORD.md inventories 60+ email-vocabulary items across 4 rename layers with proposed targets, gating R3–R5 scope. Reusable Playwright harness in `scripts/ui-baseline/`. Mobile captured via react-native-web fallback (Expo Go SDK 56 vs app SDK 55 — on-device re-shoot at R5). *Validated in Phase R1 (2026-06-12).*
 
 ### Active
@@ -171,7 +172,11 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-12 — Phase R1 (Audit Baseline) complete: before-state screenshots + naming decision record committed; two discoveries flagged for master: `/api/m/*` member API is production-gated to 401 (mobile app cannot fetch live data), and Expo Go can no longer run the SDK 55 app (EAS dev client needed).*
+*Last updated: 2026-06-14 — merged `redesign/ui-refresh` (v1.1 UI redesign track) into master. Combines P1c.1 Stripe Connect + customer purchase flows with the R1–R5 studio-skinnable design system + gym-domain naming work.*
+
+*Earlier: 2026-06-13 — P1c.1 Stripe Connect (Custom-equivalent) + customer purchase flows completed and validated end-to-end against production (live test-mode drop-in purchase flowed Checkout → Connect webhook → payment row + pass credit). STR-01/02 + PAY-01–04 moved to Validated. Deferred manual UAT (subscription/refund/Customer Portal/mobile live-tests) tracked in P1c.1-HUMAN-UAT.md — all extensions of the now-proven mechanism.*
+
+*Earlier: 2026-06-12 — Phase R1 (Audit Baseline) complete: before-state screenshots + naming decision record committed; two discoveries flagged for master: `/api/m/*` member API is production-gated to 401 (mobile app cannot fetch live data), and Expo Go can no longer run the SDK 55 app (EAS dev client needed).*
 
 *Earlier: 2026-06-12 — Milestone v1.1 UI Redesign started on branch `redesign/ui-refresh` (studio-skinnable GymClassOS design system + gym-domain naming across staff web, public widgets, member mobile app; parallel track, merge when ready).*
 
