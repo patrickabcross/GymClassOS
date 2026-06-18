@@ -10,6 +10,7 @@ import { and, eq } from "drizzle-orm";
 const ACTION_ALLOWLIST = [
   "send-template-to-members",
   "create-checkout-link",
+  "publish-form",
 ] as const;
 
 export default defineAction({
@@ -59,6 +60,8 @@ export default defineAction({
     let mod: any;
     if (proposal.actionName === "send-template-to-members") {
       mod = await import("./send-template-to-members.js");
+    } else if (proposal.actionName === "publish-form") {
+      mod = await import("./publish-form.js");
     } else {
       mod = await import("./create-checkout-link.js");
     }

@@ -9,7 +9,7 @@ export default defineAction({
     "Use this AFTER gathering data (e.g. list-at-risk-members) when you want to recommend a send/checkout. " +
     "The coach approves with one click; the existing gated action then executes (WhatsApp still passes the " +
     "worker's opt-in + 24h-window + approved-template gates — you are NOT bypassing them). " +
-    "actionName must be 'send-template-to-members' or 'create-checkout-link'. " +
+    "actionName must be 'send-template-to-members', 'create-checkout-link', or 'publish-form'. " +
     "params must match that action's schema exactly. Returns { proposalId }.",
   schema: z.object({
     taskId: z
@@ -17,7 +17,11 @@ export default defineAction({
       .optional()
       .describe("Optional dashboard_tasks.id to link this proposal to a task"),
     actionName: z
-      .enum(["send-template-to-members", "create-checkout-link"])
+      .enum([
+        "send-template-to-members",
+        "create-checkout-link",
+        "publish-form",
+      ])
       .describe(
         "The existing gated action this proposal will execute on approval",
       ),

@@ -476,7 +476,7 @@ export const dashboardProposals = table("dashboard_proposals", {
   id: text("id").primaryKey(),
   taskId: text("task_id"), // nullable FK to dashboardTasks.id
   actionName: text("action_name", {
-    enum: ["send-template-to-members", "create-checkout-link"],
+    enum: ["send-template-to-members", "create-checkout-link", "publish-form"],
   }).notNull(),
   paramsJson: text("params_json").notNull().default("{}"),
   rationale: text("rationale"),
