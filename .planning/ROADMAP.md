@@ -57,7 +57,7 @@
   5. After any agent write, the Schedule tab live-refreshes — no manual reload required
 **Plans**: 3 plans
 - [x] AE2-01-PLAN.md — Direct (ungated) schedule writes: set-occurrence-capacity (bookings guard) + update-class-definition + mark-occurrence-complete + registry entries + Schedule live-refresh wiring (AES-02/05/06, AEX-03)
-- [ ] AE2-02-PLAN.md — Gated path: cancel-occurrence (atomic bookings+refund+occurrence transaction) + reschedule-occurrence + atomic gate wiring (allowlist + dispatch + propose-action enum + schema enum + registry) (AES-03, AES-04)
+- [x] AE2-02-PLAN.md — Gated path: cancel-occurrence (atomic bookings+refund+occurrence transaction) + reschedule-occurrence + atomic gate wiring (allowlist + dispatch + propose-action enum + schema enum + registry) (AES-03, AES-04)
 - [ ] AE2-03-PLAN.md — Agent exposure: view-screen schedule branch + per-tab system prompt Schedule section + AGENTS.md docs (AES-01, AEX-01/AEX-04)
 **UI hint**: yes
 **Note (New Class — quick 260618-j8z):** AE2's create-path is already partly shipped. The two reusable `defineAction`s `create-class-definition` + `create-class-occurrence` are committed (`95e1f0da`); the **New Class button + dialog UI** on `/gymos/schedule` is being finished now as quick task **260618-j8z** (decision 2026-06-18: ship UI early for the live customer). AE2 then layers the **agent-driven** create path (system-prompt exposure per the two-exposure rule) on top of the same actions.
