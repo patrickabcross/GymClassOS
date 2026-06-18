@@ -38,7 +38,10 @@
   3. Coach can tell the agent "publish the enquiry form" and the agent responds with a proposal card — the form only goes live after the coach clicks Approve
   4. Coach can tell the agent "unpublish the form" and the form status immediately reverts to draft (direct action, no approval needed)
   5. After any agent write, the Forms tab live-refreshes via `useChangeVersion("action")` — no manual reload required
-**Plans**: TBD
+**Plans**: 3 plans
+- [ ] AE1-01-PLAN.md — Direct (ungated) forms writes: FormFieldSchema + slugify + create/update-fields/update-meta/unpublish/archive/restore + live-refresh wiring (AEF-01/02/03/05/06, AEX-03)
+- [ ] AE1-02-PLAN.md — Gated publish path: publish-form action + atomic gate wiring (allowlist + dispatch + propose-action enum + schema enum) (AEF-04, AEX-02)
+- [ ] AE1-03-PLAN.md — Agent exposure: view-screen forms branch + per-tab system prompt + AGENTS.md docs (AEX-01, AEX-04)
 **UI hint**: yes
 
 ### Phase AE2: Schedule Write Tools
@@ -84,7 +87,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| AE1. Forms Write Tools | 0/TBD | Not started | - |
+| AE1. Forms Write Tools | 0/3 | Planned | - |
 | AE2. Schedule Write Tools | 0/TBD | Not started | - |
 | AE3. Members + Campaigns Write Tools | 0/TBD | Not started | - |
 | AE4. Live Mobile Demo | 0/TBD | Not started | - |
