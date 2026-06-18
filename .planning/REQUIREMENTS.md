@@ -22,7 +22,7 @@
 
 ### Agentic Editing — Schedule (AES)
 
-- [ ] **AES-01**: Coach can ask the agent to create a class occurrence (class definition, start time, capacity).
+- [x] **AES-01**: Coach can ask the agent to create a class occurrence (class definition, start time, capacity).
 - [x] **AES-02**: Coach can ask the agent to change a class occurrence's capacity (rejected if the new capacity is below current bookings — returns a clear error, no mutation).
 - [x] **AES-03**: Coach can ask the agent to cancel a class occurrence — if it has active bookings the agent must route through propose→approve, and approval cancels bookings + refunds the affected pass credits + cancels the occurrence atomically (no orphaned credits).
 - [x] **AES-04**: Coach can ask the agent to reschedule a class occurrence's start time — routed through propose→approve when it has active bookings.
@@ -65,7 +65,7 @@
 | AEF-04 | Phase AE1 | Complete |
 | AEF-05 | Phase AE1 | Complete |
 | AEF-06 | Phase AE1 | Complete |
-| AES-01 | Phase AE2 | Pending |
+| AES-01 | Phase AE2 | Complete |
 | AES-02 | Phase AE2 | Complete |
 | AES-03 | Phase AE2 | Complete |
 | AES-04 | Phase AE2 | Complete |

@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: — Agentic Tab Editing
-status: executing
-stopped_at: Completed AE2-02-PLAN.md
-last_updated: "2026-06-18T21:38:56.481Z"
+status: verifying
+stopped_at: Completed AE2-03-PLAN.md
+last_updated: "2026-06-18T21:44:23.158Z"
 last_activity: 2026-06-18
 progress:
   total_phases: 4
@@ -32,7 +32,7 @@ Requirements: `.planning/REQUIREMENTS.md` (18 v1.2 reqs across 4 categories — 
 Milestone: v1.2 — Agentic Tab Editing
 Phase: AE2-schedule-write (tools) — EXECUTING
 Plan: 3 of 3
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-06-18
 
 **Progress bar:** [░░░░░░░░░░] 0% (0/3 phases)
@@ -69,6 +69,7 @@ Last activity: 2026-06-18
 - **2026-06-18 — Do NOT refactor `/api/forms/[...path].ts`.** New agent actions call Drizzle directly alongside the existing HTTP handler, following the `send-template-to-members.ts` pattern. The HTTP handler is untouched.
 - **2026-06-18 — Two-exposure rule per action.** (1) Action file → `.generated/actions-registry.ts` (auto-regen via pnpm build or explicit regen command). (2) System prompt bullet in `agent-chat.ts`. Both steps required; omitting either means the agent can't call the action.
 - **2026-06-18 — System-prompt per-tab update ships LAST within each phase.** Ship and HTTP-test each action wave before adding it to the system prompt. Prevents the agent from hallucinating calls to actions that don't exist yet.
+- **2026-06-18 (AE2-03) — AE2 phase complete.** All 7 schedule actions (create path + 3 direct + 2 gated) satisfy the two-exposure rule: present in `.generated/actions-registry.ts` AND named in the `agent-chat.ts` Schedule section. `view-screen` gained a `schedule` branch (upcoming occurrences + booking counts + selected occurrence, AEX-01). `cancel-occurrence` / `reschedule-occurrence` reachable ONLY via `propose-action` — no standalone direct-tool bullets (grep-verified). AES-01 (agent-driven create path) satisfied.
 
 ### v1.1 Roadmap Decisions (preserved for reference)
 
@@ -257,6 +258,7 @@ Key patterns discovered during v1.0 execution that apply to v1.2:
 | Phase AE1 P03 | 18 | 3 tasks | 3 files |
 | Phase AE2-schedule-write P01 | 4m | 3 tasks | 4 files |
 | Phase AE2-schedule-write P02 | 5m | 3 tasks | 6 files |
+| Phase AE2-schedule-write P03 | 6m | 3 tasks | 3 files |
 
 ### Carried-over concerns (from v1.1 redesign)
 
@@ -266,8 +268,8 @@ Key patterns discovered during v1.0 execution that apply to v1.2:
 
 ## Session Continuity
 
-Last session: 2026-06-18T21:38:56.469Z
-Stopped at: Completed AE2-02-PLAN.md
+Last session: 2026-06-18T21:44:23.147Z
+Stopped at: Completed AE2-03-PLAN.md
 Resume file: None
 
 ### PICK UP HERE — v1.2 Agentic Tab Editing
