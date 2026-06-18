@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: — Agentic Tab Editing
-status: verifying
-stopped_at: Completed AE3-03-PLAN.md
-last_updated: "2026-06-18T23:35:31.923Z"
-last_activity: 2026-06-18
+status: complete
+stopped_at: v1.2 Agentic Tab Editing complete (AE1–AE3); AE4 split into its own Mobile Demo phase; live UAT pending
+last_updated: "2026-06-19T00:00:00.000Z"
+last_activity: 2026-06-19
 progress:
-  total_phases: 4
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_phases: 3
+  completed_phases: 3
+  total_plans: 9
+  completed_plans: 9
 ---
 
 # Project State
@@ -29,23 +29,23 @@ Requirements: `.planning/REQUIREMENTS.md` (18 v1.2 reqs across 4 categories — 
 
 ## Current Position
 
-Milestone: v1.2 — Agentic Tab Editing
-Phase: AE3
-Plan: Not started
-Status: Phase complete — ready for verification
-Last activity: 2026-06-18
+Milestone: v1.2 — Agentic Tab Editing — ✅ COMPLETE (code)
+Phase: AE3 complete (last v1.2 phase). AE4 (Live Mobile Demo) has been split into its own **Mobile Demo** phase — not started.
+Plans: 9/9 complete across AE1–AE3.
+Status: v1.2 code-complete & code-verified (`tsc` clean + 76/76 vitest). Live agent+browser UAT pending on the Vercel deploy — scheduled for the morning.
+Last activity: 2026-06-19
 
-**Progress bar:** [░░░░░░░░░░] 0% (0/3 phases)
+**Progress bar:** [██████████] 100% (3/3 v1.2 phases)
 
 ### v1.2 Phase Summary
 
 | Phase | Goal | Requirements | Status |
 |-------|------|--------------|--------|
-| AE1. Forms Write Tools | Agent manages full forms lifecycle; establishes AEX gate + context-aware system-prompt conventions | AEF-01..06, AEX-01..04 | Not started |
-| AE2. Schedule Write Tools | Agent manages class definitions + occurrences; cancel-with-bookings atomic refund | AES-01..06 | Not started |
-| AE3. Members Write Tools | Agent updates profile fields; consent state structurally excluded | AEM-01..02 | Not started |
+| AE1. Forms Write Tools | Agent manages full forms lifecycle; establishes AEX gate + context-aware system-prompt conventions | AEF-01..06, AEX-01..04 | ✅ Complete |
+| AE2. Schedule Write Tools | Agent manages class definitions + occurrences; cancel-with-bookings atomic refund | AES-01..06 | ✅ Complete |
+| AE3. Members + Campaigns Write Tools | Agent updates profile fields (consent excluded) + composable Campaigns segment builder | AEM-01..04, AEX-01/03/04 | ✅ Complete |
 
-**Next action:** `/gsd:plan-phase AE1`
+**Next action:** run the 3 live UAT items on the Vercel deploy (`/gsd:verify-work AE3`), then `/gsd:discuss-phase AE4` to start the Mobile Demo phase.
 
 ## Performance Metrics
 
@@ -274,20 +274,20 @@ Key patterns discovered during v1.0 execution that apply to v1.2:
 
 ## Session Continuity
 
-Last session: 2026-06-18T23:06:46.719Z
-Stopped at: Completed AE3-03-PLAN.md
+Last session: 2026-06-19
+Stopped at: v1.2 Agentic Tab Editing complete (AE1–AE3); AE4 split into its own Mobile Demo phase
 Resume file: None
 
-### PICK UP HERE — v1.2 Agentic Tab Editing
+### PICK UP HERE — v1.2 complete; live UAT + Mobile Demo (AE4) next
 
-The v1.2 roadmap is ready. Three phases defined (AE1 Forms, AE2 Schedule, AE3 Members), 18 requirements mapped, AEX cross-cutting conventions anchored to AE1.
+v1.2 Agentic Tab Editing is code-complete and code-verified — the staff `/gymos` agent can now WRITE the Forms, Schedule, and Members tabs and build composable Campaigns segments. Three live agent+browser UAT items remain (deferred because the local dev server can’t boot — NitroViteError); they run on the Vercel deploy:
 
-Next: `/gsd:plan-phase AE1`
+- AE1, AE2, and AE3 each have a `*-HUMAN-UAT.md` with deferred live walkthroughs — knock them out together on the deploy.
+- AE3 specifically: member phone update + live-refresh; consent-change refusal; agent-built segment appears without reload.
 
-Key things to verify at plan time for AE1:
+Next:
 
-- Read `apps/staff-web/actions/approve-proposal.ts` — get the current `ACTION_ALLOWLIST` shape before adding `publish-form`.
-- Read `apps/staff-web/actions/propose-action.ts` — get the current Zod enum before extending it.
-- Read `apps/staff-web/server/db/schema.ts` — confirm `forms` table column names before writing `create-form` / `update-form`.
-- Read `apps/staff-web/agent-chat.ts` — understand current system prompt structure before adding per-tab sections.
-- Read `apps/staff-web/features/forms/` — understand existing forms feature code before exposing it via `defineAction`.
+- Live UAT on Vercel: `/gsd:verify-work AE3`
+- Start the Mobile Demo phase: `/gsd:discuss-phase AE4` → `/gsd:plan-phase AE4`
+
+(Testing scheduled for the morning per the 2026-06-19 session.)

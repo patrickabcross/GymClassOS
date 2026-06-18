@@ -2,11 +2,15 @@
 
 ---
 
-## v1.2 — Agentic Tab Editing
+## v1.2 — Agentic Tab Editing  ✅ COMPLETE (code) — live UAT pending
 
-> **Started:** 2026-06-18 | **Branch:** `master`
+> **Started:** 2026-06-18 | **Completed (code):** 2026-06-19 | **Branch:** `master`
 >
-> **Goal:** Make the GymClassOS staff `/gymos` chat agent able to UPDATE each tab, not just read it — realizing the agent-native principle "everything the UI can do, the agent can do." Scope: Forms, Schedule, Members tabs. Zero new dependencies; all work reuses existing `defineAction`, propose→approve, and `useChangeVersion` primitives.
+> **Goal:** Make the GymClassOS staff `/gymos` chat agent able to UPDATE each tab, not just read it — realizing the agent-native principle "everything the UI can do, the agent can do." Scope: **Forms, Schedule, Members** tabs (three tabs only). Zero new dependencies; all work reuses existing `defineAction`, propose→approve, and `useChangeVersion` primitives.
+>
+> **Status:** All three phases (AE1 Forms, AE2 Schedule, AE3 Members + Campaigns segment builder) are code-complete and code-verified. Per-phase live agent+browser UAT is deferred to the Vercel deploy (no local dev server — NitroViteError) and tracked in each phase's `*-HUMAN-UAT.md`.
+>
+> **Note:** Phase AE4 (Live Mobile Demo) was originally appended here but is a separate mobile workstream, not agentic tab-editing — it has been split into its own phase section below (**Mobile Demo**).
 
 ### Key constraints baked into every phase
 
@@ -23,9 +27,9 @@
 
 - [x] **Phase AE1: Forms Write Tools** — Agent can create, edit, publish/unpublish, and archive/restore forms; establishes the per-tab gate pattern and AEX conventions
  (completed 2026-06-18)
-- [ ] **Phase AE2: Schedule Write Tools** — Agent can create/edit class definitions, manage occurrences (capacity, cancel, reschedule, complete); cancel-with-bookings routed through propose→approve with atomic pass refund
+- [x] **Phase AE2: Schedule Write Tools** — Agent can create/edit class definitions, manage occurrences (capacity, cancel, reschedule, complete); cancel-with-bookings routed through propose→approve with atomic pass refund
 - [x] **Phase AE3: Members + Campaigns Write Tools** — Agent can update member profile fields (name, phone, email, notes); consent/opt-in state is structurally excluded. Folds in the Campaigns **custom segment builder** (filter members by # classes attended / recency of last attendance / inquiry date) — replacing today's single fixed "at-risk" segment. (completed 2026-06-18)
-- [ ] **Phase AE4: Live Mobile Demo** — Non-prod demo deploy with the member demo-gate relaxed (honor an explicit off-prod `DEMO_MODE`) + an EAS (or web) build pointed at it via `EXPO_PUBLIC_API_BASE`, so the customer can hand the member app to a real test cohort. **Unblocked 2026-06-18** by company iOS dev-account access.
+- [→] **Phase AE4: Live Mobile Demo** — MOVED to its own **Mobile Demo** section below (separate mobile workstream, not agentic tab-editing). Summary: — Non-prod demo deploy with the member demo-gate relaxed (honor an explicit off-prod `DEMO_MODE`) + an EAS (or web) build pointed at it via `EXPO_PUBLIC_API_BASE`, so the customer can hand the member app to a real test cohort. **Unblocked 2026-06-18** by company iOS dev-account access.
 
 ## Phase Details
 
@@ -79,6 +83,26 @@
 - [x] AE3-03-PLAN.md (wave 2) — Agent exposure: view-screen members/campaigns branches + agent-chat Members/Campaigns sections (consent-refusal) + AGENTS.md rows + members/detail live-refresh + REQUIREMENTS AEM-03/04 registration (AEX-01, AEX-03, AEX-04)
 **UI hint**: yes
 
+## Progress (v1.2 — Agentic Tab Editing)
+
+| Phase | Plans Complete | Status | Completed |
+|-------|----------------|--------|-----------|
+| AE1. Forms Write Tools | 3/3 | Complete | 2026-06-18 |
+| AE2. Schedule Write Tools | 3/3 | Complete | 2026-06-18 |
+| AE3. Members + Campaigns Write Tools | 3/3 | Complete | 2026-06-19 |
+
+**Coverage:** 18 v1.2 requirements (AEF/AES/AEM/AEX) delivered across AE1–AE3, plus the Campaigns segment-builder reqs (AEM-03/AEM-04) folded into AE3. All code-complete and code-verified (`tsc` clean + 76/76 vitest). Per-phase live agent+browser UAT runs on the Vercel deploy and is tracked in each phase’s `*-HUMAN-UAT.md`.
+
+---
+
+## Mobile Demo — Live Member App on Device
+
+> **Status:** Not started | **Split out of v1.2 on 2026-06-19** — standalone mobile workstream (the member app on a real device), distinct from the agentic tab-editing milestone. Phase identifier **AE4** is retained; its requirements are net-new and will be registered at plan time.
+>
+> **Goal:** Stand up a non-prod demo deploy with the member demo-gate relaxed and a device build pointed at it, so the customer can hand the GymClassOS member app to a real test cohort.
+
+## Phase Details
+
 ### Phase AE4: Live Mobile Demo
 **Goal**: The customer can open the GymClassOS member app on a real device and hand it to a test cohort. Today this is blocked by three things: `/api/m/*` hard-401s in prod (`requireDemoMember` blocks on `NODE_ENV==='production'`), an Expo Go SDK mismatch (app SDK 55 vs store 56), and the local API can't boot (Nitro/Vite bug). This phase stands up a **non-prod demo deploy** with the member demo-gate relaxed and a build pointed at it.
 **Depends on**: Nothing in AE1–AE3 (independent mobile workstream); newly unblocked by company iOS dev-account access (2026-06-18)
@@ -90,16 +114,13 @@
 **Plans**: TBD
 **UI hint**: yes
 
-## Progress
+## Progress (Mobile Demo)
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| AE1. Forms Write Tools | 3/3 | Complete   | 2026-06-18 |
-| AE2. Schedule Write Tools | 0/3 | Not started | - |
-| AE3. Members + Campaigns Write Tools | 3/3 | Complete    | 2026-06-18 |
 | AE4. Live Mobile Demo | 0/TBD | Not started | - |
 
-**Coverage:** 18 v1.2 requirements mapped across AE1–AE3, plus Campaigns segment-builder (folded into AE3) and a new AE4 Live Mobile Demo phase — net-new requirements for both to be registered in REQUIREMENTS.md at plan time.
+**Coverage:** Mobile-demo requirements (demo-gate relax, demo deploy target, EAS/web build, API base wiring) are net-new — to be registered in REQUIREMENTS.md at AE4 plan time.
 
 ---
 
