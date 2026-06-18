@@ -66,6 +66,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { NewClassDialog } from "@/components/gymos/NewClassDialog";
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "react-router";
 
 export function meta() {
@@ -151,6 +152,22 @@ export async function loader({ request }: LoaderFunctionArgs) {
     bookingCounts[r.occurrenceId] = Number(r.count);
   }
 
+  // Query D — active class definitions for the "New Class" dialog Select.
+  // Unconditional (cheap; ~tens of rows).
+  //
+  // guard:allow-unscoped — single-tenant gym tables (no ownableColumns).
+  const classTypes = await db
+    .select({
+      id: schema.classDefinitions.id,
+      name: schema.classDefinitions.name,
+      durationMin: schema.classDefinitions.durationMin,
+      defaultCapacity: schema.classDefinitions.defaultCapacity,
+      category: schema.classDefinitions.category,
+    })
+    .from(schema.classDefinitions)
+    .where(eq(schema.classDefinitions.active, true))
+    .orderBy(asc(schema.classDefinitions.name));
+
   // Query C — only fetch members + selected occurrence when dialog is open.
   let members: Array<{
     id: string;
@@ -170,7 +187,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     bookOccurrence = occurrences.find((o) => o.id === bookOccurrenceId) ?? null;
   }
 
-  return { occurrences, bookingCounts, members, bookOccurrence };
+  return { occurrences, bookingCounts, members, bookOccurrence, classTypes };
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -308,6 +325,10 @@ export default function GymosSchedule() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <NewClassDialog
+              classTypes={data.classTypes}
+              defaultDate={selectedKey}
+            />
             <Badge variant="outline" className="h-5 text-[10px]">
               {totalThisMonth} this month
             </Badge>
