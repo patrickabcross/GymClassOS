@@ -15,6 +15,7 @@ import type { FormField, FormSettings } from "../types.js";
 import { normalizePhone } from "../lib/normalize-phone.js";
 import { checkRateLimit } from "../lib/rate-limit.js";
 import { enqueueOutboundWhatsApp } from "../../../app/lib/queue-client.js";
+import { parseTemplateBody, buildLeadAckVars } from "../lib/lead-ack.js";
 
 // ---------------------------------------------------------------------------
 // Field value size limits by type (copied verbatim from upstream)
@@ -419,20 +420,66 @@ export const submitLeadForm = defineEventHandler(async (event: H3Event) => {
   // (opt-in / window / approved-template); we only create the opt-in row
   // it requires and enqueue the send. We are NOT bypassing the worker.
   //
-  // Env-gated: LEAD_ACK_TEMPLATE_NAME is the approved template name. The
-  // conversational template is NOT approved yet (the user is getting a new
-  // one approved separately) — until LEAD_ACK_TEMPLATE_NAME is set on BOTH
-  // staff-web (Vercel) and the worker (Fly), this block is a complete no-op
-  // and the lead simply lands in the inbox as before.
+  // Env-gated: LEAD_ACK_TEMPLATE_NAME is the approved template name.
+  // Until LEAD_ACK_TEMPLATE_NAME is set on staff-web (Vercel), this block
+  // is a complete no-op and the lead simply lands in the inbox as before.
   //
-  // TEMPLATE DESIGN CONTRACT: the approved template MUST declare exactly
-  // ONE variable, where {{1}} = the lead's first name. Supplying fewer vars
-  // than the template declares makes the Meta/MYÜTIK send FAIL.
+  // TEMPLATE DESIGN CONTRACT: {{1}} = lead's first name; {{2}}.. = AI-inferred
+  // from form submission + active class catalog. Variable count is derived
+  // from the approved template body so this adapts automatically.
   // -------------------------------------------------------------------
   const leadAckTemplate = (process.env.LEAD_ACK_TEMPLATE_NAME ?? "").trim();
   if (phoneE164 && leadAckTemplate) {
     try {
-      // (a) Ensure an opt-in row exists. ON CONFLICT DO NOTHING so a
+      // (a) Look up the template row (defence-in-depth: must be approved).
+      // guard:allow-unscoped — single-tenant studio-wide templates table
+      const tplRows = await db
+        .select({
+          name: schema.whatsappTemplates.name,
+          status: schema.whatsappTemplates.status,
+          language: schema.whatsappTemplates.language,
+          componentsJson: schema.whatsappTemplates.componentsJson,
+        })
+        .from(schema.whatsappTemplates)
+        .where(eq(schema.whatsappTemplates.name, leadAckTemplate))
+        .limit(1);
+      const tpl = tplRows[0];
+      if (!tpl || tpl.status !== "approved") {
+        // Missing or not approved → SKIP the whole send. No opt-in, no LLM,
+        // no enqueue. The lead still lands in the inbox (steps 9-13 already ran).
+        return { success: true, id: responseId };
+      }
+
+      // (b) Parse body + resolve language from the template row.
+      const { bodyText, varCount } = parseTemplateBody(tpl.componentsJson);
+      const language = (tpl.language ?? "").trim() || "en";
+
+      // (c) Build vars: empty for 0-var templates; AI-fill otherwise.
+      let ackVars: Record<string, string>;
+      if (varCount === 0) {
+        ackVars = {};
+      } else {
+        // guard:allow-unscoped — single-tenant gym catalog
+        const catRows = await db
+          .select({
+            name: schema.classDefinitions.name,
+            category: schema.classDefinitions.category,
+            description: schema.classDefinitions.description,
+          })
+          .from(schema.classDefinitions)
+          .where(eq(schema.classDefinitions.active, true));
+        ackVars = await buildLeadAckVars({
+          formTitle: form.title,
+          fields,
+          data,
+          firstName,
+          bodyText,
+          varCount,
+          classCatalog: catRows,
+        });
+      }
+
+      // (d) Ensure an opt-in row exists. ON CONFLICT DO NOTHING so a
       //     re-submit never clobbers an existing opt-out / opt-in.
       await db2.execute(sql`
         INSERT INTO whatsapp_opt_in (member_id, opted_in_at, evidence_payload, source)
@@ -445,9 +492,8 @@ export const submitLeadForm = defineEventHandler(async (event: H3Event) => {
         ON CONFLICT (member_id) DO NOTHING
       `);
 
-      // (b) Optimistic queued template message (mirrors send-template-to-members.ts).
+      // (e) Optimistic queued template message (mirrors send-template-to-members.ts).
       const ackMessageId = `msg_${nanoid()}`;
-      const ackVars = { "1": firstName };
       const ackPreview = `[template: ${leadAckTemplate}]`;
       await db2.execute(sql`
         INSERT INTO messages (id, conversation_id, direction, message_type, body, payload, status, created_at)
@@ -468,7 +514,7 @@ export const submitLeadForm = defineEventHandler(async (event: H3Event) => {
         WHERE id = ${resolvedConvId}
       `);
 
-      // (c) Enqueue the TEMPLATE send. Worker gates opt-in/window/approval.
+      // (f) Enqueue the TEMPLATE send. Worker gates opt-in/window/approval.
       await enqueueOutboundWhatsApp({
         messageId: ackMessageId,
         memberId: resolvedMemberId,
@@ -476,7 +522,7 @@ export const submitLeadForm = defineEventHandler(async (event: H3Event) => {
           type: "template",
           name: leadAckTemplate,
           vars: ackVars,
-          language: "en_US",
+          language,
         },
       });
     } catch (err) {
