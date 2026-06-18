@@ -234,7 +234,7 @@ export async function renderPublicFormHtml(
 ): Promise<{ html: string; status: number }> {
   const pathname = url.split("?")[0];
   const searchStr = url.includes("?") ? url.slice(url.indexOf("?")) : "";
-  const slugOrId = decodeURIComponent(pathname.replace(/^\/f\//, ""));
+  const slugOrId = decodeURIComponent(pathname.replace(/^\/(f|preview)\//, ""));
   const formData = slugOrId ? await getFormBySlugOrId(slugOrId) : null;
 
   if (!formData) {

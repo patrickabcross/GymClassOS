@@ -49,6 +49,7 @@ const authPlugin = createAuthPlugin({
     // IMPORTANT: Only these 4 specific prefixes are public — do NOT widen
     // /_agent-native/* or /api/* beyond what is listed here.
     "/f", // public SSR form pages (GET /f/:slug)
+    "/preview", // public SSR form pages (alias of /f)
     "/api/forms/public", // public form metadata GET (used by embed.js)
     "/api/submit", // public form POST — anonymous lead upsert only
     "/embed", // /embed/schedule (P1c-05), /embed.js (P1c-06), /embed/buy (P1c.1-05)
@@ -109,6 +110,7 @@ const allowlistHandler = defineEventHandler(async (event) => {
     // P1c additions — public marketing-site integration paths (must mirror publicPaths above).
     // These are anonymous surfaces that must not be intercepted by the email allowlist.
     pathname.startsWith("/f/") ||
+    pathname.startsWith("/preview/") ||
     pathname.startsWith("/api/forms/public") ||
     pathname.startsWith("/api/submit") ||
     pathname.startsWith("/embed") ||

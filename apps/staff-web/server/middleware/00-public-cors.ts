@@ -25,9 +25,10 @@ import {
 const PUBLIC_EMBED_PREFIXES = [
   "/api/forms/public/",
   "/api/submit/",
-  "/f/",       // public SSR form pages
+  "/f/", // public SSR form pages
+  "/preview/", // public SSR form pages (alias of /f/)
   "/embed.js", // embed snippet (P1c-06)
-  "/embed/",   // schedule widget (P1c-05)
+  "/embed/", // schedule widget (P1c-05)
 ];
 
 export default defineEventHandler((event) => {
