@@ -13,6 +13,8 @@ Coaches and studio managers run their entire day from one inbox-and-schedule sur
 ## Current Milestone: v1.2 — Agentic Tab Editing
 
 > **Started 2026-06-18.** A FUNCTIONAL milestone, distinct from v1.1. The v1.1 UI Redesign milestone (phases R1–R5) is complete and merged into `master` (2026-06-14). v1.0 Production work (P2/P3 product surfaces, WhatsApp deep-wire, mobile EAS build) remains pending and is tracked separately in the roadmap; v1.2 is scheduled ahead of it at the user's direction.
+>
+> **Progress:** Phase AE1 (Forms write tools) and Phase AE2 (Schedule write tools) complete — both code-verified, runtime UAT deferred to the live Vercel deploy per the no-local-dev-server constraint. Phase AE3 (Members + Campaigns write tools) is next.
 
 **Goal:** Make the GymClassOS staff `/gymos` chat agent able to UPDATE each tab, not just read it — realizing the agent-native principle "everything the UI can do, the agent can do." Each tab effectively gains an agent that knows how to edit its content. v1.2 scope is THREE tabs: **Forms, Schedule, Members**.
 
@@ -174,7 +176,7 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-14 — merged `redesign/ui-refresh` (v1.1 UI redesign track) into master. Combines P1c.1 Stripe Connect + customer purchase flows with the R1–R5 studio-skinnable design system + gym-domain naming work.*
+*Last updated: 2026-06-18 — v1.2 Agentic Tab Editing: phases AE1 (Forms) + AE2 (Schedule) complete. AE3 (Members + Campaigns) next.*
 
 *Earlier: 2026-06-13 — P1c.1 Stripe Connect (Custom-equivalent) + customer purchase flows completed and validated end-to-end against production (live test-mode drop-in purchase flowed Checkout → Connect webhook → payment row + pass credit). STR-01/02 + PAY-01–04 moved to Validated. Deferred manual UAT (subscription/refund/Customer Portal/mobile live-tests) tracked in P1c.1-HUMAN-UAT.md — all extensions of the now-proven mechanism.*
 
