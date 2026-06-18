@@ -31,8 +31,8 @@
 
 ### Agentic Editing — Members (AEM)
 
-- [ ] **AEM-01**: Coach can ask the agent to update a member's profile fields — first name, last name, email, phone (E.164), notes — and only those fields.
-- [ ] **AEM-02**: The agent can never modify a member's consent / opt-in state (`marketing_consent`, `whatsapp_opt_in`) — the update-member action's schema structurally excludes those fields (`.strict()`), so an agent edit can never silently flip consent.
+- [x] **AEM-01**: Coach can ask the agent to update a member's profile fields — first name, last name, email, phone (E.164), notes — and only those fields.
+- [x] **AEM-02**: The agent can never modify a member's consent / opt-in state (`marketing_consent`, `whatsapp_opt_in`) — the update-member action's schema structurally excludes those fields (`.strict()`), so an agent edit can never silently flip consent.
 
 ### Agentic Editing — Cross-cutting (AEX)
 
@@ -71,8 +71,8 @@
 | AES-04 | Phase AE2 | Complete |
 | AES-05 | Phase AE2 | Complete |
 | AES-06 | Phase AE2 | Complete |
-| AEM-01 | Phase AE3 | Pending |
-| AEM-02 | Phase AE3 | Pending |
+| AEM-01 | Phase AE3 | Complete |
+| AEM-02 | Phase AE3 | Complete |
 | AEX-01 | Phase AE1 | Complete |
 | AEX-02 | Phase AE1 | Complete |
 | AEX-03 | Phase AE1 | Complete |

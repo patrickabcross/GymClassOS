@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: — Agentic Tab Editing
-status: verifying
-stopped_at: Phase AE3 context gathered
-last_updated: "2026-06-18T22:13:13.485Z"
+status: executing
+stopped_at: Completed AE3-01-PLAN.md
+last_updated: "2026-06-18T22:47:55.860Z"
 last_activity: 2026-06-18
 progress:
   total_phases: 4
@@ -30,9 +30,9 @@ Requirements: `.planning/REQUIREMENTS.md` (18 v1.2 reqs across 4 categories — 
 ## Current Position
 
 Milestone: v1.2 — Agentic Tab Editing
-Phase: AE2-schedule-write
-Plan: Not started
-Status: Phase complete — ready for verification
+Phase: AE3 (Members + Campaigns Write Tools) — EXECUTING
+Plan: 2 of 3
+Status: Ready to execute
 Last activity: 2026-06-18
 
 **Progress bar:** [░░░░░░░░░░] 0% (0/3 phases)
@@ -70,6 +70,7 @@ Last activity: 2026-06-18
 - **2026-06-18 — Two-exposure rule per action.** (1) Action file → `.generated/actions-registry.ts` (auto-regen via pnpm build or explicit regen command). (2) System prompt bullet in `agent-chat.ts`. Both steps required; omitting either means the agent can't call the action.
 - **2026-06-18 — System-prompt per-tab update ships LAST within each phase.** Ship and HTTP-test each action wave before adding it to the system prompt. Prevents the agent from hallucinating calls to actions that don't exist yet.
 - **2026-06-18 (AE2-03) — AE2 phase complete.** All 7 schedule actions (create path + 3 direct + 2 gated) satisfy the two-exposure rule: present in `.generated/actions-registry.ts` AND named in the `agent-chat.ts` Schedule section. `view-screen` gained a `schedule` branch (upcoming occurrences + booking counts + selected occurrence, AEX-01). `cancel-occurrence` / `reschedule-occurrence` reachable ONLY via `propose-action` — no standalone direct-tool bullets (grep-verified). AES-01 (agent-driven create path) satisfied.
+- **2026-06-18 (AE3-01) — `update-member` shipped (AEM-01, AEM-02).** Agent-only partial-update over `gym_members` (firstName/lastName/email/phoneE164/notes). Consent exclusion is STRUCTURAL via Zod `.strict()` (marketing_consent / whatsapp_opt_in rejected at parse time) — not a runtime if-check. In-run E.164 (`/^\+[1-9]\d{1,14}$/`) + email validation returns typed `{error}` codes (INVALID_PHONE/INVALID_EMAIL) rather than raw Zod failures; phone is NEVER normalized (D-07). Email AND phone_e164 collision pre-checks (gym_members unique on BOTH) return EMAIL_IN_USE/PHONE_IN_USE instead of an opaque Postgres 500. `firstName .min(1)` can never be blanked. Action is DIRECT — no `http` key, NOT in `propose-action`/`approve-proposal` gate files (AEX-02). Agent exposure (agent-chat.ts Members section + view-screen members branch + AGENTS.md row) deferred to AE3-03 per the system-prompt-ships-last constraint. Commit `7ba558ad`.
 
 ### v1.1 Roadmap Decisions (preserved for reference)
 
@@ -259,6 +260,7 @@ Key patterns discovered during v1.0 execution that apply to v1.2:
 | Phase AE2-schedule-write P01 | 4m | 3 tasks | 4 files |
 | Phase AE2-schedule-write P02 | 5m | 3 tasks | 6 files |
 | Phase AE2-schedule-write P03 | 6m | 3 tasks | 3 files |
+| Phase AE3 P01 | 2m | 1 tasks | 1 files |
 
 ### Carried-over concerns (from v1.1 redesign)
 
@@ -268,9 +270,9 @@ Key patterns discovered during v1.0 execution that apply to v1.2:
 
 ## Session Continuity
 
-Last session: 2026-06-18T22:13:13.458Z
-Stopped at: Phase AE3 context gathered
-Resume file: .planning/phases/AE3-members-campaigns-write-tools/AE3-CONTEXT.md
+Last session: 2026-06-18T22:47:55.849Z
+Stopped at: Completed AE3-01-PLAN.md
+Resume file: None
 
 ### PICK UP HERE — v1.2 Agentic Tab Editing
 

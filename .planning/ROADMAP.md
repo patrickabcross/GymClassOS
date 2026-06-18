@@ -74,7 +74,7 @@
   5. The Campaigns tab exposes a custom segment builder (UI + matching action) that filters members by **# classes attended**, **recency of last attendance**, and **inquiry/lead date** — composable, replacing the single fixed "at-risk" segment; the data already exists (no schema change)
   6. Coach can tell the agent "build a segment of members who attended 4+ classes but haven't been in 3 weeks" and a matching, named segment appears in the Campaigns tab without a reload
 **Plans**: 3 plans
-- [ ] AE3-01-PLAN.md (wave 1) — update-member action: .strict() consent exclusion + E.164/email validation + email/phone collision pre-checks (AEM-01, AEM-02)
+- [x] AE3-01-PLAN.md (wave 1) — update-member action: .strict() consent exclusion + E.164/email validation + email/phone collision pre-checks (AEM-01, AEM-02)
 - [ ] AE3-02-PLAN.md (wave 1) — Campaigns segment builder: save-segment action (application_state) + spec-driven 3-axis evaluator + at-risk preset + structured builder UI + client-side segment read + live-refresh (AEM-03, AEM-04)
 - [ ] AE3-03-PLAN.md (wave 2) — Agent exposure: view-screen members/campaigns branches + agent-chat Members/Campaigns sections (consent-refusal) + AGENTS.md rows + members/detail live-refresh + REQUIREMENTS AEM-03/04 registration (AEX-01, AEX-03, AEX-04)
 **UI hint**: yes
@@ -96,7 +96,7 @@
 |-------|----------------|--------|-----------|
 | AE1. Forms Write Tools | 3/3 | Complete   | 2026-06-18 |
 | AE2. Schedule Write Tools | 0/3 | Not started | - |
-| AE3. Members + Campaigns Write Tools | 0/3 | Not started | - |
+| AE3. Members + Campaigns Write Tools | 1/3 | In Progress|  |
 | AE4. Live Mobile Demo | 0/TBD | Not started | - |
 
 **Coverage:** 18 v1.2 requirements mapped across AE1–AE3, plus Campaigns segment-builder (folded into AE3) and a new AE4 Live Mobile Demo phase — net-new requirements for both to be registered in REQUIREMENTS.md at plan time.
@@ -290,7 +290,7 @@ Post-v1 backlog (HealthKit + native mobile, Coach View with health context, CRM 
 4. Member context panel in the inbox shows next-class + pass-balance for the opened conversation's member (real data)
 5. Stripe Checkout link generated for a 10-pack purchase + paid in Stripe test mode + resulting pass grant visible in member profile
 
-**Plans:** 3/3 plans complete
+**Plans:** 1/3 plans executed
 
 - [x] D1-01-schedule-surface-PLAN.md — Build /gymos/schedule week-grid + book-from-occurrence dialog (SCH-01, BKG-01) — completed 2026-05-19 (commits f5cdbdc6, dd50fe62, 23ee58f2)
 - [x] D1-02-members-directory-PLAN.md — Build /gymos/members + /gymos/members/:id profile with bookings + pass balance (MEM-01, MEM-02)
