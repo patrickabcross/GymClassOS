@@ -136,19 +136,19 @@ const defaultSkin: StudioTokens = {
 };
 
 /**
- * Hustle placeholder skin — visibly distinct so a skin switch is provable
- * before real Hustle brand hex values arrive.
- *
- * TODO: Replace all overridden values with confirmed Hustle brand values.
+ * Hustle skin — brand values sourced from Hustle's live site
+ * (doyouhustle.co.uk, Squarespace custom.css): burnt-orange #ce6334 primary
+ * with #b5532b as the hover shade. accentSoft is a dark warm tint for the
+ * dark-first mobile theme; derived from the primary.
  */
 const hustleSkin: StudioTokens = {
   ...defaultSkin,
   colors: {
     ...defaultSkin.colors,
-    accent: "#E11D48", /* TODO: replace with Hustle brand values */
-    accentHover: "#BE123C", /* TODO: replace with Hustle brand values */
-    accentSoft: "#3A0E1A", /* TODO: replace with Hustle brand values */
-    accentForeground: "#FFFFFF", /* TODO: replace with Hustle brand values */
+    accent: "#ce6334", /* Hustle burnt orange */
+    accentHover: "#b5532b", /* Hustle hover shade (from custom.css) */
+    accentSoft: "#371c10", /* dark warm tint for dark-first mobile */
+    accentForeground: "#ffffff",
   },
 };
 
