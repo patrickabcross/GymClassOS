@@ -23,11 +23,11 @@
 ### Agentic Editing — Schedule (AES)
 
 - [ ] **AES-01**: Coach can ask the agent to create a class occurrence (class definition, start time, capacity).
-- [ ] **AES-02**: Coach can ask the agent to change a class occurrence's capacity (rejected if the new capacity is below current bookings — returns a clear error, no mutation).
+- [x] **AES-02**: Coach can ask the agent to change a class occurrence's capacity (rejected if the new capacity is below current bookings — returns a clear error, no mutation).
 - [ ] **AES-03**: Coach can ask the agent to cancel a class occurrence — if it has active bookings the agent must route through propose→approve, and approval cancels bookings + refunds the affected pass credits + cancels the occurrence atomically (no orphaned credits).
 - [ ] **AES-04**: Coach can ask the agent to reschedule a class occurrence's start time — routed through propose→approve when it has active bookings.
-- [ ] **AES-05**: Coach can ask the agent to create or edit a class definition (name, duration, default capacity, category).
-- [ ] **AES-06**: Coach can ask the agent to mark a past occurrence completed.
+- [x] **AES-05**: Coach can ask the agent to create or edit a class definition (name, duration, default capacity, category).
+- [x] **AES-06**: Coach can ask the agent to mark a past occurrence completed.
 
 ### Agentic Editing — Members (AEM)
 
@@ -66,11 +66,11 @@
 | AEF-05 | Phase AE1 | Complete |
 | AEF-06 | Phase AE1 | Complete |
 | AES-01 | Phase AE2 | Pending |
-| AES-02 | Phase AE2 | Pending |
+| AES-02 | Phase AE2 | Complete |
 | AES-03 | Phase AE2 | Pending |
 | AES-04 | Phase AE2 | Pending |
-| AES-05 | Phase AE2 | Pending |
-| AES-06 | Phase AE2 | Pending |
+| AES-05 | Phase AE2 | Complete |
+| AES-06 | Phase AE2 | Complete |
 | AEM-01 | Phase AE3 | Pending |
 | AEM-02 | Phase AE3 | Pending |
 | AEX-01 | Phase AE1 | Complete |

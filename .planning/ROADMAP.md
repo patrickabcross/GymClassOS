@@ -56,7 +56,7 @@
   4. Coach can tell the agent "move Thursday's pilates to 9am" when the class has active bookings and the reschedule is routed through propose→approve before the `starts_at` changes
   5. After any agent write, the Schedule tab live-refreshes — no manual reload required
 **Plans**: 3 plans
-- [ ] AE2-01-PLAN.md — Direct (ungated) schedule writes: set-occurrence-capacity (bookings guard) + update-class-definition + mark-occurrence-complete + registry entries + Schedule live-refresh wiring (AES-02/05/06, AEX-03)
+- [x] AE2-01-PLAN.md — Direct (ungated) schedule writes: set-occurrence-capacity (bookings guard) + update-class-definition + mark-occurrence-complete + registry entries + Schedule live-refresh wiring (AES-02/05/06, AEX-03)
 - [ ] AE2-02-PLAN.md — Gated path: cancel-occurrence (atomic bookings+refund+occurrence transaction) + reschedule-occurrence + atomic gate wiring (allowlist + dispatch + propose-action enum + schema enum + registry) (AES-03, AES-04)
 - [ ] AE2-03-PLAN.md — Agent exposure: view-screen schedule branch + per-tab system prompt Schedule section + AGENTS.md docs (AES-01, AEX-01/AEX-04)
 **UI hint**: yes
