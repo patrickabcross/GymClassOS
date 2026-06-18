@@ -253,15 +253,168 @@ export async function loader(_args: LoaderFunctionArgs) {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
+// ─── Saved-segment client read (NOT the loader — readAppState throws there) ──
+// Mirrors TemplatesDialog.tsx: GET /_agent-native/application-state/:key, unwrap
+// the `.value` envelope, JSON.parse if the stored value came back as a string.
+
+const SEGMENTS_KEY = "gymos-campaign-segments";
+
+type Segment = {
+  id: string;
+  name: string;
+  filters: SegmentFilters;
+  createdAt?: string;
+};
+
+// Sentinel id for the built-in at-risk preset (sits alongside custom segments).
+const AT_RISK = "at-risk" as const;
+type SelectedSegmentId = string | typeof AT_RISK;
+
+async function readSegments(): Promise<Segment[]> {
+  const res = await fetch(
+    `/_agent-native/application-state/${encodeURIComponent(SEGMENTS_KEY)}`,
+  );
+  if (!res.ok) return [];
+  const payload = await res.json().catch(() => null);
+  const value = payload?.value ?? payload; // endpoint wraps stored value under `.value`
+  const parsed = typeof value === "string" ? JSON.parse(value) : value;
+  return Array.isArray(parsed?.segments) ? parsed.segments : [];
+}
+
 export default function CampaignsPage() {
-  const { atRisk, templates, eligibleMemberIds, counts } =
+  const { allMembers, atRisk, templates, eligibleMemberIds, counts } =
     useLoaderData<typeof loader>();
   const fetcher = useFetcher();
+  const segFetcher = useFetcher();
 
-  // Eligible count for the currently selected segment. Task 3 generalizes this
-  // per-segment; Task 2 keeps the at-risk preset as the selected default.
-  const eligibleCount = eligibleMemberIds.length;
+  // ─── Live-refresh (copy of gymos.schedule.tsx) + segment re-fetch ──────────
+  const revalidator = useRevalidator();
+  const actionVersion = useChangeVersions(["action"]);
+  const [segments, setSegments] = useState<Segment[]>([]);
+  const refreshSegments = useCallback(() => {
+    readSegments()
+      .then(setSegments)
+      .catch(() => {});
+  }, []);
+  useEffect(() => {
+    refreshSegments();
+  }, [refreshSegments]);
+  useEffect(() => {
+    // The agent's save-segment write fires source:"action" — re-run the loader
+    // (member rows) AND re-fetch the segment list so an agent-built segment
+    // appears without a reload (AEM-04 / success criterion 6).
+    if (actionVersion > 0) {
+      revalidator.revalidate();
+      refreshSegments();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [actionVersion]);
 
+  // ─── Segment selection + matched/eligible computation ──────────────────────
+  const eligibleSet = useMemo(
+    () => new Set(eligibleMemberIds),
+    [eligibleMemberIds],
+  );
+  const [selectedSegmentId, setSelectedSegmentId] =
+    useState<SelectedSegmentId>(AT_RISK);
+
+  const selectedSegment =
+    selectedSegmentId === AT_RISK
+      ? null
+      : (segments.find((s) => s.id === selectedSegmentId) ?? null);
+
+  // If the selected custom segment disappears (e.g. reconciled away), fall back
+  // to the at-risk preset so the send flow never points at a missing segment.
+  useEffect(() => {
+    if (
+      selectedSegmentId !== AT_RISK &&
+      !segments.some((s) => s.id === selectedSegmentId)
+    ) {
+      setSelectedSegmentId(AT_RISK);
+    }
+  }, [segments, selectedSegmentId]);
+
+  const matchedMembers = useMemo(() => {
+    const nowMs = Date.now();
+    if (selectedSegmentId === AT_RISK) return atRisk;
+    if (!selectedSegment) return [];
+    return allMembers.filter((m) =>
+      matchesSpec(m, selectedSegment.filters, nowMs),
+    );
+  }, [selectedSegmentId, selectedSegment, allMembers, atRisk]);
+
+  const matchedCount = matchedMembers.length;
+  const eligibleForSegment = useMemo(
+    () =>
+      matchedMembers.map((m) => m.memberId).filter((id) => eligibleSet.has(id)),
+    [matchedMembers, eligibleSet],
+  );
+  const eligibleCount = eligibleForSegment.length;
+
+  // ─── Builder form state (Popover, progressive disclosure) ──────────────────
+  const [builderOpen, setBuilderOpen] = useState(false);
+  const [segName, setSegName] = useState("");
+  const [minAttended, setMinAttended] = useState("");
+  const [notInDays, setNotInDays] = useState("");
+  const [inquiryBefore, setInquiryBefore] = useState("");
+  const [inquiryAfter, setInquiryAfter] = useState("");
+
+  const builderFilters = useMemo<SegmentFilters>(() => {
+    const f: SegmentFilters = {};
+    if (minAttended.trim()) f.minClassesAttended = Number(minAttended);
+    if (notInDays.trim()) f.notAttendedInDays = Number(notInDays);
+    if (inquiryBefore) f.inquiryBefore = inquiryBefore;
+    if (inquiryAfter) f.inquiryAfter = inquiryAfter;
+    return f;
+  }, [minAttended, notInDays, inquiryBefore, inquiryAfter]);
+
+  const builderHasFilter = Object.keys(builderFilters).length > 0;
+  const builderCanSave = segName.trim().length > 0 && builderHasFilter;
+
+  const resetBuilder = useCallback(() => {
+    setSegName("");
+    setMinAttended("");
+    setNotInDays("");
+    setInquiryBefore("");
+    setInquiryAfter("");
+  }, []);
+
+  // Pre-fill the builder from the at-risk preset's spirit (D-05): a coach
+  // starting from at-risk gets a recency-based starting point they can tweak.
+  const prefillFromAtRisk = useCallback(() => {
+    setSegName("At-risk (custom)");
+    setMinAttended("");
+    setNotInDays("14");
+    setInquiryBefore("");
+    setInquiryAfter("");
+    setBuilderOpen(true);
+  }, []);
+
+  const handleSaveSegment = () => {
+    if (!builderCanSave) return;
+    const filters = builderFilters;
+    const body = new URLSearchParams();
+    body.set("name", segName.trim());
+    for (const [k, v] of Object.entries(filters)) body.set(k, String(v));
+    segFetcher.submit(body, {
+      method: "post",
+      action: "/_agent-native/actions/save-segment",
+      encType: "application/x-www-form-urlencoded",
+    });
+    // Optimistic: add locally + select; refreshSegments reconciles on the bump.
+    const optimistic: Segment = {
+      id: `seg_local_${Date.now()}`,
+      name: segName.trim(),
+      filters,
+    };
+    setSegments((prev) => [optimistic, ...prev]);
+    setSelectedSegmentId(optimistic.id);
+    toast.success(`Saved segment "${optimistic.name}"`);
+    setBuilderOpen(false);
+    resetBuilder();
+  };
+
+  // ─── Template state ────────────────────────────────────────────────────────
   const [selectedTemplateName, setSelectedTemplateName] = useState<
     string | null
   >(null);
@@ -308,7 +461,7 @@ export default function CampaignsPage() {
     if (!selectedTemplate || !canSend) return;
     fetcher.submit(
       {
-        memberIds: JSON.stringify(eligibleMemberIds),
+        memberIds: JSON.stringify(eligibleForSegment),
         templateName: selectedTemplate.name,
         variables: JSON.stringify(vars),
       },
@@ -331,10 +484,6 @@ export default function CampaignsPage() {
         failed?: number;
       }
     | undefined;
-  if (actionData?.error && !isSending) {
-    // Show error once — reset after display by clearing on next re-render
-    // (toast is the display vehicle; actionData persists until next submit)
-  }
 
   return (
     <div className="flex flex-col gap-4 p-6 max-w-3xl mx-auto">
@@ -347,38 +496,220 @@ export default function CampaignsPage() {
         </Badge>
       </div>
 
-      {/* Card 1: At-risk segment */}
+      {/* Card 1: Segment builder — preset + custom segments */}
       <Card>
         <CardHeader className="pb-2 pt-4 px-4">
-          <div className="flex items-center gap-2">
-            <IconUsers
-              size={15}
-              className="text-muted-foreground"
-              aria-hidden
-            />
-            <span className="text-[13px] font-semibold">
-              Missed-session segment
-            </span>
-            <Badge variant="secondary" className="text-[11px]">
-              {counts.atRisk} members
-            </Badge>
-            {/* Custom segment builder is DEFERRED to a future plan. The fixed
-                at-risk segment (14d inactive OR 0 bookings/30d OR pass expiring
-                in 14d) is the only available segment for this core build. */}
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <IconUsers
+                size={15}
+                className="text-muted-foreground"
+                aria-hidden
+              />
+              <span className="text-[13px] font-semibold">Segment</span>
+              <Badge variant="secondary" className="text-[11px]">
+                {matchedCount} members
+              </Badge>
+            </div>
+
+            {/* New-segment builder behind a Popover (progressive disclosure). */}
+            <Popover open={builderOpen} onOpenChange={setBuilderOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-[12px]"
+                >
+                  <IconPlus size={13} className="mr-1" aria-hidden />
+                  New segment
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-80">
+                <div className="flex flex-col gap-3">
+                  <div className="flex items-center gap-1.5">
+                    <IconFilter
+                      size={14}
+                      className="text-muted-foreground"
+                      aria-hidden
+                    />
+                    <span className="text-[13px] font-semibold">
+                      Build a segment
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground -mt-1">
+                    Filters are combined with AND. Supply at least one.
+                  </p>
+
+                  <div className="flex flex-col gap-1">
+                    <label
+                      htmlFor="seg-name"
+                      className="text-[12px] text-muted-foreground"
+                    >
+                      Name
+                    </label>
+                    <Input
+                      id="seg-name"
+                      className="text-[13px]"
+                      value={segName}
+                      onChange={(e) => setSegName(e.target.value)}
+                      placeholder="e.g. Lapsed regulars"
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1">
+                    <label
+                      htmlFor="seg-min-attended"
+                      className="text-[12px] text-muted-foreground"
+                    >
+                      Attended at least (classes)
+                    </label>
+                    <Input
+                      id="seg-min-attended"
+                      type="number"
+                      min={1}
+                      className="text-[13px]"
+                      value={minAttended}
+                      onChange={(e) => setMinAttended(e.target.value)}
+                      placeholder="e.g. 4"
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1">
+                    <label
+                      htmlFor="seg-not-in-days"
+                      className="text-[12px] text-muted-foreground"
+                    >
+                      Not attended in the last (days)
+                    </label>
+                    <Input
+                      id="seg-not-in-days"
+                      type="number"
+                      min={1}
+                      className="text-[13px]"
+                      value={notInDays}
+                      onChange={(e) => setNotInDays(e.target.value)}
+                      placeholder="e.g. 21"
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1">
+                    <label
+                      htmlFor="seg-inquiry-before"
+                      className="text-[12px] text-muted-foreground"
+                    >
+                      Joined / enquired before
+                    </label>
+                    <Input
+                      id="seg-inquiry-before"
+                      type="date"
+                      className="text-[13px]"
+                      value={inquiryBefore}
+                      onChange={(e) => setInquiryBefore(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1">
+                    <label
+                      htmlFor="seg-inquiry-after"
+                      className="text-[12px] text-muted-foreground"
+                    >
+                      Joined / enquired after
+                    </label>
+                    <Input
+                      id="seg-inquiry-after"
+                      type="date"
+                      className="text-[13px]"
+                      value={inquiryAfter}
+                      onChange={(e) => setInquiryAfter(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-end gap-2 pt-1">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-[12px]"
+                      onClick={() => {
+                        setBuilderOpen(false);
+                        resetBuilder();
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="h-7 text-[12px]"
+                      disabled={!builderCanSave}
+                      onClick={handleSaveSegment}
+                    >
+                      Save segment
+                    </Button>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
           </div>
-          <p className="text-[11px] text-muted-foreground mt-1">
-            Members inactive 14+ days, no bookings in 30 days, or pass expiring
-            soon. Custom segments are coming in a future update.
-          </p>
+
+          {/* Segment chooser: at-risk preset + custom segments. */}
+          <div className="flex flex-wrap gap-1.5 mt-2">
+            <Button
+              type="button"
+              variant={selectedSegmentId === AT_RISK ? "default" : "outline"}
+              size="sm"
+              className="h-7 text-[12px]"
+              onClick={() => setSelectedSegmentId(AT_RISK)}
+            >
+              At-risk preset
+              <Badge variant="secondary" className="ml-1.5 text-[10px]">
+                {counts.atRisk}
+              </Badge>
+            </Button>
+            {segments.map((s) => (
+              <Button
+                key={s.id}
+                type="button"
+                variant={selectedSegmentId === s.id ? "default" : "outline"}
+                size="sm"
+                className="h-7 text-[12px]"
+                onClick={() => setSelectedSegmentId(s.id)}
+              >
+                {s.name}
+              </Button>
+            ))}
+          </div>
+
+          {selectedSegmentId === AT_RISK ? (
+            <p className="text-[11px] text-muted-foreground mt-2">
+              Built-in preset — members inactive 14+ days, no bookings in 30
+              days, or pass expiring soon.{" "}
+              <button
+                type="button"
+                className="underline underline-offset-2 hover:text-foreground"
+                onClick={prefillFromAtRisk}
+              >
+                Customize as a new segment
+              </button>
+            </p>
+          ) : (
+            <p className="text-[11px] text-muted-foreground mt-2">
+              Custom segment — live filter evaluated against current member
+              data.
+            </p>
+          )}
         </CardHeader>
         <CardContent className="px-4 pb-4">
-          {atRisk.length === 0 ? (
+          {matchedCount === 0 ? (
             <p className="text-[13px] text-muted-foreground">
-              No members at risk right now.
+              {selectedSegmentId === AT_RISK
+                ? "No members at risk right now."
+                : "No members match this segment yet. Try loosening the filters."}
             </p>
           ) : (
             <div className="flex flex-col gap-1 max-h-48 overflow-y-auto">
-              {atRisk.slice(0, 20).map((m) => (
+              {matchedMembers.slice(0, 20).map((m) => (
                 <div
                   key={m.memberId}
                   className="flex items-center justify-between py-1 text-[12px] border-b border-border/30 last:border-0"
@@ -393,9 +724,9 @@ export default function CampaignsPage() {
                   </span>
                 </div>
               ))}
-              {atRisk.length > 20 && (
+              {matchedCount > 20 && (
                 <p className="text-[11px] text-muted-foreground pt-1">
-                  +{atRisk.length - 20} more members
+                  +{matchedCount - 20} more members
                 </p>
               )}
             </div>
@@ -508,10 +839,10 @@ export default function CampaignsPage() {
           <span className="text-[11px] text-muted-foreground">
             Members who have opted in and have not opted out will receive this
             campaign.
-            {counts.atRisk > eligibleCount && (
+            {matchedCount > eligibleCount && (
               <>
                 {" "}
-                {counts.atRisk - eligibleCount} of the {counts.atRisk} at-risk
+                {matchedCount - eligibleCount} of the {matchedCount} matched
                 members are excluded (not opted in or opted out).
               </>
             )}
