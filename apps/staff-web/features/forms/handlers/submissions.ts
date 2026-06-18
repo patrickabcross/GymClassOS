@@ -294,40 +294,67 @@ export const submitLeadForm = defineEventHandler(async (event: H3Event) => {
     execute: (q: unknown) => Promise<{ rows: unknown[] }>;
   };
 
-  if (email) {
+  // `gym_members` has SEPARATE partial-unique indexes on `email` and on
+  // `phone_e164`. A single `ON CONFLICT (email) ... SET phone_e164 = ...` upsert
+  // can therefore violate the OTHER index when the submitted phone already
+  // belongs to a DIFFERENT member — which surfaced as an unhandled 500 on lead
+  // submit (e.g. same number re-submitted under a new email). Resolve the
+  // canonical member with explicit lookups on BOTH keys and reconcile to one
+  // row, only ever writing a unique key when it is safe.
+  const { rows: byEmailRows } = email
+    ? await db2.execute(
+        sql`SELECT id, phone_e164 FROM gym_members WHERE email = ${email} LIMIT 1`,
+      )
+    : { rows: [] as unknown[] };
+  const byEmail = byEmailRows[0] as
+    | { id: string; phone_e164: string | null }
+    | undefined;
+
+  const { rows: byPhoneRows } = phoneE164
+    ? await db2.execute(
+        sql`SELECT id FROM gym_members WHERE phone_e164 = ${phoneE164} LIMIT 1`,
+      )
+    : { rows: [] as unknown[] };
+  const byPhone = byPhoneRows[0] as { id: string } | undefined;
+
+  if (byEmail) {
+    // Member matched by email. Backfill the phone ONLY if this member has none
+    // AND the phone is not already taken by a different member (avoid collision).
+    resolvedMemberId = byEmail.id;
+    const canSetPhone =
+      phoneE164 != null &&
+      !byEmail.phone_e164 &&
+      (!byPhone || byPhone.id === byEmail.id);
+    if (canSetPhone) {
+      await db2.execute(sql`
+        UPDATE gym_members SET first_name = ${firstName}, phone_e164 = ${phoneE164}, updated_at = NOW()
+        WHERE id = ${byEmail.id}
+      `);
+    } else {
+      await db2.execute(sql`
+        UPDATE gym_members SET first_name = ${firstName}, updated_at = NOW()
+        WHERE id = ${byEmail.id}
+      `);
+    }
+  } else if (byPhone) {
+    // Email is new/absent but the phone already belongs to a member → attach the
+    // lead to that member instead of inserting a colliding/duplicate row.
+    // Backfill email only if the row has none (byEmail was null, so it is free).
+    resolvedMemberId = byPhone.id;
+    await db2.execute(sql`
+      UPDATE gym_members
+      SET first_name = ${firstName},
+          email = COALESCE(email, ${email ?? null}),
+          updated_at = NOW()
+      WHERE id = ${byPhone.id}
+    `);
+  } else if (email || phoneE164) {
+    // Neither key matches an existing member → insert a fresh row.
     await db2.execute(sql`
       INSERT INTO gym_members (id, first_name, last_name, email, phone_e164, marketing_consent, created_at, updated_at)
-      VALUES (${memberId}, ${firstName}, ${lastName ?? null}, ${email}, ${phoneE164}, false, NOW(), NOW())
-      ON CONFLICT (email) WHERE email IS NOT NULL DO UPDATE SET
-        first_name = EXCLUDED.first_name,
-        phone_e164 = COALESCE(EXCLUDED.phone_e164, gym_members.phone_e164),
-        updated_at = NOW()
+      VALUES (${memberId}, ${firstName}, ${lastName ?? null}, ${email ?? null}, ${phoneE164}, false, NOW(), NOW())
     `);
-    // Re-select the canonical id — the upsert may have updated an EXISTING row (id != memberId).
-    const {
-      rows: [existingMember],
-    } = await db2.execute(
-      sql`SELECT id FROM gym_members WHERE email = ${email} LIMIT 1`,
-    );
-    resolvedMemberId =
-      ((existingMember as Record<string, unknown>)?.id as string | undefined) ??
-      memberId;
-  } else if (phoneE164) {
-    await db2.execute(sql`
-      INSERT INTO gym_members (id, first_name, phone_e164, marketing_consent, created_at, updated_at)
-      VALUES (${memberId}, ${firstName}, ${phoneE164}, false, NOW(), NOW())
-      ON CONFLICT (phone_e164) WHERE phone_e164 IS NOT NULL DO UPDATE SET
-        first_name = EXCLUDED.first_name, updated_at = NOW()
-    `);
-    // Re-select the canonical id — the upsert may have updated an EXISTING row (id != memberId).
-    const {
-      rows: [existingMember],
-    } = await db2.execute(
-      sql`SELECT id FROM gym_members WHERE phone_e164 = ${phoneE164} LIMIT 1`,
-    );
-    resolvedMemberId =
-      ((existingMember as Record<string, unknown>)?.id as string | undefined) ??
-      memberId;
+    resolvedMemberId = memberId;
   }
   // If neither email nor phone, resolvedMemberId stays as the fresh nanoid (anonymous lead)
 
