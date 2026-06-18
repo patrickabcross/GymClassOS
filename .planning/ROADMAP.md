@@ -23,7 +23,8 @@
 
 - [ ] **Phase AE1: Forms Write Tools** — Agent can create, edit, publish/unpublish, and archive/restore forms; establishes the per-tab gate pattern and AEX conventions
 - [ ] **Phase AE2: Schedule Write Tools** — Agent can create/edit class definitions, manage occurrences (capacity, cancel, reschedule, complete); cancel-with-bookings routed through propose→approve with atomic pass refund
-- [ ] **Phase AE3: Members Write Tools** — Agent can update member profile fields (name, phone, email, notes); consent/opt-in state is structurally excluded
+- [ ] **Phase AE3: Members + Campaigns Write Tools** — Agent can update member profile fields (name, phone, email, notes); consent/opt-in state is structurally excluded. Folds in the Campaigns **custom segment builder** (filter members by # classes attended / recency of last attendance / inquiry date) — replacing today's single fixed "at-risk" segment.
+- [ ] **Phase AE4: Live Mobile Demo** — Non-prod demo deploy with the member demo-gate relaxed (honor an explicit off-prod `DEMO_MODE`) + an EAS (or web) build pointed at it via `EXPO_PUBLIC_API_BASE`, so the customer can hand the member app to a real test cohort. **Unblocked 2026-06-18** by company iOS dev-account access.
 
 ## Phase Details
 
@@ -52,17 +53,32 @@
   5. After any agent write, the Schedule tab live-refreshes — no manual reload required
 **Plans**: TBD
 **UI hint**: yes
+**Note (New Class — quick 260618-j8z):** AE2's create-path is already partly shipped. The two reusable `defineAction`s `create-class-definition` + `create-class-occurrence` are committed (`95e1f0da`); the **New Class button + dialog UI** on `/gymos/schedule` is being finished now as quick task **260618-j8z** (decision 2026-06-18: ship UI early for the live customer). AE2 then layers the **agent-driven** create path (system-prompt exposure per the two-exposure rule) on top of the same actions.
 
-### Phase AE3: Members Write Tools
-**Goal**: Coach can use the agent to update a member's profile fields (name, phone, email, notes) — and the agent cannot ever modify consent or opt-in state, enforced structurally via a `.strict()` Zod schema
+### Phase AE3: Members + Campaigns Write Tools
+**Goal**: Coach can use the agent to (a) update a member's profile fields (name, phone, email, notes) — never consent/opt-in state, enforced structurally via a `.strict()` Zod schema — and (b) build a **custom Campaigns segment** by describing the filters in natural language, replacing today's single hardcoded "at-risk" segment in `gymos.campaigns.tsx`
 **Depends on**: Phase AE2 (system-prompt per-tab pattern fully established; AEX conventions in place)
-**Requirements**: AEM-01, AEM-02
+**Requirements**: AEM-01, AEM-02, + Campaigns segment-builder reqs (AEM-03/AEM-04 — to be registered in REQUIREMENTS.md at plan time)
 **Success Criteria** (what must be TRUE):
   1. Coach can tell the agent "update Sarah's phone number to +447700900123" and the `gym_members` row reflects the new E.164 value; the member profile card on `/gymos/members` refreshes without a reload
   2. Coach can tell the agent "add a note to David's profile: prefers morning classes" and the `notes` field saves correctly
   3. Asking the agent to "opt Sarah into WhatsApp" or "change her marketing consent" results in a clear refusal — the action's schema structurally prevents those fields from being written (`.strict()` exclusion), and no `whatsapp_opt_in` or `marketing_consent` state changes
   4. Coach can tell the agent "correct this member's email" and the update applies directly (no approval gate needed for profile edits)
+  5. The Campaigns tab exposes a custom segment builder (UI + matching action) that filters members by **# classes attended**, **recency of last attendance**, and **inquiry/lead date** — composable, replacing the single fixed "at-risk" segment; the data already exists (no schema change)
+  6. Coach can tell the agent "build a segment of members who attended 4+ classes but haven't been in 3 weeks" and a matching, named segment appears in the Campaigns tab without a reload
 **Plans**: TBD
+**UI hint**: yes
+
+### Phase AE4: Live Mobile Demo
+**Goal**: The customer can open the GymClassOS member app on a real device and hand it to a test cohort. Today this is blocked by three things: `/api/m/*` hard-401s in prod (`requireDemoMember` blocks on `NODE_ENV==='production'`), an Expo Go SDK mismatch (app SDK 55 vs store 56), and the local API can't boot (Nitro/Vite bug). This phase stands up a **non-prod demo deploy** with the member demo-gate relaxed and a build pointed at it.
+**Depends on**: Nothing in AE1–AE3 (independent mobile workstream); newly unblocked by company iOS dev-account access (2026-06-18)
+**Requirements**: Mobile-demo reqs — to be registered in REQUIREMENTS.md at plan time (demo-gate relax, demo deploy target, EAS/web build, API base wiring)
+**Success Criteria** (what must be TRUE):
+  1. A non-prod deploy serves `/api/m/*` to the member app with the demo gate honoring an explicit off-prod `DEMO_MODE` (no prod 401)
+  2. An EAS build (under the company Apple Developer account) **or** a web build, pointed at the demo deploy via `EXPO_PUBLIC_API_BASE`, installs/loads on a real device — resolving the Expo Go SDK-55-vs-56 mismatch
+  3. A test member can complete the golden path on the device (member-picker → browse schedule → book a class → log a meal) against the demo deploy
+**Plans**: TBD
+**UI hint**: yes
 
 ## Progress
 
@@ -70,9 +86,10 @@
 |-------|----------------|--------|-----------|
 | AE1. Forms Write Tools | 0/TBD | Not started | - |
 | AE2. Schedule Write Tools | 0/TBD | Not started | - |
-| AE3. Members Write Tools | 0/TBD | Not started | - |
+| AE3. Members + Campaigns Write Tools | 0/TBD | Not started | - |
+| AE4. Live Mobile Demo | 0/TBD | Not started | - |
 
-**Coverage:** 18 v1.2 requirements mapped across 3 phases (AE1–AE3).
+**Coverage:** 18 v1.2 requirements mapped across AE1–AE3, plus Campaigns segment-builder (folded into AE3) and a new AE4 Live Mobile Demo phase — net-new requirements for both to be registered in REQUIREMENTS.md at plan time.
 
 ---
 
