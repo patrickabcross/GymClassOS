@@ -302,6 +302,76 @@ export default defineAction({
           };
         }
       }
+    } else if (nav?.view === "schedule") {
+      // AEX-01 — context-aware of the Schedule tab. Surface upcoming occurrences
+      // with their booking counts (and the selected occurrence's detail, if any)
+      // so the agent knows what exists before writing (e.g. "Friday's spin has 8 bookings").
+      const { getDb, schema } = await import("../server/db/index.js");
+      const { eq, and, count, gte, asc } = await import("drizzle-orm");
+      const db = getDb();
+      const nowIso = new Date().toISOString();
+      // guard:allow-unscoped — single-tenant gym tables
+      const occurrences = await db
+        .select({
+          id: schema.classOccurrences.id,
+          className: schema.classDefinitions.name,
+          startsAt: schema.classOccurrences.startsAt,
+          capacity: schema.classOccurrences.capacity,
+          status: schema.classOccurrences.status,
+        })
+        .from(schema.classOccurrences)
+        .innerJoin(
+          schema.classDefinitions,
+          eq(schema.classOccurrences.definitionId, schema.classDefinitions.id),
+        )
+        .where(gte(schema.classOccurrences.startsAt, nowIso))
+        .orderBy(asc(schema.classOccurrences.startsAt))
+        .limit(30);
+
+      // Per-occurrence active-booking counts (one grouped query, then map).
+      const upcomingOccurrences = [];
+      for (const occ of occurrences) {
+        // guard:allow-unscoped — single-tenant gym tables
+        const [bc] = await db
+          .select({ booked: count() })
+          .from(schema.bookings)
+          .where(
+            and(
+              eq(schema.bookings.occurrenceId, occ.id),
+              eq(schema.bookings.status, "booked"),
+            ),
+          );
+        upcomingOccurrences.push({
+          ...occ,
+          bookingCount: Number(bc?.booked ?? 0),
+        });
+      }
+      screen.schedule = { upcomingOccurrences };
+
+      if (nav?.occurrenceId) {
+        // guard:allow-unscoped — single-tenant gym tables
+        const [occ] = await db
+          .select()
+          .from(schema.classOccurrences)
+          .where(eq(schema.classOccurrences.id, nav.occurrenceId))
+          .limit(1);
+        if (occ) {
+          // guard:allow-unscoped — single-tenant gym tables
+          const [bc] = await db
+            .select({ booked: count() })
+            .from(schema.bookings)
+            .where(
+              and(
+                eq(schema.bookings.occurrenceId, occ.id),
+                eq(schema.bookings.status, "booked"),
+              ),
+            );
+          screen.selectedOccurrence = {
+            ...occ,
+            bookingCount: Number(bc?.booked ?? 0),
+          };
+        }
+      }
     } else if (nav?.view) {
       const emails = await fetchEmailList(nav.view, nav.search, nav.label);
       const selectedThreadIds = Array.isArray(nav.selectedThreadIds)
