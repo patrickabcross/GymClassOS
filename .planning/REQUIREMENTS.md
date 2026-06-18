@@ -33,6 +33,8 @@
 
 - [x] **AEM-01**: Coach can ask the agent to update a member's profile fields — first name, last name, email, phone (E.164), notes — and only those fields.
 - [x] **AEM-02**: The agent can never modify a member's consent / opt-in state (`marketing_consent`, `whatsapp_opt_in`) — the update-member action's schema structurally excludes those fields (`.strict()`), so an agent edit can never silently flip consent.
+- [x] **AEM-03**: The Campaigns tab exposes a composable segment builder (UI controls) filtering members by # classes attended / recency of last attendance / inquiry-lead date — AND-composed — replacing the fixed at-risk segment, which is preserved as a built-in preset.
+- [x] **AEM-04**: The agent can build a named segment from natural language (via the `save-segment` action) that appears in the Campaigns tab without a reload; UI and agent write the identical filter spec to the same `application_state` key.
 
 ### Agentic Editing — Cross-cutting (AEX)
 
@@ -73,6 +75,8 @@
 | AES-06 | Phase AE2 | Complete |
 | AEM-01 | Phase AE3 | Complete |
 | AEM-02 | Phase AE3 | Complete |
+| AEM-03 | Phase AE3 | Complete |
+| AEM-04 | Phase AE3 | Complete |
 | AEX-01 | Phase AE1 | Complete |
 | AEX-02 | Phase AE1 | Complete |
 | AEX-03 | Phase AE1 | Complete |

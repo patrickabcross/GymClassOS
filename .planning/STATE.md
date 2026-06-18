@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: — Agentic Tab Editing
 status: executing
-stopped_at: Completed AE3-01-PLAN.md
-last_updated: "2026-06-18T22:47:55.860Z"
+stopped_at: Completed AE3-02-PLAN.md
+last_updated: "2026-06-18T22:57:23.833Z"
 last_activity: 2026-06-18
 progress:
   total_phases: 4
@@ -31,7 +31,7 @@ Requirements: `.planning/REQUIREMENTS.md` (18 v1.2 reqs across 4 categories — 
 
 Milestone: v1.2 — Agentic Tab Editing
 Phase: AE3 (Members + Campaigns Write Tools) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 Status: Ready to execute
 Last activity: 2026-06-18
 
@@ -71,6 +71,7 @@ Last activity: 2026-06-18
 - **2026-06-18 — System-prompt per-tab update ships LAST within each phase.** Ship and HTTP-test each action wave before adding it to the system prompt. Prevents the agent from hallucinating calls to actions that don't exist yet.
 - **2026-06-18 (AE2-03) — AE2 phase complete.** All 7 schedule actions (create path + 3 direct + 2 gated) satisfy the two-exposure rule: present in `.generated/actions-registry.ts` AND named in the `agent-chat.ts` Schedule section. `view-screen` gained a `schedule` branch (upcoming occurrences + booking counts + selected occurrence, AEX-01). `cancel-occurrence` / `reschedule-occurrence` reachable ONLY via `propose-action` — no standalone direct-tool bullets (grep-verified). AES-01 (agent-driven create path) satisfied.
 - **2026-06-18 (AE3-01) — `update-member` shipped (AEM-01, AEM-02).** Agent-only partial-update over `gym_members` (firstName/lastName/email/phoneE164/notes). Consent exclusion is STRUCTURAL via Zod `.strict()` (marketing_consent / whatsapp_opt_in rejected at parse time) — not a runtime if-check. In-run E.164 (`/^\+[1-9]\d{1,14}$/`) + email validation returns typed `{error}` codes (INVALID_PHONE/INVALID_EMAIL) rather than raw Zod failures; phone is NEVER normalized (D-07). Email AND phone_e164 collision pre-checks (gym_members unique on BOTH) return EMAIL_IN_USE/PHONE_IN_USE instead of an opaque Postgres 500. `firstName .min(1)` can never be blanked. Action is DIRECT — no `http` key, NOT in `propose-action`/`approve-proposal` gate files (AEX-02). Agent exposure (agent-chat.ts Members section + view-screen members branch + AGENTS.md row) deferred to AE3-03 per the system-prompt-ships-last constraint. Commit `7ba558ad`.
+- **2026-06-18 (AE3-02) — Campaigns composable segment builder shipped (AEM-03, AEM-04).** `save-segment` agent-only action writes named filter SPECS (not materialized lists) to the framework `application_state` key `gymos-campaign-segments` — a single `segments[]` array via read-modify-write (`readAppState`→push→`writeAppState`), NO schema change. CRITICAL boundary honored: the campaigns LOADER never calls `readAppState` (it throws — no request context); segments are read CLIENT-SIDE via `GET /_agent-native/application-state/:key` (TemplatesDialog pattern). 3 AND-composed axes via the exported `matchesSpec` evaluator: `attendedCount` / `lastAttendedAt` / `createdAt`, each correlated subquery keeping the literal `"gym_members"."id"` qualifier (no 42702). At-risk criteria preserved as a built-in selectable preset that pre-fills the builder (D-05). Eligible opt-in gate generalized over ALL members and reused verbatim (not forked) — eligible count = matched ∩ opted-in-not-opted-out per selected segment. Builder UI is a shadcn `Popover` (progressive disclosure, no custom dropdown), Tabler icons, optimistic save with UI/agent parity (both POST the same `save-segment` endpoint). Live-refresh via `useChangeVersions(["action"])` + `useRevalidator` re-runs the loader AND re-fetches segments so an agent-built segment appears without a reload. Action is DIRECT — no `http` key, NOT in gate files (AEX-02). Agent exposure (agent-chat.ts Campaigns section + AGENTS.md row) deferred to AE3-03. Commits `cf138062`, `792d37f3`, `b598e245`.
 
 ### v1.1 Roadmap Decisions (preserved for reference)
 
@@ -261,6 +262,7 @@ Key patterns discovered during v1.0 execution that apply to v1.2:
 | Phase AE2-schedule-write P02 | 5m | 3 tasks | 6 files |
 | Phase AE2-schedule-write P03 | 6m | 3 tasks | 3 files |
 | Phase AE3 P01 | 2m | 1 tasks | 1 files |
+| Phase AE3 P02 | 6m | 3 tasks | 2 files |
 
 ### Carried-over concerns (from v1.1 redesign)
 
@@ -270,8 +272,8 @@ Key patterns discovered during v1.0 execution that apply to v1.2:
 
 ## Session Continuity
 
-Last session: 2026-06-18T22:47:55.849Z
-Stopped at: Completed AE3-01-PLAN.md
+Last session: 2026-06-18T22:57:23.822Z
+Stopped at: Completed AE3-02-PLAN.md
 Resume file: None
 
 ### PICK UP HERE — v1.2 Agentic Tab Editing
