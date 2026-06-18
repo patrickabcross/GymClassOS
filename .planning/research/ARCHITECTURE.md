@@ -47,7 +47,6 @@ Everything below follows from these three.
 │                ▼                                            ▼                 │
 └────────────────┼────────────────────────────────────────────┼─────────────────┘
                  │                                            │
-                 │                                            │
                  │      (no Redis — pg-boss owns queue        │
                  │       state inside the same Neon DB)       │
                  │                                            │
@@ -774,3 +773,333 @@ Steps 1-4 are sequentially dependent. Steps 5a-5c are sequentially dependent. St
 *v1.1 design system integration research — 2026-06-12*
 *Confidence: HIGH — all claims from direct file inspection of `C:\Users\dimet\gymclassos-br1` on branch `redesign/ui-refresh`*
 *Files read: `apps/staff-web/app/global.css`, `apps/staff-web/components.json`, `packages/core/src/styles/agent-native.css`, `packages/core/src/server/design-token-utils.ts`, `packages/core/src/appearance/actions/`, `packages/core/package.json`, `apps/staff-web/package.json`, `apps/staff-web/server/db/schema.ts`, `apps/staff-web/app/routes/gymos.tsx`, full route file listing, `apps/staff-web/app/components/email/` listing, `apps/staff-web/app/components/gymos/` listing, `packages/mobile-app/app/(tabs)/_layout.tsx`, `packages/mobile-app/lib/api.ts`, `pnpm-workspace.yaml`, `.planning/PROJECT.md`*
+
+---
+
+# v1.2 Agentic Tab Editing -- Integration Architecture
+
+**Milestone:** v1.2 -- Agent WRITE tools for Forms, Schedule, Members tabs in `apps/staff-web`
+**Researched:** 2026-06-18
+**Confidence:** HIGH -- all claims from direct inspection of working-tree files on `master`
+
+---
+
+## AE-1. The Core Question: New defineAction vs Refactor /api/ Handlers
+
+**Decision: New `defineAction` files for every write operation. Do NOT refactor the existing `/api/forms/[...path].ts` HTTP handler into a shared utility layer.**
+
+### Why Not Extract the /api/ Handler Logic?
+
+`apps/staff-web/server/routes/api/forms/[...path].ts` is a monolithic H3 catch-all handler (329 lines). Its internals use H3 types (`H3Event`, `readBody`, `setResponseStatus`, `getRequestURL`), manual path segment parsing, and raw body access -- none accessible from a `defineAction` `run()` context. Extracting a shared CRUD service layer would require stripping all H3 coupling from the handler, creating intermediate service functions, and wiring both the H3 handler and `defineAction` `run()` to call them. That refactor is non-trivial risk to a working Forms surface mid-v1.2 with low reward.
+
+The correct model is already established by the codebase: `actions/send-template-to-members.ts` is `defineAction`; the `/api/forms` HTTP handler is a separate thing; they both call `getDb()` + `schema.*` directly. There is no shared service layer for WhatsApp sends, and the codebase works fine. Follow that pattern.
+
+**Rule:** For v1.2, each write operation becomes a standalone `defineAction` file that reads/writes Drizzle directly. The existing `/api/forms/[...path].ts` handler stays untouched. Over time (post-v1.2) the UI can migrate its `useFetcher` calls to point at the action endpoints (the correct long-term direction per Rule #3), but that is optional scope-creep outside v1.2.
+
+---
+
+## AE-2. Per-Tab Context-Awareness -- How the Agent Knows the Active Tab
+
+### Current State (Confirmed by Inspection)
+
+`apps/staff-web/app/hooks/use-navigation-state.ts` exports `useNavigationState()` which writes a `NavigationState` object to `/_agent-native/application-state/navigation` on a debounced PUT (500ms). The current interface includes `view`, `threadId`, `focusedEmailId`, `selectedThreadIds`, `search`, `label` -- all inbox/mail template vocabulary. The gym tabs (Forms, Schedule, Members) are not represented in the navigation state sync or in `view-screen.ts` branch logic.
+
+The navigation state is **auto-injected into every user message as a `<current-screen>` block** -- the agent passively receives the active tab without calling `view-screen` first. This is the primary context delivery mechanism.
+
+### What Needs to Change
+
+**Step 1: Extend the NavigationState interface** in `use-navigation-state.ts`:
+
+```typescript
+export interface NavigationState {
+  // existing fields unchanged
+  view: string;           // add: "forms" | "form-builder" | "schedule" | "members" | "member-detail"
+  formId?: string;        // active form in builder
+  occurrenceId?: string;  // active occurrence in schedule detail pane
+  memberId?: string;      // active member in detail view
+  selectedDate?: string;  // active date in schedule grid (YYYY-MM-DD)
+}
+```
+
+**Step 2: Call `sync()` from each tab's route component.** Currently none of the gym tab routes call `useNavigationState`. Each needs `sync()` called on mount (and on relevant state changes).
+
+**Step 3: Update `view-screen.ts`** to branch on the new gym views and return relevant domain data. When `nav.view === "form-builder"` and `nav.formId` is set, fetch and return the form's fields + settings + status + responseCount.
+
+**Step 4: Update the system prompt in `agent-chat.ts`** with per-tab capability descriptions. This is the largest single leverage point in the milestone.
+
+### System Prompt Per-Tab Tool Guidance Pattern
+
+```
+When the user is on the Forms tab (view: "forms" or "form-builder"):
+  Write tools: create-form, update-form, publish-form (propose->approve), archive-form, restore-form, unpublish-form
+  Read tools: list-forms, get-form, view-screen
+
+When the user is on the Schedule tab (view: "schedule"):
+  Write tools: create-class-occurrence, update-occurrence-capacity, complete-occurrence,
+               cancel-occurrence (propose->approve), reschedule-occurrence (propose->approve)
+  Read tools: list-classes, list-fill-rate, list-occurrences
+
+When the user is on the Members tab (view: "members" or "member-detail"):
+  Write tools: update-member-profile (name, phone, email, notes ONLY; never consent or opt-in fields)
+  Read tools: list-members, list-at-risk-members
+```
+
+---
+
+## AE-3. The Propose->Approve Gate -- Per-Operation HITL Decision
+
+The existing `propose-action` -> `approve-proposal` -> action pipeline is live. `approve-proposal.ts` has a hard `ACTION_ALLOWLIST`: `["send-template-to-members", "create-checkout-link"]`. New gateable actions must be added to both this allowlist AND to the Zod enum in `propose-action.ts` (two places -- update in the same commit).
+
+### Decision Table: Direct vs Gate
+
+| Operation | Gate? | Rationale |
+|---|---|---|
+| Create a DRAFT form | Direct | Invisible to members until published; reversible |
+| Update a DRAFT form (title, description, fields, settings) | Direct | Same -- draft state, reversible |
+| Publish a form (draft -> published) | **Gate** | Irreversible user-facing effect: public URL becomes live |
+| Unpublish a form (published -> draft) | Direct | Removes public access; low risk |
+| Archive a form (soft-delete) | Direct | Reversible via restore |
+| Restore a form | Direct | Reversible |
+| Create a class occurrence | Direct | No members affected yet |
+| Update occurrence capacity | Direct | Action validates capacity >= current booking count; returns error if not |
+| Cancel a class occurrence | **Gate** | Affects members with bookings; cancel-occurrence.ts should return {error:"BOOKINGS_EXIST", bookingCount} if bookings > 0, forcing the proposal path |
+| Reschedule a class occurrence | **Gate** | Members booked based on original time |
+| Mark occurrence completed | Direct | Administrative only; no member-facing effect |
+| Update member profile (name, phone, email, notes) | Direct | Staff CRM edit, low risk |
+| Update whatsapp_opt_in | **Never via agent** | GDPR/PECR -- excluded from Zod schema with `.strict()` |
+| Update marketing_consent | **Never via agent** | Same compliance rationale |
+
+### Extending the Allowlist
+
+1. Add the new gated action names to `ACTION_ALLOWLIST` in `approve-proposal.ts`
+2. Add the `import("./action-name.js")` branches in the dynamic dispatch in `approve-proposal.ts`
+3. Extend the Zod enum in `propose-action.ts` to include the new action names
+4. Do both in the same commit
+
+No schema changes required -- `dashboard_proposals.action_name` is already a free `text` column.
+
+---
+
+## AE-4. Data Flow -- Per-Tab Detail
+
+### Tab 1: Forms
+
+**Tables:** `forms` (id, title, description, slug, fields JSON, settings JSON, status, createdAt, updatedAt, deletedAt), `responses` (read-only from agent).
+
+**New actions:**
+
+| Action | Inputs | HITL | Notes |
+|---|---|---|---|
+| `list-forms.ts` | `archived?: boolean` | Read | `http: { method: "GET" }` |
+| `get-form.ts` | `formId: string` | Read | Returns fields+settings parsed from JSON |
+| `create-form.ts` | `title: string, description?: string, fields?: Field[], settings?: object` | Direct | nanoid id, slugify(title), status:"draft" |
+| `update-form.ts` | `formId: string, title?, description?, fields?, settings?` | Direct | Partial patch; schema MUST NOT include status; use `.strict()` |
+| `publish-form.ts` | `formId: string` | **Gate** | status -> "published"; validate not deleted |
+| `unpublish-form.ts` | `formId: string` | Direct | status -> "draft" |
+| `archive-form.ts` | `formId: string` | Direct | deletedAt = now() |
+| `restore-form.ts` | `formId: string` | Direct | deletedAt = null |
+
+**Slug generation note:** `create-form.ts` must copy the `slugify()` + `makeUniqueSlug()` pure functions from the existing `/api/forms` handler -- they have no external dependencies. Do NOT import from the HTTP handler file (wrong layer boundary).
+
+**Navigation sync:**
+- `gymos.forms._index.tsx`: call `sync({ view: "forms" })` on mount
+- `gymos.forms.$id.tsx`: call `sync({ view: "form-builder", formId: id })` on mount
+
+**view-screen branch:** When `nav.view === "form-builder"` and `nav.formId` is set, fetch form by `nav.formId` and return fields + settings + status + responseCount.
+
+### Tab 2: Schedule
+
+**Tables:** `class_definitions`, `class_occurrences`, `bookings` (read for impact assessment).
+
+**New actions:**
+
+| Action | Inputs | HITL | Notes |
+|---|---|---|---|
+| `list-occurrences.ts` | `month?: string (YYYY-MM), definitionId?: string` | Read | Returns occurrences with booking counts |
+| `create-class-occurrence.ts` | `definitionId: string, startsAt: string (ISO), endsAt: string (ISO), capacity?: number, instructorUserId?, room?` | Direct | status defaults to "scheduled"; validate definitionId exists |
+| `update-occurrence-capacity.ts` | `occurrenceId: string, capacity: number` | Direct | Validate `capacity >= current booking count`; return `{error:"CAPACITY_TOO_LOW", bookingCount}` if not |
+| `cancel-occurrence.ts` | `occurrenceId: string` | **Gate** | Count bookings with status="booked"; if > 0 return `{error:"BOOKINGS_EXIST", bookingCount}` without mutating -- agent then uses propose-action with impact in rationale |
+| `reschedule-occurrence.ts` | `occurrenceId: string, startsAt: string (ISO), endsAt: string (ISO)` | **Gate** | |
+| `complete-occurrence.ts` | `occurrenceId: string` | Direct | status -> "completed" |
+
+**Navigation sync:**
+- `gymos.schedule.tsx`: call `sync({ view: "schedule", selectedDate: date })` on day-cell select; extend with `occurrenceId` when occurrence detail pane is open
+
+### Tab 3: Members
+
+**Tables:** `gym_members` only. `whatsapp_opt_in` (separate table) and `marketing_consent` (column on `gym_members`) are explicitly excluded.
+
+**New actions:**
+
+| Action | Inputs | HITL | Notes |
+|---|---|---|---|
+| `update-member-profile.ts` | `memberId: string, firstName?, lastName?, email?, phoneE164?, notes?` | Direct | Zod schema uses `.strict()` and MUST NOT include marketingConsent, whatsappOptIn, userId. Add comment in file documenting deliberate exclusion. |
+
+**Navigation sync:**
+- `gymos.members.tsx`: call `sync({ view: "members" })` on mount
+- `gymos.members_.$id.tsx`: call `sync({ view: "member-detail", memberId: id })` on mount
+
+---
+
+## AE-5. Optimistic UI Reconciliation with Agent Mutations
+
+### The Problem
+
+The three tab routes use RR v7 `loader` + `useFetcher` for their mutations. Loader data does NOT auto-refresh when the agent mutates the same rows via a `defineAction` call. After the agent updates a form title, the Forms tab still shows the old title until the user manually refreshes.
+
+### The Solution: useChangeVersion + "action" source
+
+The `real-time-sync` skill confirms: `useDbSync()` emits `source: "action"` after every non-GET `defineAction` completes. Templates fold this into query keys:
+
+```typescript
+// apps/staff-web/app/routes/gymos.forms._index.tsx
+import { useChangeVersion } from "@agent-native/core/client";
+import { useQuery } from "@tanstack/react-query";
+import { useLoaderData } from "react-router";
+
+export default function FormsIndex() {
+  const initialForms = useLoaderData<typeof loader>().forms; // SSR hydration
+  const v = useChangeVersion("action");
+  const { data: forms = initialForms } = useQuery({
+    queryKey: ["forms", v],
+    queryFn: () => fetch("/_agent-native/actions/list-forms").then(r => r.json()),
+    initialData: initialForms,
+    staleTime: 2_000,
+    placeholderData: (prev) => prev, // no flicker on refetch
+  });
+  // render forms...
+}
+```
+
+**Key properties:**
+- SSR hydration via `initialData` -- no blank flash on first navigation
+- `staleTime: 2_000` prevents double-fetch when loader data is fresh
+- Agent `defineAction` call emits `source: "action"`, `useChangeVersion("action")` increments, queryKey changes, React Query refetches -- tab updates within 2-second poll cycle
+- UI-initiated mutations that POST to `/_agent-native/actions/:name` also trigger the same event -- one live-refresh mechanism covers both agent and UI writes
+- `useDbSync({ ignoreSource: TAB_ID })` prevents the writing tab from refetching its own writes (jitter prevention per real-time-sync skill)
+
+**For proposal-gated operations:** when the agent creates a `publish-form` or `cancel-occurrence` proposal, `dashboard_proposals` is written. The noticeboard at `/gymos` loads this table on navigation. Coach sees the proposal card on their next page visit.
+
+---
+
+## AE-6. New vs Modified Files
+
+### New Files (15 actions + 0 schema changes, all additive)
+
+| File | Purpose |
+|---|---|
+| `apps/staff-web/actions/list-forms.ts` | Read all non-deleted forms with response counts |
+| `apps/staff-web/actions/get-form.ts` | Read single form with fields + settings |
+| `apps/staff-web/actions/create-form.ts` | Create draft form (nanoid id, slugify title) |
+| `apps/staff-web/actions/update-form.ts` | Patch safe fields only (not status); `.strict()` |
+| `apps/staff-web/actions/publish-form.ts` | Draft -> published (HITL gated) |
+| `apps/staff-web/actions/unpublish-form.ts` | Published -> draft (direct) |
+| `apps/staff-web/actions/archive-form.ts` | Soft-delete (direct) |
+| `apps/staff-web/actions/restore-form.ts` | Restore soft-deleted form (direct) |
+| `apps/staff-web/actions/list-occurrences.ts` | Read occurrences with booking counts |
+| `apps/staff-web/actions/create-class-occurrence.ts` | Create new occurrence (direct) |
+| `apps/staff-web/actions/update-occurrence-capacity.ts` | Patch capacity (direct; validates vs booking count) |
+| `apps/staff-web/actions/cancel-occurrence.ts` | Cancel occurrence (HITL gated) |
+| `apps/staff-web/actions/reschedule-occurrence.ts` | Update starts_at/ends_at (HITL gated) |
+| `apps/staff-web/actions/complete-occurrence.ts` | Mark occurrence completed (direct) |
+| `apps/staff-web/actions/update-member-profile.ts` | Patch safe profile fields only; `.strict()` |
+
+### Modified Files
+
+| File | Change | Risk |
+|---|---|---|
+| `apps/staff-web/server/plugins/agent-chat.ts` | Add per-tab capability sections to system prompt; add all 15 new actions to tool list | Low |
+| `apps/staff-web/app/hooks/use-navigation-state.ts` | Extend NavigationState interface with formId?, occurrenceId?, memberId?, selectedDate? | Low |
+| `apps/staff-web/actions/view-screen.ts` | Add branches for form-builder, schedule, member-detail views | Low |
+| `apps/staff-web/actions/approve-proposal.ts` | Add publish-form, cancel-occurrence, reschedule-occurrence to ACTION_ALLOWLIST + dynamic import branches | Low |
+| `apps/staff-web/actions/propose-action.ts` | Extend Zod enum for new gated action names | Low |
+| `apps/staff-web/app/routes/gymos.forms._index.tsx` | Add sync() on mount; migrate list fetch to useQuery + useChangeVersion("action") | Medium |
+| `apps/staff-web/app/routes/gymos.forms.$id.tsx` | Add sync() with formId; migrate form fetch to useQuery | Medium |
+| `apps/staff-web/app/routes/gymos.schedule.tsx` | Add sync() with selectedDate; migrate occurrence list to useQuery | Medium |
+| `apps/staff-web/app/routes/gymos.members.tsx` | Add sync({ view: "members" }) on mount | Low |
+| `apps/staff-web/app/routes/gymos.members_.$id.tsx` | Add sync({ view: "member-detail", memberId }) on mount | Low |
+| `apps/staff-web/AGENTS.md` | Add all 15 new actions to Agent Actions table; document HITL decisions | Low |
+
+### Explicitly Untouched
+
+| File | Why |
+|---|---|
+| `apps/staff-web/server/routes/api/forms/[...path].ts` | Existing HTTP handler stays as-is; no refactor |
+| `apps/staff-web/server/db/schema.ts` | No schema changes -- v1.2 uses existing tables |
+| `apps/staff-web/server/db/forms-schema.ts` | No schema changes |
+
+---
+
+## AE-7. Suggested Build Order
+
+**Forms first** -- simplest domain (single table, no booking impact, no compliance adjacency), logic proven by the existing `/api/forms` handler, directly demo-relevant (schedule-enquiry form). Schedule second -- most operationally used tab. Members last -- simplest technically but highest compliance attention (consent field exclusion).
+
+Within each tab: **Actions first, then navigation sync, then system prompt, then useQuery migration.** This order lets the agent use the tools via `/_agent-native/actions/:name` before the UI wiring is complete, enabling independent end-to-end testing.
+
+**Wave 1 -- Forms**
+1. `list-forms.ts` + `get-form.ts` (read; deploy to verify registry pickup)
+2. `create-form.ts` + `update-form.ts` (direct write; include slugify helpers)
+3. `unpublish-form.ts` + `archive-form.ts` + `restore-form.ts` (direct)
+4. `publish-form.ts` (gated; extend approve-proposal.ts allowlist + propose-action.ts enum in same commit)
+5. Extend NavigationState + add sync() to gymos.forms._index.tsx + gymos.forms.$id.tsx
+6. Update view-screen.ts for form-builder branch
+7. Update agent-chat.ts system prompt for Forms section
+8. Migrate forms routes to useQuery + useChangeVersion("action")
+9. Update AGENTS.md table
+
+**Wave 2 -- Schedule**
+1. `list-occurrences.ts` (read)
+2. `create-class-occurrence.ts` + `update-occurrence-capacity.ts` + `complete-occurrence.ts` (direct)
+3. `cancel-occurrence.ts` + `reschedule-occurrence.ts` (gated; extend allowlist + enum)
+4. Navigation sync + view-screen branch for schedule
+5. System prompt update for Schedule section
+6. useQuery migration for schedule
+7. AGENTS.md update
+
+**Wave 3 -- Members**
+1. `update-member-profile.ts` (direct; consent exclusion documented in Zod schema with `.strict()`)
+2. Navigation sync + view-screen branch for member-detail
+3. System prompt update for Members section
+4. AGENTS.md update
+
+**Wave 4 -- Integration**
+1. End-to-end agent test: create form -> update -> publish via propose->approve
+2. Verify live-refresh: agent edits form, open Forms tab updates within 2s without manual refresh
+3. Verify compliance gate: Zod `.parse({memberId:"x", whatsappOptIn:true})` on update-member-profile throws
+4. Verify cancel-occurrence refuses direct execution when bookings exist
+
+---
+
+## AE-8. Risk Register
+
+| Risk | Severity | Mitigation |
+|---|---|---|
+| approve-proposal.ts allowlist + propose-action.ts Zod enum are two separate places that must stay in sync | Medium | Update both in same commit; add comment in approve-proposal.ts referencing propose-action.ts enum |
+| update-form.ts accidentally including status field lets agent publish without gate | High | Use `z.object({...}).strict()` on update-form schema; omit status entirely; add code comment |
+| cancel-occurrence with active bookings executed directly instead of via proposal | High | Inside cancel-occurrence.ts `run()`: count bookings with status="booked"; if > 0 return `{error:"BOOKINGS_EXIST", bookingCount}` without mutating. Agent must then call propose-action with impact in rationale. |
+| useQuery migration double-fetch on first load | Low | `initialData: loaderData.forms` + `staleTime: 2000` eliminates redundant client fetch |
+| Stale .generated/actions-registry.js after adding new action files | Medium | No local dev server -- trigger Vercel deploy after each wave to verify registry pickup. AGENTS.md "Adding a New Gym Action" step 4 already documents this. |
+| Navigation state 500ms debounce vs immediate agent action | Low | Human-paced message flow means 500ms never matters in practice. Flag in PITFALLS.md for any future automated agent flows. |
+| Agent attempts to update consent fields | Low | Zod `.strict()` on update-member-profile throws parse error before `run()` is reached. Verifiable with a unit test. |
+
+---
+
+## AE-9. Integration Points Reference
+
+| Integration Point | File | Mechanism |
+|---|---|---|
+| Agent tool registration | `apps/staff-web/server/plugins/agent-chat.ts` | `loadActionsFromStaticRegistry(actionsRegistry)` auto-picks up new actions; system prompt must also name them |
+| Action registry | `.generated/actions-registry.js` (gitignored) | Regenerated on dev server start or Vercel build |
+| Active tab context delivery | NavigationState -> application-state/navigation | `useNavigationState().sync()` from each route component |
+| Agent passive context | `<current-screen>` auto-injection in every user message | Framework does this automatically from navigation application-state |
+| Agent active context | `view-screen` action | Extended per AE-4 with gym view branches |
+| HITL gate | propose-action -> dashboard_proposals -> noticeboard -> approve-proposal | Existing pipeline; only allowlist + enum entries need adding |
+| UI live-refresh after agent write | `useChangeVersion("action")` folded into React Query query keys | `useDbSync` emits `source:"action"` after every non-GET defineAction |
+| UI optimistic mutations | `onMutate` cache update -> fire action -> `onError` rollback | Mandated by AGENTS.md conventions |
+| No local dev verification | `tsc` + `vitest` for action unit tests, then Vercel deploy | Confirmed constraint in PROJECT.md v1.2 |
+
+---
+
+*v1.2 agentic tab editing integration architecture -- 2026-06-18*
+*Confidence: HIGH -- all claims from direct inspection of `apps/staff-web/` working tree on `master` branch*
+*Files read: `apps/staff-web/server/plugins/agent-chat.ts`, `apps/staff-web/actions/approve-proposal.ts`, `apps/staff-web/actions/propose-action.ts`, `apps/staff-web/actions/send-template-to-members.ts`, `apps/staff-web/server/routes/api/forms/[...path].ts`, `apps/staff-web/app/hooks/use-navigation-state.ts`, `apps/staff-web/actions/view-screen.ts`, `apps/staff-web/app/routes/gymos.forms._index.tsx`, `apps/staff-web/app/routes/gymos.schedule.tsx`, `apps/staff-web/app/routes/gymos.members.tsx`, `apps/staff-web/server/db/schema.ts`, `.agents/skills/context-awareness/SKILL.md`, `.agents/skills/real-time-sync/SKILL.md`, `.planning/PROJECT.md`, `AGENTS.md`*

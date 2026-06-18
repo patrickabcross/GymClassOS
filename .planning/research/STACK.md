@@ -1,303 +1,255 @@
-# Stack Research — GymClassOS v1.1 UI Redesign (Theming Layer)
+# Stack Research — GymClassOS v1.2 Agentic Tab Editing (Write Tools)
 
-**Domain:** Studio-skinnable design system spanning Tailwind v4 web + Expo React Native
-**Researched:** 2026-06-12
-**Confidence:** HIGH for Tailwind v4 token strategy and embed isolation (official docs verified); MEDIUM for RN theming approach (evidence-based, multiple credible sources); LOW for react-native-unistyles (architectural fit needs prototype validation)
+**Domain:** Agent write-tool layer for Forms, Schedule, Members tabs in an existing agent-native staff-web
+**Researched:** 2026-06-18
+**Confidence:** HIGH — all findings are based on direct inspection of the live codebase (actions/, .generated/, server/plugins/, AGENTS.md, skills/). No new dependencies are required; every primitive already exists and is in production use.
 
-> **Scope note.** This file covers ONLY the stack additions and changes needed for milestone v1.1 (studio-skinnable design system). The base platform stack (React Router v7, Drizzle, Better-auth, pg-boss, Hono, WhatsApp, Stripe) is documented in the 2026-05-17 version of this file — that research stands unchanged. Nothing below touches those choices.
+> **Scope note.** This file covers ONLY what is needed for v1.2 (adding agent WRITE tools for the three tabs). The base platform stack (React Router v7, Drizzle, Better-auth, Neon, pg-boss, Hono, WhatsApp, Stripe) is decided and locked. The v1.1 theming stack (gymos-tokens, @theme inline, ThemeContext) is also decided. Nothing below revisits those choices.
 
 ---
 
 ## The Single Most Important Finding
 
-**The embed widget already uses iframes.** `apps/staff-web/features/forms/lib/embed-snippet.ts` and `schedule-widget-ssr.ts` inject `<iframe>` elements and communicate via `postMessage`. This decision was made in P1c. **CSS isolation for embeds is solved.** The SSR pages rendered inside the iframes are self-contained HTML documents with `<style>` blocks — the host page's CSS cannot reach in. The redesign work is confined to improving those inline styles to consume the token system, not changing the isolation model.
-
-This means Shadow DOM and CSS prefixing are both off the table as over-engineering. The existing iframe approach is correct and identical to how Calendly, Typeform, and Elfsight handle third-party embeds in 2026.
+**Zero new dependencies are needed.** Every primitive required for agent write-tools is already in the codebase and in production use. The work is purely additive TypeScript in `apps/staff-web/actions/` — the same pattern already used by `upsert-section-note.ts`, `create-task.ts`, and `suggest-template-vars.ts`. Adding a write tool is a five-step workflow (create action file → regenerate registry → document in AGENTS.md → add to system prompt tool list → wire optimistic UI), all using existing tools.
 
 ---
 
-## Recommended Stack Additions
+## Existing Primitives to Reuse
 
-### Core Technologies (New for v1.1)
+### 1. `defineAction` — the only path for all new operations
 
-| Technology | Version | Purpose | Why Recommended |
-|------------|---------|---------|-----------------|
-| **`packages/gymos-tokens`** (new workspace package) | n/a — hand-rolled, no semver | Single source of truth for design tokens: color palette, semantic color mappings, typography scale, border-radius scale, spacing overrides | A 100-line TypeScript file avoids Style Dictionary's build pipeline complexity entirely. Token values are plain JS objects; CSS var names are derived by convention. Feeds both the Tailwind v4 `@theme` block (as a generated CSS snippet) and the Expo `ThemeContext` (as direct JS values). The workspace already has the precedent for tiny shared packages (`packages/shared-app-config`, `packages/queue`). |
-| **Tailwind v4 `@theme inline` + CSS variable override pattern** | Tailwind `^4.2.4` (already in catalog) | Runtime per-studio theming on staff web and embed pages | `@theme inline` makes Tailwind emit `var(--color-primary)` in utility classes instead of literal values. Overriding `:root` CSS variables at request-render time (server-injected `<style>` block with per-studio values) then flows through the entire Tailwind utility class tree. No recompile needed. Verified against official Tailwind v4 docs and shadcn/ui v4 migration guide. |
-| **`ThemeContext` (hand-rolled, ~60 lines)** | n/a | Runtime theme for Expo/React Native | Context provides a `theme` object typed against `packages/gymos-tokens`. `StyleSheet.create()` calls are replaced with inline objects derived from `useTheme()`. No third-party RN styling library needed for a 5-token system. |
-| **`expo-font` (already a transitive dep via Expo)** | `~56.0.x` (bundled with Expo 55) | Load self-hosted Inter OTF files in the Expo app | `useFonts()` hook works with Expo Go (required — demo uses Expo Go per PROJECT.md). The config plugin alternative requires a dev build and cannot be tested via Expo Go. |
+**File:** `@agent-native/core` (imported in every action)
+**Pattern:** Verified by inspecting `apps/staff-web/actions/upsert-section-note.ts`, `suggest-template-vars.ts`, `send-template-to-members.ts`, `propose-action.ts`, `create-task.ts`.
 
-### Supporting Libraries (New or Changed for v1.1)
+A `defineAction` call does three things simultaneously:
+- Registers the action as an LLM tool (name, description, Zod-typed parameters, structured return)
+- Auto-exposes it as an HTTP endpoint at `/_agent-native/actions/<action-name>` for the UI to call via `useActionMutation`
+- Triggers an automatic UI poll event on completion (non-GET actions cause `useDbSync` to invalidate all `["action"]` React Query keys)
 
-| Library | Version | Purpose | When to Use |
-|---------|---------|---------|-------------|
-| **`next-themes`** | `^0.4.6` (already in staff-web devDependencies) | Light/dark mode toggle on staff web | Already installed. For studio theming, dark/light is a separate toggle from studio brand tokens. Use `next-themes` for dark mode class on `<html>` as today; use CSS variable injection for studio brand tokens. Do not conflate them. |
-| **`vite-plugin-webfont-dl`** | `^3.9.x` | Download and self-host Inter from Google Fonts at build time | Optional but recommended: eliminates the Google Fonts `@import` CDN call in `global.css` (privacy + performance). The current `global.css` line 1 is `@import url("https://fonts.googleapis.com/css2?family=Inter:...")` — this sends a third-party DNS lookup on every page load. Replacing it with a local `/fonts/inter-variable.woff2` served from the Vite public dir eliminates the lookup. Install in `apps/staff-web` only. |
+For write tools, omit `http` (default POST) or use `http: { method: "PUT" }` for update semantics. Never set `http: { method: "GET" }` on a mutation — that suppresses the automatic UI refresh.
 
-### Development Tools (No Changes)
+The Zod `schema` field is required for new actions. It provides runtime validation (400 for HTTP callers, error result for the agent), full TypeScript type inference for `run()` args, and auto-generates the JSON Schema the LLM tool definition uses.
 
-All existing tooling (pnpm, Vite, TypeScript, Vitest, Prettier) applies unchanged. The tokens package requires no special build tooling — it exports plain TypeScript and is consumed directly via `workspace:*` in other packages.
-
----
-
-## Token Architecture
-
-### Workspace Location
-
-```
-packages/
-  gymos-tokens/           ← NEW
-    package.json          (name: "@gymos/tokens", private: true, main: "index.ts")
-    index.ts              (exports primitives + semantics + helpers)
-    tokens/
-      primitives.ts       (color palette: slate, blue, etc. — raw values)
-      semantics.ts        (maps primitives to roles: primary, background, border, etc.)
-      typography.ts       (font family names, scale)
-      radius.ts           (border radius scale)
-    css/
-      base-theme.css      (generated or hand-authored @theme block — consumed by staff-web)
-```
-
-### Why NOT style-dictionary
-
-Style Dictionary v4 is a mature build pipeline for teams with a Figma-to-code token export workflow and multiple platform targets. For a solo developer with a 5-token surface (color, typography, radius, logo, dark/light) and no Figma token export, it adds:
-- A `build.ts` config file
-- A separate build step before any consuming package can compile
-- The CTI naming convention to learn and map to Tailwind's naming
-- An additional ~700 KB in devDependencies
-
-The hand-rolled alternative is 100 lines of TypeScript and a conventions document. The tokens package only needs to grow to style-dictionary if: (a) there are more than 3 studios with divergent token sets, or (b) a Figma plugin export workflow is introduced. Neither applies to v1.1.
-
-### Token Structure (Recommended)
+**Concrete write-action template (from production pattern):**
 
 ```typescript
-// packages/gymos-tokens/tokens/primitives.ts
-// Raw palette — never referenced directly by components
-export const palette = {
-  blue: { 50: "#eff6ff", 500: "#3b82f6", 900: "#1e3a5f" },
-  slate: { 50: "#f8fafc", 900: "#0f172a" },
-  // ... studio-skinnable accent colours added per studio config
-} as const;
+// apps/staff-web/actions/update-member.ts
+import { z } from "zod";
+import { defineAction } from "@agent-native/core";
+import { getDb, schema } from "../server/db/index.js";
+import { eq } from "drizzle-orm";
 
-// packages/gymos-tokens/tokens/semantics.ts
-// Role-based tokens — what components reference
-export type StudioTokens = {
-  colorPrimary: string;       // accent / CTA
-  colorBackground: string;    // page background
-  colorForeground: string;    // body text
-  colorCard: string;          // card surface
-  colorBorder: string;        // borders / dividers
-  colorMuted: string;         // muted text
-  radiusBase: string;         // e.g. "0.5rem"
-  fontSans: string;           // font-family stack
-};
-
-export const defaultTokens: StudioTokens = {
-  colorPrimary: "#3b82f6",
-  colorBackground: "hsl(0 0% 100%)",
-  // ...
-};
-```
-
-### How Tokens Flow to Each Surface
-
-#### Surface 1: Staff Web (Tailwind v4)
-
-The existing `global.css` already uses CSS variables (`--primary`, `--background`, etc.) in the shadcn/Radix pattern. The addition is:
-
-1. Add `@theme inline` block mapping Tailwind tokens to CSS vars (shadcn/ui v4 pattern — verified):
-
-```css
-/* global.css */
-@theme inline {
-  --color-primary: var(--primary);
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  /* ... studio brand tokens */
-  --color-studio-accent: var(--studio-accent);
-  --radius-base: var(--radius);
-}
-```
-
-2. Per-studio override injected by the loader (single-tenant deploy — values come from DB or env):
-
-```typescript
-// Server-rendered <style> block in the root layout
-const studioTheme = await getStudioTokens(); // reads studio config from DB
-const cssVarBlock = `
-  :root {
-    --studio-accent: ${studioTheme.colorPrimary};
-    --radius: ${studioTheme.radiusBase};
-    /* font is handled separately via @font-face */
-  }
-`;
-```
-
-This is pure CSS variable override — no Tailwind recompile, no build step, works at runtime. The pattern is verified against the official Tailwind v4 discussion thread and shadcn/ui v4 docs (both confirm this is the intended approach).
-
-#### Surface 2: Embed Widgets (Iframe SSR pages)
-
-The embed pages (`schedule-widget-ssr.ts`, `public-form-ssr.ts`) already inline all CSS into the `<head>`. The theming parameters arrive as URL query params (`?accent=&radius=`). The redesign work is:
-
-1. Expand the inline CSS `<style>` block to reference `--studio-*` vars at `:root` level.
-2. Populate those vars from the sanitized URL params (already done for `--gym-accent` and `--gym-radius` — extend the same pattern).
-3. Import the font from the same self-hosted `/fonts/` path served by staff-web.
-
-**No new library needed.** The embed isolation approach (iframe + postMessage) is already correct and identical to Calendly/Typeform's model. Shadow DOM is not needed and would break the current resize postMessage mechanism.
-
-#### Surface 3: Expo Mobile App (React Native)
-
-React Native has no CSS. Tailwind does not apply. The approach:
-
-1. Add `packages/gymos-tokens` as a workspace dep in `packages/mobile-app`.
-2. Create `packages/mobile-app/lib/theme.ts` exporting `ThemeContext` + `useTheme()`.
-3. Wrap the root layout in `<ThemeProvider>` with the studio's token values (loaded from the API on app start, or bundled as the single-studio default since this is a per-studio deploy).
-4. Replace hardcoded hex strings in `StyleSheet.create()` calls with `useTheme()` values.
-
-Currently all mobile screens use hardcoded values (`backgroundColor: "#111"`, `color: "#fff"`, `backgroundColor: "#3b82f6"` etc — confirmed by inspecting `packages/mobile-app/app/(tabs)/index.tsx` and `_layout.tsx`). The redesign replaces these with theme-derived values.
-
-**No react-native-unistyles needed.** Unistyles v3 requires native module compilation (C++ / Nitro modules) and a development build. The project constraint is that demo uses Expo Go. Unistyles v3 is incompatible with Expo Go. A hand-rolled ThemeContext costs ~60 lines and has zero native footprint.
-
----
-
-## Font Strategy
-
-### Staff Web
-
-Replace the Google Fonts CDN import with a self-hosted Inter variable font:
-
-1. Download `inter-variable.woff2` from the Inter GitHub release or Google Webfonts Helper (`gwfh.mranftl.com`).
-2. Place in `apps/staff-web/public/fonts/inter-variable.woff2`.
-3. Replace `global.css` line 1 (`@import url("https://fonts.googleapis.com/...")`) with a local `@font-face` block.
-4. Add a `<link rel="preload" as="font" type="font/woff2" crossorigin href="/fonts/inter-variable.woff2">` in the root layout.
-
-The `vite-plugin-webfont-dl` plugin can automate steps 1-3 at build time if preferred, but manual download is simpler for a solo dev.
-
-### Embed Widgets
-
-The embed SSR pages currently `@import` Inter from Google Fonts (see `schedule-widget-ssr.ts` line 233). Replace with a reference to the same `/fonts/inter-variable.woff2` path served by staff-web — the iframe src is the same origin as the font file, so no CORS issue.
-
-### Expo Mobile App
-
-Use `useFonts` from `expo-font` (already a transitive dep from Expo 55, version `~56.0.x`):
-
-```typescript
-const [loaded] = useFonts({
-  "Inter-Regular": require("../../assets/fonts/Inter-Regular.otf"),
-  "Inter-SemiBold": require("../../assets/fonts/Inter-SemiBold.otf"),
-  "Inter-Bold": require("../../assets/fonts/Inter-Bold.otf"),
+export default defineAction({
+  description:
+    "Update a gym member's profile fields (name, phone_e164, email, notes). " +
+    "Does NOT touch whatsapp_opt_in or marketing_consent — those are consent fields, " +
+    "never silently changed by the agent. Returns the updated member row.",
+  schema: z.object({
+    memberId: z.string().min(1).describe("gym_members.id to update"),
+    name: z.string().optional().describe("Display name"),
+    phoneE164: z.string().optional().describe("Phone in E.164 format"),
+    email: z.string().email().optional().describe("Email address"),
+    notes: z.string().max(2000).optional().describe("Coach notes"),
+  }),
+  run: async ({ memberId, name, phoneE164, email, notes }) => {
+    const db = getDb();
+    const patch: Record<string, unknown> = {};
+    if (name !== undefined) patch.name = name;
+    if (phoneE164 !== undefined) patch.phoneE164 = phoneE164;
+    if (email !== undefined) patch.email = email;
+    if (notes !== undefined) patch.notes = notes;
+    if (Object.keys(patch).length === 0) return { error: "No fields to update" };
+    // guard:allow-unscoped — single-tenant gym deploy; gym_members has no ownableColumns()
+    await db
+      .update(schema.gymMembers)
+      .set(patch)
+      .where(eq(schema.gymMembers.id, memberId));
+    return { updated: true, memberId };
+  },
 });
 ```
 
-**Use OTF, not TTF.** Official Expo docs (2026) state OTF files are smaller than TTF and render slightly better in certain contexts. Download from `github.com/rsms/inter`.
+### 2. `.generated/actions-registry.ts` — the static import registry
 
-**Use `useFonts`, not the config plugin.** The config plugin embeds fonts at native build time but is incompatible with Expo Go. Since the demo runs on Expo Go (PROJECT.md constraint), `useFonts` is the only viable approach. The config plugin can be added when EAS Build replaces Expo Go in production.
+**File:** `apps/staff-web/.generated/actions-registry.ts`
+**Status:** AUTO-GENERATED. Do not edit manually.
 
-Place font assets in `packages/mobile-app/assets/fonts/` — this keeps the fork boundary clean (not in `templates/` or `packages-vendored/`).
+The registry is a flat object mapping every action name (kebab-case string) to its `* as` namespace import. `createAgentChatPlugin` in `agent-chat.ts` calls `loadActionsFromStaticRegistry(actionsRegistry)` to derive the LLM tool list — the registry IS the source of truth for which actions the agent can call. Every new action file must appear here.
+
+**How to trigger regeneration:** In a normal dev flow, the Vite plugin regenerates this file automatically when `actions/` files change. Since local dev server is broken (Nitro/Vite bug per PROJECT.md), regenerate manually by running `pnpm generate` or the equivalent Vite build invocation, then verify the new action name appears in the modules object before deploying.
+
+The companion `.generated/action-types.d.ts` augments the `ActionRegistry` interface in `@agent-native/core/client` so `useActionQuery` and `useActionMutation` infer exact return types — both files regenerate together.
+
+### 3. `createAgentChatPlugin` + `loadActionsFromStaticRegistry` — agent tool wiring
+
+**File:** `apps/staff-web/server/plugins/agent-chat.ts` (entire file is 54 lines)
+
+```typescript
+export default createAgentChatPlugin({
+  actions: loadActionsFromStaticRegistry(actionsRegistry),
+  appId: "gymos",
+  resolveOrgId: ...,
+  systemPrompt: `...`,
+});
+```
+
+`loadActionsFromStaticRegistry` normalises each module to an `ActionEntry` shape. An `ActionEntry` requires `description` and `schema` (or `parameters`) from the `defineAction` call. The agent sees EVERY action in the registry as a potential tool — but the system prompt controls which tools it knows to use.
+
+**Critical distinction:** The registry makes a tool technically callable; the system prompt `Available tools:` list is what teaches the agent it exists and how to use it. A new write action that is missing from the system prompt will be technically available but the agent will not know to call it. Both must be updated.
+
+### 4. System prompt tool list — the agent's knowledge of its own tools
+
+**File:** `apps/staff-web/server/plugins/agent-chat.ts`, lines 29–43
+
+The current tool list is a flat bullet list inside the `systemPrompt` string. For v1.2, each new write action needs a bullet with:
+- Tool name (exactly matching the action file name in kebab-case)
+- One-line description of when to use it (distinct from the action's own `description` which is used for the JSON Schema `description` field)
+- Any constraint the agent must know at invocation time (e.g., "does NOT touch whatsapp_opt_in")
+
+The system prompt also needs a per-tab capability section so the agent leads with the right tools based on the active tab (which it already receives via the navigation state block injected into every message).
+
+### 5. `readAppState` / `writeAppState` — application_state read/write
+
+**Imports:** `@agent-native/core/application-state`
+**In production use:** `suggest-template-vars.ts` calls `writeAppState(key, vars)` to write template variable suggestions back to the UI; `view-screen.ts` calls `readAppState("navigation")` to see the current tab.
+
+The `navigation` key is written by the UI's `use-navigation-state.ts` hook on every route change. Its shape for the gymos app includes `{ view: "forms" | "schedule" | "members" | "inbox" | ... }` and optionally selected item IDs. The agent already receives navigation state as a `<current-screen>` block injected into every user message (framework behaviour documented in the context-awareness skill), so `view-screen` is only needed for richer per-item data.
+
+For v1.2, the `navigation` key should also carry the active selected item ID (e.g., `formId`, `occurrenceId`, `memberId`) when the user has an item open. The write-action context-awareness additions are:
+- Extend the navigation state writer in the UI to include the selected item ID per tab
+- Update `view-screen.ts` to fetch the item's current data when that tab/item is active
+
+### 6. Human-in-the-loop: `propose-action` / `approve-proposal` pattern
+
+**Files:** `apps/staff-web/actions/propose-action.ts`, `apps/staff-web/actions/approve-proposal.ts`
+
+The existing propose→approve pattern is already production-hardened. It:
+- Inserts a `dashboard_proposals` row with `status='pending'` (the agent calls `propose-action`)
+- Renders a one-click card on the noticeboard (the UI reads pending proposals via `useActionQuery`)
+- On coach click, `approve-proposal` re-validates stored params against the target action's own Zod schema, then calls `run()` directly
+
+**The `ACTION_ALLOWLIST` in `approve-proposal.ts` must be extended** for any v1.2 write action that goes through the propose→approve path (currently `["send-template-to-members", "create-checkout-link"]`). Extending the allowlist is a one-line edit.
+
+**Decision by operation (from PROJECT.md v1.2 constraints):**
+- Draft form edits, class capacity adjustment → direct write (agent calls action, no proposal)
+- Form publish/unpublish → propose→approve (affects what members see)
+- Schedule cancel/reschedule → propose→approve (affects existing bookings)
+- Member profile field edits (name, phone, email, notes) → direct write (low-risk, no member messaging implied)
+- Any action that sends WhatsApp or touches payments → always propose→approve (existing rule)
+
+For direct-write actions, no changes to the propose/approve machinery are needed. For propose→approve-gated actions, add the new action name to the `ACTION_ALLOWLIST` array.
+
+### 7. `// guard:allow-unscoped` — the single-tenant scoping bypass
+
+All gym domain tables (`gym_members`, `class_definitions`, `class_occurrences`, `bookings`, `passes`, `whatsapp_templates`, etc.) do NOT use `ownableColumns()`. They are single-tenant by design. Every action that queries these tables must include the comment `// guard:allow-unscoped — single-tenant gym deploy; gym_members has no ownableColumns()` (or equivalent reason) to satisfy the `guard-no-unscoped-queries.mjs` CI script. This is already the pattern in every existing gym action (verified in `send-template-to-members.ts`, `propose-action.ts`, `upsert-section-note.ts`).
+
+### 8. Automatic UI refresh after write actions
+
+The framework's `useDbSync` polls `/_agent-native/poll` every 2s and invalidates all `["action"]` React Query keys when any non-GET action completes successfully. This means any UI component using `useActionQuery` to fetch form/schedule/member data will automatically refetch after the agent writes — without any additional wiring. The UI does NOT need to listen for a specific event from the new action; the framework refresh is universal.
+
+For optimistic UI (AGENTS.md convention: "the UI must feel instant"), the mutation in the UI component should follow the standard pattern: update React Query cache in `onMutate`, call `useActionMutation`, roll back in `onError`, replace in `onSuccess`.
 
 ---
 
-## Embed CSS Isolation — Decision Record
+## New Additions (if any)
 
-The question was: Shadow DOM vs CSS prefixing vs iframe for embed widget isolation.
+**None.** v1.2 requires zero new npm packages, zero new infrastructure, zero new framework primitives.
 
-**Decision: iframe (already implemented — no change needed).**
-
-Evidence:
-- The current codebase already implements iframe embeds with postMessage theming params (embed-snippet.ts, schedule-widget-ssr.ts — inspected directly).
-- Calendly, Typeform, and Elfsight all use the iframe model for third-party embed isolation as of 2026.
-- Shadow DOM requires the host page to use the Web Components API and does not naturally work as a drop-in script tag embed.
-- CSS prefixing (e.g. `.gymos-widget .card { ... }`) leaks styles if the host page has a `.card` rule with `!important` — fragile.
-- The iframe model means: host page CSS cannot reach in; GymClassOS CSS cannot bleed out; the only interface is the iframe `src` URL and `postMessage`.
-
-The theming redesign for embeds is therefore: improve the inline CSS within the existing SSR pages to use CSS variables from `packages/gymos-tokens`, consuming `--studio-*` vars set from the URL params. No structural change to the embed mechanism.
-
----
-
-## Alternatives Considered
-
-| Recommended | Alternative | Why Not |
-|-------------|-------------|---------|
-| Hand-rolled `packages/gymos-tokens` (plain TS) | style-dictionary v4 | 700 KB devDep + separate build step + CTI naming conventions + Figma token export workflow assumed. 0 of those are present in this project for v1.1. Re-evaluate if a second studio joins with a Figma design token export. |
-| `@theme inline` + CSS var override at render time | Compile-time per-studio Tailwind build | Would require running a full Tailwind compile per studio per deploy. With a single-tenant deploy model this is technically possible but unnecessary — CSS var override achieves the same result with zero build cost. |
-| Hand-rolled `ThemeContext` (~60 lines) in RN | react-native-unistyles v3 | Unistyles v3 requires C++ native modules (Nitro), incompatible with Expo Go. The demo constraint makes this a hard blocker. Unistyles is the right choice if EAS Dev Client replaces Expo Go, but not before. |
-| Hand-rolled `ThemeContext` (~60 lines) in RN | react-native-unistyles v2 | Unistyles v2 does not support New Architecture — Expo SDK 55 (React Native 0.83) removed the old architecture. Unistyles v2 is incompatible. |
-| Hand-rolled `ThemeContext` (~60 lines) in RN | NativeWind (Tailwind for RN) | NativeWind v4 compiles Tailwind utility classes to RN StyleSheets at build time, requires a Babel/Metro plugin, and does not consume the same CSS custom property token system as the web surfaces. Adds Babel complexity for minimal gain in a 5-token system. |
-| `useFonts` hook for Expo fonts | expo-font config plugin | Config plugin requires a dev build, incompatible with Expo Go. Must use `useFonts` until Expo Go is replaced by EAS Dev Client in production. |
-| iframe isolation (existing) | Shadow DOM for embed widgets | Shadow DOM requires Web Components API on the host; adds JS bundle complexity; breaks the existing resize postMessage mechanism; no clear benefit over the iframe already in place. |
-| iframe isolation (existing) | CSS class prefixing | Fragile against host page `!important` rules. Does not provide true isolation. Not how production embed vendors solve this in 2026. |
-| Self-hosted Inter variable font | Google Fonts CDN | Third-party DNS lookup on every page load. Privacy concern (GDPR — font CDNs can fingerprint users). No performance benefit once self-hosted with proper caching headers. |
+The work is entirely:
+1. New `.ts` files in `apps/staff-web/actions/` using existing `defineAction` + Drizzle + Zod
+2. Regenerating `.generated/actions-registry.ts` and `.generated/action-types.d.ts`
+3. Editing `agent-chat.ts` system prompt to add tool bullets and per-tab capability sections
+4. Editing `apps/staff-web/AGENTS.md` Agent Actions table to document the new actions
+5. Optimistic UI wiring in existing tab components using already-present `useActionMutation`
+6. Extending the navigation state writer to include selected item IDs per tab (UI-side only, ~10 lines per tab)
+7. Updating `view-screen.ts` to fetch item data for the three new tabs when they are active
 
 ---
 
 ## What NOT to Add
 
-| Avoid | Why | Use Instead |
-|-------|-----|-------------|
-| **style-dictionary** | Build pipeline complexity disproportionate to a 5-token system for a solo developer | Hand-rolled `packages/gymos-tokens` (plain TS objects + convention for CSS var names) |
-| **react-native-unistyles v3** | Requires native module compilation (Nitro/C++); incompatible with Expo Go; demo constraint makes this a hard blocker | Hand-rolled `ThemeContext` + `useTheme()` hook |
-| **react-native-unistyles v2** | New Architecture required by Expo SDK 55 / RN 0.83 — unistyles v2 does not support New Architecture | Same as above |
-| **NativeWind** | Adds Babel/Metro config complexity; diverges the token pipeline (CSS utility classes vs JS objects); overkill for 5 tokens | `ThemeContext` consuming `packages/gymos-tokens` directly |
-| **Storybook** | Significant setup cost for a solo dev; not in existing toolchain | Manual component review via deployed Vercel preview + `gsd:ui-review` |
-| **CSS Modules** | Not used anywhere in agent-native or staff-web; would introduce a third styling system alongside Tailwind + shadcn | Stay with Tailwind v4 utility classes + CSS vars |
-| **Emotion / styled-components on web** | Runtime CSS-in-JS adds style injection latency; incompatible with Tailwind v4's static generation model; not in agent-native | Tailwind v4 + CSS custom properties (zero runtime) |
-| **A Figma plugin or token export tool** | No Figma source of truth exists today; designing in-code is faster for a solo dev at this stage | Code-first tokens in `packages/gymos-tokens` |
-| **Per-studio Tailwind config files** | Would require a separate build per studio — incompatible with the single-binary single-tenant deploy model | CSS variable override at render time (zero build cost) |
+| Avoid | Why | What to Do Instead |
+|-------|-----|--------------------|
+| Any new npm package for "confirmation dialogs" | shadcn `AlertDialog` is already in `app/components/ui/` per AGENTS.md convention | Use `<AlertDialog>` for destructive confirms (cancel class, archive form) |
+| A custom HTTP route in `server/routes/api/` for write operations | All CRUD goes through `defineAction`; the framework auto-exposes it as `/_agent-native/actions/<name>` | `defineAction` with no `http` key (defaults to POST) |
+| A separate LLM call inside a write action | Rule 2: "All AI goes through the agent chat." Actions are tools the agent calls, not agents themselves | If the action needs to generate text (e.g., suggest a form description), the agent calls a read action first, computes in the chat loop, then calls the write action with the computed values |
+| `http: { method: "GET" }` on write actions | GET suppresses the automatic `useDbSync` poll invalidation — the UI will not refresh after agent writes | Omit `http` (POST default) or use `http: { method: "PUT" }` for update semantics |
+| Modifying `approve-proposal.ts` run() to dynamically call any arbitrary action | The allowlist in approve-proposal is a security boundary — it must remain an explicit enum | Add only the specific new action name to the `ACTION_ALLOWLIST` array if it requires propose→approve gating |
+| `drizzle-kit push` | Forbidden by the `guard:no-drizzle-push` CI script and PROJECT.md constraints | `drizzle-kit generate` + `drizzle-kit migrate` for any schema additions (v1.2 likely needs none) |
+| Putting business logic in `agent-chat.ts` | The system prompt should name tools and describe when to use them — not contain logic | All logic lives in the action's `run()` function |
 
 ---
 
-## Version Compatibility (Theming Layer)
+## Integration Points (Concrete, File-Referenced)
 
-| Package | Version | Compatibility Notes |
-|---------|---------|---------------------|
-| `tailwindcss` | `^4.2.4` (catalog) | `@theme inline` is a v4 feature — verified in official docs. Not available in v3. |
-| `next-themes` | `^0.4.6` (already in staff-web) | Works with React 19 + React Router v7. Used for dark/light mode toggle only — not for studio brand tokens. |
-| `expo-font` | `~56.0.x` (bundled with Expo 55) | `useFonts` hook works with Expo Go. Config plugin requires dev build (incompatible with demo constraint). |
-| `react-native` | `0.83.9` (locked in workspace) | New Architecture enabled by default (cannot disable from SDK 55 onward). Unistyles v2 incompatible. Unistyles v3 compatible but requires native build. |
-| `vite-plugin-webfont-dl` | `^3.9.x` | Vite 8.x compatible (catalog version is `8.0.3`). Optional — can replace with manual font download. |
+### Adding one write action end-to-end
+
+**Step 1 — Create action file**
+`apps/staff-web/actions/<action-name>.ts` — `defineAction` with `description`, `schema` (Zod), `run`. No `http` key for POST default. Add `// guard:allow-unscoped` comment on any gym table query.
+
+**Step 2 — Regenerate registry**
+Triggers regeneration of `.generated/actions-registry.ts` (add `import * as a_<name> from "../actions/<name>"` and add entry to the `modules` object) and `.generated/action-types.d.ts` (add `"<name>": ActionEntry<...>` to `ActionRegistry`). In local dev, Vite plugin does this automatically on file save. Since local dev is broken, trigger manually before deploy.
+
+**Step 3 — Document in AGENTS.md**
+Add a row to the Agent Actions table in `apps/staff-web/AGENTS.md`. Include: tool name, tier (2 for direct writes, 3 for propose→approve), use-for description, return shape.
+
+**Step 4 — Add to system prompt**
+Edit `apps/staff-web/server/plugins/agent-chat.ts` `systemPrompt` string. Add a bullet under `Available tools:`. Include: exact tool name, when to use it, any constraint the agent must know (e.g., which fields are off-limits).
+
+**Step 5 — Wire UI**
+In the relevant tab component, use `useActionMutation("<action-name>")` for the coach-facing mutation. Follow optimistic UI pattern: `onMutate` → update cache → fire mutation → `onError` → rollback + toast → `onSuccess` → replace optimistic entry with server value.
+
+### For propose→approve-gated write actions (additional step)
+
+**Step 6 — Extend allowlist**
+In `apps/staff-web/actions/approve-proposal.ts`, add the new action name to `ACTION_ALLOWLIST` and add a dynamic import branch in the `run()` body (follow the existing `if/else` pattern for `send-template-to-members` / `create-checkout-link`). Also extend the `actionName` Zod enum in `propose-action.ts` to include the new name.
+
+### Navigation state extension for per-tab item context
+
+The UI's navigation state writer (wherever `PUT /_agent-native/application-state/navigation` is called on tab/item selection changes) should be extended to include:
+- `formId` when a form is open in the Forms tab
+- `occurrenceId` when a class occurrence is selected in the Schedule tab
+- `memberId` when a member detail panel is open in the Members tab
+
+This lets the agent know which item the coach is looking at without needing to call `view-screen` first for basic context. The `view-screen.ts` action should then be updated to branch on `nav.view === "forms"` / `"schedule"` / `"members"` and fetch the relevant item data from those IDs.
 
 ---
 
-## Installation (Theming Layer Only)
+## Confidence Assessment
 
-```bash
-# 1. Create the tokens package (hand-rolled — no npm install needed)
-#    mkdir packages/gymos-tokens && touch packages/gymos-tokens/package.json packages/gymos-tokens/index.ts
-
-# 2. Add tokens package as dep in staff-web and mobile-app
-#    In apps/staff-web/package.json and packages/mobile-app/package.json:
-#    "@gymos/tokens": "workspace:*"
-
-# 3. Optional: self-hosting font automation (staff-web only)
-pnpm add -D vite-plugin-webfont-dl --filter @gymos/staff-web
-# OR manually download inter-variable.woff2 and place in apps/staff-web/public/fonts/
-
-# 4. Font files for Expo (manual step — no npm install)
-#    Download Inter-Regular.otf, Inter-SemiBold.otf, Inter-Bold.otf from github.com/rsms/inter
-#    Place in packages/mobile-app/assets/fonts/
-```
-
-Already present, no reinstall needed: `tailwindcss ^4.2.4`, `next-themes ^0.4.6`, `expo-font` (transitive from Expo 55).
+| Area | Confidence | Basis |
+|------|------------|-------|
+| `defineAction` mutation pattern | HIGH | Direct inspection of 10+ production action files; pattern is consistent and proven |
+| Registry regeneration mechanism | HIGH | `.generated/actions-registry.ts` header comment is explicit: "AUTO-GENERATED by @agent-native/core — do not edit manually"; Vite plugin triggers on actions/ changes |
+| System prompt tool exposure | HIGH | `agent-chat.ts` is 54 lines; mechanism is transparent: loadActionsFromStaticRegistry feeds tool defs, systemPrompt bullets teach the agent to use them |
+| `readAppState`/`writeAppState` API | HIGH | Used in production by `suggest-template-vars.ts` and `navigate.ts`; imports verified |
+| Propose→approve extension for new actions | HIGH | `approve-proposal.ts` allowlist and import pattern is explicit in source; extension is mechanical |
+| guard:allow-unscoped requirement | HIGH | `guard-no-unscoped-queries.mjs` CI script is active; pattern is consistent across all existing gym actions |
+| Automatic UI refresh after write | HIGH | Documented in actions SKILL.md and verified by framework behaviour description in adding-a-feature SKILL.md |
+| Zero new dependencies | HIGH | Every required import (`defineAction`, `getDb`, `schema`, `eq`, `z`, `writeAppState`, `readAppState`, `nanoid`) is already in package.json and used in production |
 
 ---
 
 ## Sources
 
-- Tailwind CSS v4 official docs (`tailwindcss.com/docs/theme`) — `@theme` vs `@theme inline` distinction, CSS custom property emission, runtime override pattern. **HIGH confidence.**
-- shadcn/ui Tailwind v4 migration docs (`ui.shadcn.com/docs/tailwind-v4`) — two-layer pattern (`@theme inline` + `:root` vars). **HIGH confidence.**
-- Tailwind v4 community discussion thread `tailwindlabs/tailwindcss #15600` — confirmed runtime CSS var override is the intended multi-theme pattern. **HIGH confidence.**
-- Expo fonts docs (`docs.expo.dev/develop/user-interface/fonts/`) — `useFonts` vs config plugin compatibility matrix. **HIGH confidence** (official docs, current).
-- `packages/mobile-app/app/(tabs)/index.tsx` and `app/_layout.tsx` (direct code inspection) — confirmed all current styling uses hardcoded hex values. **HIGH confidence.**
-- `apps/staff-web/features/forms/lib/embed-snippet.ts` and `schedule-widget-ssr.ts` (direct code inspection) — confirmed iframe model is already implemented. **HIGH confidence.**
-- `apps/staff-web/app/global.css` (direct code inspection) — confirmed CSS variable token pattern already in use (shadcn style), `@import` Google Fonts CDN is the current font loading. **HIGH confidence.**
-- react-native-unistyles docs (`unistyl.es/v3/start/getting-started/`) + GitHub discussion #191 — confirmed v3 requires New Architecture + native build, incompatible with Expo Go. **MEDIUM confidence** (official docs + GitHub discussions).
-- Expo SDK 55 migration notes (`byteiota.com` verified against `docs.expo.dev/guides/new-architecture/`) — confirmed Legacy Architecture removed in SDK 55 / RN 0.83. **HIGH confidence.**
-- Inter font repository (`github.com/rsms/inter`) — OTF files available, recommended format per Expo docs. **HIGH confidence.**
-- Google Webfonts Helper (`gwfh.mranftl.com`) — WOFF2 variable font download for self-hosting. **MEDIUM confidence** (third-party tool, widely used).
-- style-dictionary npm (`npmjs.com/package/style-dictionary`) — confirmed v4 is current stable (5.4.4 latest), ES Modules, browser-compatible. Complexity assessment is the author's judgment. **MEDIUM confidence.**
+All findings are from direct codebase inspection (no web search required — this is a confirmed-stack milestone):
+
+- `apps/staff-web/server/plugins/agent-chat.ts` — `createAgentChatPlugin`, `loadActionsFromStaticRegistry`, system prompt structure
+- `apps/staff-web/.generated/actions-registry.ts` — registry format, regeneration header comment, full module map
+- `apps/staff-web/.generated/action-types.d.ts` — `ActionRegistry` augmentation pattern
+- `apps/staff-web/actions/upsert-section-note.ts` — canonical direct-write action (Tier 2)
+- `apps/staff-web/actions/suggest-template-vars.ts` — `writeAppState` usage pattern
+- `apps/staff-web/actions/send-template-to-members.ts` — gated write action with `guard:allow-unscoped`
+- `apps/staff-web/actions/propose-action.ts` + `approve-proposal.ts` — propose→approve pattern; `ACTION_ALLOWLIST` extension point
+- `apps/staff-web/actions/navigate.ts` — `writeAppState("navigate", ...)` pattern; `http: false` for agent-only
+- `apps/staff-web/actions/view-screen.ts` — `readAppState("navigation")`; per-view branching pattern for `view-screen` updates
+- `.agents/skills/actions/SKILL.md` — `http` option semantics; auto-refresh behaviour; `useActionMutation` / `useActionQuery`
+- `.agents/skills/context-awareness/SKILL.md` — navigation state shape; `<current-screen>` auto-injection; `view-screen` purpose
+- `.agents/skills/adding-a-feature/SKILL.md` — four-area checklist; `useChangeVersions` wiring for non-action queries
+- `apps/staff-web/AGENTS.md` — "Adding a New Gym Action" five-step procedure; Agent Actions table; `guard:allow-unscoped` convention
 
 ---
 
-*Stack research for: v1.1 UI Redesign — studio-skinnable GymClassOS design system*
-*Researched: 2026-06-12*
-*Confidence: HIGH for token strategy and embed isolation (code-verified); MEDIUM for RN theming (unistyles Expo Go incompatibility verified; ThemeContext recommendation is conventional pattern); LOW for unistyles as future option (needs prototype when EAS Dev Client replaces Expo Go)*
+*Stack research for: v1.2 Agentic Tab Editing — agent write tools for Forms, Schedule, Members*
+*Researched: 2026-06-18*
+*Confidence: HIGH across all areas — codebase-verified, no external sources needed*
