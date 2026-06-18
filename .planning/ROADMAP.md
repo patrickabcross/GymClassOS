@@ -24,7 +24,7 @@
 - [x] **Phase AE1: Forms Write Tools** — Agent can create, edit, publish/unpublish, and archive/restore forms; establishes the per-tab gate pattern and AEX conventions
  (completed 2026-06-18)
 - [ ] **Phase AE2: Schedule Write Tools** — Agent can create/edit class definitions, manage occurrences (capacity, cancel, reschedule, complete); cancel-with-bookings routed through propose→approve with atomic pass refund
-- [ ] **Phase AE3: Members + Campaigns Write Tools** — Agent can update member profile fields (name, phone, email, notes); consent/opt-in state is structurally excluded. Folds in the Campaigns **custom segment builder** (filter members by # classes attended / recency of last attendance / inquiry date) — replacing today's single fixed "at-risk" segment.
+- [x] **Phase AE3: Members + Campaigns Write Tools** — Agent can update member profile fields (name, phone, email, notes); consent/opt-in state is structurally excluded. Folds in the Campaigns **custom segment builder** (filter members by # classes attended / recency of last attendance / inquiry date) — replacing today's single fixed "at-risk" segment. (completed 2026-06-18)
 - [ ] **Phase AE4: Live Mobile Demo** — Non-prod demo deploy with the member demo-gate relaxed (honor an explicit off-prod `DEMO_MODE`) + an EAS (or web) build pointed at it via `EXPO_PUBLIC_API_BASE`, so the customer can hand the member app to a real test cohort. **Unblocked 2026-06-18** by company iOS dev-account access.
 
 ## Phase Details
@@ -76,7 +76,7 @@
 **Plans**: 3 plans
 - [x] AE3-01-PLAN.md (wave 1) — update-member action: .strict() consent exclusion + E.164/email validation + email/phone collision pre-checks (AEM-01, AEM-02)
 - [x] AE3-02-PLAN.md (wave 1) — Campaigns segment builder: save-segment action (application_state) + spec-driven 3-axis evaluator + at-risk preset + structured builder UI + client-side segment read + live-refresh (AEM-03, AEM-04)
-- [ ] AE3-03-PLAN.md (wave 2) — Agent exposure: view-screen members/campaigns branches + agent-chat Members/Campaigns sections (consent-refusal) + AGENTS.md rows + members/detail live-refresh + REQUIREMENTS AEM-03/04 registration (AEX-01, AEX-03, AEX-04)
+- [x] AE3-03-PLAN.md (wave 2) — Agent exposure: view-screen members/campaigns branches + agent-chat Members/Campaigns sections (consent-refusal) + AGENTS.md rows + members/detail live-refresh + REQUIREMENTS AEM-03/04 registration (AEX-01, AEX-03, AEX-04)
 **UI hint**: yes
 
 ### Phase AE4: Live Mobile Demo
@@ -96,7 +96,7 @@
 |-------|----------------|--------|-----------|
 | AE1. Forms Write Tools | 3/3 | Complete   | 2026-06-18 |
 | AE2. Schedule Write Tools | 0/3 | Not started | - |
-| AE3. Members + Campaigns Write Tools | 2/3 | In Progress|  |
+| AE3. Members + Campaigns Write Tools | 3/3 | Complete   | 2026-06-18 |
 | AE4. Live Mobile Demo | 0/TBD | Not started | - |
 
 **Coverage:** 18 v1.2 requirements mapped across AE1–AE3, plus Campaigns segment-builder (folded into AE3) and a new AE4 Live Mobile Demo phase — net-new requirements for both to be registered in REQUIREMENTS.md at plan time.
@@ -290,7 +290,7 @@ Post-v1 backlog (HealthKit + native mobile, Coach View with health context, CRM 
 4. Member context panel in the inbox shows next-class + pass-balance for the opened conversation's member (real data)
 5. Stripe Checkout link generated for a 10-pack purchase + paid in Stripe test mode + resulting pass grant visible in member profile
 
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 
 - [x] D1-01-schedule-surface-PLAN.md — Build /gymos/schedule week-grid + book-from-occurrence dialog (SCH-01, BKG-01) — completed 2026-05-19 (commits f5cdbdc6, dd50fe62, 23ee58f2)
 - [x] D1-02-members-directory-PLAN.md — Build /gymos/members + /gymos/members/:id profile with bookings + pass balance (MEM-01, MEM-02)
