@@ -21,7 +21,8 @@
 
 ## Phases
 
-- [x] **Phase AE1: Forms Write Tools** — Agent can create, edit, publish/unpublish, and archive/restore forms; establishes the per-tab gate pattern and AEX conventions (completed 2026-06-18)
+- [x] **Phase AE1: Forms Write Tools** — Agent can create, edit, publish/unpublish, and archive/restore forms; establishes the per-tab gate pattern and AEX conventions
+ (completed 2026-06-18)
 - [ ] **Phase AE2: Schedule Write Tools** — Agent can create/edit class definitions, manage occurrences (capacity, cancel, reschedule, complete); cancel-with-bookings routed through propose→approve with atomic pass refund
 - [ ] **Phase AE3: Members + Campaigns Write Tools** — Agent can update member profile fields (name, phone, email, notes); consent/opt-in state is structurally excluded. Folds in the Campaigns **custom segment builder** (filter members by # classes attended / recency of last attendance / inquiry date) — replacing today's single fixed "at-risk" segment.
 - [ ] **Phase AE4: Live Mobile Demo** — Non-prod demo deploy with the member demo-gate relaxed (honor an explicit off-prod `DEMO_MODE`) + an EAS (or web) build pointed at it via `EXPO_PUBLIC_API_BASE`, so the customer can hand the member app to a real test cohort. **Unblocked 2026-06-18** by company iOS dev-account access.
@@ -54,7 +55,10 @@
   3. Coach can tell the agent "cancel Friday's spin class" and — because it has active bookings — the agent presents a proposal card listing how many bookings will be cancelled and how many pass credits will be refunded; approval triggers a single atomic transaction (bookings→cancelled + negative pass_debits entries + occurrence cancelled); no orphaned pass credits
   4. Coach can tell the agent "move Thursday's pilates to 9am" when the class has active bookings and the reschedule is routed through propose→approve before the `starts_at` changes
   5. After any agent write, the Schedule tab live-refreshes — no manual reload required
-**Plans**: TBD
+**Plans**: 3 plans
+- [ ] AE2-01-PLAN.md — Direct (ungated) schedule writes: set-occurrence-capacity (bookings guard) + update-class-definition + mark-occurrence-complete + registry entries + Schedule live-refresh wiring (AES-02/05/06, AEX-03)
+- [ ] AE2-02-PLAN.md — Gated path: cancel-occurrence (atomic bookings+refund+occurrence transaction) + reschedule-occurrence + atomic gate wiring (allowlist + dispatch + propose-action enum + schema enum + registry) (AES-03, AES-04)
+- [ ] AE2-03-PLAN.md — Agent exposure: view-screen schedule branch + per-tab system prompt Schedule section + AGENTS.md docs (AES-01, AEX-01/AEX-04)
 **UI hint**: yes
 **Note (New Class — quick 260618-j8z):** AE2's create-path is already partly shipped. The two reusable `defineAction`s `create-class-definition` + `create-class-occurrence` are committed (`95e1f0da`); the **New Class button + dialog UI** on `/gymos/schedule` is being finished now as quick task **260618-j8z** (decision 2026-06-18: ship UI early for the live customer). AE2 then layers the **agent-driven** create path (system-prompt exposure per the two-exposure rule) on top of the same actions.
 
@@ -88,7 +92,7 @@
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | AE1. Forms Write Tools | 3/3 | Complete   | 2026-06-18 |
-| AE2. Schedule Write Tools | 0/TBD | Not started | - |
+| AE2. Schedule Write Tools | 0/3 | Not started | - |
 | AE3. Members + Campaigns Write Tools | 0/TBD | Not started | - |
 | AE4. Live Mobile Demo | 0/TBD | Not started | - |
 
