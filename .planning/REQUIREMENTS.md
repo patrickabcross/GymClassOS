@@ -36,10 +36,10 @@
 
 ### Agentic Editing — Cross-cutting (AEX)
 
-- [ ] **AEX-01**: The agent is context-aware of the active tab and selected item (via navigation state + `view-screen`) and leads with that tab's write tools; the `agent-chat.ts` system prompt is organized into per-tab capability sections (not a flat tool list).
+- [x] **AEX-01**: The agent is context-aware of the active tab and selected item (via navigation state + `view-screen`) and leads with that tab's write tools; the `agent-chat.ts` system prompt is organized into per-tab capability sections (not a flat tool list).
 - [x] **AEX-02**: Risky / member-visible operations (publish form, cancel/reschedule a class with bookings) route through the existing propose→approve chokepoint; low-risk reversible edits (draft form edits, capacity bumps, member profile fields) execute directly. Every gated action is added to BOTH `ACTION_ALLOWLIST` (`approve-proposal.ts`) and the `propose-action` Zod enum in the same change.
 - [x] **AEX-03**: After an agent write, the relevant tab UI live-refreshes (via `useDbSync` / `useChangeVersion("action")`) — no manual reload.
-- [ ] **AEX-04**: Every new write action is documented in `apps/staff-web/AGENTS.md` (Agent Actions table) and exposed in `agent-chat.ts` — registry + system-prompt are both updated (the two independent exposure steps).
+- [x] **AEX-04**: Every new write action is documented in `apps/staff-web/AGENTS.md` (Agent Actions table) and exposed in `agent-chat.ts` — registry + system-prompt are both updated (the two independent exposure steps).
 
 ## Future Requirements (deferred)
 
@@ -73,7 +73,7 @@
 | AES-06 | Phase AE2 | Pending |
 | AEM-01 | Phase AE3 | Pending |
 | AEM-02 | Phase AE3 | Pending |
-| AEX-01 | Phase AE1 | Pending |
+| AEX-01 | Phase AE1 | Complete |
 | AEX-02 | Phase AE1 | Complete |
 | AEX-03 | Phase AE1 | Complete |
-| AEX-04 | Phase AE1 | Pending |
+| AEX-04 | Phase AE1 | Complete |

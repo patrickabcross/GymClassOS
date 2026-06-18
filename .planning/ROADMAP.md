@@ -21,7 +21,7 @@
 
 ## Phases
 
-- [ ] **Phase AE1: Forms Write Tools** — Agent can create, edit, publish/unpublish, and archive/restore forms; establishes the per-tab gate pattern and AEX conventions
+- [x] **Phase AE1: Forms Write Tools** — Agent can create, edit, publish/unpublish, and archive/restore forms; establishes the per-tab gate pattern and AEX conventions (completed 2026-06-18)
 - [ ] **Phase AE2: Schedule Write Tools** — Agent can create/edit class definitions, manage occurrences (capacity, cancel, reschedule, complete); cancel-with-bookings routed through propose→approve with atomic pass refund
 - [ ] **Phase AE3: Members + Campaigns Write Tools** — Agent can update member profile fields (name, phone, email, notes); consent/opt-in state is structurally excluded. Folds in the Campaigns **custom segment builder** (filter members by # classes attended / recency of last attendance / inquiry date) — replacing today's single fixed "at-risk" segment.
 - [ ] **Phase AE4: Live Mobile Demo** — Non-prod demo deploy with the member demo-gate relaxed (honor an explicit off-prod `DEMO_MODE`) + an EAS (or web) build pointed at it via `EXPO_PUBLIC_API_BASE`, so the customer can hand the member app to a real test cohort. **Unblocked 2026-06-18** by company iOS dev-account access.
@@ -41,7 +41,7 @@
 **Plans**: 3 plans
 - [x] AE1-01-PLAN.md — Direct (ungated) forms writes: FormFieldSchema + slugify + create/update-fields/update-meta/unpublish/archive/restore + live-refresh wiring (AEF-01/02/03/05/06, AEX-03)
 - [x] AE1-02-PLAN.md — Gated publish path: publish-form action + atomic gate wiring (allowlist + dispatch + propose-action enum + schema enum) (AEF-04, AEX-02)
-- [ ] AE1-03-PLAN.md — Agent exposure: view-screen forms branch + per-tab system prompt + AGENTS.md docs (AEX-01, AEX-04)
+- [x] AE1-03-PLAN.md — Agent exposure: view-screen forms branch + per-tab system prompt + AGENTS.md docs (AEX-01, AEX-04)
 **UI hint**: yes
 
 ### Phase AE2: Schedule Write Tools
@@ -87,7 +87,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| AE1. Forms Write Tools | 2/3 | In Progress|  |
+| AE1. Forms Write Tools | 3/3 | Complete   | 2026-06-18 |
 | AE2. Schedule Write Tools | 0/TBD | Not started | - |
 | AE3. Members + Campaigns Write Tools | 0/TBD | Not started | - |
 | AE4. Live Mobile Demo | 0/TBD | Not started | - |
@@ -283,7 +283,7 @@ Post-v1 backlog (HealthKit + native mobile, Coach View with health context, CRM 
 4. Member context panel in the inbox shows next-class + pass-balance for the opened conversation's member (real data)
 5. Stripe Checkout link generated for a 10-pack purchase + paid in Stripe test mode + resulting pass grant visible in member profile
 
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 
 - [x] D1-01-schedule-surface-PLAN.md — Build /gymos/schedule week-grid + book-from-occurrence dialog (SCH-01, BKG-01) — completed 2026-05-19 (commits f5cdbdc6, dd50fe62, 23ee58f2)
 - [x] D1-02-members-directory-PLAN.md — Build /gymos/members + /gymos/members/:id profile with bookings + pass balance (MEM-01, MEM-02)
