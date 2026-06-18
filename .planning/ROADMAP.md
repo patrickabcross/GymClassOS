@@ -2,6 +2,80 @@
 
 ---
 
+## v1.2 — Agentic Tab Editing
+
+> **Started:** 2026-06-18 | **Branch:** `master`
+>
+> **Goal:** Make the GymClassOS staff `/gymos` chat agent able to UPDATE each tab, not just read it — realizing the agent-native principle "everything the UI can do, the agent can do." Scope: Forms, Schedule, Members tabs. Zero new dependencies; all work reuses existing `defineAction`, propose→approve, and `useChangeVersion` primitives.
+
+### Key constraints baked into every phase
+
+- **No local dev server** — NitroViteError prevents `pnpm dev` on staff-web. Verification via Vercel deploy or unit tests + `tsc`.
+- **Gate atomicity** — any gated action must update BOTH `ACTION_ALLOWLIST` in `approve-proposal.ts` AND the Zod enum in `propose-action.ts` in the same change.
+- **Consent exclusion** — `update-member-profile` schema is `.strict()`, structurally excluding `marketing_consent` / `whatsapp_opt_in` / `optedInAt` / `optedOutAt`.
+- **Cancel-occurrence correctness** — `BOOKINGS_EXIST` guard required; cancel-with-bookings must execute atomically (bookings→cancelled + negative pass_debits refunds + occurrence cancelled in one transaction).
+- **Fields JSON validation** — `fields` on create/update/publish must be validated against the `FormField` Zod schema before any write.
+- **Two-exposure rule** — every new action must be added to the `.generated` actions registry AND named in `agent-chat.ts` system prompt (two independent steps, both required).
+- **No schema changes** — fully additive; `gym_members.notes` confirmed present.
+- **Per-tab system prompt** — AEX conventions (AEX-01..04) established in AE1; AE2 and AE3 extend the same pattern.
+
+## Phases
+
+- [ ] **Phase AE1: Forms Write Tools** — Agent can create, edit, publish/unpublish, and archive/restore forms; establishes the per-tab gate pattern and AEX conventions
+- [ ] **Phase AE2: Schedule Write Tools** — Agent can create/edit class definitions, manage occurrences (capacity, cancel, reschedule, complete); cancel-with-bookings routed through propose→approve with atomic pass refund
+- [ ] **Phase AE3: Members Write Tools** — Agent can update member profile fields (name, phone, email, notes); consent/opt-in state is structurally excluded
+
+## Phase Details
+
+### Phase AE1: Forms Write Tools
+**Goal**: Coach can use the agent to manage the full forms lifecycle — create, edit, publish, unpublish, archive, restore — and the active-tab context and propose→approve gate are established as the cross-cutting pattern for the whole milestone
+**Depends on**: Nothing (first AE phase)
+**Requirements**: AEF-01, AEF-02, AEF-03, AEF-04, AEF-05, AEF-06, AEX-01, AEX-02, AEX-03, AEX-04
+**Success Criteria** (what must be TRUE):
+  1. Coach can tell the agent "create a new lead-capture form called Membership Enquiry" and a draft form row appears in the `/gymos/forms` tab without a page reload
+  2. Coach can tell the agent "add a phone number field to that form" and the published form's field list shows the new field (Zod-validated; malformed field attempts are rejected with a clear error, never persisted)
+  3. Coach can tell the agent "publish the enquiry form" and the agent responds with a proposal card — the form only goes live after the coach clicks Approve
+  4. Coach can tell the agent "unpublish the form" and the form status immediately reverts to draft (direct action, no approval needed)
+  5. After any agent write, the Forms tab live-refreshes via `useChangeVersion("action")` — no manual reload required
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase AE2: Schedule Write Tools
+**Goal**: Coach can use the agent to manage class definitions and occurrences — create, set capacity, cancel (with atomic booking refund), reschedule, and mark complete — with high-risk operations gated behind propose→approve; reuses the gate wiring established in AE1
+**Depends on**: Phase AE1 (gate pattern + AEX conventions established)
+**Requirements**: AES-01, AES-02, AES-03, AES-04, AES-05, AES-06
+**Success Criteria** (what must be TRUE):
+  1. Coach can tell the agent "create a new HIIT class on Monday at 7am with 15 spots" and a new occurrence appears on the `/gymos/schedule` grid without a reload
+  2. Coach can tell the agent "reduce the capacity of Tuesday's yoga to 8" and the change is rejected with a clear error if current bookings exceed 8 (no mutation occurs); otherwise it saves directly
+  3. Coach can tell the agent "cancel Friday's spin class" and — because it has active bookings — the agent presents a proposal card listing how many bookings will be cancelled and how many pass credits will be refunded; approval triggers a single atomic transaction (bookings→cancelled + negative pass_debits entries + occurrence cancelled); no orphaned pass credits
+  4. Coach can tell the agent "move Thursday's pilates to 9am" when the class has active bookings and the reschedule is routed through propose→approve before the `starts_at` changes
+  5. After any agent write, the Schedule tab live-refreshes — no manual reload required
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase AE3: Members Write Tools
+**Goal**: Coach can use the agent to update a member's profile fields (name, phone, email, notes) — and the agent cannot ever modify consent or opt-in state, enforced structurally via a `.strict()` Zod schema
+**Depends on**: Phase AE2 (system-prompt per-tab pattern fully established; AEX conventions in place)
+**Requirements**: AEM-01, AEM-02
+**Success Criteria** (what must be TRUE):
+  1. Coach can tell the agent "update Sarah's phone number to +447700900123" and the `gym_members` row reflects the new E.164 value; the member profile card on `/gymos/members` refreshes without a reload
+  2. Coach can tell the agent "add a note to David's profile: prefers morning classes" and the `notes` field saves correctly
+  3. Asking the agent to "opt Sarah into WhatsApp" or "change her marketing consent" results in a clear refusal — the action's schema structurally prevents those fields from being written (`.strict()` exclusion), and no `whatsapp_opt_in` or `marketing_consent` state changes
+  4. Coach can tell the agent "correct this member's email" and the update applies directly (no approval gate needed for profile edits)
+**Plans**: TBD
+
+## Progress
+
+| Phase | Plans Complete | Status | Completed |
+|-------|----------------|--------|-----------|
+| AE1. Forms Write Tools | 0/TBD | Not started | - |
+| AE2. Schedule Write Tools | 0/TBD | Not started | - |
+| AE3. Members Write Tools | 0/TBD | Not started | - |
+
+**Coverage:** 18 v1.2 requirements mapped across 3 phases (AE1–AE3).
+
+---
+
 ## v1.1 — UI Redesign: GymClassOS Design System
 
 > **Branch:** `redesign/ui-refresh` | **Started:** 2026-06-12 | **Merges when ready** (not coupled to v1.0 ship date)
@@ -24,9 +98,9 @@
  (completed 2026-06-12)
 - [x] **Phase R2: Design System Token Layer** — Install CSS custom-property token system with skin injector; author GymClassOS default skin and Hustle skin; self-host Inter
  (completed 2026-06-13)
-- [x] **Phase R3: Naming & IA Pass** — Rename nav labels and surface copy (labels first), then retire email-vocabulary code identifiers and routes (with redirect shims) (completed 2026-06-13)
-- [x] **Phase R4: Staff Web Visual Refresh + Embed Widgets** — Apply design-system tokens to all staff-web surfaces and public embed widgets; deliver the visual redesign (completed 2026-06-13)
-- [x] **Phase R5: Member Mobile App Redesign** — Align the Expo mobile app to the GymClassOS design language; rename tabs; deliver dark-first theme with token file (completed 2026-06-13)
+- [x] **Phase R3: Naming & IA Pass** — Rename nav labels and surface copy (labels first), then retire email-vocabulary code identifiers and routes (with redirect shims) (completed 2026-06-13)
+- [x] **Phase R4: Staff Web Visual Refresh + Embed Widgets** — Apply design-system tokens to all staff-web surfaces and public embed widgets; deliver the visual redesign (completed 2026-06-13)
+- [x] **Phase R5: Member Mobile App Redesign** — Align the Expo mobile app to the GymClassOS design language; rename tabs; deliver dark-first theme with token file (completed 2026-06-13)
 
 ## Phase Details
 
@@ -598,5 +672,5 @@ Plans:
 *Revised: 2026-05-19 — D2 plan list registered (6 plans), success criteria realigned to native Expo flow (was inherited PWA wording), MEMBR-06 dropped from D2 (PWA manifest is N/A for native Expo Go; rolled into P1a EAS work)*
 *Revised: 2026-06-01 — P1c Public Site Integrations planned (7 plans) + executed + verified live on deploy → marked Complete. Migrations 0003+0004 applied to gymos-demo Neon. FORMS-01..04 + EMBED-01..06 added (140 reqs total). Checkout-link + visual-browser checks deferred (studio Stripe setup / dev-server NitroViteError).*
 *Revised: 2026-06-14 — merged `redesign/ui-refresh` into master. v1.1 UI Redesign roadmap (R1–R5, complete) now leads this file above the v1.0 section.*
+*Revised: 2026-06-18 — v1.2 Agentic Tab Editing roadmap (AE1–AE3) prepended at top. 18 requirements mapped across 3 phases.*
 *Out of v1 scope: Native mobile (v1.x), HealthKit, Coach View with health context, CRM campaigns + segments, Knowledge Base, Operational Reporting, bsport-migration productisation, A2A. See REQUIREMENTS.md §Post-v1 Backlog and PLATFORM-VISION.md.*
-

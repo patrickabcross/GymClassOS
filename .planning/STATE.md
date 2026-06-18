@@ -1,90 +1,91 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: milestone
-status: verifying
-stopped_at: Merged redesign/ui-refresh (v1.1 UI Redesign — R1–R5 complete) into master
-last_updated: "2026-06-14T00:00:00.000Z"
-last_activity: 2026-06-14
+milestone: v1.2
+milestone_name: Agentic Tab Editing
+status: planning
+stopped_at: v1.2 roadmap created — Phase AE1 ready to plan
+last_updated: "2026-06-18T00:00:00.000Z"
+last_activity: 2026-06-18
 progress:
-  total_phases: 14
-  completed_phases: 2
-  total_plans: 15
-  completed_plans: 17
-  percent: 50
+  total_phases: 3
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: `.planning/PROJECT.md` (updated 2026-06-12 — Milestone v1.1 UI Redesign started)
-Roadmap: `.planning/ROADMAP.md` (v1.1 phases R1–R5 at top; v1.0 preserved below under separate milestone header)
-Requirements: `.planning/REQUIREMENTS.md` (30 v1.1 reqs across 6 categories — AUDT, DSGN, NAME, SWEB, WDGT, MOBL)
+See: `.planning/PROJECT.md` (updated 2026-06-18 — Milestone v1.2 Agentic Tab Editing started)
+Roadmap: `.planning/ROADMAP.md` (v1.2 phases AE1–AE3 at top; v1.1 R-phases below; v1.0 D/P phases below that)
+Requirements: `.planning/REQUIREMENTS.md` (18 v1.2 reqs across 4 categories — AEF, AES, AEM, AEX)
 
 **Core value:** Coaches and studio managers run their entire day from one inbox-and-schedule surface (WhatsApp + class bookings + member context). Members book, pay, and log activity / nutrition from a native iOS/Android Expo app (forked from agent-native's `packages/mobile-app`) that includes an in-app coaching agent.
 
-**Just merged:** v1.1 UI Redesign (`redesign/ui-refresh`) — phases R1–R5 all complete (audit baseline, design-system token layer, naming & IA pass, staff-web visual refresh + embed widgets, member mobile app redesign). Now folded into `master`.
+**Current milestone:** v1.2 — Agentic Tab Editing. Agent can UPDATE the Forms, Schedule, and Members tabs — not just read them.
 
-**Current focus:** Resume v1.0 production work (P1c.1 Stripe Connect complete; P2/P3 surfaces remain)
-
-1. **WhatsApp integration deep wire** — migrate `services/worker/` and `services/edge-webhooks/` to read Meta credentials from `app_secrets` (not `process.env`) so the in-app Settings UI is the single source of truth; wire the WA-08 template sync cron so real approved Meta templates replace the seeded stubs; full end-to-end test of outbound send + inbound delivery/read callbacks against the verified WABA.
-2. **Mobile app (member surface)** — resume D2 work (Task 4 of in-app agent was pending; D2-06 verification deferred); harden the Expo fork against the iteration that landed during the staff-web pilot fixes; cut an EAS preview build under the customer's existing Apple Developer Account.
-3. **P1c — Public Site Integrations (drafted)** — fork agent-native's `templates/forms/` for embeddable lead-capture / signup forms, plus ship a public `/embed/schedule` booking widget so visitors on `doyouhustle.co.uk` can book classes + buy Stripe Checkout passes without signing into GymOS. The real commercial unlock vs Mindbody/Bsport. Phase drafted in ROADMAP.md; run `/gsd:plan-phase P1c` when ready to schedule against the timeline.
+**Zero new dependencies.** All work is additive TypeScript in `apps/staff-web/actions/` plus targeted edits to ~5 existing files. No schema changes. No new npm packages.
 
 ## Current Position
 
-Milestone: v1.2 — Agentic Tab Editing (defining requirements)
-Phase: Not started (defining requirements)
+Milestone: v1.2 — Agentic Tab Editing
+Phase: AE1 — Forms Write Tools (not started / ready to plan)
 Plan: —
-Status: Defining requirements
-Last activity: 2026-06-18 — Milestone v1.2 (Agentic Tab Editing) started; v1.0 Production (P2/P3) + v1.1 (merged, R1–R5) tracked separately in roadmap
+Status: Ready to plan Phase AE1
+Last activity: 2026-06-18 — v1.2 roadmap created (AE1–AE3, 18 requirements mapped)
 
-> **Branch note:** All v1.0 Demo Sprint position/detail in the Accumulated Context section below reflects `master` state at branch time (2026-06-12) and is kept for reference. Do not execute v1.0 work from this branch.
+**Progress bar:** [░░░░░░░░░░] 0% (0/3 phases)
 
-**Progress bar:** [░░░░░░░░░░] 0% (0/5 phases)
-
-### v1.1 Phase Summary
+### v1.2 Phase Summary
 
 | Phase | Goal | Requirements | Status |
 |-------|------|--------------|--------|
-| R1. Audit Baseline | Document before-state; produce naming inventory | AUDT-01, AUDT-02 | Complete |
-| R2. Design System Token Layer | CSS token system + skin injector + Inter self-hosted | DSGN-01..05 | Not started |
-| R3. Naming & IA Pass | Gym-domain labels → code identifiers → route renames | NAME-01..07 | Not started |
-| R4. Staff Web + Embed Widgets | Visual redesign across staff surfaces + embeds | SWEB-01..08, WDGT-01..03 | Not started |
-| R5. Member Mobile App | Dark-first themed Expo app with token file | MOBL-01..07 | Not started |
+| AE1. Forms Write Tools | Agent manages full forms lifecycle; establishes AEX gate + context-aware system-prompt conventions | AEF-01..06, AEX-01..04 | Not started |
+| AE2. Schedule Write Tools | Agent manages class definitions + occurrences; cancel-with-bookings atomic refund | AES-01..06 | Not started |
+| AE3. Members Write Tools | Agent updates profile fields; consent state structurally excluded | AEM-01..02 | Not started |
 
-**Next action:** `/gsd:execute-phase R2` (Design System Token Layer)
+**Next action:** `/gsd:plan-phase AE1`
 
 ## Performance Metrics
 
-**v1.1 milestone start:** 2026-06-12
-**v1.0 reference velocity (from master):**
-
-- P1b.1 (8 plans): live-accepted 2026-05-26
-- P1c (7 plans): complete 2026-06-01
-- P3 (6/7 plans): in progress on master
+**v1.2 milestone start:** 2026-06-18
+**v1.1 reference velocity (completed 2026-06-12 → 2026-06-13):**
+- R1–R5: 5 phases, 22 plans, ~2 days elapsed
 
 ## Accumulated Context
 
-### v1.1 Roadmap Decisions
+### v1.2 Roadmap Decisions
 
-- **2026-06-12 — Phase prefix R (not integer) to avoid .planning/phases/ collisions at merge time.** v1.0 uses D0–D2, P0, P1a, P1b, P1b.1, P1c, P2, P3. This branch uses R1, R2, R3, R4, R5.
-- **2026-06-12 — 5 phases despite coarse granularity setting.** The pitfall-enforced ordering (audit first, tokens before labels, labels before identifiers/routes) creates 4 hard dependency boundaries. SWEB+WDGT merged into R4 (both consume tokens; WDGT-03 is a verification criterion, not a separate surface). Mobile is R5 (independent from web, can in theory parallel R3/R4, but solo dev context means sequential). 5 phases is the minimum coherent structure for this work.
-- **2026-06-12 — Hustle brand hex is an open dependency.** hustle.css cannot be finalised until Hustle confirms their hex values. Placeholder values with TODO comments ship in R2; final values applied when received.
-- **2026-06-12 — No local dev server constraint carried into all phases.** All verification is via Vercel/Fly deploy (staff web + widgets) and Expo Go / EAS (mobile). No phase plan should include a local HTTP walkthrough step.
-- **2026-06-12 — NAME-05 (no DB enum renames) is a standing constraint throughout R3.** drizzle-kit#1409 + live Hustle DB table-lock risk. Display labels only.
-- **2026-06-12 (R1-03) — Mobile real-device Expo Go impossible.** App Store Expo Go runs SDK 56; the app is SDK 55; no EAS dev client exists. User approved react-native-web + headless Chromium fallback with /api/m/* fixture interception. Re-shootable at R5 once EAS dev client built. Same filenames, same INDEX.md manifest structure.
-- **2026-06-12 (R1-03) — /api/m/* is production-gated to 401.** The Vercel deploy returns 401 on all member API routes (NODE_ENV check). This affects real phones too, not just headless capture. Flagged for the master-branch mobile/EAS workstream to resolve before any real-device testing.
-- **2026-06-12 (R1-03) — Google OAuth requires CDP attach to real browser.** Automated Chromium is blocked by Google's bot-detection during OAuth. Auth detection must check for the better-auth.session_token cookie, not the URL (because /gymos returns 200 unauthenticated).
-- **2026-06-12 — Fork boundary holds throughout R1–R5.** templates/* and packages-vendored/* never edited. All changes land in apps/staff-web/ or packages/mobile-app/.
-- Phase P1c.1 inserted after Phase P1c (2026-06-12): Stripe Connect (Custom accounts) + customer purchase flows (URGENT) — **reverses the 2026-05-17 direct-restricted-key decision** per user. Locked: Custom connected accounts (white-label) onboarded via Stripe-hosted Account Links; direct charges, NO application fee for now; packs + drop-ins AND subscriptions (+ Customer Portal); purchase surfaces = staff-sent checkout links + public embed buy flow + member mobile purchase screen (prereq: fix /api/m/* 404 on Vercel). Closes Demo Sprint audit gaps PAY-01/STR-02.
-- Phase P1b.1 inserted after Phase P1b: Customer Pilot Enablement — strip email chrome from /gymos, rename Compose→Templates with real Meta Cloud API send, add Analytics tab, provision staff logins for signed customer, ground AgentSidebar in gym data instead of email actions (URGENT — customer waiting post-2026-05-25 demo)
-- Phase P3 added (2026-06-03) to Milestone 2 (Production v1), after P2: **AI Noticeboard Home** — replace `/gymos` landing with a Polsia-style noticeboard dashboard (Inbox/Schedule/Members/Revenue cards + AI-today header + AI-curated Tasks). Agent shifts from read-only to **suggest + one-click act** (coach approves; existing send/checkout actions execute; worker compliance gates stay in force). Computed progress subheadings from existing `list-*` actions; agent authors section notes + tasks persisted in SQL. Four-area scope (UI/SQL/actions/AGENTS.md). Not planned yet → `/gsd:plan-phase P3`.
+- **2026-06-18 — Phase prefix AE (not integer) to avoid .planning/phases/ collisions with existing R*/D*/P* phases.** v1.2 uses AE1, AE2, AE3.
+- **2026-06-18 — 3 phases, no hardening phase.** Research recommends optional AE4 (integration & hardening); each phase's correctness constraints are tight enough that a dedicated hardening phase isn't warranted. AEX conventions established in AE1 apply to AE2 and AE3 by convention.
+- **2026-06-18 — AEX cross-cutting reqs all map to AE1.** AEX-01 (per-tab system-prompt), AEX-02 (gate atomicity), AEX-03 (live-refresh), AEX-04 (two-exposure rule) are all first established in AE1. AE2 and AE3 follow the pattern without new REQ-IDs.
+- **2026-06-18 — Gate atomicity is non-negotiable.** CRITICAL A-01: new gated actions must update BOTH `ACTION_ALLOWLIST` in `approve-proposal.ts` AND the Zod enum in `propose-action.ts` in the same commit. (publish-form, cancel-occurrence, reschedule-occurrence are the three gated ops.)
+- **2026-06-18 — Consent exclusion is structural, not behavioral.** AEM-02 enforced by `.strict()` Zod schema that hard-excludes `marketing_consent`/`whatsapp_opt_in`/`optedInAt`/`optedOutAt` from `update-member-profile` — not by a runtime check that could be bypassed.
+- **2026-06-18 — Cancel-occurrence correctness: BOOKINGS_EXIST guard + atomic transaction.** AES-03: count `bookings WHERE status='booked'`; if >0 return `{error:"BOOKINGS_EXIST", bookingCount}` without mutating; approval path executes bookings→cancelled + negative `pass_debits` refunds + occurrence cancelled in ONE Drizzle transaction.
+- **2026-06-18 — Fields JSON Zod validation on all form writes.** A-04: validate `fields` against FormField Zod schema before every create/update/publish write. Malformed JSON silently breaks the public renderer.
+- **2026-06-18 — No local dev server constraint continues.** NitroViteError prevents `pnpm dev`. Verification via Vercel deploy or unit tests + `tsc`. Plans must not include a local HTTP walkthrough step.
+- **2026-06-18 — Do NOT refactor `/api/forms/[...path].ts`.** New agent actions call Drizzle directly alongside the existing HTTP handler, following the `send-template-to-members.ts` pattern. The HTTP handler is untouched.
+- **2026-06-18 — Two-exposure rule per action.** (1) Action file → `.generated/actions-registry.ts` (auto-regen via pnpm build or explicit regen command). (2) System prompt bullet in `agent-chat.ts`. Both steps required; omitting either means the agent can't call the action.
+- **2026-06-18 — System-prompt per-tab update ships LAST within each phase.** Ship and HTTP-test each action wave before adding it to the system prompt. Prevents the agent from hallucinating calls to actions that don't exist yet.
+
+### v1.1 Roadmap Decisions (preserved for reference)
+
+- **2026-06-12 — Phase prefix R (not integer) to avoid .planning/phases/ collisions at merge time.**
+- **2026-06-12 — 5 phases despite coarse granularity setting.** Pitfall-enforced ordering (audit first, tokens before labels, labels before identifiers/routes) creates 4 hard dependency boundaries.
+- **2026-06-12 — Hustle brand hex is an open dependency.** hustle.css cannot be finalised until Hustle confirms their hex values.
+- **2026-06-12 — No local dev server constraint carried into all phases.**
+- **2026-06-12 — NAME-05 (no DB enum renames) is a standing constraint throughout R3.**
+- **2026-06-12 (R1-03) — Mobile real-device Expo Go impossible.** App Store Expo Go runs SDK 56; the app is SDK 55; no EAS dev client exists.
+- **2026-06-12 (R1-03) — /api/m/* is production-gated to 401.**
+- **2026-06-12 — Fork boundary holds throughout R1–R5.**
+- Phase P1c.1 inserted after Phase P1c (2026-06-12): Stripe Connect (Custom accounts) — reverses the 2026-05-17 direct-restricted-key decision.
+- Phase P3 added (2026-06-03): AI Noticeboard Home — propose→approve→execute model; worker compliance gates stay in force.
 
 ### v1.0 Accumulated Context (from master — preserved for reference)
 
-**P1c-WIDE VERIFICATION CONSTRAINT:** The local `agent-native dev` server cannot boot (`NitroViteError: Vite environment "nitro" is unavailable` → 503 on server routes) — same class of issue as the Vercel/Netlify Nitro-bundling crash; staff-web only runs reliably on Fly. So NO plan can run a local HTTP walkthrough. Verify the SUBSTANCE by replaying the handler/action SQL against the live `gymos-demo` Neon DB via Neon MCP (and clean up test rows), OR defer runtime checks to an e2e smoke test. This constraint applies equally to v1.1 work on this branch.
+**P1c-WIDE VERIFICATION CONSTRAINT:** The local `agent-native dev` server cannot boot (`NitroViteError: Vite environment "nitro" is unavailable` → 503 on server routes) — same class of issue as the Vercel/Netlify Nitro-bundling crash; staff-web only runs reliably on Fly. So NO plan can run a local HTTP walkthrough. Verify the SUBSTANCE by replaying the handler/action SQL against the live `gymos-demo` Neon DB via Neon MCP (and clean up test rows), OR defer runtime checks to an e2e smoke test. This constraint applies equally to v1.2 work.
 
 - **2026-05-17 (mid-session) — Two-milestone restructure:** Demo Sprint (week 1) + Production v1 (weeks 2-9). Demo deliberately cuts corners (skipped atomic transactions, hardcoded data on non-golden paths, single-studio config). Production rebuilds every corner-cut.
 - **2026-05-17 (mid-session) — Stripe direct restricted-API-key (NOT Connect):** Studio owns merchant relationship. No application_fee / no deauth handler.
@@ -215,7 +216,7 @@ Decisions are logged in `PROJECT.md` Key Decisions table. Key ones affecting thi
 
 ### Phase Decisions (v1.0 — condensed)
 
-Key patterns discovered during v1.0 execution that apply to v1.1:
+Key patterns discovered during v1.0 execution that apply to v1.2:
 
 - react-router v7 framework mode no longer exports `json()` — every loader returns plain objects
 - `@/` path alias (not `~/`) in apps/staff-web/tsconfig.json — use `@/*` paths in all staff-web files
@@ -251,75 +252,6 @@ Key patterns discovered during v1.0 execution that apply to v1.1:
 | 260615-r6t | Worker sends an approved template's BODY as free-form text when the conversation is in-window (MYÜTIK rejects templates in-window); out-of-window still sends a real template; empty-render falls back to template send; WA-08 gate fires in both states | 2026-06-15 | 964671b3 | Done |
 | 260618-ezc | Add public `/preview/{slug}` form route (alias of `/f/{slug}` renderer; whitelisted in CORS + auth) and auto-send a WhatsApp template ack on lead form submit (env-gated `LEAD_ACK_TEMPLATE_NAME` + phone-gated; creates `whatsapp_opt_in` source='form_submission', enqueues TEMPLATE send through worker chokepoint; try/catch so lead capture never breaks). No-op until template approved + env set. | 2026-06-18 | be7f1be9 | Done |
 | 260618-fqg | AI-fill WhatsApp lead-ack template vars from form + class catalog: `parseTemplateBody` (pure, extracts BODY text + varCount from componentsJson) + `buildLeadAckVars` (Claude fills all {{N}} slots from form context + active class catalog; deterministic fallback on any failure). Step-14 now looks up approved template row, uses real language, adapts to N variables. 6 vitest cases pass; tsc 0 errors. | 2026-06-18 | 712353b8 | Done |
-| Phase R1 P02 | 3 | 2 tasks | 5 files |
-| Phase R1 P01 | 185 | 2 tasks | 1 files |
-| Phase R1-audit-baseline P03 | 240 | 5 tasks | 15 files |
-| Phase R2-design-system-token-layer P01 | 15 | 3 tasks | 6 files |
-| Phase R2-design-system-token-layer P02 | 20 | 2 tasks | 2 files |
-| Phase R2-design-system-token-layer P04 | 5 | 2 tasks | 6 files |
-| Phase R2-design-system-token-layer P03 | 25 | 2 tasks | 9 files |
-| Phase R3-naming-ia-pass P01 | 25 | 4 tasks | 9 files |
-| Phase R3-naming-ia-pass P02 | 4 | 2 tasks | 8 files |
-| Phase R3-naming-ia-pass P03 | 12 | 3 tasks | 13 files |
-| Phase R3-naming-ia-pass P04 | 5 | 3 tasks | 4 files |
-| Phase R4-staff-web-visual-refresh P01 | 12 | 2 tasks | 1 files |
-| Phase R4-staff-web-visual-refresh P02 | 12 | 2 tasks | 1 files |
-| Phase R4-staff-web-visual-refresh P03 | 172 | 2 tasks | 1 files |
-| Phase R4-staff-web-visual-refresh P05 | 10 | 2 tasks | 1 files |
-| Phase R4-staff-web-visual-refresh P07 | 2 | 2 tasks | 2 files |
-| Phase R4-staff-web-visual-refresh P04 | 18 | 2 tasks | 2 files |
-| Phase R4-staff-web-visual-refresh P06 | 4 | 2 tasks | 1 files |
-| Phase R5 P01 | 12 | 3 tasks | 6 files |
-| Phase R5-member-mobile-app-redesign P02 | 10 | 3 tasks | 7 files |
-| Phase R5-member-mobile-app-redesign P03 | 3 | 2 tasks | 2 files |
-| Phase R5 P04 | 5 | 2 tasks | 1 files |
-
-| # | Description | Date | Commit | Status | Directory |
-|---|-------------|------|--------|--------|-----------|
-| 260524-r8f | Fix staff-web OAuth: redirect Mail routes to /gymos, remove Mail account hook, narrow Google scopes | 2026-05-24 | 1c60a41e | — | [260524-r8f-fix-staff-web-oauth-redirect-mail-routes](./quick/260524-r8f-fix-staff-web-oauth-redirect-mail-routes/) |
-| 260531-kbm | Redesign /gymos/analytics dashboard for stronger visual hierarchy with display sizes | 2026-05-31 | 3d082eb7 | — | [260531-kbm-redesign-gymos-analytics-dashboard-for-s](./quick/260531-kbm-redesign-gymos-analytics-dashboard-for-s/) |
-| 260531-n7i | Core missed-session re-engagement campaign: opt-in capture + opt-out gate, send-template-to-members batch action, /gymos/campaigns UI | 2026-05-31 | (merge of cc114b8f) | Verified | [260531-n7i-build-core-missed-session-re-engagement-](./quick/260531-n7i-build-core-missed-session-re-engagement-/) |
-| 260601-muh | Migrate Meta WhatsApp credentials in services/worker + services/edge-webhooks from process.env to pgcrypto-backed secrets table (DB-first + env fallback; edge-webhooks gets new reader + 60s TTL cache on inbound hot path; live WABA test deferred) | 2026-06-01 | a3948c35 | — | [260601-muh-migrate-meta-whatsapp-credentials-in-ser](./quick/260601-muh-migrate-meta-whatsapp-credentials-in-ser/) |
-| 260603-gxh | Build GoHighLevel contacts CSV importer (apps/staff-web/scripts/import-ghl-contacts.ts) — header auto-detect, E.164 phone normalize (UK +44), within-file + DB dedupe, dry-run default + --commit; marketing consent → whatsapp_opt_in (source='import'). User runs real dry-run against GHL export | 2026-06-03 | d255db06 | — | [260603-gxh-build-gohighlevel-contacts-csv-importer-](./quick/260603-gxh-build-gohighlevel-contacts-csv-importer-/) |
-| 260604-fj3 | Add MYÜTIK verify-echo branch to edge-webhooks WhatsApp POST handler — authenticated `event:"verify"` → echo `{challenge}` so MYÜTIK (signs Meta-style with whatsapp_app_secret) completes its verify handshake; closes `challenge_not_echoed`. Needs manual `fly deploy` of gymos-edge-webhooks | 2026-06-04 | 9dabc513 | — | [260604-fj3-add-myutik-verify-echo-branch-to-edge-we](./quick/260604-fj3-add-myutik-verify-echo-branch-to-edge-we/) |
-| 260604-nwb | Fix pg-boss "Database not opened" 500 on edge-webhooks inbound — `@gymos/queue` boss made publish-only (supervise/schedule/migrate off) + idempotent `startBoss()`; enqueue path awaits it; web entrypoint warm-starts. First real MYÜTIK inbound exposed that the web process never started its boss (worker uses a separate one) | 2026-06-04 | 3dfd99d7 | — | [260604-nwb-fix-pg-boss-database-not-opened-in-edge-](./quick/260604-nwb-fix-pg-boss-database-not-opened-in-edge-/) |
-| 260604-op8 | Fix inbound 42P10 — worker message INSERT `onConflictDoNothing` now supplies the partial-index predicate (`where external_id is not null`) so ON CONFLICT matches the partial unique index; also promote conversation `status='open'` on any inbound (lead→inbox, reactivate closed/snoozed). Real member-matched inbound was failing 5× retries (unread inflated, 0 messages stored) | 2026-06-04 | 6f70e2a1 | — | [260604-op8-fix-inbound-message-insert-partial-index](./quick/260604-op8-fix-inbound-message-insert-partial-index/) |
-| 260607-pjc | Register `MYUTIK_API_KEY` in staff-web Settings → API Keys (the gear button on the AI input) via one additive `registerRequiredSecret()` — the outbound `whatsapp:send` credential for sending replies/campaigns through the MYÜTIK relay (`POST myutik.com/api/channels/whatsapp/send`, from phoneNumberId 302631896256150). scope `user`, kind `api-key`, required `true`, no validator. UI-only registration; no worker wiring | 2026-06-07 | (pending) | — | [260607-pjc-add-myutik-api-key-input-to-staff-web-se](./quick/260607-pjc-add-myutik-api-key-input-to-staff-web-se/) |
-| fast | Fix 404 on React Router action POSTs — add `apps/staff-web/server/routes/[...page].post.ts` mounting the method-agnostic `createH3SSRHandler` on POST. Catch-all was GET-only (`[...page].get.ts`), so RR framework-mode action `.data` POSTs (`POST /gymos/compose.data` from inbox send-text Form + send-template fetcher) 404'd before reaching the SSR handler. Fixes WhatsApp template/text send from /gymos/inbox. Needs Vercel redeploy + manual retest | 2026-06-07 | 6edc640d | — | — |
-| 260608-fb8 | Repoint worker `templates-sync` cron from Meta Graph to the MYÜTIK Template Extract API (`GET myutik.com/api/channels/whatsapp/templates`, `x-api-key` + `phoneNumberId=302631896256150`). New `getMyutikApiKey`/`getMyutikPhoneNumberId` resolvers (DB secrets → env), optional `MYUTIK_API_KEY`/`MYUTIK_PHONE_NUMBER_ID` env, pagination via `paging.next`, and **lowercases Meta's UPPERCASE status** so `templateGate` (`status='approved'`) matches. Meta resolvers kept. Verified key live (200 OK). Needs `fly secrets set MYUTIK_API_KEY=…` on worker + redeploy | 2026-06-08 | 6c46964f | — | [260608-fb8-repoint-worker-template-sync-to-myutik-t](./quick/260608-fb8-repoint-worker-template-sync-to-myutik-t/) |
-| 260608-g74 | Worker reads credentials from the framework `app_secrets` table (the store the staff-web Settings UI writes to). New `readAppSecretByKey(key, db)` (`services/worker/src/lib/appSecrets.ts`) — local AES-256-GCM decrypt mirroring `packages/core/src/secrets/storage.ts`, key material `SECRETS_ENCRYPTION_KEY ?? BETTER_AUTH_SECRET`, single-tenant resolve-by-key, returns null (never throws) on miss/corrupt. Layered as FIRST source in `getMyutikApiKey`/`getMyutikPhoneNumberId`/`getWhatsAppAccessToken`/`getWhatsAppPhoneNumberId` (precedence: app_secrets → pgcrypto secrets → env). Stripe/WABA-id unchanged. Backwards-compatible. **Activate by setting shared `BETTER_AUTH_SECRET` as a Fly secret on the worker + redeploy** | 2026-06-08 | a1d66c11 | — | [260608-g74-worker-reads-credentials-from-app-secret](./quick/260608-g74-worker-reads-credentials-from-app-secret/) |
-| 260608-gn1 | Add "Update templates" button to the inbox Templates dialog — on-demand MYÜTIK template sync (staff-web side, no worker dependency). New `apps/staff-web/server/lib/app-secrets.ts` `readAppSecretByKey(key)` (resolve-by-key AES-256-GCM decrypt). New `_intent="sync-templates"` branch at top of `gymos.inbox.tsx` action: reads `MYUTIK_API_KEY` from app_secrets, paginates MYÜTIK, upserts `whatsapp_templates` with **lowercase status/category + object-wrapped `componentsJson`** (`{components:[...]}` to match the dialog parser + seed). `TemplatesDialog.tsx` gets an IconRefresh outline button (separate `syncFetcher`, "Updating…" state, settle toast); list refreshes via RR loader revalidation. Also fixed the worker `syncTemplates.ts` bare-array `componentsJson` bug to object-wrapped. Works on the live deploy without the worker | 2026-06-08 | 368f450c | — | [260608-gn1-add-update-templates-button-to-inbox-tem](./quick/260608-gn1-add-update-templates-button-to-inbox-tem/) |
-| 260609-fcm | AI auto-fill of WhatsApp template `{{N}}` variables in the inbox TemplatesDialog. New pure write-back action `apps/staff-web/actions/suggest-template-vars.ts` (`defineAction`, NO `http`, NO LLM — `writeAppState` to `gymos-template-vars-<conv>-<template>`, `guard:allow-unscoped`). On selecting an approved template with `>=1` var, TemplatesDialog fires `sendToAgentChat` to the **ACTIVE** chat thread (`openSidebar:true`) once per (conv,template) via a `dispatched` ref, polls the state key, and merges suggestions into non-edited slots only (never clobbers coach-typed input); inline `Filling with AI…` indicator (IconMessageChatbot) with a 30s timeout. Loader passes compact `memberContext`; `agent-chat.ts` + `apps/staff-web/AGENTS.md` name the tool with `{{1}}=first name` mapping guidance. Send path untouched — nothing auto-sends. **Follow-ups (same day): the initial `background:true,newTab:true` version created a ghost thread that never ran (404 loop) — switched to the active thread (commit `0a5b48e1`); also fixed double-encode in the action (`52892c07`) + spinner timeout (`ca5cdbce`). WORKS IN PROD (ANTHROPIC_API_KEY confirmed in staff-web Vercel env).** | 2026-06-09 | 0a5b48e1 | — | [260609-fcm-ai-auto-fill-of-whatsapp-template-variab](./quick/260609-fcm-ai-auto-fill-of-whatsapp-template-variab/) |
-| 260609-qe9 | Rewire the worker outbound WhatsApp send chokepoint to route ALL sends through MYÜTIK (the GymClassOS Meta app is NOT approved → direct Graph rejected with code 100/subcode 33). New `services/worker/src/domain/sendViaMyutik.ts` POSTs `https://myutik.com/api/channels/whatsapp/send` (`x-api-key` + `phoneNumberId`), extracts `wamid` from `result.messages[0].id`, throws `.status`-carrying errors. `sendMessage.ts` rewired so `sendViaMyutik` is the SOLE send call site (`@gymos/whatsapp` direct-Meta path removed); gates 1-5 + status state machine unchanged; keeps leading `+`; template → single body component with params ordered by placeholder #; status map 4xx→terminal `failed`, 502/no-wamid→retry. Also fixed a pre-existing pino `LOG_LEVEL` crash. 79/79 worker tests + `tsc` green. **DEPLOYED to Fly (`gymos-edge-webhooks` web+worker rolled healthy); `MUTIK_API_KEY` confirmed all-scopes. NEXT (morning): send a fresh template from /gymos/inbox → verify messages row `status='sent'` + `external_id` (wamid) + actually arrives. Old stuck row won't resend (job retries exhausted). See WHATSAPP_HANDOFF.md 2026-06-09 section.** | 2026-06-09 | 5cc4ab82 | — | [260609-qe9-route-worker-outbound-whatsapp-sends-thr](./quick/260609-qe9-route-worker-outbound-whatsapp-sends-thr/) |
-| 260611-dxv | CSV bulk-upload interface for Leads view — shared csv-leads.ts library (extracted from CLI importer), import-leads defineAction (dryRun preview + commit with FK-safe re-select), ImportLeadsDialog (shadcn Dialog + column mapping + counts + sample preview), wired into /gymos/inbox?filter=leads with useRevalidator for instant refresh. No schema changes. | 2026-06-11 | cf3b76df, 697b2645 | Done | [260611-dxv-add-csv-bulk-upload-interface-with-colum](./quick/260611-dxv-add-csv-bulk-upload-interface-with-colum/) |
-| 260613-ey3 | Build the real GymClassOS payments page: `list-payments` defineAction GET (LEFT JOIN payments→gym_members, order by occurred_at DESC, LIMIT 100, guard:allow-unscoped) + `/gymos/payments` rewired from Coming Soon stub to real shadcn Table (Date/Member/Amount/Status) with colour-coded badges, `Intl.NumberFormat` £ formatting, and clean empty state "No payments yet — they'll appear here as members pay". Closes PAY-VIEW audit gap. | 2026-06-13 | 086adf1d, 267baf98 | Done | [260613-ey3-build-the-real-gymos-payments-page-list-](./quick/260613-ey3-build-the-real-gymos-payments-page-list-/) |
-| 260611-rrh | Fix WhatsApp webhook consumer dropping MYÜTIK outbound mirrors. Receiver (edge-webhooks) now detects `messages[0].from === metadata.phone_number_id` → direction='out' and carries `contacts[0].wa_id` as customerWaId; queue payload extended backward-compatibly (direction defaults 'in'); worker `materialiseOutboundMirror` matches member by customerWaId, inserts direction='out' (status 'sent', wamid dedup via existing partial unique index so self-sends collapse), sets last_outbound_at + preview, no unread bump / no opt-in capture / no status promote. Backfill script `services/worker/scripts/backfill-outbound-mirrors.ts` (dry-run default, --commit) recovers June 5+10 stranded replies from webhook_events and recounts unread as inbound-after-last-outbound. 127 tests green. | 2026-06-11 | 00863fc1, b61086c1, 05179009 | Done | [260611-rrh-fix-whatsapp-webhook-consumer-dropping-o](./quick/260611-rrh-fix-whatsapp-webhook-consumer-dropping-o/) |
-| Phase P1b.1-customer-pilot-enablement P01 | 7min | 2 tasks | 2 files |
-| Phase P1b.1-customer-pilot-enablement P02 | 25min | 2 tasks | 3 files |
-| Phase P1b.1-customer-pilot-enablement P03 | 15min | 3 tasks | 3 files |
-| Phase P1b.1-customer-pilot-enablement P04 | 35min | 3 tasks | 4 files |
-| Phase P1b.1-customer-pilot-enablement P07 | 12min | 2 tasks | 2 files |
-| Phase P1b.1-customer-pilot-enablement P06 | 5min | 1 tasks | 1 files |
-| Phase P1b.1-customer-pilot-enablement PP05 | 6min | 2 tasks | 2 files |
-| Phase P1c-public-site-integrations P01 | 25min | 3 tasks | 2 files |
-| Phase P1c-public-site-integrations P03 | 8 | 2 tasks | 3 files |
-| Phase P1c-public-site-integrations P02 | 10min | 4 tasks | 18 files |
-| Phase P1c-public-site-integrations P04 | 25 | 2 tasks | 8 files |
-| Phase P1c-public-site-integrations P05 | 8 | 2 tasks | 4 files |
-| Phase P1c-public-site-integrations P06 | 3 | 1 tasks | 2 files |
-| Phase P1c-public-site-integrations P07 | 8min | 1 tasks | 1 files |
-| Phase P3-ai-noticeboard-home P01 | 428 | 2 tasks | 2 files |
-| Phase P3-ai-noticeboard-home P02 | 440 | 3 tasks | 4 files |
-| Phase P3-ai-noticeboard-home P03 | 519 | 3 tasks | 3 files |
-| Phase P3-ai-noticeboard-home P04 | 556 | 3 tasks | 4 files |
-| Phase P3-ai-noticeboard-home P06 | 382 | 3 tasks | 3 files |
-| Phase P3-ai-noticeboard-home P05 | 671 | 3 tasks | 4 files |
-| Phase P1c.1-stripe-connect-custom-customer-purchase-flows P01 | 5min | 2 tasks | 4 files |
-| Phase P1c.1-stripe-connect-custom-customer-purchase-flows P04 | 8min | 3 tasks | 6 files |
-| Phase P1c.1 P06 | 45min | 3 tasks | 15 files |
-| Phase P1c.1-stripe-connect-custom-customer-purchase-flows P02 | 4min | 2 tasks | 3 files |
-| Phase P1c.1 P05 | 35min | 3 tasks | 9 files |
-| Phase P1c.1-stripe-connect-custom-customer-purchase-flows P03 | 18min | 2 tasks | 13 files |
 
 ### Carried-over concerns (from v1.1 redesign)
 
@@ -329,17 +261,19 @@ Key patterns discovered during v1.0 execution that apply to v1.1:
 
 ## Session Continuity
 
-Last session: 2026-06-14 (merge of redesign/ui-refresh into master)
-Stopped at: Merged v1.1 UI Redesign (R1–R5 complete) into master
+Last session: 2026-06-18 (v1.2 roadmap created)
+Stopped at: v1.2 roadmap (AE1–AE3) written; REQUIREMENTS.md traceability filled; STATE.md updated to AE1 position
 Resume file: None
 
-### ▶ PICK UP HERE — v1.1 redesign merged; resume v1.0 production
+### PICK UP HERE — v1.2 Agentic Tab Editing
 
-The v1.1 UI Redesign (R1–R5) is complete and merged into `master`. Remaining work is on the v1.0 production track:
+The v1.2 roadmap is ready. Three phases defined (AE1 Forms, AE2 Schedule, AE3 Members), 18 requirements mapped, AEX cross-cutting conventions anchored to AE1.
 
-- **WhatsApp deep wire** — finish the `app_secrets` credential migration + WA-08 template-sync cron + live WABA end-to-end test (see `WHATSAPP_HANDOFF.md`).
-- **Mobile EAS build** — resume D2 (in-app agent Task 4, D2-06 verification) and cut an EAS preview build.
-- **P1c Public Site Integrations** — `/gsd:plan-phase P1c` when ready (forms fork + `/embed/schedule` booking widget).
-- **P2 / P3 staff + member surfaces** — next major v1.0 phases (unscheduled).
+Next: `/gsd:plan-phase AE1`
 
-Deferred manual UAT from P1c.1 (subscription / refund / Customer Portal / mobile live-tests) is tracked in `.planning/phases/P1c.1-*/P1c.1-HUMAN-UAT.md`.
+Key things to verify at plan time for AE1:
+- Read `apps/staff-web/actions/approve-proposal.ts` — get the current `ACTION_ALLOWLIST` shape before adding `publish-form`.
+- Read `apps/staff-web/actions/propose-action.ts` — get the current Zod enum before extending it.
+- Read `apps/staff-web/server/db/schema.ts` — confirm `forms` table column names before writing `create-form` / `update-form`.
+- Read `apps/staff-web/agent-chat.ts` — understand current system prompt structure before adding per-tab sections.
+- Read `apps/staff-web/features/forms/` — understand existing forms feature code before exposing it via `defineAction`.

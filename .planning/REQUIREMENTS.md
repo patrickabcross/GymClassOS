@@ -57,4 +57,23 @@
 
 ## Traceability
 
-_(Filled by the roadmapper — every REQ-ID maps to exactly one phase.)_
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| AEF-01 | Phase AE1 | Pending |
+| AEF-02 | Phase AE1 | Pending |
+| AEF-03 | Phase AE1 | Pending |
+| AEF-04 | Phase AE1 | Pending |
+| AEF-05 | Phase AE1 | Pending |
+| AEF-06 | Phase AE1 | Pending |
+| AES-01 | Phase AE2 | Pending |
+| AES-02 | Phase AE2 | Pending |
+| AES-03 | Phase AE2 | Pending |
+| AES-04 | Phase AE2 | Pending |
+| AES-05 | Phase AE2 | Pending |
+| AES-06 | Phase AE2 | Pending |
+| AEM-01 | Phase AE3 | Pending |
+| AEM-02 | Phase AE3 | Pending |
+| AEX-01 | Phase AE1 | Pending |
+| AEX-02 | Phase AE1 | Pending |
+| AEX-03 | Phase AE1 | Pending |
+| AEX-04 | Phase AE1 | Pending |
