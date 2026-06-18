@@ -269,6 +269,39 @@ export default defineAction({
           error: err instanceof Error ? err.message : String(err),
         };
       }
+    } else if (nav?.view === "forms") {
+      // AEX-01 — context-aware of the Forms tab. Surface the forms list (and the
+      // selected form, if any) so the agent knows what exists before writing.
+      const { getDb, schema } = await import("../server/db/index.js");
+      const { isNull, eq } = await import("drizzle-orm");
+      const db = getDb();
+      // guard:allow-unscoped — single-tenant gym forms
+      const forms = await db
+        .select({
+          id: schema.forms.id,
+          title: schema.forms.title,
+          status: schema.forms.status,
+          slug: schema.forms.slug,
+          updatedAt: schema.forms.updatedAt,
+        })
+        .from(schema.forms)
+        .where(isNull(schema.forms.deletedAt));
+      screen.forms = forms;
+      if (nav?.formId) {
+        // guard:allow-unscoped — single-tenant gym forms
+        const [form] = await db
+          .select()
+          .from(schema.forms)
+          .where(eq(schema.forms.id, nav.formId))
+          .limit(1);
+        if (form) {
+          screen.selectedForm = {
+            ...form,
+            fields: JSON.parse(form.fields),
+            settings: JSON.parse(form.settings),
+          };
+        }
+      }
     } else if (nav?.view) {
       const emails = await fetchEmailList(nav.view, nav.search, nav.label);
       const selectedThreadIds = Array.isArray(nav.selectedThreadIds)
