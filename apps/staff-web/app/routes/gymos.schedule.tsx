@@ -25,7 +25,15 @@
 // (demo-grade, no atomic capacity check). Production atomicity ships in
 // BKG-03/BKG-04.
 
-import { useLoaderData, Form, redirect, useSearchParams } from "react-router";
+import {
+  useLoaderData,
+  Form,
+  redirect,
+  useSearchParams,
+  useRevalidator,
+} from "react-router";
+import { useEffect } from "react";
+import { useChangeVersions } from "@agent-native/core/client";
 import { eq, asc, sql } from "drizzle-orm";
 import {
   addMonths,
@@ -245,6 +253,17 @@ function parseDateParam(raw: string | null): Date {
 export default function GymosSchedule() {
   const data = useLoaderData<typeof loader>();
   const [searchParams, setSearchParams] = useSearchParams();
+
+  const revalidator = useRevalidator();
+  const actionVersion = useChangeVersions(["action"]);
+
+  // Re-run the loader whenever the agent completes a write action (AEX-03).
+  useEffect(() => {
+    if (actionVersion > 0) {
+      revalidator.revalidate();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [actionVersion]);
 
   // ─── URL-driven state ───────────────────────────────────────────────────
   const monthAnchor = parseMonthParam(searchParams.get("month"));
