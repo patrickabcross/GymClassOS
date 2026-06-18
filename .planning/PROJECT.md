@@ -10,23 +10,25 @@ GymClassOS is a boutique fitness studio management platform — staff back-offic
 
 Coaches and studio managers run their entire day from one inbox-and-schedule surface (WhatsApp conversations + class bookings + member context). Members book, pay, and log activity / nutrition from a native iOS/Android app (forked from agent-native's `packages/mobile-app`) that includes an in-app coaching agent — without staff cobbling together WhatsApp, calendar, calorie-tracking, and CRM tools.
 
-## Current Milestone: v1.1 UI Redesign — GymClassOS Design System
+## Current Milestone: v1.2 — Agentic Tab Editing
 
-> **Branch-isolated milestone (2026-06-12):** lives on `redesign/ui-refresh`. The v1.0 Demo Sprint milestone continues independently on `master` in a separate working copy; this milestone merges when ready, NOT coupled to the 2026-07-15 ship date.
+> **Started 2026-06-18.** A FUNCTIONAL milestone, distinct from v1.1. The v1.1 UI Redesign milestone (phases R1–R5) is complete and merged into `master` (2026-06-14). v1.0 Production work (P2/P3 product surfaces, WhatsApp deep-wire, mobile EAS build) remains pending and is tracked separately in the roadmap; v1.2 is scheduled ahead of it at the user's direction.
 
-**Goal:** Replace the agent-native template-fork look with a studio-skinnable GymClassOS design system and gym-domain naming across all three surfaces, so the product reads as a real vertical product sellable beyond Hustle.
+**Goal:** Make the GymClassOS staff `/gymos` chat agent able to UPDATE each tab, not just read it — realizing the agent-native principle "everything the UI can do, the agent can do." Each tab effectively gains an agent that knows how to edit its content. v1.2 scope is THREE tabs: **Forms, Schedule, Members**.
 
 **Target features:**
-- **GymClassOS design system** — theme tokens (color, typography, logo, radius) skinnable per studio; Hustle ships as the first skin via configuration, not hardcoding
-- **Staff web redesign** — visual refresh + information-architecture and naming pass retiring Mail-template vocabulary (`InboxPage`, `DraftQueuePage`, email-shaped concepts) in favor of gym-domain language
-- **Public widgets redesign** — `/embed/schedule` booking widget + lead-capture forms styled to embed cleanly on any studio site, themed by the same tokens
-- **Member mobile app redesign** — Expo app aligned to the same design language
-- **Product naming audit (Claude as PM)** — systematic rename of surfaces, features, and labels for gym-domain clarity, captured as a naming decision record
+- **Forms write tools** — agent creates a form, updates it (title/description/fields/settings), publishes/unpublishes, archives/restores — exposing the existing `/api/forms` CRUD as `defineAction` agent tools so the agent edits forms (e.g. the schedule-enquiry form) from chat.
+- **Schedule write tools** — agent creates/edits `class_definitions` and `class_occurrences` (set capacity, cancel, reschedule `starts_at`, mark status).
+- **Members write tools** — agent updates `gym_members` profile fields (name, phone_e164, email, notes) WITHOUT silently changing `whatsapp_opt_in` / `marketing_consent` state.
+- **Per-tab context-awareness** — the agent leads with the active tab's write tools (it already receives the active tab via the navigation-state hook + `view-screen`); `agent-chat.ts` system prompt updated with per-tab capability descriptions.
 
 **Key constraints carried in:**
-- No local dev server (Nitro/Vite bug) — staff-web verifies via Fly deploy, mobile via EAS/Expo Go, widgets via deployed embeds
-- Fork boundary holds: `templates/` and `packages-vendored/*` never edited in place; redesign work lands in `apps/staff-web/features/*`, `apps/staff-web/app/*`, and the forked `packages/mobile-app`
-- Baseline `gsd:ui-review` audit is the first work item — no prior audit exists; the redesign must target documented weaknesses, not vibes
+- Everything via `defineAction` (mutations = no `http` GET); Zod-validated inputs; optimistic UI on the matching UI surfaces; four-area agent-native checklist per feature (UI, Actions, Skills/Instructions in AGENTS.md, Application State).
+- Gym domain tables are single-tenant → `guard:allow-unscoped`; follow `apps/staff-web/AGENTS.md` "Adding a New Gym Action" steps (create action → regen `.generated` registry → document in AGENTS.md Agent Actions table → add to `agent-chat.ts` tool list).
+- No breaking DB changes — strictly additive.
+- Human-in-the-loop posture is decided per-operation at plan time: low-risk edits (editing a DRAFT form, adjusting class capacity) may act directly; anything that messages members, publishes a form, or affects bookings/payments stays propose→approve.
+- Out of scope for v1.2: campaigns, payments, settings, analytics tabs (follow-up milestone).
+- No local dev server (Nitro/Vite bug) — staff-web verifies via Fly deploy or unit tests + `tsc`.
 
 ## Requirements
 

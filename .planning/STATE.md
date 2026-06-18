@@ -34,11 +34,11 @@ Requirements: `.planning/REQUIREMENTS.md` (30 v1.1 reqs across 6 categories — 
 
 ## Current Position
 
-Milestone: v1.0 Production (P1c.1 complete) + v1.1 UI Redesign merged in (R1–R5 complete)
-Phase: P1c.1 complete; v1.1 R1–R5 complete
-Plan: Not started (next v1.0 phase unscheduled)
-Status: v1.1 redesign merged into master 2026-06-14; P1c.1 e2e smoke test PASSED (2026-06-13)
-Last activity: 2026-06-18 - Completed quick task 260618-fqg (AI-fill WhatsApp lead-ack template vars from form + class catalog; parseTemplateBody + buildLeadAckVars with deterministic fallback; real language from template row)
+Milestone: v1.2 — Agentic Tab Editing (defining requirements)
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-06-18 — Milestone v1.2 (Agentic Tab Editing) started; v1.0 Production (P2/P3) + v1.1 (merged, R1–R5) tracked separately in roadmap
 
 > **Branch note:** All v1.0 Demo Sprint position/detail in the Accumulated Context section below reflects `master` state at branch time (2026-06-12) and is kept for reference. Do not execute v1.0 work from this branch.
 
