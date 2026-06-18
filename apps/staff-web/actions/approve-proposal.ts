@@ -11,6 +11,8 @@ const ACTION_ALLOWLIST = [
   "send-template-to-members",
   "create-checkout-link",
   "publish-form",
+  "cancel-occurrence",
+  "reschedule-occurrence",
 ] as const;
 
 export default defineAction({
@@ -62,6 +64,10 @@ export default defineAction({
       mod = await import("./send-template-to-members.js");
     } else if (proposal.actionName === "publish-form") {
       mod = await import("./publish-form.js");
+    } else if (proposal.actionName === "cancel-occurrence") {
+      mod = await import("./cancel-occurrence.js");
+    } else if (proposal.actionName === "reschedule-occurrence") {
+      mod = await import("./reschedule-occurrence.js");
     } else {
       mod = await import("./create-checkout-link.js");
     }
