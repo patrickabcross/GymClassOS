@@ -38,7 +38,7 @@ Milestone: v1.0 Production (P1c.1 complete) + v1.1 UI Redesign merged in (R1–R
 Phase: P1c.1 complete; v1.1 R1–R5 complete
 Plan: Not started (next v1.0 phase unscheduled)
 Status: v1.1 redesign merged into master 2026-06-14; P1c.1 e2e smoke test PASSED (2026-06-13)
-Last activity: 2026-06-15 - Completed quick task 260615-r6t (worker sends approved template body as free-form text when in-window)
+Last activity: 2026-06-18 - Completed quick task 260618-ezc (public /preview/{slug} form route + auto-send WhatsApp template ack on lead submit)
 
 > **Branch note:** All v1.0 Demo Sprint position/detail in the Accumulated Context section below reflects `master` state at branch time (2026-06-12) and is kept for reference. Do not execute v1.0 work from this branch.
 
@@ -249,6 +249,7 @@ Key patterns discovered during v1.0 execution that apply to v1.1:
 | fast | Fix inbox "Update templates" MYÜTIK 404 — sync-templates falls back to WHATSAPP_PHONE_NUMBER_ID app_secret before the stale hardcoded phoneNumberId (number-change fix) | 2026-06-15 | cda1dd10 | Done |
 | 260615-phi | Inbound WhatsApp from unknown numbers auto-creates gym_member + open conversation + opt-in (worker, race-safe onConflict + re-select); on-demand template sync prunes stale templates from a previous account (staff-web, syncStartedAt watermark) | 2026-06-15 | 6e3afe28 | Done |
 | 260615-r6t | Worker sends an approved template's BODY as free-form text when the conversation is in-window (MYÜTIK rejects templates in-window); out-of-window still sends a real template; empty-render falls back to template send; WA-08 gate fires in both states | 2026-06-15 | 964671b3 | Done |
+| 260618-ezc | Add public `/preview/{slug}` form route (alias of `/f/{slug}` renderer; whitelisted in CORS + auth) and auto-send a WhatsApp template ack on lead form submit (env-gated `LEAD_ACK_TEMPLATE_NAME` + phone-gated; creates `whatsapp_opt_in` source='form_submission', enqueues TEMPLATE send through worker chokepoint; try/catch so lead capture never breaks). No-op until template approved + env set. | 2026-06-18 | be7f1be9 | Done |
 | Phase R1 P02 | 3 | 2 tasks | 5 files |
 | Phase R1 P01 | 185 | 2 tasks | 1 files |
 | Phase R1-audit-baseline P03 | 240 | 5 tasks | 15 files |
