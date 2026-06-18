@@ -1,29 +1,36 @@
-// GymClassOS Campaigns — 260531-n7i Task 3.
+// GymClassOS Campaigns — 260531-n7i Task 3 + AE3-02 (AEM-03 / AEM-04).
 //
-// Focused surface for missed-session re-engagement bulk sends.
-// Coaches pick the at-risk segment (fixed, reused from list-at-risk-members),
-// choose an approved WhatsApp template (with shared-variable inputs), see an
-// ELIGIBLE recipient count (opted-in AND not opted-out), confirm via
-// AlertDialog, and POST to send-template-to-members.
+// Focused surface for re-engagement bulk sends with a COMPOSABLE segment
+// builder. Coaches (and the agent) define AND-composed segments over three
+// axes — # classes attended, recency of last attendance, inquiry/lead date —
+// alongside the built-in at-risk preset. They choose an approved WhatsApp
+// template (with shared-variable inputs), see an ELIGIBLE recipient count
+// (opted-in AND not opted-out, reused verbatim) for the selected segment,
+// confirm via AlertDialog, and POST to send-template-to-members.
 //
-// Application-state note: campaign selection state is local React state for
-// this core build — full application_state navigation exposure (so the agent
-// can "know" the user is on the Campaigns page and which template they've
-// selected) is deferred to a follow-up plan, consistent with other /gymos
-// sibling routes (gymos.analytics.tsx, gymos.members.tsx) that also defer
-// deep application_state wiring.
+// Segment persistence (AE3-02): named segments are stored FILTER SPECS in the
+// framework application_state table under key gymos-campaign-segments — NO
+// schema change. The save-segment ACTION writes them (request context exists);
+// the Campaigns component reads them CLIENT-SIDE via
+// GET /_agent-native/application-state/:key (readAppState THROWS in a loader —
+// no request context). The loader supplies the member rows the specs evaluate
+// against. An agent-built segment appears without a reload via the
+// useChangeVersions(["action"]) re-fetch.
 //
-// Custom segment builder: DEFERRED. Fixed at-risk segment (list-at-risk-members
-// criteria: 14d inactive OR 0 bookings/30d OR pass expiring in 14d) is the
-// only available segment for this core build.
-//
-// Requirements: WA-07, WA-09, WA-10, RET-01.
+// Requirements: WA-07, WA-09, WA-10, RET-01, AEM-03, AEM-04.
 
-import { useState, useMemo } from "react";
-import { useLoaderData, useFetcher } from "react-router";
+import { useState, useMemo, useEffect, useCallback } from "react";
+import { useLoaderData, useFetcher, useRevalidator } from "react-router";
+import { useChangeVersions } from "@agent-native/core/client";
 import { inArray, sql } from "drizzle-orm";
 import { toast } from "sonner";
-import { IconSend, IconUsers, IconTemplate } from "@tabler/icons-react";
+import {
+  IconSend,
+  IconUsers,
+  IconTemplate,
+  IconPlus,
+  IconFilter,
+} from "@tabler/icons-react";
 import { getDb, schema } from "../../server/db";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -47,7 +54,50 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import type { LoaderFunctionArgs } from "react-router";
+
+// ─── Segment spec types + evaluator (module-level, unit-testable) ─────────────
+// A segment is a stored FILTER SPEC, evaluated against current member data at
+// render time so it stays live as bookings/attendance change (D-02). The three
+// axes are AND-composed (D-03). Shared by the loader and the component.
+
+export type SegmentFilters = {
+  minClassesAttended?: number;
+  notAttendedInDays?: number;
+  inquiryBefore?: string;
+  inquiryAfter?: string;
+};
+
+export type EvalMember = {
+  memberId: string;
+  attendedCount: number;
+  lastAttendedAt: string | null;
+  createdAt: string;
+};
+
+export function matchesSpec(
+  m: EvalMember,
+  f: SegmentFilters,
+  nowMs: number,
+): boolean {
+  if (f.minClassesAttended != null && m.attendedCount < f.minClassesAttended)
+    return false;
+  if (f.notAttendedInDays != null) {
+    const cutoff = new Date(
+      nowMs - f.notAttendedInDays * 86400000,
+    ).toISOString();
+    // "haven't attended in N days" = never attended OR last attended before cutoff
+    if (m.lastAttendedAt && m.lastAttendedAt >= cutoff) return false;
+  }
+  if (f.inquiryBefore && !(m.createdAt < f.inquiryBefore)) return false;
+  if (f.inquiryAfter && !(m.createdAt > f.inquiryAfter)) return false;
+  return true;
+}
 
 // ─── Template helpers (pure, copied from TemplatesDialog.tsx) ────────────────
 // These are intentionally duplicated (not imported from TemplatesDialog) because
@@ -119,6 +169,8 @@ export async function loader(_args: LoaderFunctionArgs) {
       firstName: schema.gymMembers.firstName,
       lastName: schema.gymMembers.lastName,
       phoneE164: schema.gymMembers.phoneE164,
+      createdAt: schema.gymMembers.createdAt, // inquiry/lead date axis
+      attendedCount: sql<number>`(SELECT COUNT(*) FROM bookings b WHERE b.member_id = "gym_members"."id" AND b.status = 'attended')`,
       lastAttendedAt: sql<
         string | null
       >`(SELECT MAX(co.starts_at) FROM bookings b JOIN class_occurrences co ON co.id = b.occurrence_id WHERE b.member_id = "gym_members"."id" AND b.status = 'attended')`,
@@ -128,17 +180,22 @@ export async function loader(_args: LoaderFunctionArgs) {
       >`(SELECT MIN(p.expires_at) FROM passes p WHERE p.member_id = "gym_members"."id" AND p.expires_at IS NOT NULL AND p.expires_at >= ${nowIso})`,
     })
     .from(schema.gymMembers)
-    .limit(200); // over-fetch; filter below
+    .limit(500); // over-fetch; filter per spec in app code
 
-  const atRisk = memberRows
-    .map((r) => ({
-      memberId: r.memberId,
-      name: [r.firstName, r.lastName].filter(Boolean).join(" ").trim(),
-      phoneE164: r.phoneE164,
-      lastAttendedAt: r.lastAttendedAt ?? null,
-      bookingCount30d: Number(r.bookingCount30d ?? 0),
-      earliestPassExpiry: r.earliestPassExpiry ?? null,
-    }))
+  // Normalized member array the component evaluates any segment spec against.
+  const allMembers = memberRows.map((r) => ({
+    memberId: r.memberId,
+    name: [r.firstName, r.lastName].filter(Boolean).join(" ").trim(),
+    phoneE164: r.phoneE164,
+    createdAt: r.createdAt,
+    attendedCount: Number(r.attendedCount ?? 0),
+    lastAttendedAt: r.lastAttendedAt ?? null,
+    bookingCount30d: Number(r.bookingCount30d ?? 0),
+    earliestPassExpiry: r.earliestPassExpiry ?? null,
+  }));
+
+  // At-risk built-in preset — same predicate as before, computed from allMembers.
+  const atRisk = allMembers
     .filter((m) => {
       const noRecentAttendance =
         !m.lastAttendedAt || m.lastAttendedAt < inactiveCutoff;
@@ -161,34 +218,35 @@ export async function loader(_args: LoaderFunctionArgs) {
   //    guard:allow-unscoped — single-tenant studio-wide templates
   const templates = await db.select().from(schema.whatsappTemplates);
 
-  // 3. Opt-in / opted-out state for the at-risk members.
-  //    Eligible = has an opt-in row AND opted_out_at IS NULL.
+  // 3. Opt-in / opted-out state for ALL members (not just at-risk) so the
+  //    component can show an eligible count for ANY selected segment without a
+  //    round-trip. Eligible = has an opt-in row AND opted_out_at IS NULL.
+  //    Reused verbatim from the existing send gate — DO NOT fork (D-05 / CONTEXT).
   //    guard:allow-unscoped — single-tenant gym tables
-  const atRiskMemberIds = atRisk.map((m) => m.memberId);
-  let eligibleMemberIds: string[] = [];
-
-  if (atRiskMemberIds.length > 0) {
+  const allMemberIds = allMembers.map((m) => m.memberId);
+  const eligibleSet = new Set<string>();
+  if (allMemberIds.length > 0) {
     const optInRows = await db
       .select({
         memberId: schema.whatsappOptIn.memberId,
         optedOutAt: schema.whatsappOptIn.optedOutAt,
       })
       .from(schema.whatsappOptIn)
-      .where(inArray(schema.whatsappOptIn.memberId, atRiskMemberIds));
-
-    const eligibleSet = new Set(
-      optInRows.filter((r) => r.optedOutAt == null).map((r) => r.memberId),
-    );
-    eligibleMemberIds = atRiskMemberIds.filter((id) => eligibleSet.has(id));
+      .where(inArray(schema.whatsappOptIn.memberId, allMemberIds));
+    for (const r of optInRows) {
+      if (r.optedOutAt == null) eligibleSet.add(r.memberId);
+    }
   }
+  const eligibleMemberIds = Array.from(eligibleSet);
 
   return {
+    allMembers,
     atRisk,
     templates,
     eligibleMemberIds,
     counts: {
       atRisk: atRisk.length,
-      eligible: eligibleMemberIds.length,
+      total: allMembers.length,
     },
   };
 }
@@ -199,6 +257,10 @@ export default function CampaignsPage() {
   const { atRisk, templates, eligibleMemberIds, counts } =
     useLoaderData<typeof loader>();
   const fetcher = useFetcher();
+
+  // Eligible count for the currently selected segment. Task 3 generalizes this
+  // per-segment; Task 2 keeps the at-risk preset as the selected default.
+  const eligibleCount = eligibleMemberIds.length;
 
   const [selectedTemplateName, setSelectedTemplateName] = useState<
     string | null
@@ -257,7 +319,7 @@ export default function CampaignsPage() {
       },
     );
     setDialogOpen(false);
-    toast.success(`Queued campaign to ${counts.eligible} members`);
+    toast.success(`Queued campaign to ${eligibleCount} members`);
   };
 
   // Handle fetcher errors from the action response.
@@ -441,15 +503,15 @@ export default function CampaignsPage() {
       <div className="flex items-center justify-between rounded-lg border border-border/50 bg-card/60 px-4 py-3">
         <div className="flex flex-col gap-0.5">
           <span className="text-[13px] font-medium">
-            {counts.eligible} eligible recipients
+            {eligibleCount} eligible recipients
           </span>
           <span className="text-[11px] text-muted-foreground">
             Members who have opted in and have not opted out will receive this
             campaign.
-            {counts.atRisk > counts.eligible && (
+            {counts.atRisk > eligibleCount && (
               <>
                 {" "}
-                {counts.atRisk - counts.eligible} of the {counts.atRisk} at-risk
+                {counts.atRisk - eligibleCount} of the {counts.atRisk} at-risk
                 members are excluded (not opted in or opted out).
               </>
             )}
@@ -460,7 +522,7 @@ export default function CampaignsPage() {
           <AlertDialogTrigger asChild>
             <Button
               type="button"
-              disabled={!canSend || counts.eligible === 0 || isSending}
+              disabled={!canSend || eligibleCount === 0 || isSending}
               className="ml-4 shrink-0"
             >
               <IconSend size={14} className="mr-1.5" aria-hidden />
@@ -472,7 +534,7 @@ export default function CampaignsPage() {
               <AlertDialogTitle>Send campaign?</AlertDialogTitle>
               <AlertDialogDescription>
                 This will queue a WhatsApp template to{" "}
-                <strong>{counts.eligible}</strong> members. Members who
+                <strong>{eligibleCount}</strong> members. Members who
                 haven&apos;t opted in or have opted out are skipped by the
                 system.
               </AlertDialogDescription>
@@ -480,7 +542,7 @@ export default function CampaignsPage() {
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
               <AlertDialogAction onClick={handleSend} disabled={isSending}>
-                {isSending ? "Sending…" : `Send to ${counts.eligible} members`}
+                {isSending ? "Sending…" : `Send to ${eligibleCount} members`}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
