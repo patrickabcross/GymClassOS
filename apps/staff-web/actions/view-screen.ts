@@ -372,6 +372,75 @@ export default defineAction({
           };
         }
       }
+    } else if (nav?.view === "members") {
+      // AEX-01 — context-aware of the Members tab. Surface the directory (and the
+      // selected member + recent bookings when nav.memberId is set) so the agent
+      // can ground "update this member" before calling update-member.
+      const { getDb, schema } = await import("../server/db/index.js");
+      const { eq, desc } = await import("drizzle-orm");
+      const db = getDb();
+      // guard:allow-unscoped — single-tenant gym tables
+      const members = await db
+        .select({
+          id: schema.gymMembers.id,
+          firstName: schema.gymMembers.firstName,
+          lastName: schema.gymMembers.lastName,
+          phoneE164: schema.gymMembers.phoneE164,
+          email: schema.gymMembers.email,
+        })
+        .from(schema.gymMembers)
+        .limit(100);
+      screen.members = members.map((m) => ({
+        id: m.id,
+        name: [m.firstName, m.lastName].filter(Boolean).join(" ").trim(),
+        phoneE164: m.phoneE164,
+        email: m.email,
+      }));
+      if (nav?.memberId) {
+        // guard:allow-unscoped — single-tenant gym tables
+        const [selected] = await db
+          .select()
+          .from(schema.gymMembers)
+          .where(eq(schema.gymMembers.id, nav.memberId))
+          .limit(1);
+        if (selected) {
+          // guard:allow-unscoped — single-tenant gym tables
+          const recentBookings = await db
+            .select({
+              id: schema.bookings.id,
+              occurrenceId: schema.bookings.occurrenceId,
+              status: schema.bookings.status,
+              bookedAt: schema.bookings.bookedAt,
+            })
+            .from(schema.bookings)
+            .where(eq(schema.bookings.memberId, nav.memberId))
+            .orderBy(desc(schema.bookings.bookedAt))
+            .limit(10);
+          // Never surface consent/opt-in here — update-member cannot touch them.
+          screen.selectedMember = {
+            id: selected.id,
+            firstName: selected.firstName,
+            lastName: selected.lastName,
+            email: selected.email,
+            phoneE164: selected.phoneE164,
+            notes: selected.notes,
+            createdAt: selected.createdAt,
+            recentBookings,
+          };
+        }
+      }
+    } else if (nav?.view === "campaigns") {
+      // AEX-01 — context-aware of the Campaigns tab. readAppState WORKS here
+      // (view-screen is an action, wrapped in runWithRequestContext) — unlike the
+      // campaigns page loader, which must read segments client-side.
+      // guard:allow-unscoped — application_state is framework-scoped
+      const seg = (await readAppState("gymos-campaign-segments")) as {
+        segments?: unknown[];
+      } | null;
+      screen.campaigns = {
+        savedSegments: Array.isArray(seg?.segments) ? seg!.segments! : [],
+        presets: ["at-risk"],
+      };
     } else if (nav?.view) {
       const emails = await fetchEmailList(nav.view, nav.search, nav.label);
       const selectedThreadIds = Array.isArray(nav.selectedThreadIds)

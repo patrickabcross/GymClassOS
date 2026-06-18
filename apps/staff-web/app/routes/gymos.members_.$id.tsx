@@ -5,9 +5,10 @@
 // Loader already returns { member, passes, passBalance, bookings, foodEntries, conversation }.
 // No loader/schema changes in this plan (SWEB-04 scope only).
 
-import { useLoaderData, Link } from "react-router";
+import { useLoaderData, Link, useRevalidator } from "react-router";
 import { eq, desc, sql } from "drizzle-orm";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useChangeVersions } from "@agent-native/core/client";
 import { getDb, schema } from "../../server/db";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -141,6 +142,15 @@ export default function GymosMemberProfile() {
   const data = useLoaderData<typeof loader>();
   const { member, passes, passBalance, bookings, foodEntries, conversation } =
     data;
+
+  // Live-refresh: re-run the loader after an agent write (e.g. update-member),
+  // so the profile card reflects the change without a manual reload (AEX-03).
+  const revalidator = useRevalidator();
+  const actionVersion = useChangeVersions(["action"]);
+  useEffect(() => {
+    if (actionVersion > 0) revalidator.revalidate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [actionVersion]);
 
   const fullName =
     `${member.firstName ?? ""} ${member.lastName ?? ""}`.trim() || "Unnamed";

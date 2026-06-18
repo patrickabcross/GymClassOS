@@ -1,7 +1,13 @@
 // GymClassOS Members — R4-03: card-default directory with Tabs card/table toggle, avatars, membership badges, search.
 
-import { useLoaderData, Link, useSearchParams } from "react-router";
-import { useState, useMemo } from "react";
+import {
+  useLoaderData,
+  Link,
+  useSearchParams,
+  useRevalidator,
+} from "react-router";
+import { useState, useMemo, useEffect } from "react";
+import { useChangeVersions } from "@agent-native/core/client";
 import { eq, asc, sql } from "drizzle-orm";
 import { format } from "date-fns";
 import {
@@ -196,6 +202,15 @@ export default function GymosMembers() {
   const data = useLoaderData<typeof loader>();
   const [query, setQuery] = useState("");
   const [searchParams, setSearchParams] = useSearchParams();
+
+  // Live-refresh: re-run the loader after an agent write (e.g. update-member),
+  // so the directory reflects the change without a manual reload (AEX-03).
+  const revalidator = useRevalidator();
+  const actionVersion = useChangeVersions(["action"]);
+  useEffect(() => {
+    if (actionVersion > 0) revalidator.revalidate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [actionVersion]);
 
   // URL-state-driven view toggle: no ?view param = cards (default), ?view=table = table.
   const view = searchParams.get("view") === "table" ? "table" : "cards";
