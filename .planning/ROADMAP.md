@@ -96,7 +96,7 @@
 |-------|----------------|--------|-----------|
 | AE1. Forms Write Tools | 3/3 | Complete   | 2026-06-18 |
 | AE2. Schedule Write Tools | 0/3 | Not started | - |
-| AE3. Members + Campaigns Write Tools | 3/3 | Complete   | 2026-06-18 |
+| AE3. Members + Campaigns Write Tools | 3/3 | Complete    | 2026-06-18 |
 | AE4. Live Mobile Demo | 0/TBD | Not started | - |
 
 **Coverage:** 18 v1.2 requirements mapped across AE1–AE3, plus Campaigns segment-builder (folded into AE3) and a new AE4 Live Mobile Demo phase — net-new requirements for both to be registered in REQUIREMENTS.md at plan time.
