@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: — Agentic Tab Editing
 status: executing
-stopped_at: Completed AE1-01-PLAN.md (6 write actions + live-refresh)
-last_updated: "2026-06-18T17:52:12.935Z"
+stopped_at: Completed AE1-02-PLAN.md (publish-form gate wiring)
+last_updated: "2026-06-18T17:57:00.415Z"
 last_activity: 2026-06-18
 progress:
   total_phases: 4
@@ -31,7 +31,7 @@ Requirements: `.planning/REQUIREMENTS.md` (18 v1.2 reqs across 4 categories — 
 
 Milestone: v1.2 — Agentic Tab Editing
 Phase: AE1 (Forms Write Tools) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 Status: Ready to execute
 Last activity: 2026-06-18
 
@@ -253,6 +253,7 @@ Key patterns discovered during v1.0 execution that apply to v1.2:
 | 260618-ezc | Add public `/preview/{slug}` form route (alias of `/f/{slug}` renderer; whitelisted in CORS + auth) and auto-send a WhatsApp template ack on lead form submit (env-gated `LEAD_ACK_TEMPLATE_NAME` + phone-gated; creates `whatsapp_opt_in` source='form_submission', enqueues TEMPLATE send through worker chokepoint; try/catch so lead capture never breaks). No-op until template approved + env set. | 2026-06-18 | be7f1be9 | Done |
 | 260618-fqg | AI-fill WhatsApp lead-ack template vars from form + class catalog: `parseTemplateBody` (pure, extracts BODY text + varCount from componentsJson) + `buildLeadAckVars` (Claude fills all {{N}} slots from form context + active class catalog; deterministic fallback on any failure). Step-14 now looks up approved template row, uses real language, adapts to N variables. 6 vitest cases pass; tsc 0 errors. | 2026-06-18 | 712353b8 | Done |
 | Phase AE1 P01 | 4 | 3 tasks | 9 files |
+| Phase AE1-forms-write-tools P02 | 137 | 2 tasks | 4 files |
 
 ### Carried-over concerns (from v1.1 redesign)
 
@@ -262,8 +263,8 @@ Key patterns discovered during v1.0 execution that apply to v1.2:
 
 ## Session Continuity
 
-Last session: 2026-06-18T17:52:12.927Z
-Stopped at: Completed AE1-01-PLAN.md (6 write actions + live-refresh)
+Last session: 2026-06-18T17:57:00.394Z
+Stopped at: Completed AE1-02-PLAN.md (publish-form gate wiring)
 Resume file: None
 
 ### PICK UP HERE — v1.2 Agentic Tab Editing
