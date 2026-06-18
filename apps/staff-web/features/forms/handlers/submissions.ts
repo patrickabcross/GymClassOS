@@ -14,6 +14,7 @@ import { getDb, schema } from "../../../server/db/index.js";
 import type { FormField, FormSettings } from "../types.js";
 import { normalizePhone } from "../lib/normalize-phone.js";
 import { checkRateLimit } from "../lib/rate-limit.js";
+import { enqueueOutboundWhatsApp } from "../../../app/lib/queue-client.js";
 
 // ---------------------------------------------------------------------------
 // Field value size limits by type (copied verbatim from upstream)
@@ -408,6 +409,82 @@ export const submitLeadForm = defineEventHandler(async (event: H3Event) => {
     ip,
     submitterEmail,
   });
+
+  // -------------------------------------------------------------------
+  // 14. Auto-reply: enqueue an approved WhatsApp template ack to a fresh lead.
+  //
+  // Compliance: a fresh form lead has NEVER messaged the studio, so the
+  // 24h window is CLOSED → the outbound MUST be an approved TEMPLATE
+  // (not free text). The worker remains the authoritative gate
+  // (opt-in / window / approved-template); we only create the opt-in row
+  // it requires and enqueue the send. We are NOT bypassing the worker.
+  //
+  // Env-gated: LEAD_ACK_TEMPLATE_NAME is the approved template name. The
+  // conversational template is NOT approved yet (the user is getting a new
+  // one approved separately) — until LEAD_ACK_TEMPLATE_NAME is set on BOTH
+  // staff-web (Vercel) and the worker (Fly), this block is a complete no-op
+  // and the lead simply lands in the inbox as before.
+  //
+  // TEMPLATE DESIGN CONTRACT: the approved template MUST declare exactly
+  // ONE variable, where {{1}} = the lead's first name. Supplying fewer vars
+  // than the template declares makes the Meta/MYÜTIK send FAIL.
+  // -------------------------------------------------------------------
+  const leadAckTemplate = (process.env.LEAD_ACK_TEMPLATE_NAME ?? "").trim();
+  if (phoneE164 && leadAckTemplate) {
+    try {
+      // (a) Ensure an opt-in row exists. ON CONFLICT DO NOTHING so a
+      //     re-submit never clobbers an existing opt-out / opt-in.
+      await db2.execute(sql`
+        INSERT INTO whatsapp_opt_in (member_id, opted_in_at, evidence_payload, source)
+        VALUES (
+          ${resolvedMemberId},
+          ${now},
+          ${JSON.stringify({ kind: "form_submission", formId: id, data })},
+          'form_submission'
+        )
+        ON CONFLICT (member_id) DO NOTHING
+      `);
+
+      // (b) Optimistic queued template message (mirrors send-template-to-members.ts).
+      const ackMessageId = `msg_${nanoid()}`;
+      const ackVars = { "1": firstName };
+      const ackPreview = `[template: ${leadAckTemplate}]`;
+      await db2.execute(sql`
+        INSERT INTO messages (id, conversation_id, direction, message_type, body, payload, status, created_at)
+        VALUES (
+          ${ackMessageId},
+          ${resolvedConvId},
+          'out',
+          'template',
+          ${ackPreview},
+          ${JSON.stringify({ name: leadAckTemplate, vars: ackVars })},
+          'queued',
+          ${now}
+        )
+      `);
+      await db2.execute(sql`
+        UPDATE conversations
+        SET last_message_preview = ${ackPreview}, updated_at = ${now}
+        WHERE id = ${resolvedConvId}
+      `);
+
+      // (c) Enqueue the TEMPLATE send. Worker gates opt-in/window/approval.
+      await enqueueOutboundWhatsApp({
+        messageId: ackMessageId,
+        memberId: resolvedMemberId,
+        payload: {
+          type: "template",
+          name: leadAckTemplate,
+          vars: ackVars,
+          language: "en_US",
+        },
+      });
+    } catch (err) {
+      // Lead capture MUST always succeed even if the WhatsApp enqueue
+      // fails — mirror send-template-to-members.ts resilience: log + continue.
+      console.error("[submitLeadForm] lead ack WhatsApp enqueue failed:", err);
+    }
+  }
 
   return { success: true, id: responseId };
 });

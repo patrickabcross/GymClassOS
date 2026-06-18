@@ -346,7 +346,7 @@ export const whatsappOptIn = table("whatsapp_opt_in", {
   evidenceMessageId: text("evidence_message_id"), // FK messages.id (inbound that triggered opt-in)
   evidencePayload: text("evidence_payload"), // JSON of the inbound msg
   source: text("source", {
-    enum: ["inbound_reply", "manual_admin", "import"],
+    enum: ["inbound_reply", "manual_admin", "import", "form_submission"],
   }).notNull(),
   optedOutAt: text("opted_out_at"), // WA-09/WA-10: nullable — set when member opts out
 });
