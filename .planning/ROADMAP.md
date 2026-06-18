@@ -39,7 +39,7 @@
   4. Coach can tell the agent "unpublish the form" and the form status immediately reverts to draft (direct action, no approval needed)
   5. After any agent write, the Forms tab live-refreshes via `useChangeVersion("action")` — no manual reload required
 **Plans**: 3 plans
-- [ ] AE1-01-PLAN.md — Direct (ungated) forms writes: FormFieldSchema + slugify + create/update-fields/update-meta/unpublish/archive/restore + live-refresh wiring (AEF-01/02/03/05/06, AEX-03)
+- [x] AE1-01-PLAN.md — Direct (ungated) forms writes: FormFieldSchema + slugify + create/update-fields/update-meta/unpublish/archive/restore + live-refresh wiring (AEF-01/02/03/05/06, AEX-03)
 - [ ] AE1-02-PLAN.md — Gated publish path: publish-form action + atomic gate wiring (allowlist + dispatch + propose-action enum + schema enum) (AEF-04, AEX-02)
 - [ ] AE1-03-PLAN.md — Agent exposure: view-screen forms branch + per-tab system prompt + AGENTS.md docs (AEX-01, AEX-04)
 **UI hint**: yes
@@ -87,7 +87,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| AE1. Forms Write Tools | 0/3 | Planned | - |
+| AE1. Forms Write Tools | 1/3 | In Progress|  |
 | AE2. Schedule Write Tools | 0/TBD | Not started | - |
 | AE3. Members + Campaigns Write Tools | 0/TBD | Not started | - |
 | AE4. Live Mobile Demo | 0/TBD | Not started | - |
@@ -283,7 +283,7 @@ Post-v1 backlog (HealthKit + native mobile, Coach View with health context, CRM 
 4. Member context panel in the inbox shows next-class + pass-balance for the opened conversation's member (real data)
 5. Stripe Checkout link generated for a 10-pack purchase + paid in Stripe test mode + resulting pass grant visible in member profile
 
-**Plans:** 4 plans
+**Plans:** 1/3 plans executed
 
 - [x] D1-01-schedule-surface-PLAN.md — Build /gymos/schedule week-grid + book-from-occurrence dialog (SCH-01, BKG-01) — completed 2026-05-19 (commits f5cdbdc6, dd50fe62, 23ee58f2)
 - [x] D1-02-members-directory-PLAN.md — Build /gymos/members + /gymos/members/:id profile with bookings + pass balance (MEM-01, MEM-02)

@@ -13,12 +13,12 @@
 
 ### Agentic Editing — Forms (AEF)
 
-- [ ] **AEF-01**: Coach can ask the agent to create a new lead-capture form (title, optional description) — created as a `draft`.
-- [ ] **AEF-02**: Coach can ask the agent to edit a form's fields (add / remove / reorder fields; set type, label, required, options) — the `fields` JSON is Zod-validated against the `FormField` shape before write (malformed fields are rejected, never persisted).
-- [ ] **AEF-03**: Coach can ask the agent to edit a form's title, description, and settings (submit text, success message) without changing its publish status or slug.
+- [x] **AEF-01**: Coach can ask the agent to create a new lead-capture form (title, optional description) — created as a `draft`.
+- [x] **AEF-02**: Coach can ask the agent to edit a form's fields (add / remove / reorder fields; set type, label, required, options) — the `fields` JSON is Zod-validated against the `FormField` shape before write (malformed fields are rejected, never persisted).
+- [x] **AEF-03**: Coach can ask the agent to edit a form's title, description, and settings (submit text, success message) without changing its publish status or slug.
 - [ ] **AEF-04**: Coach can ask the agent to publish a form — routed through propose→approve (the agent never auto-publishes).
-- [ ] **AEF-05**: Coach can ask the agent to unpublish a published form (back to draft).
-- [ ] **AEF-06**: Coach can ask the agent to archive or restore a form.
+- [x] **AEF-05**: Coach can ask the agent to unpublish a published form (back to draft).
+- [x] **AEF-06**: Coach can ask the agent to archive or restore a form.
 
 ### Agentic Editing — Schedule (AES)
 
@@ -38,7 +38,7 @@
 
 - [ ] **AEX-01**: The agent is context-aware of the active tab and selected item (via navigation state + `view-screen`) and leads with that tab's write tools; the `agent-chat.ts` system prompt is organized into per-tab capability sections (not a flat tool list).
 - [ ] **AEX-02**: Risky / member-visible operations (publish form, cancel/reschedule a class with bookings) route through the existing propose→approve chokepoint; low-risk reversible edits (draft form edits, capacity bumps, member profile fields) execute directly. Every gated action is added to BOTH `ACTION_ALLOWLIST` (`approve-proposal.ts`) and the `propose-action` Zod enum in the same change.
-- [ ] **AEX-03**: After an agent write, the relevant tab UI live-refreshes (via `useDbSync` / `useChangeVersion("action")`) — no manual reload.
+- [x] **AEX-03**: After an agent write, the relevant tab UI live-refreshes (via `useDbSync` / `useChangeVersion("action")`) — no manual reload.
 - [ ] **AEX-04**: Every new write action is documented in `apps/staff-web/AGENTS.md` (Agent Actions table) and exposed in `agent-chat.ts` — registry + system-prompt are both updated (the two independent exposure steps).
 
 ## Future Requirements (deferred)
@@ -59,12 +59,12 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| AEF-01 | Phase AE1 | Pending |
-| AEF-02 | Phase AE1 | Pending |
-| AEF-03 | Phase AE1 | Pending |
+| AEF-01 | Phase AE1 | Complete |
+| AEF-02 | Phase AE1 | Complete |
+| AEF-03 | Phase AE1 | Complete |
 | AEF-04 | Phase AE1 | Pending |
-| AEF-05 | Phase AE1 | Pending |
-| AEF-06 | Phase AE1 | Pending |
+| AEF-05 | Phase AE1 | Complete |
+| AEF-06 | Phase AE1 | Complete |
 | AES-01 | Phase AE2 | Pending |
 | AES-02 | Phase AE2 | Pending |
 | AES-03 | Phase AE2 | Pending |
@@ -75,5 +75,5 @@
 | AEM-02 | Phase AE3 | Pending |
 | AEX-01 | Phase AE1 | Pending |
 | AEX-02 | Phase AE1 | Pending |
-| AEX-03 | Phase AE1 | Pending |
+| AEX-03 | Phase AE1 | Complete |
 | AEX-04 | Phase AE1 | Pending |
