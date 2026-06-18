@@ -9,8 +9,15 @@
 // CLAUDE.md mandate: optimistic UI on create (navigate immediately, create in bg).
 // RR v7 no json() — plain object returns from loader/action.
 
-import { useLoaderData, useNavigate, useFetcher, Link } from "react-router";
-import { useState } from "react";
+import {
+  useLoaderData,
+  useNavigate,
+  useFetcher,
+  Link,
+  useRevalidator,
+} from "react-router";
+import { useState, useEffect } from "react";
+import { useChangeVersions } from "@agent-native/core/client";
 import { desc, isNull, isNotNull, eq, count } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { format } from "date-fns";
@@ -213,6 +220,17 @@ export default function GymosFormsList() {
   const { forms, archived } = useLoaderData<typeof loader>();
   const navigate = useNavigate();
   const fetcher = useFetcher();
+  const revalidator = useRevalidator();
+  const actionVersion = useChangeVersions(["action"]);
+
+  // Re-run the loader whenever the agent completes a write action (AEX-03).
+  useEffect(() => {
+    if (actionVersion > 0) {
+      revalidator.revalidate();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [actionVersion]);
+
   const [purgeId, setPurgeId] = useState<string | null>(null);
 
   // Optimistic create: navigate immediately, form creates in background.
