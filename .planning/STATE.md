@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: — Self-Serve Platform + Two-Tier Brain/Dispatcher
-status: verifying
-stopped_at: "Completed BD1-hq-foundation BD1-06-PLAN.md (CI guards: fork-boundary + PII-up)"
-last_updated: "2026-06-19T11:58:33.382Z"
+status: executing
+stopped_at: Completed BD2-telemetry-provisioning BD2-01-PLAN.md (HQ schema migrations v4-v7 + TelemetrySnapshot)
+last_updated: "2026-06-19T12:38:10.793Z"
 last_activity: 2026-06-19
 progress:
   total_phases: 4
@@ -30,9 +30,9 @@ Requirements: `.planning/REQUIREMENTS.md` (40 v2.0 reqs across 7 categories — 
 ## Current Position
 
 Milestone: v2.0 — Self-Serve Platform + Two-Tier Brain/Dispatcher
-Phase: BD1-hq
-Plan: Not started
-Status: Phase complete — ready for verification
+Phase: BD2 (Telemetry + Provisioning) — EXECUTING
+Plan: 2 of 6
+Status: Ready to execute
 Last activity: 2026-06-19
 
 > **Predecessor:** v1.2 — Agentic Tab Editing is COMPLETE (code-verified, pushed, live on Vercel). Live agent+browser UAT (AE1-AE3 `*-HUMAN-UAT.md`) and the Mobile Demo (AE4) phase remain open and are tracked in the roadmap; they are not part of v2.0 scope.
@@ -57,7 +57,17 @@ Last activity: 2026-06-19
 
 - AE1-AE3: 3 phases, 9 plans, ~1 day elapsed
 
+| Phase | Plan | Duration | Tasks | Files | Completed |
+|-------|------|----------|-------|-------|-----------|
+| BD2 | 01 | 35min | 3 | 7 | 2026-06-19 |
+
 ## Accumulated Context
+
+### BD2-01 Decisions (2026-06-19)
+
+- **2026-06-19 BD2-01 — TelemetrySnapshot exported without .strict() — callers apply .strict() at ingest boundary to keep schema composable (push job doesn't need strict mode, ingest endpoint does).**
+- **2026-06-19 BD2-01 — Per-package vitest.config.ts added to hq-schema; root vitest.config.ts only covers tests/integration/** — new per-package unit test packages need their own scoped config.**
+- **2026-06-19 BD2-01 — apps/hq/server/db/schema.ts needed no change: export * from @gymos/hq-schema/schema auto-flows new tables into merged HQ db schema.**
 
 ### v2.0 Roadmap Decisions
 
@@ -112,8 +122,8 @@ Last activity: 2026-06-19
 
 ## Session Continuity
 
-Last session: 2026-06-19T11:49:45.784Z
-Stopped at: Completed BD1-hq-foundation BD1-06-PLAN.md (CI guards: fork-boundary + PII-up)
+Last session: 2026-06-19T12:38:10.786Z
+Stopped at: Completed BD2-telemetry-provisioning BD2-01-PLAN.md (HQ schema migrations v4-v7 + TelemetrySnapshot)
 Resume file: None
 
 ### PICK UP HERE — plan BD1

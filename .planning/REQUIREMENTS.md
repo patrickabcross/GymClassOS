@@ -28,9 +28,9 @@
 - [ ] **PROV-04**: HQ programmatically creates a Vercel project, injects env, and deploys `staff-web` for the new customer (via `@vercel/sdk`).
 - [ ] **PROV-05**: HQ programmatically creates the customer's Fly app(s) (edge-webhooks + worker) and sets their secrets via `flyctl` (org-scoped token, `execa` array args — no shell injection).
 - [ ] **PROV-06**: HQ configures the customer's subdomain/DNS so the staff-web and webhook endpoints resolve.
-- [ ] **PROV-07**: HQ registers the new customer in the studio registry and issues a per-studio telemetry token.
-- [ ] **PROV-08**: Every provisioning step is idempotent (step-tracking + find-or-create); a retried run never creates duplicate Neon projects, Vercel projects, or Fly apps.
-- [ ] **PROV-09**: On partial failure the provisioning saga compensates (LIFO rollback) so no orphaned Neon/Vercel/Fly resources remain; rollback logic is implemented before the happy path.
+- [x] **PROV-07**: HQ registers the new customer in the studio registry and issues a per-studio telemetry token.
+- [x] **PROV-08**: Every provisioning step is idempotent (step-tracking + find-or-create); a retried run never creates duplicate Neon projects, Vercel projects, or Fly apps.
+- [x] **PROV-09**: On partial failure the provisioning saga compensates (LIFO rollback) so no orphaned Neon/Vercel/Fly resources remain; rollback logic is implemented before the happy path.
 - [ ] **PROV-10**: The provisioning orchestrator runs in `services/hq-worker` (not a Vercel function); the operator can see each run's per-step status/progress and failures in HQ.
 
 ### Telemetry (TEL)
@@ -38,9 +38,9 @@
 - [ ] **TEL-01**: Each studio deploy captures per-studio AI token usage (input + output tokens) at the Anthropic call-site, with no prompt/response content retained.
 - [ ] **TEL-02**: Each studio computes aggregate, PII-free engagement + retention metrics (e.g. active members, bookings, messages sent, mobile-app engagement, retention rate) for a reporting window.
 - [ ] **TEL-03**: Each studio pushes a telemetry snapshot to HQ on a schedule, authenticated by its per-studio token.
-- [ ] **TEL-04**: The HQ telemetry ingest endpoint validates every payload against a Zod `.strict()` `TelemetrySnapshot` schema that structurally rejects any field not in the aggregate allow-list (no names/emails/phones/message content).
-- [ ] **TEL-05**: HQ stores telemetry snapshots per studio and records `last_telemetry_received_at`.
-- [ ] **TEL-06**: HQ never holds a studio's Neon connection string and never queries a studio database directly (enforced by HQ-FND-06 CI guard).
+- [x] **TEL-04**: The HQ telemetry ingest endpoint validates every payload against a Zod `.strict()` `TelemetrySnapshot` schema that structurally rejects any field not in the aggregate allow-list (no names/emails/phones/message content).
+- [x] **TEL-05**: HQ stores telemetry snapshots per studio and records `last_telemetry_received_at`.
+- [x] **TEL-06**: HQ never holds a studio's Neon connection string and never queries a studio database directly (enforced by HQ-FND-06 CI guard).
 
 ### HQ Brain (HQB)
 
@@ -110,18 +110,18 @@ Deferred beyond v2.0 (tracked, not in this roadmap):
 | TEL-01 | Phase BD2 | Pending |
 | TEL-02 | Phase BD2 | Pending |
 | TEL-03 | Phase BD2 | Pending |
-| TEL-04 | Phase BD2 | Pending |
-| TEL-05 | Phase BD2 | Pending |
-| TEL-06 | Phase BD2 | Pending |
+| TEL-04 | Phase BD2 | Complete |
+| TEL-05 | Phase BD2 | Complete |
+| TEL-06 | Phase BD2 | Complete |
 | PROV-01 | Phase BD2 | Pending |
 | PROV-02 | Phase BD2 | Pending |
 | PROV-03 | Phase BD2 | Pending |
 | PROV-04 | Phase BD2 | Pending |
 | PROV-05 | Phase BD2 | Pending |
 | PROV-06 | Phase BD2 | Pending |
-| PROV-07 | Phase BD2 | Pending |
-| PROV-08 | Phase BD2 | Pending |
-| PROV-09 | Phase BD2 | Pending |
+| PROV-07 | Phase BD2 | Complete |
+| PROV-08 | Phase BD2 | Complete |
+| PROV-09 | Phase BD2 | Complete |
 | PROV-10 | Phase BD2 | Pending |
 | HQB-01 | Phase BD3 | Pending |
 | HQB-02 | Phase BD3 | Pending |
