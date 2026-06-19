@@ -1,83 +1,121 @@
-# Requirements: GymClassOS — Milestone v1.2 Agentic Tab Editing
+# Requirements: GymClassOS — Milestone v2.0 Self-Serve Platform + Two-Tier Brain/Dispatcher
 
-**Defined:** 2026-06-18
-**Core Value:** Coaches and studio managers run their entire day from one inbox-and-schedule surface (WhatsApp + class bookings + member context). Members book, pay, and log activity / nutrition from a native iOS/Android Expo app with an in-app coaching agent.
+**Defined:** 2026-06-19
+**Core Value:** A gym signs up on the GymClassOS site and gets a fully provisioned, independent system with zero human steps; the operator gets a brain/dispatcher to understand and grow gym-owner customers; each gym gets its own brain/dispatcher to activate its members — all with no member PII ever leaving the studio deploy.
 
-> **Milestone scope note:** This file holds the **v1.2 Agentic Tab Editing** requirements only. The v1.1 UI Redesign requirements are archived alongside as `REQUIREMENTS-v1.1-archived.md` and remain in git history; the v1.0 Demo/Production requirements live in `master` git history. v1.1 (R1–R5) is complete and merged; v1.0 Production work (P2/P3, WhatsApp deep-wire, mobile EAS) remains pending and is tracked in ROADMAP.md.
+> **Milestone scope note:** This file holds the **v2.0** requirements only. v1.2 (Agentic Tab Editing) requirements are archived alongside as `REQUIREMENTS-v1.2-archived.md`; v1.1 as `REQUIREMENTS-v1.1-archived.md`; v1.0 lives in `master` git history.
 
-> **Milestone goal:** Make the GymClassOS staff `/gymos` chat agent able to UPDATE each tab, not just read it — realizing the agent-native principle "everything the UI can do, the agent can do." v1.2 scope is THREE tabs: Forms, Schedule, Members.
+> **Research:** `.planning/research/SUMMARY.md` (+ STACK / FEATURES / ARCHITECTURE / PITFALLS). Headlines: 3 new deps (`@neondatabase/api-client`, `@vercel/sdk`, `execa`); provisioner runs in `services/hq-worker` on Fly (flyctl subprocess + org-scoped token — NOT a Vercel function); PII-up boundary is structural (Zod `.strict()` ingest schema + no studio DB creds in HQ + CI guard); HQ needs its own WABA (separate from any studio WABA); provisioning rollback/idempotency ships BEFORE the happy path.
 
-> **Research:** `.planning/research/SUMMARY.md` (+ STACK / FEATURES / ARCHITECTURE / PITFALLS). Headline: zero new dependencies; all reuse existing `defineAction` + registry + propose→approve primitives. `gym_members.notes` confirmed present (no migration needed) — the milestone is fully additive.
+> **Three tiers:** Tier 1 = You / GymClassOS HQ (operator). Tier 2 = Gym-owners (your customers). Tier 3 = Gym members. Both Tier 1 and Tier 2 get their own Brain + Dispatcher. Hard boundary: Tier-1 dispatcher → gym-owners only, system topics only; member comms live at Tier 2 inside the studio deploy.
 
-## v1.2 Requirements
+## v2.0 Requirements
 
-### Agentic Editing — Forms (AEF)
+### HQ Foundation (HQ-FND)
 
-- [x] **AEF-01**: Coach can ask the agent to create a new lead-capture form (title, optional description) — created as a `draft`.
-- [x] **AEF-02**: Coach can ask the agent to edit a form's fields (add / remove / reorder fields; set type, label, required, options) — the `fields` JSON is Zod-validated against the `FormField` shape before write (malformed fields are rejected, never persisted).
-- [x] **AEF-03**: Coach can ask the agent to edit a form's title, description, and settings (submit text, success message) without changing its publish status or slug.
-- [x] **AEF-04**: Coach can ask the agent to publish a form — routed through propose→approve (the agent never auto-publishes).
-- [x] **AEF-05**: Coach can ask the agent to unpublish a published form (back to draft).
-- [x] **AEF-06**: Coach can ask the agent to archive or restore a form.
+- [ ] **HQ-FND-01**: Operator can sign in to `apps/hq` as a single super-admin via Better-auth; studio staff accounts cannot authenticate to HQ and HQ admin cannot authenticate to a studio.
+- [ ] **HQ-FND-02**: `apps/hq` is forked from agent-native Dispatch + Brain templates following fork-boundary discipline — `templates/` is never edited in place; HQ modifications live under `apps/hq/`.
+- [ ] **HQ-FND-03**: HQ runs against its own dedicated Neon project (separate from every studio Neon); schema changes apply additively via `runMigrations` (no `drizzle-kit push`, no destructive SQL).
+- [ ] **HQ-FND-04**: An HQ org + super-admin user are seeded at migration time so Brain/Dispatch `accessFilter`/`orgId` queries return results (no silent empty Brain).
+- [ ] **HQ-FND-05**: A `services/hq-worker` Fly app skeleton exists (pg-boss against HQ Neon, `/healthz`) ready to host provisioning + scheduled jobs.
+- [ ] **HQ-FND-06**: CI guards enforce (a) the `apps/hq` fork boundary and (b) that HQ schema/telemetry never stores PII-shaped columns or a studio Neon connection string.
 
-### Agentic Editing — Schedule (AES)
+### Provisioning (PROV)
 
-- [x] **AES-01**: Coach can ask the agent to create a class occurrence (class definition, start time, capacity).
-- [x] **AES-02**: Coach can ask the agent to change a class occurrence's capacity (rejected if the new capacity is below current bookings — returns a clear error, no mutation).
-- [x] **AES-03**: Coach can ask the agent to cancel a class occurrence — if it has active bookings the agent must route through propose→approve, and approval cancels bookings + refunds the affected pass credits + cancels the occurrence atomically (no orphaned credits).
-- [x] **AES-04**: Coach can ask the agent to reschedule a class occurrence's start time — routed through propose→approve when it has active bookings.
-- [x] **AES-05**: Coach can ask the agent to create or edit a class definition (name, duration, default capacity, category).
-- [x] **AES-06**: Coach can ask the agent to mark a past occurrence completed.
+- [ ] **PROV-01**: A prospective gym can submit a signup on the GymClassOS marketing site, which creates a `provisioning_run` record in HQ and returns immediately.
+- [ ] **PROV-02**: HQ programmatically creates a new customer's Neon project (via `@neondatabase/api-client`) and captures its connection string into that customer's secret store (never into HQ's own schema).
+- [ ] **PROV-03**: HQ runs the studio schema migrations + initial seed + studio admin user against the newly created Neon project.
+- [ ] **PROV-04**: HQ programmatically creates a Vercel project, injects env, and deploys `staff-web` for the new customer (via `@vercel/sdk`).
+- [ ] **PROV-05**: HQ programmatically creates the customer's Fly app(s) (edge-webhooks + worker) and sets their secrets via `flyctl` (org-scoped token, `execa` array args — no shell injection).
+- [ ] **PROV-06**: HQ configures the customer's subdomain/DNS so the staff-web and webhook endpoints resolve.
+- [ ] **PROV-07**: HQ registers the new customer in the studio registry and issues a per-studio telemetry token.
+- [ ] **PROV-08**: Every provisioning step is idempotent (step-tracking + find-or-create); a retried run never creates duplicate Neon projects, Vercel projects, or Fly apps.
+- [ ] **PROV-09**: On partial failure the provisioning saga compensates (LIFO rollback) so no orphaned Neon/Vercel/Fly resources remain; rollback logic is implemented before the happy path.
+- [ ] **PROV-10**: The provisioning orchestrator runs in `services/hq-worker` (not a Vercel function); the operator can see each run's per-step status/progress and failures in HQ.
 
-### Agentic Editing — Members (AEM)
+### Telemetry (TEL)
 
-- [x] **AEM-01**: Coach can ask the agent to update a member's profile fields — first name, last name, email, phone (E.164), notes — and only those fields.
-- [x] **AEM-02**: The agent can never modify a member's consent / opt-in state (`marketing_consent`, `whatsapp_opt_in`) — the update-member action's schema structurally excludes those fields (`.strict()`), so an agent edit can never silently flip consent.
-- [x] **AEM-03**: The Campaigns tab exposes a composable segment builder (UI controls) filtering members by # classes attended / recency of last attendance / inquiry-lead date — AND-composed — replacing the fixed at-risk segment, which is preserved as a built-in preset.
-- [x] **AEM-04**: The agent can build a named segment from natural language (via the `save-segment` action) that appears in the Campaigns tab without a reload; UI and agent write the identical filter spec to the same `application_state` key.
+- [ ] **TEL-01**: Each studio deploy captures per-studio AI token usage (input + output tokens) at the Anthropic call-site, with no prompt/response content retained.
+- [ ] **TEL-02**: Each studio computes aggregate, PII-free engagement + retention metrics (e.g. active members, bookings, messages sent, mobile-app engagement, retention rate) for a reporting window.
+- [ ] **TEL-03**: Each studio pushes a telemetry snapshot to HQ on a schedule, authenticated by its per-studio token.
+- [ ] **TEL-04**: The HQ telemetry ingest endpoint validates every payload against a Zod `.strict()` `TelemetrySnapshot` schema that structurally rejects any field not in the aggregate allow-list (no names/emails/phones/message content).
+- [ ] **TEL-05**: HQ stores telemetry snapshots per studio and records `last_telemetry_received_at`.
+- [ ] **TEL-06**: HQ never holds a studio's Neon connection string and never queries a studio database directly (enforced by HQ-FND-06 CI guard).
 
-### Agentic Editing — Cross-cutting (AEX)
+### HQ Brain (HQB)
 
-- [x] **AEX-01**: The agent is context-aware of the active tab and selected item (via navigation state + `view-screen`) and leads with that tab's write tools; the `agent-chat.ts` system prompt is organized into per-tab capability sections (not a flat tool list).
-- [x] **AEX-02**: Risky / member-visible operations (publish form, cancel/reschedule a class with bookings) route through the existing propose→approve chokepoint; low-risk reversible edits (draft form edits, capacity bumps, member profile fields) execute directly. Every gated action is added to BOTH `ACTION_ALLOWLIST` (`approve-proposal.ts`) and the `propose-action` Zod enum in the same change.
-- [x] **AEX-03**: After an agent write, the relevant tab UI live-refreshes (via `useDbSync` / `useChangeVersion("action")`) — no manual reload.
-- [x] **AEX-04**: Every new write action is documented in `apps/staff-web/AGENTS.md` (Agent Actions table) and exposed in `agent-chat.ts` — registry + system-prompt are both updated (the two independent exposure steps).
+- [ ] **HQB-01**: Operator can view a console listing all gym customers with health + engagement summaries derived from telemetry.
+- [ ] **HQB-02**: HQB classifies each customer's health/at-risk status from telemetry (active vs dormant, under-messaging, low retention, token spend).
+- [ ] **HQB-03**: HQB uses `last_telemetry_received_at` to exclude stale/missing-telemetry studios from false "active/healthy" signals.
+- [ ] **HQB-04**: Operator can view customer cohorts ("sets of clients") such as at-risk and power users.
+- [ ] **HQB-05**: Operator can drill into a single customer's installation performance over time.
 
-## Future Requirements (deferred)
+### HQ Dispatcher (HQD)
 
-- Agent write tools for the remaining tabs: Campaigns, Payments, Settings, Analytics.
-- Full optimistic-concurrency / conflict handling when an agent and a coach edit the same entity simultaneously (v1.2 mitigates via `view-screen`-before-write guidance only).
-- Agent-initiated bulk operations (bulk reschedule/cancel, bulk member edits).
+- [ ] **HQD-01**: HQ has its own WhatsApp Business Account + `hq_whatsapp_opt_in` tracking for gym-owner contacts, fully separate from any studio WABA.
+- [ ] **HQD-02**: Operator (via the HQ dispatcher agent) can send WhatsApp comms to gym OWNERS about system/product topics; the action's Zod schema structurally excludes member-directed sends and member data (HQD can never message gym members).
+- [ ] **HQD-03**: HQD owner messaging routes through Meta 24h-window / approved-template gating (reusing the established chokepoint pattern).
+- [ ] **HQD-04**: HQD can generate marketing **Content** for the GymClassOS website from HQ Brain insights (agent-native Content tools).
+- [ ] **HQD-05**: HQD can generate marketing **Video** for the GymClassOS website (agent-native Video tools). *(Lowest priority within v2.0; sequenced last.)*
 
-## Out of Scope (explicit exclusions)
+### Gym-owner Brain (GOB)
 
-- **Destructive agent actions:** purging form responses, hard-deleting forms / occurrences / class definitions / members, editing form responses — blocked at the schema layer, not just discouraged.
-- **Consent / compliance mutation by agent:** any change to `whatsapp_opt_in` or `marketing_consent` (AEM-02).
-- **Pass ledger mutation outside the cancel-refund transaction:** the agent cannot grant or debit passes directly.
-- **WhatsApp side effects from tab-edit tools:** notifying members of a cancellation is a separate, already-gated send action — not bundled into cancel-occurrence.
-- **Schema changes:** none — the milestone is fully additive against existing tables.
+- [ ] **GOB-01**: Each studio deploy stores the studio's brand + ethos (brand voice) as Brain knowledge.
+- [ ] **GOB-02**: Each studio deploy stores its classes + fitness methods as Brain context usable by the dispatcher.
+- [ ] **GOB-03**: The gym owner can view and edit their studio Brain (brand voice, ethos, methods) from the staff app.
+
+### Gym-owner Dispatcher (GOD)
+
+- [ ] **GOD-01**: Each studio sends its gym owner a daily WhatsApp digest of the studio's own telemetry/metrics.
+- [ ] **GOD-02**: Each studio runs a daily "heartbeat" job (pg-boss schedule, studio IANA timezone) that detects dormant members.
+- [ ] **GOD-03**: The heartbeat sends member reactivation messages through the existing worker `sendMessage` chokepoint (opt-in + 24h-window + approved-template gates apply unchanged).
+- [ ] **GOD-04**: Reactivation enforces a suppression ceiling (max 3 attempts / 90-day window) and honors member opt-outs.
+- [ ] **GOD-05**: Reactivation messages are personalized from the studio's GOB brand/ethos, with a generic fallback when GOB is not yet seeded.
+
+## Future Requirements
+
+Deferred beyond v2.0 (tracked, not in this roadmap):
+
+### Operator (HQ)
+
+- **HQ-FUT-01**: Multi-user HQ admin org with roles (admin/viewer). *(v2.0 is single super-admin.)*
+- **HQ-FUT-02**: Real-time collaborative editing (Yjs) on HQ content surfaces. *(Single super-admin makes this unnecessary for v2.0.)*
+
+### Provisioning
+
+- **PROV-FUT-01**: Self-service plan/billing selection + Stripe-gated provisioning at signup.
+- **PROV-FUT-02**: Customer self-serve teardown / data export.
+
+## Out of Scope
+
+| Feature | Reason |
+|---------|--------|
+| Member PII flowing up to HQ | Hard architectural + privacy boundary; HQ sees aggregate telemetry only. Enforced structurally (Zod `.strict()` + no studio DB creds + CI guard). |
+| HQ querying a studio's Neon directly | Telemetry is push-up only; HQ never holds studio DB credentials. Preserves tenant isolation. |
+| Multi-tenant single-DB / `studio_id` columns | Locked tenancy decision — each customer is a fully independent deploy. v2.0 doubles down via per-customer provisioning. |
+| HQD messaging gym members | Tier-1 dispatcher talks to gym-owners about system topics only. Member comms live at Tier 2. Structurally excluded in HQD action schemas. |
+| Remotion render cluster for HQD video | Heavy infra; HQD-05 is lowest-priority and may use a lighter path. Defer the dedicated render cluster until video is validated. |
+| Zero-touch billing/trial gating at signup | v2.0 provisions the system; commercial gating (PROV-FUT-01) follows. |
 
 ## Traceability
 
+Populated during roadmap creation (phases use the `BD` prefix).
+
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| AEF-01 | Phase AE1 | Complete |
-| AEF-02 | Phase AE1 | Complete |
-| AEF-03 | Phase AE1 | Complete |
-| AEF-04 | Phase AE1 | Complete |
-| AEF-05 | Phase AE1 | Complete |
-| AEF-06 | Phase AE1 | Complete |
-| AES-01 | Phase AE2 | Complete |
-| AES-02 | Phase AE2 | Complete |
-| AES-03 | Phase AE2 | Complete |
-| AES-04 | Phase AE2 | Complete |
-| AES-05 | Phase AE2 | Complete |
-| AES-06 | Phase AE2 | Complete |
-| AEM-01 | Phase AE3 | Complete |
-| AEM-02 | Phase AE3 | Complete |
-| AEM-03 | Phase AE3 | Complete |
-| AEM-04 | Phase AE3 | Complete |
-| AEX-01 | Phase AE1 | Complete |
-| AEX-02 | Phase AE1 | Complete |
-| AEX-03 | Phase AE1 | Complete |
-| AEX-04 | Phase AE1 | Complete |
+| HQ-FND-01..06 | TBD | Pending |
+| PROV-01..10 | TBD | Pending |
+| TEL-01..06 | TBD | Pending |
+| HQB-01..05 | TBD | Pending |
+| HQD-01..05 | TBD | Pending |
+| GOB-01..03 | TBD | Pending |
+| GOD-01..05 | TBD | Pending |
+
+**Coverage:**
+- v2.0 requirements: 40 total (HQ-FND 6, PROV 10, TEL 6, HQB 5, HQD 5, GOB 3, GOD 5)
+- Mapped to phases: 0 (roadmap pending)
+- Unmapped: 40 ⚠️ (resolved by roadmapper)
+
+---
+*Requirements defined: 2026-06-19*
+*Last updated: 2026-06-19 after initial v2.0 definition*
