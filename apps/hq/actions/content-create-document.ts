@@ -1,0 +1,195 @@
+/**
+ * apps/hq/actions/content-create-document.ts
+ *
+ * Forked from: templates/content/actions/create-document.ts
+ * Fork date: 2026-06-19
+ * Reason: HQD-04 Content fork (non-collab) — single super-admin, no Yjs/CRDT.
+ *
+ * Modifications vs upstream:
+ *   - Imports adapted to apps/hq's server/db/index.js
+ *   - Action name prefixed content- to avoid collision with any dispatch action
+ *   - DROPPED: inherited share propagation (single super-admin; no share inheritance needed)
+ *   - DROPPED: notion/comment references (none present in upstream create-document)
+ *   - deepLink app kept as "content" (agent tool context)
+ */
+import { defineAction } from "@agent-native/core";
+import { and, eq, sql } from "drizzle-orm";
+import { getDb, schema } from "../server/db/index.js";
+import { parseDocumentFavorite } from "../server/lib/documents.js";
+import {
+  getRequestUserEmail,
+  getRequestOrgId,
+} from "@agent-native/core/server/request-context";
+import { buildDeepLink } from "@agent-native/core/server";
+import { writeAppState } from "@agent-native/core/application-state";
+import { assertAccess, type ShareRole } from "@agent-native/core/sharing";
+import { z } from "zod";
+
+function nanoid(size = 12): string {
+  const chars =
+    "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+  let id = "";
+  const bytes = crypto.getRandomValues(new Uint8Array(size));
+  for (const byte of bytes) id += chars[byte % chars.length];
+  return id;
+}
+
+export default defineAction({
+  description: "Create a new HQ content document.",
+  schema: z.object({
+    id: z
+      .string()
+      .optional()
+      .describe("Pre-generated document ID (for optimistic UI)"),
+    title: z.string().describe("Document title"),
+    content: z.string().optional().describe("Markdown content"),
+    parentId: z.string().nullish().describe("Parent document ID for nesting"),
+    icon: z.string().optional().describe("Emoji icon"),
+  }),
+  run: async (args) => {
+    const title = args.title;
+
+    let content = args.content || "";
+    // Strip leading H1 that duplicates the title
+    if (title && content) {
+      const h1Match = content.match(/^#\s+(.+?)(\r?\n|$)/);
+      if (
+        h1Match &&
+        h1Match[1].trim().toLowerCase() === title.trim().toLowerCase()
+      ) {
+        content = content.slice(h1Match[0].length).trimStart();
+      }
+    }
+
+    const parentId = args.parentId || null;
+    const icon = args.icon || null;
+    const currentUserEmail = getRequestUserEmail();
+    if (!currentUserEmail) throw new Error("no authenticated user");
+    let ownerEmail = currentUserEmail;
+    let orgId = getRequestOrgId() ?? null;
+    let visibility: "private" | "org" | "public" = "private";
+    const db = getDb();
+    let inheritedRole: "owner" | ShareRole = "owner";
+    let inheritedShares: Array<{
+      principalType: "user" | "org";
+      principalId: string;
+      role: ShareRole;
+    }> = [];
+
+    if (parentId) {
+      const parentAccess = await assertAccess("document", parentId, "editor");
+      const parent = parentAccess.resource;
+      ownerEmail = parent.ownerEmail as string;
+      orgId = (parent.orgId as string | null) ?? null;
+      visibility = parent.visibility ?? "private";
+      inheritedRole = parentAccess.role;
+      inheritedShares = await db
+        .select({
+          principalType: schema.documentShares.principalType,
+          principalId: schema.documentShares.principalId,
+          role: schema.documentShares.role,
+        })
+        .from(schema.documentShares)
+        .where(eq(schema.documentShares.resourceId, parentId));
+    }
+
+    // Get max position among siblings
+    const maxPos = await db
+      .select({ max: sql<number>`COALESCE(MAX(position), -1)` })
+      .from(schema.documents)
+      .where(
+        parentId
+          ? and(
+              eq(schema.documents.ownerEmail, ownerEmail),
+              eq(schema.documents.parentId, parentId),
+            )
+          : and(
+              eq(schema.documents.ownerEmail, ownerEmail),
+              sql`parent_id IS NULL`,
+            ),
+      );
+
+    const position = (maxPos[0]?.max ?? -1) + 1;
+    const now = new Date().toISOString();
+    const id = args.id || nanoid();
+
+    await db.insert(schema.documents).values({
+      id,
+      ownerEmail,
+      orgId,
+      parentId,
+      title,
+      content,
+      icon,
+      position,
+      isFavorite: 0,
+      visibility,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    if (inheritedShares.length > 0) {
+      await db.insert(schema.documentShares).values(
+        inheritedShares.map((share) => ({
+          id: nanoid(),
+          resourceId: id,
+          principalType: share.principalType,
+          principalId: share.principalId,
+          role: share.role,
+          createdBy: currentUserEmail,
+          createdAt: now,
+        })),
+      );
+    }
+
+    const [doc] = await db
+      .select()
+      .from(schema.documents)
+      .where(
+        and(
+          eq(schema.documents.id, id),
+          eq(schema.documents.ownerEmail, ownerEmail),
+        ),
+      );
+
+    // Trigger UI refresh
+    await writeAppState("refresh-signal", { ts: Date.now() });
+
+    console.log(`Created HQ content document "${title}" (${id})`);
+
+    return {
+      id: doc.id,
+      urlPath: `/content/${doc.id}`,
+      deepLink: buildDeepLink({
+        app: "content",
+        view: "editor",
+        params: { documentId: doc.id },
+      }),
+      parentId: doc.parentId,
+      title: doc.title,
+      content: doc.content,
+      icon: doc.icon,
+      position: doc.position,
+      isFavorite: parseDocumentFavorite(doc.isFavorite),
+      visibility: doc.visibility,
+      accessRole: inheritedRole,
+      canEdit: true,
+      canManage: inheritedRole === "owner" || inheritedRole === "admin",
+      createdAt: doc.createdAt,
+      updatedAt: doc.updatedAt,
+    };
+  },
+  link: ({ result }) => {
+    const id = (result as { id?: string } | null)?.id;
+    if (!id) return null;
+    return {
+      url: buildDeepLink({
+        app: "content",
+        view: "editor",
+        params: { documentId: id },
+      }),
+      label: "Open document",
+      view: "editor",
+    };
+  },
+});

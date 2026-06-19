@@ -1,0 +1,168 @@
+/**
+ * apps/hq/actions/content-update-document.ts
+ *
+ * Forked from: templates/content/actions/update-document.ts
+ * Fork date: 2026-06-19
+ * Reason: HQD-04 Content fork (non-collab) — single super-admin, no Yjs/CRDT.
+ *
+ * Modifications vs upstream:
+ *   - Imports adapted to apps/hq's server/db/index.js
+ *   - DROPPED: no-op phantom-change guard for Notion sync (no Notion in HQ fork)
+ *   - urlPath updated to /content/:id (HQ path)
+ *   - Version snapshots retained (useful audit trail even without collab)
+ */
+import { defineAction } from "@agent-native/core";
+import { and, eq, desc } from "drizzle-orm";
+import { getDb, schema } from "../server/db/index.js";
+import { parseDocumentFavorite } from "../server/lib/documents.js";
+import { assertAccess } from "@agent-native/core/sharing";
+import { writeAppState } from "@agent-native/core/application-state";
+import { z } from "zod";
+
+function nanoid(size = 12): string {
+  const chars =
+    "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+  let id = "";
+  const bytes = crypto.getRandomValues(new Uint8Array(size));
+  for (const byte of bytes) id += chars[byte % chars.length];
+  return id;
+}
+
+const SNAPSHOT_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+
+function canManageRole(role: string) {
+  return role === "owner" || role === "admin";
+}
+
+export default defineAction({
+  description:
+    "Update an existing HQ content document's title, content, icon, or favorite status.",
+  schema: z.object({
+    id: z.string().optional().describe("Document ID (required)"),
+    title: z.string().optional().describe("New title"),
+    content: z.string().optional().describe("New markdown content"),
+    icon: z.string().nullable().optional().describe("New emoji icon"),
+    isFavorite: z.coerce
+      .boolean()
+      .optional()
+      .describe("Favorite status (true/false)"),
+  }),
+  run: async (args) => {
+    const id = args.id;
+    if (!id) throw new Error("--id is required");
+
+    const access = await assertAccess("document", id, "editor");
+    const existing = access.resource;
+    const ownerEmail = existing.ownerEmail as string;
+
+    const db = getDb();
+
+    // Strip leading H1 that duplicates the title
+    let content = args.content;
+    if (content !== undefined) {
+      const titleToCheck = args.title || existing.title;
+      if (titleToCheck) {
+        const h1Match = content.match(/^#\s+(.+?)(\r?\n|$)/);
+        if (
+          h1Match &&
+          h1Match[1].trim().toLowerCase() === titleToCheck.trim().toLowerCase()
+        ) {
+          content = content.slice(h1Match[0].length).trimStart();
+        }
+      }
+    }
+
+    const titleChanged =
+      args.title !== undefined && args.title !== existing.title;
+    const contentChanged =
+      content !== undefined && content !== existing.content;
+    const iconChanged = args.icon !== undefined && args.icon !== existing.icon;
+    const favoriteChanged =
+      args.isFavorite !== undefined &&
+      (args.isFavorite ? 1 : 0) !== (existing.isFavorite ?? 0);
+    const anyChange =
+      titleChanged || contentChanged || iconChanged || favoriteChanged;
+
+    // Version snapshot ring buffer: snapshot before content/title changes
+    if (titleChanged || contentChanged) {
+      const [latestVersion] = await db
+        .select({ createdAt: schema.documentVersions.createdAt })
+        .from(schema.documentVersions)
+        .where(
+          and(
+            eq(schema.documentVersions.documentId, id),
+            eq(schema.documentVersions.ownerEmail, ownerEmail),
+          ),
+        )
+        .orderBy(desc(schema.documentVersions.createdAt))
+        .limit(1);
+
+      const shouldSnapshot =
+        !latestVersion ||
+        Date.now() - new Date(latestVersion.createdAt).getTime() >
+          SNAPSHOT_INTERVAL_MS;
+
+      if (shouldSnapshot) {
+        await db.insert(schema.documentVersions).values({
+          id: nanoid(),
+          ownerEmail,
+          documentId: id,
+          title: existing.title,
+          content: existing.content,
+          createdAt: new Date().toISOString(),
+        });
+      }
+    }
+
+    if (anyChange) {
+      const updates: Record<string, unknown> = {
+        updatedAt: new Date().toISOString(),
+      };
+
+      if (titleChanged) updates.title = args.title;
+      if (contentChanged) updates.content = content;
+      if (iconChanged) updates.icon = args.icon;
+      if (favoriteChanged) updates.isFavorite = args.isFavorite ? 1 : 0;
+
+      await db
+        .update(schema.documents)
+        .set(updates)
+        .where(eq(schema.documents.id, id));
+    }
+
+    const [doc] = await db
+      .select()
+      .from(schema.documents)
+      .where(eq(schema.documents.id, id));
+
+    // Trigger UI refresh
+    await writeAppState("refresh-signal", { ts: Date.now() });
+
+    const updated: string[] = [];
+    if (args.title) updated.push(`title="${args.title}"`);
+    if (content !== undefined) updated.push("content");
+    if (args.icon !== undefined) {
+      updated.push(args.icon ? `icon="${args.icon}"` : "icon removed");
+    }
+    if (updated.length > 0) {
+      console.log(`Updated HQ content document ${id}: ${updated.join(", ")}`);
+    }
+
+    return {
+      id: doc.id,
+      urlPath: `/content/${doc.id}`,
+      parentId: doc.parentId,
+      title: doc.title,
+      content: doc.content,
+      icon: doc.icon,
+      position: doc.position,
+      isFavorite: parseDocumentFavorite(doc.isFavorite),
+      visibility: doc.visibility,
+      accessRole: access.role,
+      canEdit: true,
+      canManage: canManageRole(access.role),
+      createdAt: doc.createdAt,
+      updatedAt: doc.updatedAt,
+    };
+  },
+});
