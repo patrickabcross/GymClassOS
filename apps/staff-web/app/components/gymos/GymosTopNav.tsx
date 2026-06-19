@@ -78,6 +78,8 @@ export function GymosTopNav() {
   const isForms = path.startsWith("/gymos/forms");
   // P1b-08: Settings → Integrations (Stripe key rotation).
   const isSettings = path.startsWith("/gymos/settings");
+  // BD4-01: Studio Brain (GOB-03) — admin-only tab.
+  const isBrain = path.startsWith("/gymos/brain");
 
   // P1b.1-livefix: sign-out hits the better-auth backward-compat shim at
   // POST /_agent-native/auth/logout (see packages/core/src/server/auth.ts:2697
@@ -135,6 +137,11 @@ export function GymosTopNav() {
       {isAdmin && (
         <Link to="/gymos/forms" className={tabClass(isForms)}>
           Forms
+        </Link>
+      )}
+      {isAdmin && (
+        <Link to="/gymos/brain" className={tabClass(isBrain)}>
+          Brain
         </Link>
       )}
       {/* Right-aligned cluster: Settings (admin-only) + Sign out (always).
