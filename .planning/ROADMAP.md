@@ -28,7 +28,7 @@
 
 - [x] **Phase BD1: HQ Foundation** — `apps/hq` scaffolded (Dispatch + Brain copy-out fork; Videos/Yjs excluded); packages/hq-schema + HQ Neon; super-admin Better-auth; HQ org seed; `services/hq-worker` skeleton (flyctl baked in); CI guards; Anthropic call-site audit — **6 plans, 3 waves**
  (completed 2026-06-19)
-- [ ] **Phase BD2: Telemetry + Provisioning** — Parallel TEL plan (Zod strict schema, studio token accumulator, daily push, HQ ingest) + PROV plan (8-step saga with LIFO rollback first, then happy path; idempotent; watchdog); both plans independent within the phase
+- [x] **Phase BD2: Telemetry + Provisioning** — Parallel TEL plan (Zod strict schema, studio token accumulator, daily push, HQ ingest) + PROV plan (8-step saga with LIFO rollback first, then happy path; idempotent; watchdog); both plans independent within the phase (completed 2026-06-19)
 - [ ] **Phase BD3: HQ Brain + Dispatcher** — Parallel HQB plan (health scoring, cohort views, at-risk exclusion via `last_telemetry_received_at`) + HQD plan (own WABA, owner opt-in, onboarding nudge sequence, Content generation); HQD Meta templates submitted at BD2 completion
 - [ ] **Phase BD4: Studio Brain + Dispatcher** — Parallel GOB plan (Brain template copy-in to staff-web, class catalog auto-ingest, brand voice UI) + GOD plan (daily owner digest, heartbeat reactivation via existing chokepoint, suppression ceiling); GOD Meta templates submitted at BD3 completion
 
@@ -74,7 +74,7 @@ Plans:
 - [x] BD2-03-PLAN.md (wave 1) -- Studio telemetry capture: studio_telemetry_state + AFTER INSERT trigger on token_usage (fork-safe, no core edit) + buildTelemetrySnapshot aggregate SQL [TEL-01, TEL-02]
 - [x] BD2-04-PLAN.md (wave 2) -- HQ ingest endpoint (sha256 token + .strict() 422 + last_telemetry_received_at) + studio daily pg-boss push job [TEL-03, TEL-04, TEL-05, TEL-06]
 - [x] BD2-05-PLAN.md (wave 2) -- Saga core: LIFO rollback FIRST + per-step idempotency (runStep) + 8-step provision-studio saga against mocked adapters (live deferred) [PROV-02, PROV-03, PROV-04, PROV-05, PROV-06, PROV-08, PROV-09]
-- [ ] BD2-06-PLAN.md (wave 3) -- Public signup intake (202 + enqueue) + operator provisioning dashboard (per-step status) + watchdog (stuck runs + missing telemetry) + hq-worker registration [PROV-01, PROV-07, PROV-10]
+- [x] BD2-06-PLAN.md (wave 3) -- Public signup intake (202 + enqueue) + operator provisioning dashboard (per-step status) + watchdog (stuck runs + missing telemetry) + hq-worker registration [PROV-01, PROV-07, PROV-10]
 **UI hint**: yes
 
 ### Phase BD3: HQ Brain + Dispatcher
@@ -108,7 +108,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | BD1. HQ Foundation | 6/6 | Complete   | 2026-06-19 |
-| BD2. Telemetry + Provisioning | 5/6 | In Progress|  |
+| BD2. Telemetry + Provisioning | 6/6 | Complete   | 2026-06-19 |
 | BD3. HQ Brain + Dispatcher | 0/TBD | Not started | - |
 | BD4. Studio Brain + Dispatcher | 0/TBD | Not started | - |
 
@@ -426,7 +426,7 @@ Post-v1 backlog (HealthKit + native mobile, Coach View with health context, CRM 
 4. Member context panel in the inbox shows next-class + pass-balance for the opened conversation's member (real data)
 5. Stripe Checkout link generated for a 10-pack purchase + paid in Stripe test mode + resulting pass grant visible in member profile
 
-**Plans:** 5/6 plans executed
+**Plans:** 6/6 plans complete
 
 - [x] D1-01-schedule-surface-PLAN.md — Build /gymos/schedule week-grid + book-from-occurrence dialog (SCH-01, BKG-01) — completed 2026-05-19 (commits f5cdbdc6, dd50fe62, 23ee58f2)
 - [x] D1-02-members-directory-PLAN.md — Build /gymos/members + /gymos/members/:id profile with bookings + pass balance (MEM-01, MEM-02)

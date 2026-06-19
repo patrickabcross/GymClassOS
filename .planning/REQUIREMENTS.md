@@ -22,16 +22,16 @@
 
 ### Provisioning (PROV)
 
-- [ ] **PROV-01**: A prospective gym can submit a signup on the GymClassOS marketing site, which creates a `provisioning_run` record in HQ and returns immediately.
+- [x] **PROV-01**: A prospective gym can submit a signup on the GymClassOS marketing site, which creates a `provisioning_run` record in HQ and returns immediately.
 - [x] **PROV-02**: HQ programmatically creates a new customer's Neon project (via `@neondatabase/api-client`) and captures its connection string into that customer's secret store (never into HQ's own schema).
-- [ ] **PROV-03**: HQ runs the studio schema migrations + initial seed + studio admin user against the newly created Neon project.
+- [x] **PROV-03**: HQ runs the studio schema migrations + initial seed + studio admin user against the newly created Neon project.
 - [x] **PROV-04**: HQ programmatically creates a Vercel project, injects env, and deploys `staff-web` for the new customer (via `@vercel/sdk`).
 - [x] **PROV-05**: HQ programmatically creates the customer's Fly app(s) (edge-webhooks + worker) and sets their secrets via `flyctl` (org-scoped token, `execa` array args — no shell injection).
 - [x] **PROV-06**: HQ configures the customer's subdomain/DNS so the staff-web and webhook endpoints resolve.
 - [x] **PROV-07**: HQ registers the new customer in the studio registry and issues a per-studio telemetry token.
 - [x] **PROV-08**: Every provisioning step is idempotent (step-tracking + find-or-create); a retried run never creates duplicate Neon projects, Vercel projects, or Fly apps.
 - [x] **PROV-09**: On partial failure the provisioning saga compensates (LIFO rollback) so no orphaned Neon/Vercel/Fly resources remain; rollback logic is implemented before the happy path.
-- [ ] **PROV-10**: The provisioning orchestrator runs in `services/hq-worker` (not a Vercel function); the operator can see each run's per-step status/progress and failures in HQ.
+- [x] **PROV-10**: The provisioning orchestrator runs in `services/hq-worker` (not a Vercel function); the operator can see each run's per-step status/progress and failures in HQ.
 
 ### Telemetry (TEL)
 
@@ -113,16 +113,16 @@ Deferred beyond v2.0 (tracked, not in this roadmap):
 | TEL-04 | Phase BD2 | Complete |
 | TEL-05 | Phase BD2 | Complete |
 | TEL-06 | Phase BD2 | Complete |
-| PROV-01 | Phase BD2 | Pending |
+| PROV-01 | Phase BD2 | Complete |
 | PROV-02 | Phase BD2 | Complete |
-| PROV-03 | Phase BD2 | Pending |
+| PROV-03 | Phase BD2 | Complete |
 | PROV-04 | Phase BD2 | Complete |
 | PROV-05 | Phase BD2 | Complete |
 | PROV-06 | Phase BD2 | Complete |
 | PROV-07 | Phase BD2 | Complete |
 | PROV-08 | Phase BD2 | Complete |
 | PROV-09 | Phase BD2 | Complete |
-| PROV-10 | Phase BD2 | Pending |
+| PROV-10 | Phase BD2 | Complete |
 | HQB-01 | Phase BD3 | Pending |
 | HQB-02 | Phase BD3 | Pending |
 | HQB-03 | Phase BD3 | Pending |

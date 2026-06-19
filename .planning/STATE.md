@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: — Self-Serve Platform + Two-Tier Brain/Dispatcher
-status: executing
-stopped_at: Completed BD2-telemetry-provisioning BD2-05-PLAN.md (provisioning saga core)
-last_updated: "2026-06-19T14:04:15.255Z"
+status: verifying
+stopped_at: Completed BD2-telemetry-provisioning BD2-06-PLAN.md (signup intake + dashboard + watchdog + worker registration)
+last_updated: "2026-06-19T14:40:57.885Z"
 last_activity: 2026-06-19
 progress:
   total_phases: 4
@@ -32,7 +32,7 @@ Requirements: `.planning/REQUIREMENTS.md` (40 v2.0 reqs across 7 categories — 
 Milestone: v2.0 — Self-Serve Platform + Two-Tier Brain/Dispatcher
 Phase: BD2 (Telemetry + Provisioning) — EXECUTING
 Plan: 6 of 6
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-06-19
 
 > **Predecessor:** v1.2 — Agentic Tab Editing is COMPLETE (code-verified, pushed, live on Vercel). Live agent+browser UAT (AE1-AE3 `*-HUMAN-UAT.md`) and the Mobile Demo (AE4) phase remain open and are tracked in the roadmap; they are not part of v2.0 scope.
@@ -64,8 +64,17 @@ Last activity: 2026-06-19
 | BD2 | 03 | 975s (~16min) | 3 | 6 | 2026-06-19 |
 | Phase BD2 P04 | 45 | 2 tasks | 9 files |
 | Phase BD2 P05 | 1145 | 3 tasks | 12 files |
+| Phase BD2 P06 | 45 | 4 tasks | 11 files |
 
 ## Accumulated Context
+
+### BD2-06 Decisions (2026-06-19)
+
+- **2026-06-19 BD2-06 — @gymos/queue added as workspace dep to @gymos/hq: the signup intake handler is the provision-studio queue producer; getBoss() needed in the HQ web app, not just hq-worker.**
+- **2026-06-19 BD2-06 — Watchdog source uses line comments (//) not JSDoc block comments: esbuild 0.21.x treats */5 inside a block comment as a comment-close token, causing a transform error on the cron string.**
+- **2026-06-19 BD2-06 — crypto.randomUUID() used instead of nanoid: nanoid is not in @gymos/hq deps; Node built-in randomUUID() produces UUIDs with equivalent uniqueness for studioId/runId.**
+- **2026-06-19 BD2-06 — Task 4 human-verify checkpoint auto-approved as deferred-on-external-dependency: live deploy verification (curl signup, dashboard, Fly logs) requires HQ Vercel deploy + provider tokens not yet set by operator.**
+- **2026-06-19 BD2-06 — Drizzle execute<T>() requires T extends Record<string, unknown>: StuckRun and StaleTelemetryStudio interfaces must extend that constraint for watchdog raw SQL queries to typecheck.**
 
 ### BD2-05 Decisions (2026-06-19)
 
@@ -154,8 +163,8 @@ Last activity: 2026-06-19
 
 ## Session Continuity
 
-Last session: 2026-06-19T14:04:15.235Z
-Stopped at: Completed BD2-telemetry-provisioning BD2-05-PLAN.md (provisioning saga core)
+Last session: 2026-06-19T14:40:57.877Z
+Stopped at: Completed BD2-telemetry-provisioning BD2-06-PLAN.md (signup intake + dashboard + watchdog + worker registration)
 Resume file: None
 
 ### PICK UP HERE — plan BD1
