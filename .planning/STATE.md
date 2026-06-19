@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: — Self-Serve Platform + Two-Tier Brain/Dispatcher
 status: executing
-stopped_at: Completed BD3-02-PLAN.md
-last_updated: "2026-06-19T17:05:19.210Z"
+stopped_at: Completed BD3-04-PLAN.md
+last_updated: "2026-06-19T17:18:37.989Z"
 last_activity: 2026-06-19
 progress:
   total_phases: 4
@@ -31,7 +31,7 @@ Requirements: `.planning/REQUIREMENTS.md` (40 v2.0 reqs across 7 categories — 
 
 Milestone: v2.0 — Self-Serve Platform + Two-Tier Brain/Dispatcher
 Phase: BD3 (HQ Brain + Dispatcher) — EXECUTING
-Plan: 4 of 5
+Plan: 5 of 5
 Status: Ready to execute
 Last activity: 2026-06-19
 
@@ -68,8 +68,16 @@ Last activity: 2026-06-19
 | Phase BD3 P01 | 838 | 2 tasks | 8 files |
 | Phase BD3 P03 | 461 | 3 tasks | 12 files |
 | Phase BD3 P02 | 711 | 3 tasks | 6 files |
+| Phase BD3 P04 | 397 | 3 tasks | 8 files |
 
 ## Accumulated Context
+
+### BD3-04 Decisions (2026-06-19)
+
+- **2026-06-19 BD3-04 — vitest.config.ts extended to include actions/**/*.test.ts: existing config only covered server/**/*.test.ts; action schema tests (e.g. OwnerSendSchema) have no browser/DB dependency and fit under actions/**
+- **2026-06-19 BD3-04 — agent-chat.ts copy-out fork: dispatchAgentChatPlugin is a pre-instantiated Nitro plugin object with no systemPromptSuffix option; createAgentChatPlugin factory must be called directly to inject HQD_CONSTRAINT into the system prompt. MODIFICATIONS.md updated with origin path and merge guidance.**
+- **2026-06-19 BD3-04 — Terminal gate errors in hq-owner-send handler are swallowed (logged + return, no re-raise): OwnerNoOptInError/OwnerWindowExpiredError/OwnerTemplateNotApprovedError are operator-config errors, not transient failures; wasting pg-boss retries on them would spam logs without useful retries.**
+- **2026-06-19 BD3-04 — HQ_WABA_PHONE_NUMBER_ID + HQ_WABA_API_TOKEN added as optional env fields in hq-worker; absence falls back to mockHqWabaClient cleanly (deferred-on-external-dependency D-13).**
 
 ### BD3-02 Decisions (2026-06-19)
 
@@ -178,8 +186,8 @@ Last activity: 2026-06-19
 
 ## Session Continuity
 
-Last session: 2026-06-19T17:05:19.202Z
-Stopped at: Completed BD3-02-PLAN.md
+Last session: 2026-06-19T17:18:37.982Z
+Stopped at: Completed BD3-04-PLAN.md
 Resume file: None
 
 ### PICK UP HERE — plan BD1

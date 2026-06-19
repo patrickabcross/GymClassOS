@@ -95,7 +95,7 @@ Plans:
 - [x] BD3-01-PLAN.md (wave 1) — HQB classification engine (deterministic, staleness-first) + threshold constants + list-studios action + GET /api/studios read model [HQB-01, HQB-02, HQB-03, HQB-04]
 - [x] BD3-03-PLAN.md (wave 1) — HQD send foundation: hq_whatsapp_opt_in/templates migrations (v8/v9) + mirrored gates (opt-in/window/template) + HqWabaClient mock + sendOwnerMessage orchestrator + no-worker-import CI guard [HQD-01, HQD-03]
 - [x] BD3-02-PLAN.md (wave 2, after 01) — HQB console: /studios list (shadcn Table + health badges + cohort filter) + /studios/:id drill-in (recharts history, ClientOnly SSR-guarded) + snapshots resource route [HQB-01, HQB-04, HQB-05]
-- [ ] BD3-04-PLAN.md (wave 2, after 03) — send-owner-whatsapp .strict() member-excluded action + HQD system-prompt constraint + hq-owner-send pg-boss queue (mock client, live deferred) [HQD-02, HQD-03]
+- [x] BD3-04-PLAN.md (wave 2, after 03) — send-owner-whatsapp .strict() member-excluded action + HQD system-prompt constraint + hq-owner-send pg-boss queue (mock client, live deferred) [HQD-02, HQD-03]
 - [ ] BD3-05-PLAN.md (wave 2, after 03) — Content fork (non-collab Tiptap, no Yjs/Notion) + document CRUD + Video thin stub [HQD-04, HQD-05]
 **UI hint**: yes
 
@@ -117,7 +117,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | BD1. HQ Foundation | 6/6 | Complete   | 2026-06-19 |
 | BD2. Telemetry + Provisioning | 6/6 | Complete    | 2026-06-19 |
-| BD3. HQ Brain + Dispatcher | 3/5 | In Progress|  |
+| BD3. HQ Brain + Dispatcher | 4/5 | In Progress|  |
 | BD4. Studio Brain + Dispatcher | 0/TBD | Not started | - |
 
 **Coverage:** 40 v2.0 requirements mapped across 4 phases (BD1-BD4). All pending.
@@ -434,7 +434,7 @@ Post-v1 backlog (HealthKit + native mobile, Coach View with health context, CRM 
 4. Member context panel in the inbox shows next-class + pass-balance for the opened conversation's member (real data)
 5. Stripe Checkout link generated for a 10-pack purchase + paid in Stripe test mode + resulting pass grant visible in member profile
 
-**Plans:** 3/5 plans executed
+**Plans:** 4/5 plans executed
 
 - [x] D1-01-schedule-surface-PLAN.md — Build /gymos/schedule week-grid + book-from-occurrence dialog (SCH-01, BKG-01) — completed 2026-05-19 (commits f5cdbdc6, dd50fe62, 23ee58f2)
 - [x] D1-02-members-directory-PLAN.md — Build /gymos/members + /gymos/members/:id profile with bookings + pass balance (MEM-01, MEM-02)
