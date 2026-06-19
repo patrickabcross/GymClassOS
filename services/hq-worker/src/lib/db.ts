@@ -119,12 +119,45 @@ export const hqTokenUsage = pgTable("hq_token_usage", {
   updatedAt: text("updated_at").notNull().default(now()),
 });
 
+/**
+ * BD3 HQD — hq_whatsapp_opt_in: gym-owner opt-in for HQ WABA B2B comms.
+ * One row per studio. owner_email + phone_e164 are the GYM-OWNER's own
+ * contact info (B2B) — NOT gym members. last_inbound_at drives the 24h gate.
+ */
+export const hqWhatsappOptIn = pgTable("hq_whatsapp_opt_in", {
+  id: text("id").primaryKey(),
+  studioId: text("studio_id").notNull(),
+  ownerEmail: text("owner_email").notNull(),
+  phoneE164: text("phone_e164").notNull(),
+  lastInboundAt: text("last_inbound_at"),
+  optedInAt: text("opted_in_at").notNull().default(now()),
+  optedOutAt: text("opted_out_at"),
+  optInSource: text("opt_in_source").notNull().default("signup"),
+  createdAt: text("created_at").notNull().default(now()),
+});
+
+/**
+ * BD3 HQD — hq_whatsapp_templates: approved HQ owner-comms templates.
+ * Gate checks status='approved'. Populated manually or via Meta template sync.
+ */
+export const hqWhatsappTemplates = pgTable("hq_whatsapp_templates", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  status: text("status").notNull().default("pending"),
+  language: text("language").notNull().default("en_US"),
+  componentsJson: text("components_json"),
+  syncedAt: text("synced_at"),
+  createdAt: text("created_at").notNull().default(now()),
+});
+
 export const schema = {
   hqStudios,
   hqProvisioningRuns,
   hqStudioTokens,
   hqTelemetrySnapshots,
   hqTokenUsage,
+  hqWhatsappOptIn,
+  hqWhatsappTemplates,
 };
 
 export type HqDb = ReturnType<typeof drizzle<typeof schema>>;
