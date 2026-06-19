@@ -133,3 +133,46 @@ export const hqStudioTokens = table("hq_studio_tokens", {
   createdAt: text("created_at").notNull().default(now()),
   revokedAt: text("revoked_at"),
 });
+
+// ---------------------------------------------------------------------------
+// BD3 HQD tables — HQ WhatsApp Dispatcher (owner B2B comms).
+//
+// STRUCTURAL EXCLUSION (D-07/D-08):
+//   owner_email + phone_e164 are the GYM-OWNER's own contact info (B2B),
+//   captured at signup — NOT gym members. HQ Neon physically contains no
+//   member records; even if the send path were bypassed, there is nothing
+//   to leak (defense in depth). No member_id, no member reference exists.
+//
+// PII-UP BOUNDARY: All column names pass guard:hq-no-pii — no
+//   *connection*, *database_url*, or *dsn* column name below.
+// ---------------------------------------------------------------------------
+
+// hq_whatsapp_opt_in — gym-owner opt-in for HQ WABA B2B comms (HQD-01).
+// One row per studio (UNIQUE constraint). opted_out_at NULL = active opt-in.
+// last_inbound_at: when the owner last messaged HQ — used by the 24h window gate.
+export const hqWhatsappOptIn = table("hq_whatsapp_opt_in", {
+  id: text("id").primaryKey(),
+  studioId: text("studio_id").notNull(),
+  // Owner contact (the gym-owner, not a gym member)
+  ownerEmail: text("owner_email").notNull(),
+  phoneE164: text("phone_e164").notNull(),
+  // Tracks the last inbound message from the owner for the 24h window gate.
+  lastInboundAt: text("last_inbound_at"),
+  optedInAt: text("opted_in_at").notNull().default(now()),
+  optedOutAt: text("opted_out_at"),
+  optInSource: text("opt_in_source").notNull().default("signup"),
+  createdAt: text("created_at").notNull().default(now()),
+});
+
+// hq_whatsapp_templates — approved HQ owner-comms templates registry (HQD-03).
+// Mirrors the studio whatsapp_templates pattern. Populated manually or via
+// a Meta template-API sync action. Gate checks status='approved'.
+export const hqWhatsappTemplates = table("hq_whatsapp_templates", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  status: text("status").notNull().default("pending"),
+  language: text("language").notNull().default("en_US"),
+  componentsJson: text("components_json"),
+  syncedAt: text("synced_at"),
+  createdAt: text("created_at").notNull().default(now()),
+});

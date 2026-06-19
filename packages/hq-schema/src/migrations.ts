@@ -270,4 +270,76 @@ CREATE TABLE IF NOT EXISTS hq_token_usage (
 )`,
     },
   },
+
+  // ─── BD3 HQD tables ────────────────────────────────────────────────────────
+  // HQ WhatsApp Dispatcher tables for gym-owner B2B communications.
+  // STRUCTURAL EXCLUSION: These tables store gym-OWNER contact info only —
+  // not gym members. HQ Neon physically contains no member records (D-07/D-08).
+  // All columns pass guard:hq-no-pii (no *connection*/*database_url*/*dsn*).
+
+  {
+    version: 8,
+    // BD3 HQD — gym-owner opt-in for HQ WABA B2B comms (HQD-01).
+    // One row per studio (UNIQUE studio_id). phone_e164 + owner_email are
+    // the GYM-OWNER's own contact info captured at signup — NOT gym members.
+    // last_inbound_at: when the owner last messaged HQ (drives the 24h window gate).
+    // opted_out_at NULL = active opt-in; SET = opted out.
+    // opt_in_source: 'signup' | 'manual' — how opt-in was captured.
+    sql: {
+      postgres: `CREATE TABLE IF NOT EXISTS hq_whatsapp_opt_in (
+  id            TEXT PRIMARY KEY,
+  studio_id     TEXT NOT NULL REFERENCES hq_studios(id),
+  -- Owner contact (the gym-owner, not a gym member)
+  owner_email   TEXT NOT NULL,
+  phone_e164    TEXT NOT NULL,
+  last_inbound_at TEXT,
+  opted_in_at   TEXT NOT NULL DEFAULT NOW(),
+  opted_out_at  TEXT,
+  opt_in_source TEXT NOT NULL DEFAULT 'signup',
+  created_at    TEXT NOT NULL DEFAULT NOW(),
+  UNIQUE(studio_id)
+)`,
+      sqlite: `CREATE TABLE IF NOT EXISTS hq_whatsapp_opt_in (
+  id            TEXT PRIMARY KEY,
+  studio_id     TEXT NOT NULL REFERENCES hq_studios(id),
+  -- Owner contact (the gym-owner, not a gym member)
+  owner_email   TEXT NOT NULL,
+  phone_e164    TEXT NOT NULL,
+  last_inbound_at TEXT,
+  opted_in_at   TEXT NOT NULL DEFAULT datetime('now'),
+  opted_out_at  TEXT,
+  opt_in_source TEXT NOT NULL DEFAULT 'signup',
+  created_at    TEXT NOT NULL DEFAULT datetime('now'),
+  UNIQUE(studio_id)
+)`,
+    },
+  },
+
+  {
+    version: 9,
+    // BD3 HQD — approved HQ owner-comms templates registry (HQD-03).
+    // Mirrors the studio whatsapp_templates pattern. Populated manually or
+    // via a Meta template-API sync action. Template name is unique.
+    // status: 'pending' | 'approved' | 'rejected' — gate checks status='approved'.
+    sql: {
+      postgres: `CREATE TABLE IF NOT EXISTS hq_whatsapp_templates (
+  id              TEXT PRIMARY KEY,
+  name            TEXT NOT NULL UNIQUE,
+  status          TEXT NOT NULL DEFAULT 'pending',
+  language        TEXT NOT NULL DEFAULT 'en_US',
+  components_json TEXT,
+  synced_at       TEXT,
+  created_at      TEXT NOT NULL DEFAULT NOW()
+)`,
+      sqlite: `CREATE TABLE IF NOT EXISTS hq_whatsapp_templates (
+  id              TEXT PRIMARY KEY,
+  name            TEXT NOT NULL UNIQUE,
+  status          TEXT NOT NULL DEFAULT 'pending',
+  language        TEXT NOT NULL DEFAULT 'en_US',
+  components_json TEXT,
+  synced_at       TEXT,
+  created_at      TEXT NOT NULL DEFAULT datetime('now')
+)`,
+    },
+  },
 ];
