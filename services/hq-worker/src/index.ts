@@ -1,19 +1,22 @@
-// hq-worker entrypoint (BD1 skeleton — BD2 adds the provisioning saga queues)
+// hq-worker entrypoint (BD2 — registers provision-studio saga + hq-watchdog)
 //
-// Responsibilities (BD1):
+// Boot sequence:
 //   1. Validate env (DATABASE_URL_UNPOOLED → HQ Neon, PITFALL #1)
 //   2. Boot pg-boss against the HQ Neon (auto-creates pgboss.* schema on first start)
-//   3. Serve /healthz on PORT 3003 — the Fly http_check probes this endpoint
+//   3. createQueue for every HQ queue (idempotent — mirrors services/worker boot)
+//   4. Register provision-studio saga handler + hq-watchdog recurring job (D-07)
+//   5. Serve /healthz on PORT 3003 — the Fly http_check probes this endpoint
 //
-// BD2 adds: provision-studio queue + brain-ingest queue + provisioning saga workers.
-// The boot sequence is kept identical to services/worker so the /healthz contract
-// is preserved when the Fly health check passes on deploy.
+// Matches services/worker boot order so the /healthz contract is preserved.
 
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { getBoss } from "./boss.js";
 import { getEnv } from "./lib/env.js";
 import { getLogger } from "./lib/logger.js";
+import { registerProvisionStudio } from "./queues/provision-studio.js";
+import { registerWatchdog } from "./queues/watchdog.js";
+import { createProvisionApis } from "./lib/provision-apis/index.js";
 
 async function main() {
   const env = getEnv();
@@ -26,13 +29,34 @@ async function main() {
   await boss.start();
   log.info("[pgboss] started — HQ Neon schema migration auto-applied");
 
-  // BD1: no domain queues yet.
-  // BD2 adds: provision-studio, brain-ingest (+ their createQueue calls here).
+  // pg-boss v12 requires queues to exist before work()/schedule()/send().
+  // Create every HQ queue idempotently before registering consumers.
+  // Mirrors the createQueue loop in services/worker/src/index.ts.
+  for (const q of ["provision-studio", "hq-watchdog"]) {
+    try {
+      await boss.createQueue(q);
+    } catch (err) {
+      // createQueue is effectively idempotent; tolerate "already exists".
+      log.warn({ err, queue: q }, "[pgboss] createQueue (continuing)");
+    }
+  }
+  log.info("[hq-worker] queues ensured: provision-studio, hq-watchdog");
 
-  log.info("[hq-worker] pg-boss ready — no domain queues in BD1 skeleton");
+  // ── Register provision-studio saga handler (BD2-05) ───────────────────────
+  // Provider APIs are real in production (tokens from Fly secrets) and mocked
+  // in tests. The saga throws "deferred-on-external-dependency" if tokens are
+  // unset on a live run (D-12).
+  const apis = createProvisionApis(env);
+  await registerProvisionStudio(boss, apis);
+  log.info("[hq-worker] provision-studio queue registered");
 
-  // /healthz admin server — Fly http_check probes this on PORT 3003.
-  // The endpoint contract matches services/worker (/healthz → { ok, version, app })
+  // ── Register hq-watchdog recurring job (BD2-06) ───────────────────────────
+  // Runs every 5 minutes; flags stuck runs (>15m) + missing telemetry (>25h).
+  await registerWatchdog(boss);
+  log.info("[hq-worker] hq-watchdog scheduled (*/5 * * * *)");
+
+  // ── /healthz admin server — Fly http_check probes this on PORT 3003 ───────
+  // Contract matches services/worker (/healthz → { ok, version, app })
   // so the same Fly health-check config works for both services.
   const admin = new Hono();
   admin.get("/healthz", (c) =>
