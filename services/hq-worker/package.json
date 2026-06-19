@@ -15,12 +15,15 @@
     "@gymos/queue": "workspace:*",
     "@hono/node-server": "^1.13.0",
     "@neondatabase/api-client": "^2.7.2",
+    "@neondatabase/serverless": "^1.1.0",
     "@vercel/sdk": "^1.28.0",
+    "drizzle-orm": "^0.45.2",
     "execa": "^9.6.1",
     "hono": "^4.6.0",
     "pg": "^8.13.0",
     "pg-boss": "^12.18.0",
     "pino": "^9.5.0",
+    "ws": "^8.18.0",
     "zod": "^4.0.0"
   },
   "devDependencies": {
