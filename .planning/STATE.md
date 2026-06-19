@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: — Self-Serve Platform + Two-Tier Brain/Dispatcher
 status: verifying
-stopped_at: Completed BD3-05-PLAN.md
-last_updated: "2026-06-19T17:42:27.958Z"
+stopped_at: Phase BD4 context gathered
+last_updated: "2026-06-19T17:50:42.599Z"
 last_activity: 2026-06-19
 progress:
   total_phases: 4
@@ -187,9 +187,9 @@ Last activity: 2026-06-19
 
 ## Session Continuity
 
-Last session: 2026-06-19T17:33:13.584Z
-Stopped at: Completed BD3-05-PLAN.md
-Resume file: None
+Last session: 2026-06-19T17:50:42.551Z
+Stopped at: Phase BD4 context gathered
+Resume file: .planning/phases/BD4-studio-brain-dispatcher/BD4-CONTEXT.md
 
 ### PICK UP HERE — plan BD1
 
