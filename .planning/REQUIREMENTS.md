@@ -52,9 +52,9 @@
 
 ### HQ Dispatcher (HQD)
 
-- [ ] **HQD-01**: HQ has its own WhatsApp Business Account + `hq_whatsapp_opt_in` tracking for gym-owner contacts, fully separate from any studio WABA.
+- [x] **HQD-01**: HQ has its own WhatsApp Business Account + `hq_whatsapp_opt_in` tracking for gym-owner contacts, fully separate from any studio WABA.
 - [ ] **HQD-02**: Operator (via the HQ dispatcher agent) can send WhatsApp comms to gym OWNERS about system/product topics; the action's Zod schema structurally excludes member-directed sends and member data (HQD can never message gym members).
-- [ ] **HQD-03**: HQD owner messaging routes through Meta 24h-window / approved-template gating (reusing the established chokepoint pattern).
+- [x] **HQD-03**: HQD owner messaging routes through Meta 24h-window / approved-template gating (reusing the established chokepoint pattern).
 - [ ] **HQD-04**: HQD can generate marketing **Content** for the GymClassOS website from HQ Brain insights (agent-native Content tools).
 - [ ] **HQD-05**: HQD can generate marketing **Video** for the GymClassOS website (agent-native Video tools). *(Lowest priority within v2.0; sequenced last.)*
 
@@ -128,9 +128,9 @@ Deferred beyond v2.0 (tracked, not in this roadmap):
 | HQB-03 | Phase BD3 | Complete |
 | HQB-04 | Phase BD3 | Complete |
 | HQB-05 | Phase BD3 | Pending |
-| HQD-01 | Phase BD3 | Pending |
+| HQD-01 | Phase BD3 | Complete |
 | HQD-02 | Phase BD3 | Pending |
-| HQD-03 | Phase BD3 | Pending |
+| HQD-03 | Phase BD3 | Complete |
 | HQD-04 | Phase BD3 | Pending |
 | HQD-05 | Phase BD3 | Pending |
 | GOB-01 | Phase BD4 | Pending |
