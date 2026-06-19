@@ -8,6 +8,7 @@ import {
   IconMessageQuestion,
   IconSearch,
   IconSettings,
+  IconServer2,
 } from "@tabler/icons-react";
 
 export type BrainView =
@@ -948,6 +949,12 @@ export const navItems: Array<{
     label: "Settings",
     href: "/settings",
     icon: IconSettings,
+  },
+  {
+    view: "provisioning" as BrainView,
+    label: "Provisioning",
+    href: "/provisioning",
+    icon: IconServer2,
   },
 ];
 
