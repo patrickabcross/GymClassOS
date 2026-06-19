@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: — Self-Serve Platform + Two-Tier Brain/Dispatcher
 status: executing
-stopped_at: Completed BD2-telemetry-provisioning BD2-01-PLAN.md (HQ schema migrations v4-v7 + TelemetrySnapshot)
-last_updated: "2026-06-19T12:38:10.793Z"
+stopped_at: "Completed BD2-telemetry-provisioning BD2-02-PLAN.md (provider adapters: Neon/Vercel/Fly + mocks + TDD)"
+last_updated: "2026-06-19T12:58:13.896Z"
 last_activity: 2026-06-19
 progress:
   total_phases: 4
@@ -31,7 +31,7 @@ Requirements: `.planning/REQUIREMENTS.md` (40 v2.0 reqs across 7 categories — 
 
 Milestone: v2.0 — Self-Serve Platform + Two-Tier Brain/Dispatcher
 Phase: BD2 (Telemetry + Provisioning) — EXECUTING
-Plan: 2 of 6
+Plan: 3 of 6
 Status: Ready to execute
 Last activity: 2026-06-19
 
@@ -60,8 +60,15 @@ Last activity: 2026-06-19
 | Phase | Plan | Duration | Tasks | Files | Completed |
 |-------|------|----------|-------|-------|-----------|
 | BD2 | 01 | 35min | 3 | 7 | 2026-06-19 |
+| BD2 | 02 | 16min | 3 | 10 | 2026-06-19 |
 
 ## Accumulated Context
+
+### BD2-02 Decisions (2026-06-19)
+
+- **2026-06-19 BD2-02 — @neondatabase/api-client version is 2.x (actual published) not 10.x (as documented in research); pinned to ^2.7.2. API surface is compatible.**
+- **2026-06-19 BD2-02 — Vercel SDK getProjects returns union type (GetProjectsResponseBody2 | GetProjectsResponseBody3 | Array<...>); Array.isArray guard normalises to project list for find-or-create.**
+- **2026-06-19 BD2-02 — execa call spans multiple lines in fly.ts — test runtime-verifies array-arg form; single-line grep from plan is a style check only, not a semantic constraint.**
 
 ### BD2-01 Decisions (2026-06-19)
 
@@ -122,8 +129,8 @@ Last activity: 2026-06-19
 
 ## Session Continuity
 
-Last session: 2026-06-19T12:38:10.786Z
-Stopped at: Completed BD2-telemetry-provisioning BD2-01-PLAN.md (HQ schema migrations v4-v7 + TelemetrySnapshot)
+Last session: 2026-06-19T12:58:13.868Z
+Stopped at: Completed BD2-telemetry-provisioning BD2-02-PLAN.md (provider adapters: Neon/Vercel/Fly + mocks + TDD)
 Resume file: None
 
 ### PICK UP HERE — plan BD1
