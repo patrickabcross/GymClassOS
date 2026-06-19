@@ -60,9 +60,9 @@
 
 ### Gym-owner Brain (GOB)
 
-- [ ] **GOB-01**: Each studio deploy stores the studio's brand + ethos (brand voice) as Brain knowledge.
-- [ ] **GOB-02**: Each studio deploy stores its classes + fitness methods as Brain context usable by the dispatcher.
-- [ ] **GOB-03**: The gym owner can view and edit their studio Brain (brand voice, ethos, methods) from the staff app.
+- [x] **GOB-01**: Each studio deploy stores the studio's brand + ethos (brand voice) as Brain knowledge.
+- [x] **GOB-02**: Each studio deploy stores its classes + fitness methods as Brain context usable by the dispatcher.
+- [x] **GOB-03**: The gym owner can view and edit their studio Brain (brand voice, ethos, methods) from the staff app.
 
 ### Gym-owner Dispatcher (GOD)
 
@@ -133,9 +133,9 @@ Deferred beyond v2.0 (tracked, not in this roadmap):
 | HQD-03 | Phase BD3 | Complete |
 | HQD-04 | Phase BD3 | Complete |
 | HQD-05 | Phase BD3 | Complete |
-| GOB-01 | Phase BD4 | Pending |
-| GOB-02 | Phase BD4 | Pending |
-| GOB-03 | Phase BD4 | Pending |
+| GOB-01 | Phase BD4 | Complete |
+| GOB-02 | Phase BD4 | Complete |
+| GOB-03 | Phase BD4 | Complete |
 | GOD-01 | Phase BD4 | Pending |
 | GOD-02 | Phase BD4 | Pending |
 | GOD-03 | Phase BD4 | Pending |

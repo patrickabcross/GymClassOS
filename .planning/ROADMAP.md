@@ -113,7 +113,7 @@ Plans:
 **Plans**: 2 plans (2 waves)
 
 Plans:
-- [ ] BD4-01-PLAN.md (wave 1) — GOB: additive studio_brain_docs (+ studio_owner_config + reactivation_attempts tables, all owned here to avoid db.ts collision) + class-catalog auto-ingest from class_definitions on Brain init + /gymos/brain owner view/edit UI (defineAction writes + useChangeVersions live-refresh) [GOB-01, GOB-02, GOB-03]
+- [x] BD4-01-PLAN.md (wave 1) — GOB: additive studio_brain_docs (+ studio_owner_config + reactivation_attempts tables, all owned here to avoid db.ts collision) + class-catalog auto-ingest from class_definitions on Brain init + /gymos/brain owner view/edit UI (defineAction writes + useChangeVersions live-refresh) [GOB-01, GOB-02, GOB-03]
 - [ ] BD4-02-PLAN.md (wave 2, after 01) — GOD: daily owner digest (buildTelemetrySnapshot reuse, numeric; LLM deferred) + heartbeat @ 09:00 studio IANA tz (staggered hash%60) + deterministic dormant detection + reactivation via existing outbound-whatsapp chokepoint (sendMessage NOT modified) + 3/90 suppression ceiling + synchronous opt-out from day one + brand-voice personalization w/ generic fallback; live sends mock-first/deferred (D-15) [GOD-01, GOD-02, GOD-03, GOD-04, GOD-05]
 
 ## Progress (v2.0 — Self-Serve Platform + Two-Tier Brain/Dispatcher)
@@ -123,7 +123,7 @@ Plans:
 | BD1. HQ Foundation | 6/6 | Complete   | 2026-06-19 |
 | BD2. Telemetry + Provisioning | 6/6 | Complete    | 2026-06-19 |
 | BD3. HQ Brain + Dispatcher | 5/5 | Complete    | 2026-06-19 |
-| BD4. Studio Brain + Dispatcher | 0/2 | Not started | - |
+| BD4. Studio Brain + Dispatcher | 1/2 | In Progress|  |
 
 **Coverage:** 40 v2.0 requirements mapped across 4 phases (BD1-BD4). All pending.
 
@@ -439,7 +439,7 @@ Post-v1 backlog (HealthKit + native mobile, Coach View with health context, CRM 
 4. Member context panel in the inbox shows next-class + pass-balance for the opened conversation's member (real data)
 5. Stripe Checkout link generated for a 10-pack purchase + paid in Stripe test mode + resulting pass grant visible in member profile
 
-**Plans:** 5/5 plans complete
+**Plans:** 1/2 plans executed
 
 - [x] D1-01-schedule-surface-PLAN.md — Build /gymos/schedule week-grid + book-from-occurrence dialog (SCH-01, BKG-01) — completed 2026-05-19 (commits f5cdbdc6, dd50fe62, 23ee58f2)
 - [x] D1-02-members-directory-PLAN.md — Build /gymos/members + /gymos/members/:id profile with bookings + pass balance (MEM-01, MEM-02)

@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: — Self-Serve Platform + Two-Tier Brain/Dispatcher
-status: verifying
-stopped_at: Phase BD4 context gathered
-last_updated: "2026-06-19T17:50:42.599Z"
+status: executing
+stopped_at: Completed BD4-01-PLAN.md
+last_updated: "2026-06-19T18:29:45.594Z"
 last_activity: 2026-06-19
 progress:
   total_phases: 4
@@ -30,9 +30,9 @@ Requirements: `.planning/REQUIREMENTS.md` (40 v2.0 reqs across 7 categories — 
 ## Current Position
 
 Milestone: v2.0 — Self-Serve Platform + Two-Tier Brain/Dispatcher
-Phase: BD3
-Plan: Not started
-Status: Phase complete — ready for verification
+Phase: BD4 (Studio Brain + Dispatcher) — EXECUTING
+Plan: 2 of 2
+Status: Ready to execute
 Last activity: 2026-06-19
 
 > **Predecessor:** v1.2 — Agentic Tab Editing is COMPLETE (code-verified, pushed, live on Vercel). Live agent+browser UAT (AE1-AE3 `*-HUMAN-UAT.md`) and the Mobile Demo (AE4) phase remain open and are tracked in the roadmap; they are not part of v2.0 scope.
@@ -70,8 +70,16 @@ Last activity: 2026-06-19
 | Phase BD3 P02 | 711 | 3 tasks | 6 files |
 | Phase BD3 P04 | 397 | 3 tasks | 8 files |
 | Phase BD3 P05 | 687 | 3 tasks | 14 files |
+| Phase BD4 P01 | 14 | 3 tasks | 9 files |
 
 ## Accumulated Context
+
+### BD4-01 Decisions (2026-06-19)
+
+- **2026-06-19 BD4-01 — All three BD4 tables owned by BD4-01 to prevent db.ts collision with BD4-02: studio_brain_docs (v16), studio_owner_config (v17), reactivation_attempts (v18), index (v19) all in BD4-01; BD4-02 reads them without touching db.ts.**
+- **2026-06-19 BD4-01 — Pure helper extraction to brain-init-helpers.ts: vitest.unit.config.ts + ESM vitest cannot import @agent-native/core (CJS React "module is not defined"); pure helpers extracted to *-helpers.ts (mirrors create-checkout-link-helpers.ts pattern).**
+- **2026-06-19 BD4-01 — Collapsible shadcn primitive for Class Methods: progressive disclosure — Class Methods section collapsed by default on /gymos/brain per AGENTS.md rule.**
+- **2026-06-19 BD4-01 — Client-side fetch in gymos.brain.tsx (no loader): readAppState and getDb() in a React Router v7 loader need request context; client-side pattern matches gymos.campaigns.tsx segment-fetch.**
 
 ### BD3-04 Decisions (2026-06-19)
 
@@ -187,9 +195,9 @@ Last activity: 2026-06-19
 
 ## Session Continuity
 
-Last session: 2026-06-19T17:50:42.551Z
-Stopped at: Phase BD4 context gathered
-Resume file: .planning/phases/BD4-studio-brain-dispatcher/BD4-CONTEXT.md
+Last session: 2026-06-19T18:29:45.584Z
+Stopped at: Completed BD4-01-PLAN.md
+Resume file: None
 
 ### PICK UP HERE — plan BD1
 
