@@ -44,6 +44,15 @@ const EnvSchema = z.object({
   // pgcrypto master key (Plan 07 secrets read)
   PGCRYPTO_MASTER_KEY: z.string().min(16),
 
+  // BD2-04: HQ telemetry push — optional; unconfigured studios skip cleanly.
+  // Set by the provisioning saga at Step 4/5/7 (BD2-05/06) via Vercel env +
+  // Fly secret. When absent the telemetry-push handler logs a warning and
+  // returns without error so the worker still boots clean.
+  HQ_INGEST_URL: z.string().url().optional(),
+  STUDIO_TELEMETRY_TOKEN: z.string().min(16).optional(),
+  STUDIO_ID: z.string().min(1).optional(),
+  STUDIO_TIMEZONE: z.string().optional(),
+
   // Runtime
   PORT: z.coerce.number().int().positive().default(3002),
   GIT_SHA: z.string().optional().default("dev"),

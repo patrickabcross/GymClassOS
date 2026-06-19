@@ -1578,6 +1578,9 @@ importers:
 
   services/worker:
     dependencies:
+      '@gymos/hq-schema':
+        specifier: workspace:*
+        version: link:../../packages/hq-schema
       '@gymos/queue':
         specifier: workspace:*
         version: link:../../packages/queue

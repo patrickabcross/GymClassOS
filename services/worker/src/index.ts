@@ -21,6 +21,7 @@ import { registerInboundWhatsAppWorker } from "./queues/inbound-whatsapp.js";
 import { registerOutboundWhatsAppWorker } from "./queues/outbound-whatsapp.js";
 import { registerStripeEventWorker } from "./queues/stripe-event.js";
 import { registerHousekeeping } from "./queues/housekeeping.js";
+import { registerTelemetryPush } from "./queues/telemetry-push.js";
 
 async function main() {
   const env = getEnv();
@@ -44,6 +45,7 @@ async function main() {
     QUEUE_NAMES.STRIPE_EVENT,
     QUEUE_NAMES.CLASS_REMINDER,
     "templates-sync",
+    "telemetry-push",
   ]) {
     try {
       await boss.createQueue(q);
@@ -67,9 +69,14 @@ async function main() {
   log.info("[worker] stripe-event queue registered");
 
   // WA-08: daily template-sync cron via pg-boss schedule (Plan P1b-09).
-  // Registered last so the schedule has all worker queues consuming first.
   await registerHousekeeping(boss);
   log.info("[worker] housekeeping (templates-sync) registered");
+
+  // BD2-04: daily telemetry push to HQ /api/telemetry (02:00 UTC).
+  // Unconfigured studios (no HQ_INGEST_URL / STUDIO_TELEMETRY_TOKEN) skip
+  // cleanly — the handler logs a warning and returns without error.
+  await registerTelemetryPush(boss);
+  log.info("[worker] telemetry-push (daily HQ ingest) registered");
 
   // Tiny admin/healthz HTTP for Fly health checks (MEDIUM #10).
   // MUST listen on PORT 3002 — fly.toml [[services]] for the worker
