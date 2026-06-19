@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: — Agentic Tab Editing
 status: complete
-stopped_at: v1.2 Agentic Tab Editing complete (AE1–AE3); AE4 split into its own Mobile Demo phase; live UAT pending
-last_updated: "2026-06-19T00:00:00.000Z"
+stopped_at: v1.2 complete + pushed + deployed live to Vercel; AE4 split to its own Mobile Demo phase; live UAT pending (morning)
+last_updated: "2026-06-19T01:00:00.000Z"
 last_activity: 2026-06-19
 progress:
   total_phases: 3
@@ -202,7 +202,7 @@ Last activity: 2026-06-19
 
 **Live deployment state (master):**
 
-- Staff-web: `https://gym-class-os.vercel.app` (Vercel, auto-deploys from `master`)
+- Staff-web: `https://gym-class-os.vercel.app` (Vercel, auto-deploys from `master`) — **AE3 live as of commit `120d11c3`, deployed 2026-06-19 (Production alias confirmed ● Ready; `/gymos` → HTTP 200)**
 - Worker + edge-webhooks: Fly app `gymos-edge-webhooks`
 - Neon project: `gymos-demo` (id `billowing-sun-51091059`)
 - Demo data: 260 members / 423 class occurrences / 4,162 bookings / 200 active subs / 90 conversations / 453 messages
@@ -274,20 +274,24 @@ Key patterns discovered during v1.0 execution that apply to v1.2:
 
 ## Session Continuity
 
-Last session: 2026-06-19
-Stopped at: v1.2 Agentic Tab Editing complete (AE1–AE3); AE4 split into its own Mobile Demo phase
+Last session: 2026-06-19 (ended — user shutting down)
+Stopped at: v1.2 Agentic Tab Editing complete (AE1–AE3), pushed to `master` and deployed live to Vercel; AE4 split into its own Mobile Demo phase
 Resume file: None
 
-### PICK UP HERE — v1.2 complete; live UAT + Mobile Demo (AE4) next
+### PICK UP HERE — morning UAT, then Mobile Demo (AE4)
 
-v1.2 Agentic Tab Editing is code-complete and code-verified — the staff `/gymos` agent can now WRITE the Forms, Schedule, and Members tabs and build composable Campaigns segments. Three live agent+browser UAT items remain (deferred because the local dev server can’t boot — NitroViteError); they run on the Vercel deploy:
+v1.2 Agentic Tab Editing is **code-complete, code-verified, pushed, and LIVE in production**. No deploy step remains — the only open work is the live agent+browser UAT (the local dev server can’t boot — NitroViteError — so these could not run locally).
 
-- AE1, AE2, and AE3 each have a `*-HUMAN-UAT.md` with deferred live walkthroughs — knock them out together on the deploy.
-- AE3 specifically: member phone update + live-refresh; consent-change refusal; agent-built segment appears without reload.
+**Deployment state (confirmed 2026-06-19):**
+- `master` pushed: `ca24a73a..120d11c3` → `origin/master`.
+- Vercel Production build went ● Ready (~2 min); canonical alias `gym-class-os.vercel.app` resolves to deployment `gym-class-e1713yq7m…`; `/gymos` returns HTTP 200.
+- `.generated/actions-registry.ts` regenerates at build from the action-file glob, so `update-member` + `save-segment` are registered and agent-callable on this deploy.
 
-Next:
+**Next step — run the AE3 live UAT on `https://gym-class-os.vercel.app/gymos`** (`/gsd:verify-work AE3`):
+1. Phone update + live-refresh: ask the agent "update Sarah’s phone to +447700900123" → `gym_members` row reflects the E.164 value (confirm via Neon MCP); the member card refreshes without a reload.
+2. Consent refusal: ask "opt Sarah into WhatsApp" / "change her marketing consent" → clear refusal; no `whatsapp_opt_in` / `marketing_consent` change.
+3. Agent-built segment: ask "build a segment of members who attended 4+ classes but haven’t been in 3 weeks" → a named segment appears in the Campaigns tab without a reload.
 
-- Live UAT on Vercel: `/gsd:verify-work AE3`
-- Start the Mobile Demo phase: `/gsd:discuss-phase AE4` → `/gsd:plan-phase AE4`
+The AE1 and AE2 phases also have deferred live items in their `*-HUMAN-UAT.md` — clearing all of v1.2 in one pass on the deploy is the efficient move.
 
-(Testing scheduled for the morning per the 2026-06-19 session.)
+**After UAT — start the Mobile Demo phase (AE4):** `/gsd:discuss-phase AE4` → `/gsd:plan-phase AE4` → `/gsd:execute-phase AE4`. AE4 is a standalone mobile workstream (member app on a real device); its requirements are net-new and get registered at plan time.

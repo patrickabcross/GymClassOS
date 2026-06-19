@@ -8,7 +8,7 @@ updated: 2026-06-19
 
 ## Current Test
 
-[awaiting human testing on the Vercel deploy]
+[awaiting human testing] — run on the live deploy: **https://gym-class-os.vercel.app/gymos** (AE3 live as of commit `120d11c3`, deployed 2026-06-19). Use `/gsd:verify-work AE3`.
 
 ## Tests
 
