@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: — Self-Serve Platform + Two-Tier Brain/Dispatcher
 status: executing
-stopped_at: Completed BD1-hq-foundation BD1-05-PLAN.md (Anthropic call-site audit)
-last_updated: "2026-06-19T11:00:26.341Z"
+stopped_at: Completed BD1-hq-foundation BD1-02-PLAN.md (HQ schema package + db plugin)
+last_updated: "2026-06-19T11:12:55.498Z"
 last_activity: 2026-06-19
 progress:
   total_phases: 4
@@ -31,7 +31,7 @@ Requirements: `.planning/REQUIREMENTS.md` (40 v2.0 reqs across 7 categories — 
 
 Milestone: v2.0 — Self-Serve Platform + Two-Tier Brain/Dispatcher
 Phase: BD1-hq (HQ Foundation) — EXECUTING
-Plan: 3 of 6
+Plan: 4 of 6
 Status: Ready to execute
 Last activity: 2026-06-19
 
@@ -112,8 +112,8 @@ Last activity: 2026-06-19
 
 ## Session Continuity
 
-Last session: 2026-06-19T11:00:26.332Z
-Stopped at: Completed BD1-hq-foundation BD1-05-PLAN.md (Anthropic call-site audit)
+Last session: 2026-06-19T11:12:55.490Z
+Stopped at: Completed BD1-hq-foundation BD1-02-PLAN.md (HQ schema package + db plugin)
 Resume file: None
 
 ### PICK UP HERE — plan BD1
