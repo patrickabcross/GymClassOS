@@ -111,8 +111,163 @@ VALUES ('${HQ_ORG_MEMBER_ID}', '${HQ_ORG_ID}', 'hq-super-admin-placeholder', 'ow
     },
   },
 
-  // BD2 appends domain table migrations here (version 4+):
-  //   { version: 4, sql: `CREATE TABLE IF NOT EXISTS studio_registry ( ... )` },
-  //   { version: 5, sql: `CREATE TABLE IF NOT EXISTS provisioning_runs ( ... )` },
-  //   { version: 6, sql: `CREATE TABLE IF NOT EXISTS telemetry_snapshots ( ... )` },
+  // ─── BD2 domain table migrations ───────────────────────────────────────────
+  // All migrations below are additive: CREATE TABLE IF NOT EXISTS only.
+  // NEVER store connection strings here — only opaque provider resource IDs.
+  // PII-up boundary enforced by guard-hq-no-pii.mjs (guard:hq-no-pii).
+
+  {
+    version: 4,
+    // BD2 studio registry — one row per provisioned studio.
+    // slug UNIQUE is the DB-level idempotency guard (Pitfall P-03):
+    // prevents two saga runs from creating duplicate studio registry entries.
+    sql: {
+      postgres: `CREATE TABLE IF NOT EXISTS hq_studios (
+  id            TEXT PRIMARY KEY,
+  slug          TEXT UNIQUE NOT NULL,
+  display_name  TEXT NOT NULL,
+  owner_email   TEXT NOT NULL,
+  status        TEXT NOT NULL DEFAULT 'pending',
+  plan_id       TEXT,
+  provisioned_at TEXT,
+  created_at    TEXT NOT NULL DEFAULT NOW()
+)`,
+      sqlite: `CREATE TABLE IF NOT EXISTS hq_studios (
+  id            TEXT PRIMARY KEY,
+  slug          TEXT UNIQUE NOT NULL,
+  display_name  TEXT NOT NULL,
+  owner_email   TEXT NOT NULL,
+  status        TEXT NOT NULL DEFAULT 'pending',
+  plan_id       TEXT,
+  provisioned_at TEXT,
+  created_at    TEXT NOT NULL DEFAULT datetime('now')
+)`,
+    },
+  },
+
+  {
+    version: 5,
+    // BD2 provisioning runs — per-step saga state for the 8-step provisioner.
+    // Stores only opaque provider resource IDs (neon_project_id,
+    // vercel_project_id, fly_app_name) — NEVER a connection string (D-13).
+    // step_N_at columns track which steps have completed (NULL = not yet run),
+    // enabling idempotent saga replay after failures (D-09).
+    sql: {
+      postgres: `CREATE TABLE IF NOT EXISTS hq_provisioning_runs (
+  id                   TEXT PRIMARY KEY,
+  studio_id            TEXT NOT NULL REFERENCES hq_studios(id),
+  status               TEXT NOT NULL DEFAULT 'started',
+  neon_project_id      TEXT,
+  vercel_project_id    TEXT,
+  fly_app_name         TEXT,
+  subdomain            TEXT,
+  step_1_at            TEXT,
+  step_2_at            TEXT,
+  step_3_at            TEXT,
+  step_4_at            TEXT,
+  step_5_at            TEXT,
+  step_6_at            TEXT,
+  step_7_at            TEXT,
+  step_8_at            TEXT,
+  compensation_errors  TEXT NOT NULL DEFAULT '{}',
+  started_at           TEXT NOT NULL DEFAULT NOW(),
+  completed_at         TEXT,
+  updated_at           TEXT NOT NULL DEFAULT NOW()
+)`,
+      sqlite: `CREATE TABLE IF NOT EXISTS hq_provisioning_runs (
+  id                   TEXT PRIMARY KEY,
+  studio_id            TEXT NOT NULL REFERENCES hq_studios(id),
+  status               TEXT NOT NULL DEFAULT 'started',
+  neon_project_id      TEXT,
+  vercel_project_id    TEXT,
+  fly_app_name         TEXT,
+  subdomain            TEXT,
+  step_1_at            TEXT,
+  step_2_at            TEXT,
+  step_3_at            TEXT,
+  step_4_at            TEXT,
+  step_5_at            TEXT,
+  step_6_at            TEXT,
+  step_7_at            TEXT,
+  step_8_at            TEXT,
+  compensation_errors  TEXT NOT NULL DEFAULT '{}',
+  started_at           TEXT NOT NULL DEFAULT datetime('now'),
+  completed_at         TEXT,
+  updated_at           TEXT NOT NULL DEFAULT datetime('now')
+)`,
+    },
+  },
+
+  {
+    version: 6,
+    // BD2 telemetry storage — two tables in one migration (dual-dialect).
+    // hq_telemetry_snapshots: full TelemetrySnapshot JSON per studio per period.
+    //   UNIQUE(studio_id, period_start) enables idempotent upsert on re-push.
+    //   last_telemetry_received_at is denormalised for fast watchdog queries.
+    // hq_token_usage: daily aggregated token counts per studio (BD3 HQB input).
+    //   PRIMARY KEY(studio_id, date) enables idempotent accumulation.
+    sql: {
+      postgres: `CREATE TABLE IF NOT EXISTS hq_telemetry_snapshots (
+  id                          TEXT PRIMARY KEY,
+  studio_id                   TEXT NOT NULL REFERENCES hq_studios(id),
+  period_start                TEXT NOT NULL,
+  period_end                  TEXT NOT NULL,
+  payload_json                TEXT NOT NULL,
+  received_at                 TEXT NOT NULL DEFAULT NOW(),
+  last_telemetry_received_at  TEXT,
+  UNIQUE(studio_id, period_start)
+);
+
+CREATE TABLE IF NOT EXISTS hq_token_usage (
+  studio_id     TEXT NOT NULL REFERENCES hq_studios(id),
+  date          TEXT NOT NULL,
+  input_tokens  INTEGER NOT NULL DEFAULT 0,
+  output_tokens INTEGER NOT NULL DEFAULT 0,
+  request_count INTEGER NOT NULL DEFAULT 0,
+  updated_at    TEXT NOT NULL DEFAULT NOW(),
+  PRIMARY KEY(studio_id, date)
+)`,
+      sqlite: `CREATE TABLE IF NOT EXISTS hq_telemetry_snapshots (
+  id                          TEXT PRIMARY KEY,
+  studio_id                   TEXT NOT NULL REFERENCES hq_studios(id),
+  period_start                TEXT NOT NULL,
+  period_end                  TEXT NOT NULL,
+  payload_json                TEXT NOT NULL,
+  received_at                 TEXT NOT NULL DEFAULT datetime('now'),
+  last_telemetry_received_at  TEXT,
+  UNIQUE(studio_id, period_start)
+);
+
+CREATE TABLE IF NOT EXISTS hq_token_usage (
+  studio_id     TEXT NOT NULL REFERENCES hq_studios(id),
+  date          TEXT NOT NULL,
+  input_tokens  INTEGER NOT NULL DEFAULT 0,
+  output_tokens INTEGER NOT NULL DEFAULT 0,
+  request_count INTEGER NOT NULL DEFAULT 0,
+  updated_at    TEXT NOT NULL DEFAULT datetime('now'),
+  PRIMARY KEY(studio_id, date)
+)`,
+    },
+  },
+
+  {
+    version: 7,
+    // BD2 studio tokens — per-studio telemetry bearer token hash (D-05).
+    // token_hash stores sha256(plaintext_token) only; HQ never holds plaintext.
+    // revoked_at enables token revocation without deletion (audit trail).
+    sql: {
+      postgres: `CREATE TABLE IF NOT EXISTS hq_studio_tokens (
+  studio_id   TEXT PRIMARY KEY REFERENCES hq_studios(id),
+  token_hash  TEXT NOT NULL UNIQUE,
+  created_at  TEXT NOT NULL DEFAULT NOW(),
+  revoked_at  TEXT
+)`,
+      sqlite: `CREATE TABLE IF NOT EXISTS hq_studio_tokens (
+  studio_id   TEXT PRIMARY KEY REFERENCES hq_studios(id),
+  token_hash  TEXT NOT NULL UNIQUE,
+  created_at  TEXT NOT NULL DEFAULT datetime('now'),
+  revoked_at  TEXT
+)`,
+    },
+  },
 ];
