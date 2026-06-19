@@ -82,26 +82,36 @@ export default defineAction({
       provider: args.provider,
       appId: args.appId,
     });
-    const legacyGrants = connections.flatMap((connection) => {
-      if (connection.allowedApps.length === 0) {
-        return [
-          {
-            id: `${connection.id}:all-apps`,
-            connectionId: connection.id,
-            provider: connection.provider,
-            appId: "*",
-            access: "all-apps" as const,
-          },
-        ];
-      }
-      return connection.allowedApps.map((appId) => ({
-        id: `${connection.id}:${appId}`,
-        connectionId: connection.id,
-        provider: connection.provider,
-        appId,
-        access: "selected-app" as const,
-      }));
-    });
+    const legacyGrants = connections.flatMap(
+      (
+        connection,
+      ): Array<{
+        id: string;
+        connectionId: string;
+        provider: string;
+        appId: string;
+        access: "all-apps" | "selected-app";
+      }> => {
+        if (connection.allowedApps.length === 0) {
+          return [
+            {
+              id: `${connection.id}:all-apps`,
+              connectionId: connection.id,
+              provider: connection.provider,
+              appId: "*",
+              access: "all-apps" as const,
+            },
+          ];
+        }
+        return connection.allowedApps.map((appId) => ({
+          id: `${connection.id}:${appId}`,
+          connectionId: connection.id,
+          provider: connection.provider,
+          appId,
+          access: "selected-app" as const,
+        }));
+      },
+    );
     const grants = [
       ...legacyGrants,
       ...explicitGrants.map((grant) => {

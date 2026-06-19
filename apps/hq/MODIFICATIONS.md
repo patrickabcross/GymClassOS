@@ -1,0 +1,134 @@
+# apps/hq Fork-Origin Ledger
+
+`apps/hq` is the GymClassOS **operator control plane** — a copy-out fork of two agent-native templates:
+
+1. **Shell:** `templates/dispatch/` — provides the app shell (workspace connections, vault, identity, approvals, extensions, metrics, audit).
+2. **Context layer:** `templates/brain/` — provides customer-context surfaces (sources, knowledge, review, search, ops, settings) for the HQ operator Brain.
+
+**Core principle (HQ-FND-02, D-01, D-04):** `templates/` is **never edited in place**. All modifications live in `apps/hq/`. Two git remotes (`origin` + `upstream`) keep the upstream merge path open: `git diff upstream/main HEAD -- templates/` must remain empty.
+
+---
+
+## File → Source Map
+
+| `apps/hq` path | Source template path | Modification notes |
+|---|---|---|
+| `package.json` | `templates/dispatch/package.json` | Renamed to `@gymos/hq`; added `displayName`, `description`, `private`; scripts mirrored from `apps/staff-web` fork shape; added Brain UI devDeps (`@radix-ui/react-{dialog,label,progress,select,separator,slot,switch}`, `@vitejs/plugin-react-swc`, `class-variance-authority`, `clsx`, `tailwind-merge`); added `drizzle-orm` dep; added `packageManager` field |
+| `react-router.config.ts` | `templates/dispatch/react-router.config.ts` | Copied verbatim |
+| `vite.config.ts` | `templates/dispatch/vite.config.ts` | Copied verbatim |
+| `tsconfig.json` | `templates/dispatch/tsconfig.json` | Copied verbatim |
+| `ssr-entry.ts` | `templates/dispatch/ssr-entry.ts` | Copied verbatim |
+| `components.json` | `templates/dispatch/components.json` | Copied verbatim |
+| `app/dispatch-extensions.tsx` | `templates/dispatch/app/dispatch-extensions.tsx` | Copied verbatim |
+| `app/entry.client.tsx` | `templates/dispatch/app/entry.client.tsx` | Copied verbatim |
+| `app/entry.server.tsx` | `templates/dispatch/app/entry.server.tsx` | Copied verbatim |
+| `app/global.css` | `templates/dispatch/app/global.css` | Copied verbatim |
+| `app/root.tsx` | `templates/dispatch/app/root.tsx` | Copied verbatim |
+| `app/routes.ts` | `templates/dispatch/app/routes.ts` | Copied verbatim (flat file-based routing via `@react-router/fs-routes`) |
+| `app/vite-env.d.ts` | `templates/dispatch/app/vite-env.d.ts` | Copied verbatim |
+| `app/hooks/use-navigation-state.ts` | `templates/dispatch/app/hooks/use-navigation-state.ts` | Copied verbatim |
+| `app/routes/$appId.tsx` … `app/routes/workspace.tsx` | `templates/dispatch/app/routes/` (all route files) | Copied verbatim |
+| `actions/apply-workspace-connection-setup.ts` … `actions/view-screen.ts` (dispatch actions) | `templates/dispatch/actions/` (all action files) | Copied verbatim, **except** `list-workspace-connections.ts`: added explicit `flatMap` return-type annotation to fix upstream TS type-inference bug (access union narrowing) |
+| `server/db/index.ts` | `templates/dispatch/server/db/index.ts` | Modified: merged Brain schema (`./brain-schema.ts`) into dispatch schema; registered Brain shareable resources |
+| `server/lib/usage-metrics.ts` | `templates/dispatch/server/lib/usage-metrics.ts` | Copied verbatim |
+| `server/middleware/auth.ts` | `templates/dispatch/server/middleware/auth.ts` | Copied verbatim |
+| `server/plugins/agent-chat.ts` | `templates/dispatch/server/plugins/agent-chat.ts` | Copied verbatim |
+| `server/plugins/auth.ts` | `templates/dispatch/server/plugins/auth.ts` | Copied verbatim |
+| `server/plugins/core-routes.ts` | `templates/dispatch/server/plugins/core-routes.ts` | Copied verbatim |
+| `server/plugins/db.ts` | `templates/dispatch/server/plugins/db.ts` | Copied verbatim |
+| `server/plugins/integrations.ts` | `templates/dispatch/server/plugins/integrations.ts` | Copied verbatim |
+| `server/plugins/setup-dispatch.ts` | `templates/dispatch/server/plugins/setup-dispatch.ts` | Copied verbatim |
+| `server/routes/[...page].get.ts` | `templates/dispatch/server/routes/[...page].get.ts` | Copied verbatim |
+| `shared/api.ts` | `templates/dispatch/shared/api.ts` | Copied verbatim |
+| `public/` (all SVG + manifest) | `templates/dispatch/public/` | Copied verbatim (logos will be updated to GymClassOS branding in a later phase) |
+| **Brain surfaces — routes** | | |
+| `app/routes/brain/_index.tsx` | `templates/brain/app/routes/_index.tsx` | Copied verbatim |
+| `app/routes/brain/knowledge.tsx` | `templates/brain/app/routes/knowledge.tsx` | Copied verbatim |
+| `app/routes/brain/ops.tsx` | `templates/brain/app/routes/ops.tsx` | Copied verbatim |
+| `app/routes/brain/review.tsx` | `templates/brain/app/routes/review.tsx` | Copied verbatim |
+| `app/routes/brain/search.tsx` | `templates/brain/app/routes/search.tsx` | Copied verbatim |
+| `app/routes/brain/settings.tsx` | `templates/brain/app/routes/settings.tsx` | Copied verbatim |
+| `app/routes/brain/sources.tsx` | `templates/brain/app/routes/sources.tsx` | Copied verbatim |
+| **Brain surfaces — components/lib** | | |
+| `app/components/ui/` (badge, button, card, input, label, progress, select, separator, sheet, skeleton, sonner, switch, table, textarea, tooltip) | `templates/brain/app/components/ui/` | Copied verbatim; placed at `@/components/ui/` to match `@/` path alias used by brain routes |
+| `app/components/brain/CanonicalPreviewSheet.tsx` | `templates/brain/app/components/brain/CanonicalPreviewSheet.tsx` | Copied verbatim |
+| `app/components/brain/Surface.tsx` | `templates/brain/app/components/brain/Surface.tsx` | Copied verbatim |
+| `app/components/layout/Layout.tsx` | `templates/brain/app/components/layout/Layout.tsx` | Copied verbatim |
+| `app/components/layout/Sidebar.tsx` | `templates/brain/app/components/layout/Sidebar.tsx` | Copied verbatim |
+| `app/hooks/brain/use-distillation-bridge.ts` | `templates/brain/app/hooks/use-distillation-bridge.ts` | Copied verbatim |
+| `app/hooks/brain/use-navigation-state.ts` | `templates/brain/app/hooks/use-navigation-state.ts` | Namespaced under `brain/` to avoid collision with dispatch's `app/hooks/use-navigation-state.ts` |
+| `app/lib/utils.ts` | `templates/brain/app/lib/utils.ts` | Copied verbatim; placed at `@/lib/utils` to match brain route import paths |
+| `app/lib/brain.ts` | `templates/brain/app/lib/brain.ts` | Copied verbatim; placed at `@/lib/brain` to match brain route import paths |
+| `app/lib/tab-id.ts` | `templates/brain/app/lib/tab-id.ts` | Copied verbatim; placed at `@/lib/tab-id` to match brain hook import paths |
+| **Brain surfaces — actions** | | |
+| `actions/_schemas.ts` … `actions/write-knowledge.ts` (brain actions) | `templates/brain/actions/` | Copied verbatim; three filename collisions with dispatch actions resolved by prefixing: `run.ts`→`brain-run.ts`, `navigate.ts`→`brain-navigate.ts`, `view-screen.ts`→`brain-view-screen.ts` |
+| **Brain surfaces — server** | | |
+| `server/db/brain-schema.ts` | `templates/brain/server/db/schema.ts` | Copied verbatim; renamed `brain-schema.ts` to coexist with dispatch's db module |
+| `server/lib/a2a-fallback.ts` | `templates/brain/server/lib/a2a-fallback.ts` | Copied verbatim |
+| `server/lib/brain-health.ts` | `templates/brain/server/lib/brain-health.ts` | Copied verbatim |
+| `server/lib/brain.ts` | `templates/brain/server/lib/brain.ts` | Copied verbatim |
+| `server/lib/connectors.ts` | `templates/brain/server/lib/connectors.ts` | Copied verbatim |
+| `server/lib/demo.ts` | `templates/brain/server/lib/demo.ts` | Copied verbatim |
+| `server/lib/search.ts` | `templates/brain/server/lib/search.ts` | Copied verbatim |
+| `server/lib/source-credentials.ts` | `templates/brain/server/lib/source-credentials.ts` | Copied verbatim |
+| `server/jobs/distillation-queue.ts` | `templates/brain/server/jobs/distillation-queue.ts` | Copied verbatim |
+| `server/jobs/sync-sources.ts` | `templates/brain/server/jobs/sync-sources.ts` | Copied verbatim |
+| `server/plugins/brain-jobs.ts` | `templates/brain/server/plugins/brain-jobs.ts` | Copied verbatim |
+| `server/routes/api/_agent-native/brain/ingest.post.ts` | `templates/brain/server/routes/api/_agent-native/brain/ingest.post.ts` | Copied verbatim |
+| `server/brain-register-secrets.ts` | `templates/brain/server/register-secrets.ts` | Renamed `brain-register-secrets.ts` to avoid potential collision |
+| `shared/types.ts` | `templates/brain/shared/types.ts` | Copied verbatim (Brain type exports: `BrainSourceProvider`, `BrainSourceStatus`, etc.) |
+| `jobs/process-ingest-queue.ts` | `templates/brain/jobs/process-ingest-queue.ts` | Copied verbatim |
+
+---
+
+## Exclusions
+
+| Excluded item | Reason |
+|---|---|
+| `templates/videos/` | D-02: Remotion 4.x + react-three render cluster; no BD1/BD3 feature needs it. Excluded from `apps/hq` entirely. |
+| Yjs / y-websocket / y-protocols / Content real-time collab | D-03: Single super-admin makes CRDT collaboration unnecessary in v2.0. No `yjs`, `y-websocket`, or `y-protocols` package in `apps/hq/package.json`. |
+| `netlify.toml` | HQ deploys to **Vercel** (same as `apps/staff-web`), not Netlify. |
+| `DEVELOPING.md`, `_gitignore` | Template-internal dev docs and gitignore placeholder; not carried into the fork. |
+| `templates/brain/server/lib/brain.test.ts`, `search.test.ts`, `source-credentials.test.ts` | Test files for Brain internals; test frameworks and evals are not copied as part of the shell fork (tests live in the template; integration tests for HQ added separately in later phases). |
+| `templates/brain/evals/` | Brain eval harness is template-internal; not needed in the HQ fork until BD3. |
+| `templates/brain/data/` | Template demo data; not carried. |
+
+---
+
+## Collision Avoidance
+
+Brain and Dispatch both define `run.ts`, `navigate.ts`, and `view-screen.ts` actions. The Brain copies are prefixed:
+
+| Brain original | HQ copy |
+|---|---|
+| `actions/run.ts` | `actions/brain-run.ts` |
+| `actions/navigate.ts` | `actions/brain-navigate.ts` |
+| `actions/view-screen.ts` | `actions/brain-view-screen.ts` |
+
+The Dispatch originals keep their original names unchanged. Both hooks `use-navigation-state.ts` — Brain's copy lives under `app/hooks/brain/` to avoid collision with Dispatch's `app/hooks/use-navigation-state.ts`.
+
+---
+
+## Two-Commit Discipline
+
+When merging upstream changes from `templates/dispatch/` or `templates/brain/` into `apps/hq/`:
+
+1. **Commit 1:** Copy the changed file(s) from `templates/` to `apps/hq/` verbatim (no GymClassOS changes).
+2. **Commit 2:** Apply GymClassOS-specific modifications.
+
+This keeps `git diff upstream/main HEAD -- templates/` clean and makes upstream diffs legible.
+
+---
+
+## Upstream Merge Note
+
+The origin templates remain in `templates/dispatch/` and `templates/brain/` untouched. To merge upstream changes:
+
+```bash
+git fetch upstream
+git merge upstream/main
+# Resolve conflicts in templates/ only (keep upstream version)
+# Then re-apply GymClassOS modifications tracked in this file
+```
+
+`git status --porcelain templates/` must return empty after every commit on `master`.
