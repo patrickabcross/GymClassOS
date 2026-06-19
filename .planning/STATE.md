@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: — Self-Serve Platform + Two-Tier Brain/Dispatcher
 status: verifying
-stopped_at: Completed BD2-telemetry-provisioning BD2-06-PLAN.md (signup intake + dashboard + watchdog + worker registration)
-last_updated: "2026-06-19T14:50:59.518Z"
+stopped_at: Phase BD3 context gathered
+last_updated: "2026-06-19T15:57:17.104Z"
 last_activity: 2026-06-19
 progress:
   total_phases: 4
@@ -163,9 +163,9 @@ Last activity: 2026-06-19
 
 ## Session Continuity
 
-Last session: 2026-06-19T14:40:57.877Z
-Stopped at: Completed BD2-telemetry-provisioning BD2-06-PLAN.md (signup intake + dashboard + watchdog + worker registration)
-Resume file: None
+Last session: 2026-06-19T15:57:17.081Z
+Stopped at: Phase BD3 context gathered
+Resume file: .planning/phases/BD3-hq-brain-dispatcher/BD3-CONTEXT.md
 
 ### PICK UP HERE — plan BD1
 
