@@ -60,7 +60,9 @@ const authPlugin = createAuthPlugin({
   },
   // HQ has minimal public paths — the access-denied page must be reachable so
   // the post-allowlist redirect doesn't loop the user into a sign-in wall.
-  publicPaths: ["/access-denied"],
+  // /api/telemetry is server-to-server authenticated via per-studio bearer token
+  // (not a session cookie), so the session guard must not 302 it.
+  publicPaths: ["/access-denied", "/api/telemetry"],
 });
 
 // ---------------------------------------------------------------------------
