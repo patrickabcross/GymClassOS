@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: — Self-Serve Platform + Two-Tier Brain/Dispatcher
 status: executing
-stopped_at: Completed BD1-hq-foundation BD1-03-PLAN.md (HQ auth plugin + org seed + unit tests)
-last_updated: "2026-06-19T11:27:28.353Z"
+stopped_at: Completed BD1-hq-foundation BD1-04-PLAN.md (hq-worker Fly skeleton with flyctl)
+last_updated: "2026-06-19T11:40:34.742Z"
 last_activity: 2026-06-19
 progress:
   total_phases: 4
@@ -31,7 +31,7 @@ Requirements: `.planning/REQUIREMENTS.md` (40 v2.0 reqs across 7 categories — 
 
 Milestone: v2.0 — Self-Serve Platform + Two-Tier Brain/Dispatcher
 Phase: BD1-hq (HQ Foundation) — EXECUTING
-Plan: 5 of 6
+Plan: 6 of 6
 Status: Ready to execute
 Last activity: 2026-06-19
 
@@ -112,8 +112,8 @@ Last activity: 2026-06-19
 
 ## Session Continuity
 
-Last session: 2026-06-19T11:27:28.340Z
-Stopped at: Completed BD1-hq-foundation BD1-03-PLAN.md (HQ auth plugin + org seed + unit tests)
+Last session: 2026-06-19T11:40:34.733Z
+Stopped at: Completed BD1-hq-foundation BD1-04-PLAN.md (hq-worker Fly skeleton with flyctl)
 Resume file: None
 
 ### PICK UP HERE — plan BD1
