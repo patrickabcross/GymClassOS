@@ -22,6 +22,8 @@ import { registerOutboundWhatsAppWorker } from "./queues/outbound-whatsapp.js";
 import { registerStripeEventWorker } from "./queues/stripe-event.js";
 import { registerHousekeeping } from "./queues/housekeeping.js";
 import { registerTelemetryPush } from "./queues/telemetry-push.js";
+import { registerDailyOwnerDigest } from "./queues/daily-owner-digest.js";
+import { registerHeartbeatReactivate } from "./queues/heartbeat-reactivate.js";
 
 async function main() {
   const env = getEnv();
@@ -46,6 +48,8 @@ async function main() {
     QUEUE_NAMES.CLASS_REMINDER,
     "templates-sync",
     "telemetry-push",
+    "daily-owner-digest",
+    "heartbeat-reactivate",
   ]) {
     try {
       await boss.createQueue(q);
@@ -77,6 +81,17 @@ async function main() {
   // cleanly — the handler logs a warning and returns without error.
   await registerTelemetryPush(boss);
   log.info("[worker] telemetry-push (daily HQ ingest) registered");
+
+  // BD4-02: daily owner WhatsApp digest (06:00 studio timezone).
+  // Unconfigured studios (no studio_owner_config row or digest_enabled=0) skip cleanly.
+  await registerDailyOwnerDigest(boss);
+  log.info("[worker] daily-owner-digest registered");
+
+  // BD4-02: daily dormant-member heartbeat reactivation (09:xx studio timezone, staggered).
+  // Sends reactivation messages through the existing outbound-whatsapp chokepoint.
+  // Suppression ceiling (3/90 days) and opt-out exclusion enforced synchronously from day one.
+  await registerHeartbeatReactivate(boss);
+  log.info("[worker] heartbeat-reactivate registered");
 
   // Tiny admin/healthz HTTP for Fly health checks (MEDIUM #10).
   // MUST listen on PORT 3002 — fly.toml [[services]] for the worker
