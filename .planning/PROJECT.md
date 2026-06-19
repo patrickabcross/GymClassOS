@@ -182,7 +182,9 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-19 — Milestone v2.0 (Self-Serve Platform + Two-Tier Brain/Dispatcher) started. Introduces operator HQ (`apps/hq` from Dispatch+Brain+Content+Video), zero-touch self-serve provisioning of independent per-customer systems, PII-free telemetry up, and a Tier-2 gym-owner brain/dispatcher (digest + heartbeat reactivation). v1.2 Agentic Tab Editing complete (live, UAT pending).*
+*Last updated: 2026-06-19 — v2.0 Phase BD1 (HQ Foundation) COMPLETE (code): `apps/hq` forked from Dispatch+Brain, `packages/hq-schema` (additive, no-PII), HQ Better-auth single super-admin + org seed (19 tests), `services/hq-worker` skeleton (flyctl baked in), two CI guards (fork-boundary + PII-up), Anthropic token-usage seam audited (production-agent.ts:2654 → DB-trigger for BD2 TEL). HQ-FND-01..06 code-verified. Deferred on external creds: HQ Neon project + HQ secrets + Vercel/Fly deploys (BD1-HUMAN-UAT.md). Next: BD2 Telemetry + Provisioning.*
+
+*Earlier: 2026-06-19 — Milestone v2.0 (Self-Serve Platform + Two-Tier Brain/Dispatcher) started. Introduces operator HQ (`apps/hq` from Dispatch+Brain+Content+Video), zero-touch self-serve provisioning of independent per-customer systems, PII-free telemetry up, and a Tier-2 gym-owner brain/dispatcher (digest + heartbeat reactivation). v1.2 Agentic Tab Editing complete (live, UAT pending).*
 
 *Earlier: 2026-06-18 — v1.2 Agentic Tab Editing: phases AE1 (Forms) + AE2 (Schedule) complete. AE3 (Members + Campaigns) next.*
 
