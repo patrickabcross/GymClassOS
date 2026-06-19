@@ -12,6 +12,7 @@
     "db:backfill-outbound": "tsx scripts/backfill-outbound-mirrors.ts"
   },
   "dependencies": {
+    "@gymos/hq-schema": "workspace:*",
     "@gymos/queue": "workspace:*",
     "@gymos/whatsapp": "workspace:*",
     "@hono/node-server": "^1.13.0",
