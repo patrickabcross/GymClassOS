@@ -66,11 +66,11 @@
 
 ### Gym-owner Dispatcher (GOD)
 
-- [ ] **GOD-01**: Each studio sends its gym owner a daily WhatsApp digest of the studio's own telemetry/metrics.
-- [ ] **GOD-02**: Each studio runs a daily "heartbeat" job (pg-boss schedule, studio IANA timezone) that detects dormant members.
-- [ ] **GOD-03**: The heartbeat sends member reactivation messages through the existing worker `sendMessage` chokepoint (opt-in + 24h-window + approved-template gates apply unchanged).
-- [ ] **GOD-04**: Reactivation enforces a suppression ceiling (max 3 attempts / 90-day window) and honors member opt-outs.
-- [ ] **GOD-05**: Reactivation messages are personalized from the studio's GOB brand/ethos, with a generic fallback when GOB is not yet seeded.
+- [x] **GOD-01**: Each studio sends its gym owner a daily WhatsApp digest of the studio's own telemetry/metrics.
+- [x] **GOD-02**: Each studio runs a daily "heartbeat" job (pg-boss schedule, studio IANA timezone) that detects dormant members.
+- [x] **GOD-03**: The heartbeat sends member reactivation messages through the existing worker `sendMessage` chokepoint (opt-in + 24h-window + approved-template gates apply unchanged).
+- [x] **GOD-04**: Reactivation enforces a suppression ceiling (max 3 attempts / 90-day window) and honors member opt-outs.
+- [x] **GOD-05**: Reactivation messages are personalized from the studio's GOB brand/ethos, with a generic fallback when GOB is not yet seeded.
 
 ## Future Requirements
 
@@ -136,11 +136,11 @@ Deferred beyond v2.0 (tracked, not in this roadmap):
 | GOB-01 | Phase BD4 | Complete |
 | GOB-02 | Phase BD4 | Complete |
 | GOB-03 | Phase BD4 | Complete |
-| GOD-01 | Phase BD4 | Pending |
-| GOD-02 | Phase BD4 | Pending |
-| GOD-03 | Phase BD4 | Pending |
-| GOD-04 | Phase BD4 | Pending |
-| GOD-05 | Phase BD4 | Pending |
+| GOD-01 | Phase BD4 | Complete |
+| GOD-02 | Phase BD4 | Complete |
+| GOD-03 | Phase BD4 | Complete |
+| GOD-04 | Phase BD4 | Complete |
+| GOD-05 | Phase BD4 | Complete |
 
 **Coverage:**
 - v2.0 requirements: 40 total (HQ-FND 6, PROV 10, TEL 6, HQB 5, HQD 5, GOB 3, GOD 5)
