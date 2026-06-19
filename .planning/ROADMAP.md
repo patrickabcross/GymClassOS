@@ -72,8 +72,8 @@ Plans:
 - [x] BD2-01-PLAN.md (wave 1) -- HQ schema extension: additive v4-v7 migrations + Drizzle defs (hq_studios, hq_provisioning_runs, hq_telemetry_snapshots, hq_token_usage, hq_studio_tokens) + canonical TelemetrySnapshot Zod .strict() schema [TEL-04, TEL-05, TEL-06, PROV-07, PROV-08, PROV-09]
 - [x] BD2-02-PLAN.md (wave 1) -- Provider adapters behind NeonApi/VercelApi/FlyApi interfaces (find-or-create idempotency) + mocks + flyctl-execa secrets (array args, key-name logging) + env token activation [PROV-02, PROV-04, PROV-05, PROV-06, PROV-08]
 - [x] BD2-03-PLAN.md (wave 1) -- Studio telemetry capture: studio_telemetry_state + AFTER INSERT trigger on token_usage (fork-safe, no core edit) + buildTelemetrySnapshot aggregate SQL [TEL-01, TEL-02]
-- [ ] BD2-04-PLAN.md (wave 2) -- HQ ingest endpoint (sha256 token + .strict() 422 + last_telemetry_received_at) + studio daily pg-boss push job [TEL-03, TEL-04, TEL-05, TEL-06]
-- [ ] BD2-05-PLAN.md (wave 2) -- Saga core: LIFO rollback FIRST + per-step idempotency (runStep) + 8-step provision-studio saga against mocked adapters (live deferred) [PROV-02, PROV-03, PROV-04, PROV-05, PROV-06, PROV-08, PROV-09]
+- [x] BD2-04-PLAN.md (wave 2) -- HQ ingest endpoint (sha256 token + .strict() 422 + last_telemetry_received_at) + studio daily pg-boss push job [TEL-03, TEL-04, TEL-05, TEL-06]
+- [x] BD2-05-PLAN.md (wave 2) -- Saga core: LIFO rollback FIRST + per-step idempotency (runStep) + 8-step provision-studio saga against mocked adapters (live deferred) [PROV-02, PROV-03, PROV-04, PROV-05, PROV-06, PROV-08, PROV-09]
 - [ ] BD2-06-PLAN.md (wave 3) -- Public signup intake (202 + enqueue) + operator provisioning dashboard (per-step status) + watchdog (stuck runs + missing telemetry) + hq-worker registration [PROV-01, PROV-07, PROV-10]
 **UI hint**: yes
 
@@ -108,7 +108,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | BD1. HQ Foundation | 6/6 | Complete   | 2026-06-19 |
-| BD2. Telemetry + Provisioning | 3/6 | In Progress|  |
+| BD2. Telemetry + Provisioning | 5/6 | In Progress|  |
 | BD3. HQ Brain + Dispatcher | 0/TBD | Not started | - |
 | BD4. Studio Brain + Dispatcher | 0/TBD | Not started | - |
 
@@ -426,7 +426,7 @@ Post-v1 backlog (HealthKit + native mobile, Coach View with health context, CRM 
 4. Member context panel in the inbox shows next-class + pass-balance for the opened conversation's member (real data)
 5. Stripe Checkout link generated for a 10-pack purchase + paid in Stripe test mode + resulting pass grant visible in member profile
 
-**Plans:** 3/6 plans executed
+**Plans:** 5/6 plans executed
 
 - [x] D1-01-schedule-surface-PLAN.md — Build /gymos/schedule week-grid + book-from-occurrence dialog (SCH-01, BKG-01) — completed 2026-05-19 (commits f5cdbdc6, dd50fe62, 23ee58f2)
 - [x] D1-02-members-directory-PLAN.md — Build /gymos/members + /gymos/members/:id profile with bookings + pass balance (MEM-01, MEM-02)

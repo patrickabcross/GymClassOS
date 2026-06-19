@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: — Self-Serve Platform + Two-Tier Brain/Dispatcher
 status: executing
-stopped_at: Completed BD2-telemetry-provisioning BD2-04-PLAN.md (HQ ingest endpoint + studio push job)
-last_updated: "2026-06-19T13:40:01.302Z"
+stopped_at: Completed BD2-telemetry-provisioning BD2-05-PLAN.md (provisioning saga core)
+last_updated: "2026-06-19T14:04:15.255Z"
 last_activity: 2026-06-19
 progress:
   total_phases: 4
@@ -31,7 +31,7 @@ Requirements: `.planning/REQUIREMENTS.md` (40 v2.0 reqs across 7 categories — 
 
 Milestone: v2.0 — Self-Serve Platform + Two-Tier Brain/Dispatcher
 Phase: BD2 (Telemetry + Provisioning) — EXECUTING
-Plan: 5 of 6
+Plan: 6 of 6
 Status: Ready to execute
 Last activity: 2026-06-19
 
@@ -63,8 +63,17 @@ Last activity: 2026-06-19
 | BD2 | 02 | 16min | 3 | 10 | 2026-06-19 |
 | BD2 | 03 | 975s (~16min) | 3 | 6 | 2026-06-19 |
 | Phase BD2 P04 | 45 | 2 tasks | 9 files |
+| Phase BD2 P05 | 1145 | 3 tasks | 12 files |
 
 ## Accumulated Context
+
+### BD2-05 Decisions (2026-06-19)
+
+- **2026-06-19 BD2-05 — LIFO compensation order: 7(revoke_token)→6(remove_dns)→5(delete_fly_app)→4(delete_vercel)→1(delete_neon). Steps 2, 3, 8 have no compensation (project deletion covers 2/3; step 8 registry write is idempotent). Compensation is best-effort (errors collected, never re-raised).**
+- **2026-06-19 BD2-05 — runStep(runId, stepNum, fn) calls getHqDb() internally — enables vi.mock('./db.js') in unit tests without injecting a db argument (matches compensate.ts pattern).**
+- **2026-06-19 BD2-05 — Token helpers (hashToken, generateTelemetryToken) moved from apps/hq/server/lib/telemetry-token.ts to packages/hq-schema/src/token.ts to avoid tsc rootDir violation when hq-worker imports them. apps/hq re-exports from @gymos/hq-schema/token for backward compatibility.**
+- **2026-06-19 BD2-05 — pg-boss 12 WorkHandler receives Job<T>[] (array, not single item); handler destructures jobs[0] (batch size defaults to 1). This differs from pg-boss docs examples that show a single job.**
+- **2026-06-19 BD2-05 — provision-studio.ts useMockApis param defaults true so unit tests skip live-run token guard; registerProvisionStudio passes false for production runs.**
 
 ### BD2-04 Decisions (2026-06-19)
 
@@ -145,8 +154,8 @@ Last activity: 2026-06-19
 
 ## Session Continuity
 
-Last session: 2026-06-19T13:40:01.290Z
-Stopped at: Completed BD2-telemetry-provisioning BD2-04-PLAN.md (HQ ingest endpoint + studio push job)
+Last session: 2026-06-19T14:04:15.235Z
+Stopped at: Completed BD2-telemetry-provisioning BD2-05-PLAN.md (provisioning saga core)
 Resume file: None
 
 ### PICK UP HERE — plan BD1
