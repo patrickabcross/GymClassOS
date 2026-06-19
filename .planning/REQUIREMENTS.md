@@ -15,7 +15,7 @@
 
 - [ ] **HQ-FND-01**: Operator can sign in to `apps/hq` as a single super-admin via Better-auth; studio staff accounts cannot authenticate to HQ and HQ admin cannot authenticate to a studio.
 - [x] **HQ-FND-02**: `apps/hq` is forked from agent-native Dispatch + Brain templates following fork-boundary discipline — `templates/` is never edited in place; HQ modifications live under `apps/hq/`.
-- [ ] **HQ-FND-03**: HQ runs against its own dedicated Neon project (separate from every studio Neon); schema changes apply additively via `runMigrations` (no `drizzle-kit push`, no destructive SQL).
+- [x] **HQ-FND-03**: HQ runs against its own dedicated Neon project (separate from every studio Neon); schema changes apply additively via `runMigrations` (no `drizzle-kit push`, no destructive SQL).
 - [ ] **HQ-FND-04**: An HQ org + super-admin user are seeded at migration time so Brain/Dispatch `accessFilter`/`orgId` queries return results (no silent empty Brain).
 - [ ] **HQ-FND-05**: A `services/hq-worker` Fly app skeleton exists (pg-boss against HQ Neon, `/healthz`) ready to host provisioning + scheduled jobs.
 - [ ] **HQ-FND-06**: CI guards enforce (a) the `apps/hq` fork boundary and (b) that HQ schema/telemetry never stores PII-shaped columns or a studio Neon connection string.
@@ -103,7 +103,7 @@ Deferred beyond v2.0 (tracked, not in this roadmap):
 |-------------|-------|--------|
 | HQ-FND-01 | Phase BD1 | Pending |
 | HQ-FND-02 | Phase BD1 | Complete |
-| HQ-FND-03 | Phase BD1 | Pending |
+| HQ-FND-03 | Phase BD1 | Complete |
 | HQ-FND-04 | Phase BD1 | Pending |
 | HQ-FND-05 | Phase BD1 | Pending |
 | HQ-FND-06 | Phase BD1 | Pending |
