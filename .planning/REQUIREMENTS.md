@@ -48,7 +48,7 @@
 - [x] **HQB-02**: HQB classifies each customer's health/at-risk status from telemetry (active vs dormant, under-messaging, low retention, token spend).
 - [x] **HQB-03**: HQB uses `last_telemetry_received_at` to exclude stale/missing-telemetry studios from false "active/healthy" signals.
 - [x] **HQB-04**: Operator can view customer cohorts ("sets of clients") such as at-risk and power users.
-- [ ] **HQB-05**: Operator can drill into a single customer's installation performance over time.
+- [x] **HQB-05**: Operator can drill into a single customer's installation performance over time.
 
 ### HQ Dispatcher (HQD)
 
@@ -127,7 +127,7 @@ Deferred beyond v2.0 (tracked, not in this roadmap):
 | HQB-02 | Phase BD3 | Complete |
 | HQB-03 | Phase BD3 | Complete |
 | HQB-04 | Phase BD3 | Complete |
-| HQB-05 | Phase BD3 | Pending |
+| HQB-05 | Phase BD3 | Complete |
 | HQD-01 | Phase BD3 | Complete |
 | HQD-02 | Phase BD3 | Pending |
 | HQD-03 | Phase BD3 | Complete |
