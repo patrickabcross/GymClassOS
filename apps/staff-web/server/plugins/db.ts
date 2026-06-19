@@ -117,6 +117,89 @@ export default runMigrations(
       version: 13,
       sql: `CREATE INDEX IF NOT EXISTS idx_queued_email_drafts_requester ON queued_email_drafts(org_id, requester_email, created_at)`,
     },
+    // -------------------------------------------------------------------------
+    // BD2-03: Studio-side telemetry capture (TEL-01).
+    //
+    // Version 14: singleton accumulator row for the current reporting window.
+    // The AFTER INSERT trigger on token_usage (version 15 below) increments
+    // token_usage_today_* on every recordUsage INSERT — fork-safe, requires
+    // zero @agent-native/core changes (BD1-ANTHROPIC-AUDIT Option A).
+    //
+    // The BD2-04 push job reads this row, builds a TelemetrySnapshot, POSTs
+    // to HQ, then resets the accumulators on success.
+    //
+    // Dual-dialect: all columns use plain Postgres types (TEXT / INTEGER).
+    // SQLite in local dev handles INTEGER / TEXT identically for this table.
+    // The trigger (version 15) is Postgres-only; a no-op comment is used for
+    // SQLite so the migration runner does not error on the dev path.
+    // -------------------------------------------------------------------------
+    {
+      version: 14,
+      sql: `CREATE TABLE IF NOT EXISTS studio_telemetry_state (
+        id                       TEXT PRIMARY KEY,   -- always 'singleton'
+        token_usage_today_input  INTEGER NOT NULL DEFAULT 0,
+        token_usage_today_output INTEGER NOT NULL DEFAULT 0,
+        request_count_today      INTEGER NOT NULL DEFAULT 0,
+        outbound_sent_today      INTEGER NOT NULL DEFAULT 0,
+        outbound_failed_today    INTEGER NOT NULL DEFAULT 0,
+        last_push_at             TEXT,
+        last_push_status         TEXT,
+        updated_at               TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+    },
+    // Version 15: AFTER INSERT trigger on token_usage (Postgres only).
+    // Step A: CREATE OR REPLACE FUNCTION — idempotent, never drops.
+    // Step B: CREATE TRIGGER — guarded by pg_trigger check so re-running this
+    //         migration on an already-provisioned Neon is safe (additive).
+    //
+    // The token_usage table is created by @agent-native/core's recordUsage
+    // path (packages/core/src/usage/store.ts). It always exists in a studio
+    // Neon before this trigger fires because runMigrations for agent-native
+    // core tables runs first via the framework bootstrap.
+    //
+    // NEVER add DROP TRIGGER / DROP FUNCTION here — CLAUDE.md forbids it.
+    {
+      version: 15,
+      // postgres path: plpgsql function + conditional trigger creation
+      // sqlite path: no-op comment (SQLite does not support plpgsql / pg_trigger)
+      sql: `DO $dialect$
+BEGIN
+  -- Is this a Postgres-dialect Neon DB? Check for a Postgres-only system table.
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'information_schema') THEN
+
+    -- Step A: idempotent function (CREATE OR REPLACE never drops).
+    EXECUTE $fn$
+      CREATE OR REPLACE FUNCTION accumulate_token_usage() RETURNS trigger AS $body$
+      BEGIN
+        INSERT INTO studio_telemetry_state
+          (id, token_usage_today_input, token_usage_today_output, request_count_today, updated_at)
+        VALUES
+          ('singleton', NEW.input_tokens, NEW.output_tokens, 1, NOW())
+        ON CONFLICT (id) DO UPDATE SET
+          token_usage_today_input  = studio_telemetry_state.token_usage_today_input  + EXCLUDED.token_usage_today_input,
+          token_usage_today_output = studio_telemetry_state.token_usage_today_output + EXCLUDED.token_usage_today_output,
+          request_count_today      = studio_telemetry_state.request_count_today + 1,
+          updated_at               = NOW();
+        RETURN NEW;
+      END;
+      $body$ LANGUAGE plpgsql
+    $fn$;
+
+    -- Step B: idempotent trigger guard — never drops, never replaces (additive).
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_trigger WHERE tgname = 'trg_token_usage_accumulate'
+    ) THEN
+      EXECUTE $trig$
+        CREATE TRIGGER trg_token_usage_accumulate
+        AFTER INSERT ON token_usage
+        FOR EACH ROW EXECUTE FUNCTION accumulate_token_usage()
+      $trig$;
+    END IF;
+
+  END IF;
+END
+$dialect$`,
+    },
   ],
   { table: "mail_migrations" },
 );
