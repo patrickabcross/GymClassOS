@@ -1,11 +1,11 @@
-# Pitfalls Research — v1.2 Agentic Tab Editing (GymClassOS)
+# Pitfalls Research — v2.0 Self-Serve Platform + Two-Tier Brain/Dispatcher (GymClassOS)
 
-**Domain:** Giving an LLM agent write access to app data (Forms, Schedule, Members) via `defineAction` tools in a shipped single-tenant staff-web app.
-**Researched:** 2026-06-18
-**Milestone:** v1.2 — Agentic Tab Editing (Forms, Schedule, Members write tools)
-**Confidence:** HIGH for schema/consent/compliance mechanics (verified by direct codebase read — schema.ts, forms-schema.ts, submissions.ts, propose-action.ts, approve-proposal.ts, agent-chat.ts, AGENTS.md); HIGH for the documented prior incidents (AGENTS.md cites dates, PR numbers, exact failure modes); MEDIUM for LLM hallucination-specific patterns (well-documented ecosystem pattern; project-specific angle applied from codebase structure).
+**Domain:** Self-serve SaaS provisioning across multiple cloud providers, cross-tenant PII isolation, WhatsApp at-scale compliance, agent-native template forking for a second product surface.
+**Researched:** 2026-06-19
+**Milestone:** v2.0 — Self-Serve Platform + Two-Tier Brain/Dispatcher (HQ-FND, PROV, TEL, HQB, HQD, GOB, GOD)
+**Confidence:** HIGH for provisioning idempotency + PII boundary (both derived from direct PROJECT.md constraints + verified provider API behaviour); HIGH for WhatsApp compliance (existing worker code + Meta Cloud API behaviour); MEDIUM for Dispatch/Brain template adaptation (no direct code inspection of HQ templates yet — forking has not started).
 
-> **SCOPE NOTE:** This file supersedes the v1.1 UI Redesign PITFALLS.md for the v1.2 milestone. It covers mistakes specific to ADDING LLM agent WRITE capability to this codebase. Platform-level pitfalls (WhatsApp compliance, Stripe idempotency, booking races) are inherited constraints documented in PROJECT.md and AGENTS.md — this file focuses on what those constraints mean when the agent is the one making writes.
+> **SCOPE NOTE:** This file supersedes the v1.2 Agentic Tab Editing PITFALLS.md. It covers mistakes specific to ADDING the operator HQ layer, self-serve provisioning, PII-free telemetry, and Tier-2 gym-owner Brain/Dispatcher to this system. The two highest-blast-radius areas are provisioning idempotency/rollback and the PII-up boundary — these are treated in depth first.
 
 ---
 
@@ -13,479 +13,629 @@
 
 Each pitfall carries:
 
-1. **Risk** — severity and which tab/operation it threatens
-2. **What goes wrong** — the concrete failure in this codebase
+1. **Risk** — severity and which requirement category it threatens
+2. **What goes wrong** — the concrete failure in this system
 3. **Why it happens** — the root cause specific to this project
 4. **Prevention** — specific, actionable steps (not "be careful")
-5. **Detection** — warning signs and test cases
-6. **Phase to address** — which v1.2 plan should enforce this
+5. **Warning signs** — observable signals before or after failure
+6. **Phase to address** — which BD-phase must prevent this
 
 Severity: CRITICAL / HIGH / MEDIUM
+Requirement categories: HQ-FND, PROV, TEL, HQB, HQD, GOB, GOD
 
 ---
 
-## Critical Pitfalls
+## Area 1: Multi-Provider Provisioning (PROV) — Highest Blast Radius
 
-### Pitfall A-01: Destructive agent actions without confirmation — irreversible data loss
+### Pitfall P-01: Non-Idempotent Provisioning Creates Orphaned Cloud Resources
 
-**Risk:** CRITICAL — threatens Forms tab (archive/delete, purge responses), Schedule tab (cancel class with bookings), Members tab (mass-edit without undo)
+**Risk:** CRITICAL — PROV; each orphan costs money indefinitely; not caught until billing review
 
 **What goes wrong:**
-The agent receives a natural-language instruction like "archive the signup form" or "cancel this Friday's Yoga" and calls a write action directly without a confirmation step. The operation is irreversible: `forms.deletedAt` is set, `class_occurrences.status` becomes `"cancelled"`, or booking rows are cascade-cancelled. If the coach meant a different form, a different class date, or used imprecise language ("archive" meaning hide vs. purge responses), there is no rollback path within the agent conversation. The Neon database PITR window is 6 hours — usable for catastrophic recovery but not for a single-row mistake discovered the next day.
+The signup flow calls Neon → Vercel → Fly in a linear `async/await` chain. When a step returns a 5xx before the response arrives (network partition, provider timeout), a retry starts from the beginning. Neon's `POST /projects` endpoint has no idempotency key — every successful call creates a new project with a new ID. After 3 retries for one studio slug, three Neon projects exist. Only one is wired up; two leak and accrue cost forever because nothing tracks or deletes them.
 
-The existing `propose-action` / `approve-proposal` chokepoint only covers `send-template-to-members` and `create-checkout-link` (hardcoded allowlist in `approve-proposal.ts` line 10–13). New write actions added for v1.2 do NOT inherit this protection unless explicitly wired into it.
+Vercel and Fly have the same property: creating a project/app twice produces two resources, not an idempotent re-creation.
 
 **Why it happens:**
-The agent-native framework calls `defineAction` tools directly when they appear in the tool list — there is no framework-level confirmation gate. The existing `propose-action` → `approve-proposal` pattern is a manually implemented application-layer gate, not a framework guarantee. A developer adding a new `cancel-class` or `archive-form` action and registering it in `agent-chat.ts` without a gate makes it instantly direct-callable by the agent.
-
-The framework pattern for Tier 3 operations (anything that affects members or published data) is:
-1. Agent calls `propose-action` with the dangerous action as `actionName`.
-2. Coach sees a one-click card on the noticeboard.
-3. Coach approves → `approve-proposal` re-validates and executes.
-
-But `approve-proposal.ts` has a hardcoded `ACTION_ALLOWLIST`. Every new destructive v1.2 action must be added to this allowlist AND the agent must be instructed to go through `propose-action` rather than calling it directly.
+Developers treat cloud provider APIs like they treat database `INSERT ... ON CONFLICT DO NOTHING` — they assume the provider handles deduplication. Providers do not. They create a new resource on every successful request, regardless of whether the caller received the response.
 
 **Prevention:**
-- For every new write action that is irreversible or member-affecting:
-  1. Do NOT register it directly in the `agent-chat.ts` tool list.
-  2. Instead, add it to `ACTION_ALLOWLIST` in `approve-proposal.ts`.
-  3. The agent calls `propose-action` with `actionName: 'cancel-class'` (etc.) and the coach approves.
-  4. `approve-proposal` dynamically imports and re-validates the action's schema before executing.
-- Low-risk write actions that are reversible (editing a DRAFT form, adjusting capacity on a future class with no bookings) may be called directly by the agent — classify explicitly at plan time.
-- For `cancel-class` specifically: the action must check `bookings.status = 'booked'` count before executing; if > 0, it MUST return an error requiring the coach to explicitly confirm with a `force: true` param via `approve-proposal`.
-- `archive-form` and `delete-responses` must always go through the `propose-action` gate. Never register these as direct agent tools.
-- For `update-member`, classify as direct (low risk) only for the safe fields (name, notes) — see Pitfall A-02 for consent fields.
+Model provisioning as a state machine persisted in HQ Neon `provisioning_runs` table. Before calling any provider, check whether that step is already in `completed` state for the current `run_id`. Each step records `{ step, status: 'completed', provider_resource_id }` before moving on. On retry, skip completed steps using the stored `provider_resource_id`. For Neon specifically: before `POST /projects`, call `GET /projects` filtered by the expected name — if an existing project matches, record its ID and continue rather than creating a new one. The step is idempotent because "find-or-create" replaces "create blindly."
 
-**Detection:**
-- Code review gate: any `defineAction` with a destructive SQL operation (UPDATE with status changes, soft-deletes via `deletedAt`, cancellations) that is added to the `agent-chat.ts` tool list directly (not via `propose-action`) is a defect.
-- Test case: instruct the agent "cancel tomorrow's Yoga class" — it must surface a proposal card, not execute immediately.
-- Test case: instruct the agent "archive the signup form" — must see a proposal card with a rationale, not silent deletion.
+**Warning signs:**
+- Neon dashboard shows multiple projects with names following the `gymos-<slug>` pattern
+- HQ logs show the same studio slug appearing in multiple provisioning start events within minutes
+- Neon project count in billing grows faster than confirmed customer count
 
-**Phase to address:** v1.2 Plan 1 (Forms write tools) and Plan 2 (Schedule write tools) — classify each new action as Direct or Gated at the start of each plan, before writing a line of code.
+**Phase to address:** BD-PROV (the state machine schema and the find-or-create step-dispatch loop are the first deliverables, before any real provider API calls are wired)
 
 ---
 
-### Pitfall A-02: Agent silently flips `whatsapp_opt_in` / `marketing_consent` when editing member contact info
+### Pitfall P-02: Partial Failure Leaves Live Resources Pointed at Dead or Mismatched Resources
 
-**Risk:** CRITICAL — threatens Members tab; violates Meta compliance and GDPR consent obligations; corrupts the opt-in audit trail permanently
+**Risk:** CRITICAL — PROV; studio appears provisioned but is non-functional; studio owner can never log in
 
 **What goes wrong:**
-The agent receives "update Sarah's contact details" and calls an `update-member` action that includes `whatsapp_opt_in` or `marketing_consent` in the updatable fields. The LLM may either:
-- Hallucinate a value (`marketingConsent: true` when it wasn't set), silently flipping consent state with no audit trail.
-- Omit the consent fields entirely from a partial update, causing a Drizzle `.set({})` update to reset them to their Drizzle default (`false` for `marketingConsent`).
-- Mirror the member's current opt-in state back in its tool response, then include those fields in an update call, overwriting a more-recent opt-out with a stale value.
+Provisioning succeeds for Neon + Vercel but times out at the Fly deploy step. The HQ `studios` table is written as "active" (or left stuck in "provisioning"), but the Fly worker/edge-webhooks processes that the studio needs never started. Inbound WhatsApp messages for that studio hit a webhook endpoint that has no process consuming the queue.
 
-The consequences:
-- `whatsapp_opt_in.optedOutAt` being cleared by a member record rewrite recreates an opt-in for a member who opted out. The worker's `optInGate` reads this table (`whatsapp_opt_in`) — a corrupted row means a member who said STOP receives a template message. Meta will flag the number.
-- `gym_members.marketingConsent = false` being accidentally flipped to `true` creates false consent evidence.
-- There is no undo for consent state changes once the worker processes the next send queue.
+A more dangerous variant: a retry creates a second Neon project (Pitfall P-01 not prevented), and the Vercel deploy is wired to the first project while the retry wires the worker to the second. The two halves of the studio system point at different databases.
 
 **Why it happens:**
-Two data structures carry consent state:
-1. `whatsapp_opt_in` table (separate from `gym_members`) — one row per member, with `optedInAt`, `optedOutAt`, `source`. The opt-out write sets `optedOutAt = now()`. The table is separate precisely to prevent casual overwrites.
-2. `gym_members.marketingConsent` (boolean column) — less critical but also a consent signal.
-
-An `update-member` action that accepts a generic `{ ...fields }` input will naturally accept these fields unless explicitly excluded. The LLM does not know which fields are consent-sensitive.
+The happy path is coded first; compensation logic is deferred. Under solo-dev time pressure on a 2-month deadline, "we'll add rollback later" is the common rationalization. The partial state is only discovered when the first real customer can't log in.
 
 **Prevention:**
-- The `update-member` action schema MUST explicitly exclude `whatsapp_opt_in` and `marketing_consent` from its input schema:
-  ```typescript
-  const safeFields = z.object({
-    firstName: z.string().optional(),
-    lastName: z.string().optional(),
-    email: z.string().email().optional(),
-    phoneE164: z.string().optional(),
-    notes: z.string().optional(),
-    // marketingConsent deliberately omitted
-    // whatsapp_opt_in is a separate table — never in this action
-  });
-  ```
-- The action's SQL update must be constructed from only the `safeFields` — no spread of raw input.
-- Phone E.164 change requires extra care: changing `phone_e164` on `gym_members` without updating `whatsapp_opt_in.member_id` creates a mismatch (the opt-in evidence is linked by `member_id`, not phone). Phone changes must be noted as requiring manual opt-in re-verification.
-- Consent mutations (opt-in, opt-out, marketing consent toggle) must be separate dedicated actions that go through the `propose-action` gate, show explicit rationale ("This will mark Sarah as opted OUT of WhatsApp messages"), and are never combined with profile edits.
-- The agent system prompt must state explicitly: "Never attempt to change a member's WhatsApp opt-in state or marketing consent. Those are separate, coach-controlled operations."
+Every state machine step must register its rollback at write time: `{ step: 'neon_created', rollback_action: 'neon_delete_project', resource_id: '<project_id>' }`. A separate `rollback_provisioning_run` job reads completed steps in reverse order and calls each rollback action. Rollback itself is a state machine — it too must be idempotent (call delete API, treat 404 as success). Never mark a run as `failed_terminal` until all rollbacks complete. Never mark a run as `provisioned` until Neon + Vercel + Fly + migrations + seed + admin user + DNS are all verified.
 
-**Detection:**
-- Code review: `update-member` action schema includes `marketingConsent`, `optedInAt`, `optedOutAt`, `whatsapp_opt_in` — immediate defect.
-- Test case: instruct the agent "update Sarah's details, she also said she doesn't want WhatsApp messages" — the agent must say it cannot modify opt-in state and should tell the coach to handle that separately, not silently set `optedOutAt`.
-- Test case: instruct agent "set Sarah's phone to +447..." — verify `whatsapp_opt_in` table is untouched.
+Build the rollback branch before the happy path. Test it by deliberately failing at each step in a staging environment.
 
-**Phase to address:** v1.2 Plan 3 (Members write tools) — enforce before writing the action schema; this is the single most important schema constraint for the members action.
+**Warning signs:**
+- HQ dashboard shows a studio in `provisioning` state for more than 10 minutes
+- `fly apps list` shows no `gymos-<slug>` app for a studio that shows as "provisioned" in HQ
+- Studio admin account exists in the studio Neon but the staff-web URL returns 502
+
+**Phase to address:** BD-PROV (rollback state machine is the highest-risk part and must be built and integration-tested before the happy path ships to production)
 
 ---
 
-### Pitfall A-03: Cancelling a class that has active bookings — member passes not refunded, booking state inconsistent
+### Pitfall P-03: Slug Race Condition Allows Concurrent Signups to Create Duplicate Resources
 
-**Risk:** CRITICAL — threatens Schedule tab; orphans booking rows in 'booked' state, member passes consumed but class gone, Stripe-linked passes potentially double-debited on rebook
+**Risk:** HIGH — PROV; two customers claim the same subdomain; one gets a broken studio
 
 **What goes wrong:**
-The agent cancels a `class_occurrence` by setting `status = 'cancelled'`. Existing `bookings` rows for that occurrence remain in `status = 'booked'`. The member's pass balance is not credited back (pass debits are append-only — a cancellation refund requires a negative `pass_debits` row). Members who booked the class have had a credit consumed but receive no class and no credit refund. The booking row with `status = 'booked'` persists, causing the fill-rate calculation to count the cancelled occurrence as a booked class indefinitely.
+Two users sign up with studio name "Hustle Fitness" within milliseconds of each other. Both provisioning handlers check "does slug `hustle-fitness` exist?" and both find no existing row. Both proceed to create resources. One will fail at the Fly app name (Fly app names are globally unique), but by then both may have created Neon projects and Vercel projects. The losing race leaves orphaned resources.
 
 **Why it happens:**
-The `class_occurrences` table has no cascade trigger to handle bookings. The `pass_debits` table is an append-only ledger (a CHECK constraint is planned for production per PROJECT.md). An agent action that only sets `class_occurrences.status = 'cancelled'` without handling dependent bookings is correct SQL but incorrect business logic.
+A SELECT followed by an INSERT is not atomic. In a serverless Vercel environment with multiple concurrent function instances, two handlers can execute the SELECT simultaneously, both see no row, and both proceed.
 
 **Prevention:**
-- `cancel-class` action must be a multi-step transaction:
-  1. Verify occurrence exists and is `scheduled`.
-  2. Count `bookings WHERE status = 'booked' AND occurrence_id = ?`.
-  3. If count > 0 AND `force` param is not `true`, return `{ error: 'CLASS_HAS_BOOKINGS', bookedCount: N }` — agent surfaces this to coach.
-  4. Coach must confirm via `propose-action` → `approve-proposal` with `force: true` and an explicit acknowledgment.
-  5. On confirmed cancellation: UPDATE bookings to `status = 'cancelled'`; insert negative `pass_debits` rows (refund credits) for each booking that had a pass_id set.
-  6. Set `class_occurrences.status = 'cancelled'`.
-  7. All inside a single DB transaction.
-- Never allow the agent to call `cancel-class` directly — route through `propose-action`.
-- The refund credit logic must be tested with a unit test against a known booking+pass scenario before this action ships.
+Use Postgres `INSERT INTO provisioning_runs (slug, ...) ON CONFLICT (slug) DO NOTHING RETURNING id` as the very first operation in the handler. If RETURNING returns no row, the slug is already taken — return a 409 to the signup UI immediately. This converts the race to a database-level unique constraint, which is atomic. The `slug` column on `provisioning_runs` and `studios` must have a `UNIQUE` constraint enforced in the schema, not just an application-level check.
 
-**Detection:**
-- Test case: seed a class with 3 bookings and 3 pass_debits rows. Agent cancels the class via `propose-action`. After `approve-proposal` runs: verify all 3 booking rows are `status = 'cancelled'`, 3 negative `pass_debits` rows exist (sum returns to zero), `class_occurrences.status = 'cancelled'`.
-- Code review: any `cancel-class` implementation that touches only `class_occurrences` and not `bookings` + `pass_debits` is incomplete.
+**Warning signs:**
+- Duplicate Fly app creation failures (`app with name already exists`) in provisioning logs
+- HQ `studios` table has two rows for the same slug with different `created_at` timestamps
+- A customer receives a success email but then cannot access their studio (the losing-race resources were cleaned up but the HQ row was written for both)
 
-**Phase to address:** v1.2 Plan 2 (Schedule write tools) — the pass refund logic must be part of the initial plan, not a follow-up.
+**Phase to address:** BD-PROV (the INSERT...ON CONFLICT must be the first line of the provisioning handler — non-negotiable)
 
 ---
 
-## High-Severity Pitfalls
+### Pitfall P-04: Secrets Leak Through Provisioning Logs or State Rows
 
-### Pitfall A-04: Agent fabricates / malforms the `fields` JSON for forms
-
-**Risk:** HIGH — threatens Forms tab; breaks the public form renderer, the submission handler, and the lead-ack WhatsApp flow for any corrupted form
+**Risk:** CRITICAL — PROV + security; a HQ Neon breach or log access exposes every studio's credentials simultaneously
 
 **What goes wrong:**
-The agent calls `update-form-fields` or `create-form` with a `fields` array that is syntactically valid JSON but semantically invalid:
-- Missing required `id` (nanoid) on one or more fields — the submission handler's `fieldMap.get(key)` lookup misses those fields, silently dropping submitted data.
-- Unknown `type` value (e.g., `"phone"` or `"url"`) — the renderer silently skips unrecognised types; `MAX_FIELD_LENGTH` lookup returns `undefined`, fallback `1000` applies but the field type is unusable.
-- Conditional rule referencing a `fieldId` that does not exist — `isFieldVisible()` in `submissions.ts` evaluates the condition against `data[fieldId]` (which is `undefined`), causing all submissions to fail the visibility check for that field.
-- Required fields marked `required: false` by the LLM to simplify a form — silently removes validation the studio needs.
-- `options` array absent for `select` / `radio` / `multiselect` types — renderer renders an empty dropdown; submissions cannot match any option value.
+The provisioning flow generates secrets (Better-auth secret, pg-boss connection string, Anthropic key, per-studio telemetry token, WhatsApp App Secret, Stripe restricted key). Common failure modes:
+- (a) The pg-boss job payload contains the secrets as plain strings; Pino logs the full job payload on every retry.
+- (b) The secrets are stored in `provisioning_runs.details` JSONB column in plain text.
+- (c) The Fly CLI `fly secrets set SECRET=value` invocation is logged by the shell wrapper that calls it, and the log ships to Better Stack.
+- (d) The Vercel environment variable creation API call body is logged by the HTTP client before the `Authorization` header check.
+
+A single HQ Neon credential breach then exposes every studio's Stripe key, WhatsApp App Secret, and Better-auth secret simultaneously.
 
 **Why it happens:**
-`forms.fields` is a `text` column containing a JSON-serialised `FormField[]`. There is no DB-level JSON schema constraint. The submission handler (`submissions.ts` line 143: `const fields: FormField[] = JSON.parse(form.fields)`) trusts the stored JSON implicitly. The LLM generates JSON from its description of a form structure, which may not match the exact `FormField` interface (especially `id` generation — the LLM tends to use descriptive strings like `"phone_field"` instead of nanoid values, which works if consistent but breaks if a resubmission remaps field IDs).
+Secret-handling discipline degrades when focus is on making the happy path work. Pino's default serializer logs the entire job payload object. The developer has not added a redacting serializer.
 
 **Prevention:**
-- The `update-form` / `create-form` action MUST validate the `fields` input against the `FormField` Zod schema before writing to the DB:
-  ```typescript
-  const formFieldSchema = z.object({
-    id: z.string().min(1), // must be present and non-empty; nanoid preferred
-    type: z.enum(["text","email","number","textarea","select","multiselect","checkbox","radio","date","rating","scale"]),
-    label: z.string().min(1),
-    required: z.boolean(),
-    options: z.array(z.string()).optional(),
-    // ... rest of FormField
-  });
-  const fieldsSchema = z.array(formFieldSchema).min(1);
-  ```
-- Validation runs in the action's `run()` before any `db.update()`. If validation fails, return a structured error listing which fields failed and why — the LLM can self-correct from a structured error.
-- The action description must instruct the agent: "field `id` values must be stable nanoid strings — do not change existing field IDs when updating a form, as doing so breaks existing response data."
-- When the agent is asked to add a field to an existing form, it must first read the current form (`get-form` action), then produce the new `fields` array by appending to the existing array — never regenerating IDs for unchanged fields.
-- For `select` / `radio` / `multiselect` types, the Zod schema must require `options: z.array(z.string()).min(1)`.
+Never put raw secrets in pg-boss job payloads. The provisioning job receives only `run_id`. It derives/reads secrets from secure storage at execution time. Any generated secrets are stored into HQ Neon `secrets` table (encrypted via pgcrypto symmetric encryption using a key stored in HQ Vercel env, not in Neon itself) before the job starts. The job reads them back by name. When calling Fly `secrets set` or Vercel `env` APIs, wrap the HTTP call in a function that redacts values before passing to Pino: `logger.info({ call: 'fly_secrets_set', keys: Object.keys(secrets) })` — never `{ ...secrets }`. Add a Pino serializer that scrubs any field whose name matches `/secret|password|token|key|url|connection/i` to `[REDACTED]`.
 
-**Detection:**
-- Unit test: pass a `fields` array with a missing `id` to the action — must return a validation error, not write to DB.
-- Unit test: pass a `type: "phone"` field — must return a validation error.
-- Integration test: create a form via the agent, submit it via the public endpoint, verify all fields appear in `form_submissions.data`.
-- Regression check: after agent edits an existing form, verify existing `responses` rows are still parseable against the new field structure.
+**Warning signs:**
+- Provisioning job logs in Better Stack contain JSONB blobs with postgres connection strings
+- HQ Neon `provisioning_runs` table has a `connection_string` or `secrets` column with plain text values
+- `fly secrets list --app gymos-<slug>` shows secrets "last set by provisioning-job" — check the associated deploy log for values
 
-**Phase to address:** v1.2 Plan 1 (Forms write tools) — Zod validation of the `fields` array is a day-one requirement, not a follow-up hardening step.
+**Phase to address:** BD-PROV (secret handling discipline must be audited in the same sprint as provider API wiring — not deferred to a hardening phase)
 
 ---
 
-### Pitfall A-05: Agent bypasses the WhatsApp `propose-action` compliance chokepoint by calling write actions that trigger messaging side effects
+### Pitfall P-05: DNS/Subdomain Propagation Failure Triggers False Rollback
 
-**Risk:** HIGH — threatens all three tabs; any write action that creates a conversation, opt-in row, or enqueues a WhatsApp send as a side effect bypasses the human-in-the-loop gate
+**Risk:** HIGH — PROV; a correctly-provisioned studio gets rolled back because the healthcheck fires too soon
 
 **What goes wrong:**
-A v1.2 write action has an unintended messaging side effect. Examples:
-- `update-member` action that changes a member's phone number: the action also creates a new `whatsapp_opt_in` row "because the phone changed" — triggering the next queued send to an unverified phone.
-- `publish-form` action: it mirrors the lead-ack auto-reply logic in `submissions.ts` (which enqueues a WhatsApp template on form submission) — if the agent publishes a form and the form immediately receives a test submission, a WhatsApp message fires without coach review.
-- `create-class` action: creates a class, then "helpfully" proposes a member broadcast announcement by calling `send-template-to-members` directly (not via `propose-action`).
+The provisioning flow creates the subdomain record (`hustle.gymclassos.com → Vercel CNAME`) and then immediately calls `GET https://hustle.gymclassos.com/healthz` to verify the deploy is live. This call fails (connection refused, NXDOMAIN) for 30 seconds to several minutes while DNS propagates. The provisioning state machine interprets the failure as a deploy problem and triggers rollback, destroying correctly-provisioned resources.
 
-The existing compliance gate (AGENTS.md: "Compliance gates remain in force. Proposals for WhatsApp sends ALWAYS route through the worker chokepoint") applies to the `send-template-to-members` action. But a write action that calls `enqueueOutboundWhatsApp` directly bypasses this framing entirely — the message is in the pg-boss queue before the coach sees anything.
+A related variant: the Vercel deployment itself succeeds but is still warming up (cold start) when the healthcheck fires, returning a 502 that is mistaken for a failed deploy.
 
 **Why it happens:**
-The submission handler (`submissions.ts`) legitimately calls `enqueueOutboundWhatsApp` as part of the lead-ack flow. If a developer models a new action on `submissions.ts` without realising the enqueue is a controlled side effect with multiple prior guards (template status check, opt-in upsert, env-gating via `LEAD_ACK_TEMPLATE_NAME`), they replicate the enqueue in a context where those guards are absent or relaxed.
+DNS TTLs and propagation are not instant — even with Vercel's DNS API, global resolvers see changes 30-120 seconds after the record is written. Vercel cold starts on the first request to a new deployment can take 5-15 seconds. The provisioning flow is written without accounting for these latencies.
 
 **Prevention:**
-- Any v1.2 action that touches `whatsapp_opt_in`, `conversations`, `messages`, or calls `enqueueOutboundWhatsApp` must go through the `propose-action` gate AND be explicitly reviewed for compliance during code review.
-- `update-member` must not touch `whatsapp_opt_in` in any way (reinforces A-02).
-- `publish-form` must not directly enqueue any WhatsApp sends — the lead-ack flow on `submissions.ts` is triggered by public form submissions, not by publishing. No enqueue inside the publish action itself.
-- The `propose-action` → `approve-proposal` allowlist must be extended for any v1.2 action that has a messaging side effect. Currently: `["send-template-to-members", "create-checkout-link"]`. If a v1.2 action enqueues sends, it must join this list.
-- The agent system prompt must be updated to state: "When you want to send any WhatsApp message, including class announcements, reminders, or form confirmations — always use `propose-action`. Never call `send-template-to-members` directly."
+Separate provisioning completion verification from DNS propagation. Verify the Vercel deploy is live by calling the Vercel deployment URL directly (e.g. `gymos-hustle-xxxxxxx.vercel.app/healthz`) rather than the subdomain. The subdomain reachability check runs as a deferred background job with exponential backoff (5s, 15s, 45s, 2m, 5m, 10m) and does not block studio activation. Activate the studio using the direct Vercel URL immediately after deploy verification; update the `studios.canonical_url` to the subdomain URL once the deferred check passes.
 
-**Detection:**
-- Code review: any `import { enqueueOutboundWhatsApp }` in a v1.2 action file is a red flag requiring explicit justification.
-- Code review: any `db.insert(schema.whatsappOptIn)` in a v1.2 action file outside of a confirmed opt-in flow is a defect.
-- Test case: agent publishes a form, a test submission fires — verify no message appears in the `messages` table or pg-boss queue without a coach-approved proposal.
+**Warning signs:**
+- Provisioning logs show "subdomain healthcheck failed" within 5 seconds of DNS record creation
+- Studios appearing in `rolled_back` state but all three providers show healthy resources
+- Customer receives a "provisioning failed" email but their resources exist in all three providers
 
-**Phase to address:** v1.2 Plan 1 (Forms — publish action), Plan 2 (Schedule — class create might suggest announcements), Plan 3 (Members) — checked per plan.
+**Phase to address:** BD-PROV (the deferred healthcheck architecture must be designed upfront — discovering this on the first real signup is too late)
 
 ---
 
-### Pitfall A-06: Access-control regression — `guard:allow-unscoped` in new agent-callable actions misread as "no auth context needed"
+### Pitfall P-06: Abandoned or Abusive Signups Cause Cost Blowout
 
-**Risk:** HIGH — all three tabs; a documented prior incident (AGENTS.md, 2026-04-28) shows this exact failure mode destroyed the access contract in another template
-
-**What goes wrong:**
-The documented incident: `templates/slides/server/handlers/decks.ts` ran `db.select().from(schema.decks)` with no access filter. The action `list-decks.ts` used `accessFilter` correctly, but the HTTP handler bypassed it. A slides user saw decks owned by other users.
-
-For GymClassOS, the equivalent risk is subtler. Gym domain tables use `// guard:allow-unscoped — gym domain tables are single-tenant` as the explicit opt-out from the `accessFilter` requirement. This is correct and intentional: there is no per-user ownership of gym data. BUT:
-
-1. The `defineAction` framework auto-mounts mutations at `/_agent-native/actions/:name` and injects `runWithRequestContext` automatically for actions. Hand-written `/api/*` routes do NOT get this. A v1.2 plan that adds a custom `/api/forms/:id` mutation route (perhaps for the forms builder UI) bypasses the request context entirely — any authenticated staff user can call it without a session check.
-2. The agent, when given write tools, can be instructed by a malicious or confused prompt to call tools on behalf of data it should not access. Since the tables are single-tenant, this is low risk for cross-user data leakage, but it matters for actions that affect members: an agent instructed to "cancel John's bookings" should verify the member exists before writing; an action that just does `UPDATE bookings SET status='cancelled' WHERE member_id = ?` with an LLM-provided member_id and no existence check creates a write-to-nowhere that silently "succeeds."
-3. The `// guard:allow-unscoped` comment disables the static `guard-no-unscoped-queries.mjs` CI check. Any new v1.2 action that adds this marker must be reviewed to confirm it is genuinely single-tenant (not bypassing a legitimate access check).
-
-**Prevention:**
-- All v1.2 write actions must use `defineAction` (not hand-written `/api/*` routes) to get the automatic `runWithRequestContext` injection. If a forms-builder UI needs a mutation endpoint, it must go through `defineAction` or explicitly wrap the handler in `runWithRequestContext({ userEmail, orgId }, fn)` per the AGENTS.md convention.
-- Every mutation action that targets a specific record (member, class, form) must validate existence before writing: `SELECT id FROM <table> WHERE id = ? LIMIT 1` — return a 404-equivalent error if the row does not exist.
-- New `// guard:allow-unscoped` comments in v1.2 actions must be accompanied by a comment explaining why: not just "single-tenant" but "single-tenant: gym domain tables have no per-user ownership, coach acts on behalf of the studio."
-- Code review must explicitly check: does the new action use `defineAction`? Does it validate the target record exists? Does any `/api/*` route duplicate the action's logic without request context?
-
-**Detection:**
-- CI check `guard-no-unscoped-queries.mjs` will flag any query against a non-allowlisted table. New tables added for v1.2 must either use `ownableColumns()` or add `// guard:allow-unscoped` with a comment.
-- Test case: call a v1.2 mutation action with a non-existent record ID — must return an error, not silently succeed.
-- Test case: call a v1.2 mutation action without an authenticated session — must return 401.
-
-**Phase to address:** v1.2 Plan 1, 2, 3 — each action added must pass the "defineAction or explicit context" check before code review approval.
-
----
-
-### Pitfall A-07: Optimistic UI desync when the agent mutates while the staff tab is open
-
-**Risk:** HIGH — all three tabs; the polling sync model relies on stale-while-invalidate; an agent write can create a state where the UI shows stale data that looks current
+**Risk:** MEDIUM — PROV; at low signup volume this is invisible; at scale it is a $500+ surprise Neon/Fly bill
 
 **What goes wrong:**
-The agent-native `useDbSync()` polls `/_agent-native/poll` every 2 seconds and invalidates React Query caches. When the agent calls a write action:
-1. The action executes in the server-side action handler.
-2. The `useDbSync` poll fires within 2 seconds and invalidates the relevant query.
-3. The UI re-renders with fresh data.
-
-This works when the user is idle. But when the user is actively editing the same record the agent just wrote:
-- The user opens the Forms tab, begins editing a form's title in a text input (optimistic UI — title is already updated locally in React Query cache).
-- The agent also calls `update-form` on the same form (maybe the coach asked it to "add a phone field").
-- The 2-second poll fires, invalidates the form query, and the UI refetches — replacing the user's in-progress title edit with the agent's version, which may not include the user's title change.
-- The user's unsaved title edit is silently lost.
-
-The reverse also occurs: the user saves their edit; the agent's write (which is in-flight) overwrites it 300ms later.
+A bot or curious developer triggers 50 signups in an hour. Each triggers provisioning of a Neon project, Vercel project, and Fly app. At Neon's free tier, each project counts against the project limit. On Fly, each app incurs compute cost even when idle. Abandoned signups that never pass email verification accumulate provisioned resources indefinitely.
 
 **Why it happens:**
-Optimistic UI (AGENTS.md: "NEVER await a server round-trip before updating the screen") works by writing to the local React Query cache immediately. But the agent's write is a server-side mutation that bypasses the local cache — it goes directly to Postgres. The poll invalidation then throws away whatever was in the local cache. There is no version/etag mechanism on `forms`, `class_occurrences`, or `gym_members` to detect concurrent writes.
+The provisioning trigger is the signup form submission, not a verified intent signal. No rate limit, no cost gate, no TTL on unverified runs.
 
 **Prevention:**
-- The v1.2 agent system prompt must include: "Before editing any form, class, or member record, check with `view-screen` whether the user has that record open for editing. If so, describe your proposed change in prose and wait for the coach to confirm before calling the write action — do not write while the coach may have unsaved edits."
-- For the Schedule and Members write actions: the action response should include the full updated record (`{ updated: { id, ..., updatedAt } }`). The client-side mutation call can update the React Query cache on success (`onSuccess: (data) => queryClient.setQueryData(...)`) to avoid a poll-triggered refetch in the immediate next cycle.
-- For the Forms write actions: the form editor UI should detect "is this form being actively edited?" (e.g., `formEditorOpen` application_state flag) and the agent should read this via `view-screen` before calling any form mutation.
-- A `lastUpdatedAt` field in every write action's response lets the client compare the server timestamp against the last-known timestamp and surface a "this record was updated by the agent" warning rather than silently overwriting.
-- For v1.2 scope, the pragmatic prevention is system-prompt instruction + `view-screen` check, not a full OCC implementation. Full OCC (optimistic concurrency control with `updatedAt` version checks) is a follow-up hardening item.
+Gate provisioning start on email verification: the provisioning pg-boss job is enqueued only after the customer clicks the confirmation link, not at form submission. Add a TTL on unverified runs: a recurring cleanup job deletes `provisioning_runs` rows stuck in `awaiting_email_verification` for more than 24 hours without ever enqueuing a provisioning job. Add IP-level rate limiting at the HQ signup route: maximum 3 signups per IP per hour using a counter in HQ Neon `rate_limit_buckets` (no Redis needed at HQ scale). For v2.0 with anticipated very low signup volume, these controls are sufficient — revisit if signups become high-frequency.
 
-**Detection:**
-- Test case: open the form editor on a form, begin typing in the title field, then (in a separate agent chat session) ask the agent to update the same form. Verify the user's in-progress edit is not silently lost.
-- Test case: ask the agent to update a member record while the member detail page is open and the user has unsaved notes changes.
+**Warning signs:**
+- Neon project count climbs faster than confirmed customer count
+- Multiple `provisioning_runs` rows with the same email in different states
+- Fly apps with zero traffic for more than 48 hours after creation
 
-**Phase to address:** v1.2 Plan 1 (Forms) — establish the `view-screen`-before-write convention in the system prompt and in the `adding-a-feature` pattern for agent write tools. Revisit for a full OCC solution in a follow-up milestone.
+**Phase to address:** BD-PROV (the email-verification gate is a prerequisite, not an enhancement — never trigger provisioning on an unverified signup)
 
 ---
 
-### Pitfall A-08: Over-broad tool exposure — agent picks the wrong tab's tools
+## Area 2: Cross-Tenant Data Isolation / PII Boundary (TEL) — Highest Blast Radius
 
-**Risk:** HIGH — all tabs; the agent is context-aware via `view-screen` + `navigation-state`, but all registered tools are visible to the LLM regardless of which tab is active; the LLM may call a Schedule tool while on the Members tab or vice versa
+### Pitfall T-01: Telemetry Payload Contains PII via Insufficiently Scoped Queries
+
+**Risk:** CRITICAL — TEL; violates the hard constraint "no member/lead PII ever flows up to HQ"; triggers GDPR liability if EU members are involved
 
 **What goes wrong:**
-Example: the coach is on the Members tab and asks "reschedule John's next class." The agent, seeing that `reschedule-class` is in the tool list, calls it with a class occurrence ID it fabricated from the member context (it hallucinated the occurrence ID from the member's booking history in a `list-members` result). The reschedule succeeds for the wrong occurrence ID — silently writing to a class the coach did not intend.
+The telemetry push job in the studio worker runs a query that looks aggregate but returns individual-level data. Examples: `GROUP BY coach_id` returning one row per coach (exposing identifiable performance data); a `LIMIT 1` that returns a specific member's row; a `debug: true` code path that embeds raw query results in the payload. The HQ ingest endpoint accepts a loose `object` type, so a malformed payload with extra PII fields passes validation and gets stored in HQ Neon.
 
-More subtly: the agent is on the Forms tab and is asked to "send this to members." It calls `send-template-to-members` directly instead of going through `propose-action` because `send-template-to-members` is technically callable (it appears in the tool list). The compliance gate is bypassed.
+A subtler variant: the telemetry payload includes `member_ids_churned: string[]` (an array of opaque IDs) which seem non-PII. HQ then joins those IDs against... nothing, because HQ has no member table. But a developer adds a "for debugging" join against a cached studio member list that was synced earlier, re-materialising member identity at HQ.
 
 **Why it happens:**
-The `agent-chat.ts` system prompt lists all tools in a flat list. The LLM selects tools based on semantic match to the user's request, not tab context. The navigation-state hook provides the active tab, but the agent must be explicitly instructed to restrict its tool selection based on active tab — this is not automatic.
+Aggregation queries are written correctly but the payload schema is under-specified. The ingest endpoint accepts `any`. Over time, "just add one more field for debugging" erodes the boundary.
 
 **Prevention:**
-- The `agent-chat.ts` system prompt must be restructured for v1.2 to describe tools by tab context:
-  ```
-  When the Forms tab is active, the write tools available are: [create-form, update-form, publish-form, archive-form].
-  When the Schedule tab is active: [create-class-definition, create-class-occurrence, update-class-occurrence, cancel-class].
-  When the Members tab is active: [update-member].
-  Do not call a tab's write tools when a different tab is active unless the coach explicitly asks you to switch tabs first.
-  ```
-- Read the active tab via `view-screen` at the start of any write operation request.
-- Actions that should never be called directly by the agent (only via `propose-action`) must be documented in the system prompt with a clear prohibition: "Never call `send-template-to-members`, `cancel-class`, `archive-form`, or `delete-responses` directly. Always use `propose-action` and wait for coach approval."
-- Hallucinated record IDs: every write action that takes an ID (`occurrenceId`, `formId`, `memberId`) must validate existence in the DB before writing. A hallucinated ID that does not exist returns an error; a hallucinated ID that accidentally matches a real record (collision probability is low but nonzero with nanoid) is prevented by checking that the matched record is the one the agent described.
+Define the telemetry payload schema as a strict Zod object at the HQ ingest endpoint — use `.strict()` so any extra fields cause a 422 rejection, not silent acceptance. The allowed schema: `{ studio_id: string, period: string, metrics: { active_members_count: number, retention_rate_pct: number, avg_sessions_per_member: number, total_bookings: number, churn_count: number, ai_tokens_used: number, ai_tokens_by_model: Record<string, number> } }`. No names, emails, phones, member IDs, free-text, or arrays of any kind. Write a Vitest test that constructs a payload with a `member_email` field and asserts the HQ ingest endpoint returns 422. The studio's telemetry aggregator query must live in a dedicated `telemetry-aggregator.ts` file with a code review checklist item: "Does this return any individual-level data?"
 
-**Detection:**
-- Test case: agent is on the Members tab. Ask "update the Friday Yoga class to 15 capacity." Agent must say it cannot do that from the Members tab and offer to navigate to the Schedule tab, not call `update-class-occurrence` directly.
-- Test case: agent is on the Forms tab. Ask "send a reminder to all members about the new form." Agent must call `propose-action` with `actionName: 'send-template-to-members'`, not call `send-template-to-members` directly.
-- Code review: if `send-template-to-members` appears in the v1.2 tool list as a direct tool (not via `propose-action`), it is a defect.
+**Warning signs:**
+- HQ telemetry table schema gains a JSONB column ("for debugging context")
+- HQ ingest Pino logs include full payload bodies
+- Telemetry payload size per studio exceeds ~1KB (aggregate metrics for a boutique gym should be under 500 bytes)
+- HQ Brain document ingestion pipeline is given access to the telemetry raw payloads
 
-**Phase to address:** v1.2 Plan 1 (Forms) — restructure the system prompt with per-tab tool sections before any new tool is registered. Apply to Plans 2 and 3.
+**Phase to address:** BD-TEL (the Zod `.strict()` schema at the ingest endpoint and the telemetry-aggregator file structure are the first two deliverables of TEL, before any metric queries are written)
 
 ---
 
-## Medium-Severity Pitfalls
+### Pitfall T-02: Error Messages and Logs Carry PII Upward
 
-### Pitfall A-09: Breaking DB changes introduced via v1.2 agent tools — `drizzle-kit push` or unsafe ALTER
-
-**Risk:** MEDIUM — any plan; the documented incident (AGENTS.md, 2026-04-21: nine templates, framework tables dropped in prod via PR #252) shows the risk; v1.2 is less likely to hit this directly, but agent-initiated schema changes are possible if the agent is given self-modifying capabilities
+**Risk:** HIGH — TEL + operability; a shared Better Stack workspace lets HQ engineers see member data from any studio while debugging
 
 **What goes wrong:**
-The v1.2 agent write tools operate against the existing schema — no new tables are expected. However:
-- If a v1.2 plan adds a new column to support agent write operations (e.g., `class_occurrences.cancelled_by_agent` boolean, `forms.last_agent_edit_at`), the migration must be additive. A developer running `drizzle-kit push` against the Neon production database violates the `guard:no-drizzle-push` rule and may drop framework tables.
-- The agent, if given `self-modifying-code` capabilities (AGENTS.md Six Rule 5), can in theory propose schema changes. For v1.2, the agent must NOT be given schema modification tools — it operates on data, not schema.
-- A v1.2 action that does `DELETE FROM form_submissions WHERE form_id = ?` (purge responses) is a destructive SQL operation that violates "No DELETE without a WHERE... no destructive ALTER" from AGENTS.md. Even with a WHERE clause, a bulk delete on response data is irreversible.
+A studio worker job throws `Error: member 'jane.doe@gmail.com' has no opt-in record`. pg-boss serializes the error including the message into `pgboss.job`. The studio's telemetry ping includes a `last_worker_error` field. HQ now stores a member's email address.
 
-**Prevention:**
-- Any new columns added for v1.2 support: additive only, nullable or with a default. Use `drizzle-kit generate` + `drizzle-kit migrate` — never `push`. Apply migration to Neon manually per the migration drift pattern (PROJECT.md: "migrations are NOT auto-run by db.ts; must apply to gymos-demo Neon by hand").
-- v1.2 agent tools must not touch schema. If the agent discovers it needs a new column ("I need to store `agent_last_edited_at`"), that is a code change surfaced to the developer, not a runtime agent action.
-- `delete-responses` (if implemented) must be gated behind `propose-action` + `approve-proposal` and must soft-delete (via a `deletedAt` column added additively) rather than `DELETE FROM responses`. The production `responses` table has no `deletedAt` column currently — adding one is fine, deleting rows is not.
-- Audit any new action for the words `DELETE`, `TRUNCATE`, `DROP`, `ALTER` — these are prohibited per AGENTS.md.
-
-**Detection:**
-- CI guard `guard-no-drizzle-push.mjs` already blocks `drizzle-kit push` in build scripts.
-- Code review: any v1.2 action containing `DELETE FROM` is a red flag requiring explicit justification and `propose-action` routing.
-- Before applying any new migration to Neon: run `drizzle-kit generate --dry-run`, review the SQL, confirm no `DROP` statements.
-
-**Phase to address:** v1.2 Plan 1, 2, 3 — check each plan's migration needs at the start; confirm additive-only and manual-apply steps.
-
----
-
-### Pitfall A-10: Agent hallucinating member or class IDs that happen to match real records
-
-**Risk:** MEDIUM — Schedule and Members tabs; nanoid IDs are long enough that collision is extremely low, but the LLM may construct IDs from partial information in tool responses (e.g., truncating an ID it saw) and accidentally match a different record
-
-**What goes wrong:**
-The agent uses `list-members` and receives a response containing `memberId: "abc123xyz..."`. The coach asks a follow-up question and the LLM, in constructing the `update-member` call, reconstructs the ID from memory slightly incorrectly: `"abc123xy..."` (missing a character). In most cases this returns "not found." But with a sufficiently large member roster (the demo seed has 260 members), the probability of a partial collision increases.
-
-More common: the LLM receives a `list-classes` result showing class definitions and their IDs. It then calls `cancel-class` with a `definitionId` instead of an `occurrenceId` — confusing the two entity types that share a similar data structure.
+A related variant: studio worker Pino logs ship to a shared Better Stack workspace (cost efficiency — one workspace for all studios). A HQ engineer searching logs for one studio can see another studio's member data in the logs.
 
 **Why it happens:**
-LLMs store tool results in their context window. On long conversations, earlier tool results may be partially reconstructed from context. The `class_definitions` and `class_occurrences` tables have different but structurally similar rows; the LLM may conflate the two when constructing an action call.
+Error messages are written for debuggability without considering where those messages end up. Log aggregation into a shared workspace is the obvious operational choice but creates cross-tenant and cross-boundary visibility.
 
 **Prevention:**
-- Write actions must validate the entity type of the provided ID:
-  - `cancel-class` receives an `occurrenceId` — verify it exists in `class_occurrences`, not `class_definitions`.
-  - `update-member` receives a `memberId` — verify it exists in `gym_members`.
-  - `update-form` receives a `formId` — verify it exists in `forms` and `deletedAt IS NULL`.
-- Action descriptions in `defineAction` must explicitly name the ID type: "occurrenceId: the `class_occurrences.id` (not `class_definitions.id`) of the specific class instance to cancel."
-- Write actions should return a confirmation summary of what was changed: `{ updated: { occurrenceId, className, date, previousStatus, newStatus } }` — this lets the LLM verify and lets the coach see what actually changed.
-- Read-before-write: every write action reads the target record first and includes key fields in its error/success response (e.g., member name, form title, class name + date). This gives the LLM and the coach a verification surface.
+In all studio-side code (worker, edge-webhooks, staff-web), error messages that reference member data must use the internal member ID (an opaque UUID), never name/email/phone. Pattern: `Error: member ${memberId} has no opt-in record` — not `Error: member ${member.email}...`. Enforce with an ESLint rule that flags string interpolation of `email`, `phone`, `firstName`, `lastName` inside `new Error(...)` calls. The HQ telemetry ingest endpoint must not accept any `error` or `log` field — the Zod `.strict()` schema (Pitfall T-01) catches this. For Better Stack: provision a separate log space per studio slug as a PROV step. Better Stack charges by volume, not space count — the cost is negligible.
 
-**Detection:**
-- Test case: ask the agent to cancel a class occurrence, providing a class definition ID by mistake — must return an error distinguishing "not a class occurrence ID."
-- Integration test: agent tool call with a malformed/truncated ID — must return not-found, not a partial match.
+**Warning signs:**
+- Better Stack search for a member name returns results from a studio worker log
+- pg-boss `pgboss.job` table in a studio Neon has serialized errors containing `email@` substrings
+- HQ telemetry rows have a `last_error` or `debug` column
 
-**Phase to address:** v1.2 Plan 2 (Schedule — class/occurrence ID confusion is highest risk here), Plan 3 (Members).
+**Phase to address:** BD-TEL (Zod schema controls); BD-PROV (per-studio Better Stack log space as a provisioning step)
 
 ---
 
-### Pitfall A-11: Publishing a form while the agent holds a stale draft — race between agent write and user edit
+### Pitfall T-03: HQ Accidentally Receives Studio DB Credentials
 
-**Risk:** MEDIUM — Forms tab; similar to A-07 but specifically about the publish/unpublish lifecycle transition
+**Risk:** CRITICAL — HQ-FND + security; HQ then has the ability to query any studio's member data directly, nullifying the PII boundary
 
 **What goes wrong:**
-The coach says "publish the signup form." The agent:
-1. Calls `list-forms` to find the form ID.
-2. Calls `publish-form` with the form ID.
+The provisioning flow generates the studio's Neon connection string and a developer adds it to HQ's `studios` table "for easy health checks." Later, a HQ Brain agent action is given full access to HQ Neon and inadvertently includes the connection string in its tool context. The Brain generates a response that quotes the connection string. Or more directly: a developer writes a HQ admin action that runs `SELECT COUNT(*) FROM gym_members` against a studio Neon to "check studio health" — HQ can now read member data.
 
-But the coach, in parallel, has the form editor open and has just added a required field that they have not saved yet (it is in optimistic UI state locally, not yet written to the DB). The agent publishes the pre-edit version. The coach's unsaved field addition is now "ahead of" the published form — when the coach saves, the form updates to the correct version, but there is a window where the form is live without the required field.
-
-More critically: the agent publishes a form that has invalid fields (e.g., a `select` field with no `options` that the developer forgot to add — see A-04). Once published, public submissions arrive against the invalid field definition.
+**Why it happens:**
+The operational convenience of being able to "just check" a studio's DB from HQ is tempting during debugging. The constraint is easy to state but hard to enforce technically — there is no firewall between HQ Neon and studio Neon, only policy.
 
 **Prevention:**
-- `publish-form` action must run the same `fields` validation as `update-form` (the Zod schema from A-04) before transitioning to `published` status. A form with invalid fields cannot be published.
-- `publish-form` must go through `propose-action` → `approve-proposal` (treating publication as a Tier 3 operation). The proposal card shows the form title and field count, giving the coach a final review moment.
-- The system prompt must instruct the agent: "Before publishing a form, check what the coach currently has open with `view-screen`. If the form editor is open, ask the coach to save their edits before you publish."
+The HQ `studios` table must never store a studio's Neon connection string, not even encrypted. The studio's Neon URL is stored only in the studio's own Fly worker environment (via `fly secrets set`) and the studio's own Vercel environment. HQ `studios` records contain only provider resource identifiers: `{ neon_project_id, neon_project_name, vercel_project_id, fly_app_name }` — enough to call management APIs, not enough to connect to the database. Health data flows inward (studio pushes telemetry) not outward (HQ pulls from studio DB). Add a Drizzle schema comment on the `studios` table: `// HQ NEVER stores studio DB connection strings — store provider resource IDs only`. Add a CI guard that scans `apps/hq/server/db/schema.ts` for columns named `*connection*`, `*database_url*`, `*pg_url*`, `*neon_url*`, `*dsn*` and fails the build if found.
 
-**Detection:**
-- Test case: create a form with a `select` field that has no `options`. Attempt to publish. Must be rejected with a validation error.
-- Test case: agent publishes a form while the form editor UI has unsaved changes — expected behavior is a `propose-action` card that the coach reviews before approving.
+**Warning signs:**
+- HQ schema migration adds a column with "url", "connection", or "dsn" in the name to any studio-related table
+- HQ codebase contains an import of `@neondatabase/serverless` outside of the HQ-specific DB module
+- A HQ Brain knowledge document contains a Postgres connection string
 
-**Phase to address:** v1.2 Plan 1 (Forms write tools) — publish gate and validation are both day-one requirements.
-
----
-
-## Phase-Specific Warning Matrix
-
-| Operation | Affected Tab | Pitfall | Prevention Gate | Which Plan |
-|-----------|--------------|---------|-----------------|------------|
-| Create / update form fields | Forms | A-04 (malformed JSON) | Zod schema validation in action | Plan 1 |
-| Publish / unpublish form | Forms | A-05 (messaging side effect), A-11 (stale draft), A-08 (wrong tab) | `propose-action` gate; field validation; system prompt | Plan 1 |
-| Archive form | Forms | A-01 (destructive without confirm) | `propose-action` gate | Plan 1 |
-| Delete / purge responses | Forms | A-09 (breaking DELETE), A-01 | `propose-action` gate; soft-delete only | Plan 1 |
-| Create class occurrence | Schedule | A-08 (wrong entity ID), A-05 (messaging side effect) | ID type validation; system prompt | Plan 2 |
-| Cancel class occurrence | Schedule | A-03 (booking orphan + pass refund), A-01 (destructive), A-10 (hallucinated ID) | `propose-action` gate; booking count check; pass refund logic; ID validation | Plan 2 |
-| Reschedule (update `starts_at`) | Schedule | A-01 (affects members with bookings), A-10 | `propose-action` if bookings exist; ID validation | Plan 2 |
-| Update class capacity | Schedule | A-07 (optimistic UI desync) | Low-risk direct if no bookings; read-before-write | Plan 2 |
-| Update member profile fields | Members | A-02 (consent flip), A-06 (access regression) | Schema explicitly excludes consent fields; defineAction routing | Plan 3 |
-| Update member phone | Members | A-02 (opt-in mismatch) | Phone change adds a warning about opt-in re-verification; no opt-in write | Plan 3 |
-| Opt-in / opt-out toggle | Members | A-01 (irreversible), A-02 (consent), A-05 (triggers sends) | Always via `propose-action`; never via `update-member` | Plan 3 |
-| Any agent write while tab is open | All | A-07 (UI desync) | `view-screen` check; system prompt instruction | All plans |
-| Tool registered outside per-tab context | All | A-08 (wrong tab) | Per-tab system prompt sections | All plans |
-| New migration for v1.2 support columns | All | A-09 (breaking DB change) | Additive only; `generate` + `migrate`; manual apply to Neon | All plans |
+**Phase to address:** BD-HQ-FND (the HQ schema design must explicitly exclude studio credentials; the CI guard ships with the HQ schema, before PROV work begins)
 
 ---
 
-## Proposal Allowlist Audit
+### Pitfall T-04: AI Token Usage Records Carry Prompt Content to HQ
 
-The `dashboardProposals.actionName` enum and `approve-proposal.ts` ACTION_ALLOWLIST currently permit only:
-- `send-template-to-members`
-- `create-checkout-link`
+**Risk:** HIGH — TEL; prompt content may include member names, health notes, or class details that constitute PII
 
-v1.2 actions that must be added to the allowlist (proposed, subject to plan decisions):
-- `cancel-class` — destructive (see A-01, A-03)
-- `archive-form` — destructive (see A-01)
-- `publish-form` — member-facing (see A-05, A-11)
-- `delete-responses` — destructive (if implemented; prefer soft-delete) (see A-09)
-- Any opt-in / consent toggle action (see A-02)
+**What goes wrong:**
+The studio's token usage instrumentation adds `prompt_preview: prompt.slice(0, 200)` to the `ai_token_usage` row "to help debug agent responses." This 200-character slice may include a member's name ("Tell me about John Smith's attendance..."). The telemetry payload originally excludes prompt content, but a developer adds `recent_prompts: string[]` to the payload "so HQ Brain can understand how studios use the AI." HQ now stores member-contextual prompts.
 
-Adding an action to the allowlist requires:
-1. Adding the string to `dashboardProposals.actionName` enum in `schema.ts` (additive — new enum value).
-2. Adding the string to `ACTION_ALLOWLIST` in `approve-proposal.ts`.
-3. Adding the dynamic import branch in `approve-proposal.ts`'s `if/else` chain.
-4. Verifying the action's Zod schema is strict enough to re-validate stored params safely.
+A subtler version: the token usage record stores `agent_session_id`. HQ telemetry later adds a `session_summary` field. The studio worker summarizes recent sessions to send... and the summary contains member context.
+
+**Why it happens:**
+Token cost debugging is genuinely useful. The impulse to add "just a little context" to help understand costs is reasonable but each addition erodes the boundary.
+
+**Prevention:**
+The studio `ai_token_usage` table schema: `{ id, model, input_tokens, output_tokens, created_at }` — no session reference, no prompt text, no prompt hash, no summary field. Enforced in the Drizzle schema with a column-level comment: `// PII BOUNDARY: no prompt content, no session reference`. The telemetry payload to HQ contains only the aggregated sum: `{ ai_tokens_used: number, ai_tokens_by_model: Record<string, number> }`. The Zod `.strict()` at the HQ ingest endpoint (Pitfall T-01) blocks any additional fields. HQ Brain that models AI cost trends operates only on these aggregate counts, never on session-level data.
+
+**Warning signs:**
+- Studio DB schema migration adds `prompt_preview`, `prompt_hash`, `session_id`, or `summary` to the token usage table
+- The telemetry payload for any studio exceeds a few hundred bytes (a meaningful prompt preview would push it to kilobytes)
+- HQ Brain returns member names when asked "which studios use AI most?"
+
+**Phase to address:** BD-TEL (the token usage schema is the first thing designed in TEL, with an explicit PII checklist item signed off before coding begins)
+
+---
+
+## Area 3: WhatsApp Compliance at Scale (GOD, HQD)
+
+### Pitfall W-01: Heartbeat Reactivation Sends Templates to Opted-Out Members
+
+**Risk:** CRITICAL — GOD; Meta will flag or suspend the WABA; one flagged number can block the entire studio's WhatsApp communications
+
+**What goes wrong:**
+The daily heartbeat reactivation campaign enqueues sends for all "dormant" members. The campaign query checks `whatsapp_opt_in` for an opt-in record — but a member who opted out two hours ago may not have their opt-out processed yet (the opt-out webhook arrived, enqueued a processing job, but the pg-boss worker is behind on the queue). The campaign enqueues a send for that member. The worker processes the opt-out job and the send job in the wrong order (pg-boss does not guarantee order across job types). The member who said STOP receives a template message.
+
+**Why it happens:**
+The existing worker chokepoint checks opt-in status at job processing time — correct. But the campaign enqueues hundreds of jobs at once. The opt-out event and the heartbeat send are racing. pg-boss does not serialize them unless they are in the same queue with explicit ordering.
+
+**Prevention:**
+Ensure the worker's send chokepoint checks the opt-in table at actual send time (not just at enqueue time — confirm this is already the case in the existing worker code). Add a second check: an `whatsapp_opt_out_immediate` table written synchronously inside the opt-out webhook handler (before returning 200 to Meta), separate from the async processing job. The send chokepoint checks this table first — it acts as a fast-path veto with zero processing lag. Additionally: the heartbeat campaign query must filter out members who have sent any inbound message in the last 24 hours (they already have an open conversation window — sending them a reactivation template looks like bot behavior to Meta and wastes template sends).
+
+**Warning signs:**
+- Member complains of receiving a WhatsApp message after replying STOP
+- Worker logs show template sends to members with inbound messages timestamped in the last 24 hours
+- Meta flags the studio's phone number in the Business Manager for policy violations
+
+**Phase to address:** BD-GOD (the `whatsapp_opt_out_immediate` synchronous write is a prerequisite for the heartbeat campaign; the "has recent inbound" filter is part of the campaign query design, not a later optimization)
+
+---
+
+### Pitfall W-02: Concurrent Studio Heartbeat Campaigns Create a Sending Storm
+
+**Risk:** HIGH — GOD; Meta Cloud API rate limits per WABA; a storm triggers 429 errors and delays all studio WhatsApp sends
+
+**What goes wrong:**
+The daily heartbeat cron fires at 9:00am for all studios simultaneously. At 10 studios with 200 dormant members each, 2,000 template sends are enqueued in the first minute. Meta's per-WABA rate limits for Cloud API (practically ~1,000 messages per second for throughput-tier accounts, but with per-template and per-recipient sublimits) are hit. The worker receives 429 responses, exponentially backs off, and the sends spread across the next 30 minutes — but so do class-related messages and inbound reply processing, creating priority inversion.
+
+**Why it happens:**
+Each studio's worker operates independently (correct for the single-tenant model). But all workers share the same 9:00am cron trigger from HQ. At small scale (1-3 studios) this is invisible; at 10+ it creates a spike.
+
+**Prevention:**
+Stagger heartbeat start times across studios. When HQ sends the daily "start heartbeat" signal to studio workers (via a HQ → studio API call or by writing to a per-studio pg-boss job with a `startAfter` timestamp), assign each studio an offset: `startAfter = 9am + hash(studio_id) % 60 minutes`. This distributes sends across a 60-minute window. At 10 studios with 200 members each and a 60-minute window, average send rate is ~33 messages/minute — well within Meta limits. Also add a per-recipient per-template deduplication check: before enqueuing a heartbeat send, query `SELECT id FROM messages WHERE phone_number = ? AND template_name = ? AND created_at > NOW() - INTERVAL '24h'` — skip if a send already went out in the last 24 hours.
+
+**Warning signs:**
+- Meta API returning 429 errors in studio worker logs during the 9am window
+- Messages stuck in `queued` pg-boss state for more than 10 minutes during campaign time
+- Multiple template send records for the same member on the same day
+
+**Phase to address:** BD-GOD (the staggered start-time design must be in the initial heartbeat scheduler architecture, not added after the first 429 incident)
+
+---
+
+### Pitfall W-03: HQ Dispatcher Routes Owner Messages Through Studio WABAs
+
+**Risk:** CRITICAL — HQD + compliance; B2B owner messages sent from a member-communication WABA have no legal opt-in basis; Meta's anti-spam policies treat this as misuse of the WABA
+
+**What goes wrong:**
+The HQ Dispatcher needs to send owners messages about system/product features (daily digests, new feature announcements). A developer reuses the studio's existing send infrastructure — which routes through the studio's own WABA phone number, set up for member messaging. The studio's `whatsapp_opt_in` table records member opt-ins, not owner opt-ins. Sending an owner a message from the studio's WABA using a member opt-in basis is a compliance violation: the opt-in was not for B2B communications from GymClassOS.
+
+**Why it happens:**
+The path of least resistance is to reuse the existing send path. The studio worker and edge-webhooks are already running; calling them from HQ seems simpler than standing up a separate HQ WABA. The distinction between "studio WABA for member comms" and "HQ WABA for owner comms" is easy to blur during implementation.
+
+**Prevention:**
+HQ Dispatcher uses a completely separate WABA registered to the GymClassOS business account, not any studio's account. The HQ `apps/hq` app holds its own WhatsApp credentials in HQ Neon `secrets`. Owner opt-in is captured at signup (PROV step: the signup form includes explicit WhatsApp opt-in for GymClassOS system communications, using the HQ WABA phone number). Owner opt-in records live in HQ Neon `hq_whatsapp_opt_in`, never in any studio DB. The HQ WABA must be fully approved and the owner-comms templates approved by Meta before HQD ships. No HQD code may reference the studio's `services/worker` or `services/edge-webhooks` to send an owner message.
+
+**Warning signs:**
+- HQD code contains an import from `apps/staff-web/services/worker` or references `services/edge-webhooks`
+- An owner receives a HQ system message from their studio's own WhatsApp number (instead of GymClassOS's number)
+- Owner communication logs appear in a studio's `messages` table
+
+**Phase to address:** BD-HQD (WABA separation is an architectural constraint that must be documented before any HQD send code is written; the HQ WABA credentials and `hq_whatsapp_opt_in` table must be established in BD-HQ-FND)
+
+---
+
+### Pitfall W-04: Templates Not Actually Approved by Meta Before Campaigns Run
+
+**Risk:** HIGH — GOD + PROV; campaigns silently send zero messages; repeated failed template sends can flag the WABA as suspicious
+
+**What goes wrong:**
+The heartbeat reactivation and studio digest templates are seeded into the studio's `whatsapp_templates` table as `is_active = true` and `meta_approval_status = 'approved'` during provisioning. But Meta template approval takes 24-72 hours per template per WABA. The GOD dispatcher runs campaigns before the actual approval arrives. All sends fail with `template_not_approved` errors from the Meta Graph API. No campaigns run, no error is surfaced to the owner, and the studio is silently non-functional for its first 72 hours.
+
+**Why it happens:**
+The seed file uses `approved` as the default status to make local development work. This status is not validated against Meta's actual API at provisioning time.
+
+**Prevention:**
+Add a `meta_approval_status` column to `whatsapp_templates`: enum `pending | approved | rejected`. The provisioning flow submits templates to Meta for approval immediately after WABA setup, and sets status to `pending`. A recurring check job polls `GET /{template_id}?fields=status` and updates `meta_approval_status` on transition. The GOD campaign runner checks `meta_approval_status = 'approved'` before queuing any sends and returns a clear, logged error if templates are not approved. The PROV state machine adds an `awaiting_template_approval` step after WABA provisioning — the studio is "live" for staff-web access but the campaign system is disabled until templates are approved. Notify the owner via email when templates are approved.
+
+**Warning signs:**
+- Campaign runs log zero messages sent with no error
+- Studio `whatsapp_templates` rows have `meta_approval_status` null or seeded as `approved` with no corresponding Meta template ID
+- Worker logs contain `template_not_approved` errors from the Meta Graph API
+
+**Phase to address:** BD-PROV (template submission on provision) + BD-GOD (the `meta_approval_status` check in the campaign runner is a hard prerequisite — campaigns must not run without it)
+
+---
+
+## Area 4: agent-native Template Adaptation (HQ-FND)
+
+### Pitfall F-01: Forking Dispatch/Brain Templates Into apps/hq Violates the Fork Boundary
+
+**Risk:** HIGH — HQ-FND; damages the upstream merge story permanently; creates diff conflicts in every `git fetch upstream && git merge upstream/main`
+
+**What goes wrong:**
+Under time pressure, the developer copies the Dispatch and Brain templates by modifying files under `templates/dispatch/` and `templates/brain/` in place, then moving them to `apps/hq/`. The `templates/` directory is modified. Future upstream merges produce conflicts in every modified file. MODIFICATIONS.md is not updated. The agent-native fork boundary — one of the project's locked architectural constraints — is violated.
+
+**Why it happens:**
+Editing the source location and then moving feels identical to copying to a new location and editing. The difference is that `git diff upstream/main HEAD -- templates/` shows nothing for a true copy-then-modify; it shows everything for an in-place edit. Under time pressure, the correct sequence (copy first, then edit, never touch templates/) is easy to invert.
+
+**Prevention:**
+The fork-boundary copy is a two-commit sequence: Commit 1 copies `templates/dispatch/` → `apps/hq/features/dispatch/` and `templates/brain/` → `apps/hq/features/brain/` with zero modifications. Commit 2 modifies only the copies. Run `git diff upstream/main HEAD -- templates/` after Commit 1 and Commit 2 — both must return empty output. Add this check to CI as a guard: `git diff upstream/main HEAD -- templates/ | wc -l` must be 0. Update MODIFICATIONS.md in Commit 2 listing every file modified relative to the upstream template.
+
+**Warning signs:**
+- `git diff upstream/main HEAD -- templates/` returns non-empty output
+- `git log --all -- templates/dispatch/` shows commits dated after the fork
+- MODIFICATIONS.md does not list HQ feature directories under "adapted templates"
+
+**Phase to address:** BD-HQ-FND (the fork-boundary copy is the very first action of the HQ setup phase, before any HQ-specific code is written — non-negotiable)
+
+---
+
+### Pitfall F-02: Dispatch/Brain Templates Assume a Multi-Org User Model; HQ Has One Super-Admin
+
+**Risk:** HIGH — HQ-FND; all HQ Brain documents and Dispatch content return empty because `accessFilter` finds no org scope
+
+**What goes wrong:**
+The Dispatch and Brain templates use `ownableColumns()` and `accessFilter(table, sharesTable)` which scope queries to the signed-in user's `orgId`. In the multi-user multi-org model these templates were built for, this is correct. In `apps/hq` with a single super-admin and no org concept, the `accessFilter` call either returns zero results (if the super-admin's session has no `orgId`) or requires creating a fake org. The HQ agent tools return empty lists. HQ Brain appears to contain no documents. HQD shows no content.
+
+**Why it happens:**
+The templates are copied without auditing their auth/tenancy assumptions. The `accessFilter` code looks correct in isolation but silently returns nothing when `orgId` is null or absent.
+
+**Prevention:**
+Before copying the templates, audit every action and API route for `accessFilter`, `resolveAccess`, `assertAccess`, and `runWithRequestContext` calls. For `apps/hq`, create a dedicated HQ org during `runMigrations` startup (seeded with the super-admin email and a fixed org ID), ensuring all ownable resources are scoped to that org. This makes the standard `accessFilter` work correctly and enables adding more HQ users later without restructuring. Do not replace `accessFilter` with `// guard:allow-unscoped` — that disables the security model and blocks future multi-user HQ without a rewrite.
+
+**Warning signs:**
+- HQ Brain document list returns empty after documents are created
+- HQ Dispatch workspace shows no content
+- Any HQ action that calls `accessFilter` returns zero rows when the super-admin is logged in
+
+**Phase to address:** BD-HQ-FND (the org + super-admin seed is part of HQ Neon migrations, blocking all template functionality if absent)
+
+---
+
+### Pitfall F-03: HQ Brain Ingests Studio-Facing or Member-Contextual Content
+
+**Risk:** HIGH — HQB + PII boundary; the Brain's vector store in HQ Neon becomes a PII accumulation point
+
+**What goes wrong:**
+The Brain template's ingestion pipeline accepts document uploads and URL crawls. An HQ admin uploads a studio's member list CSV "to give the Brain context." The Brain now contains member PII in its vector store. Or the Brain crawler is configured to crawl a studio's staff-web URL, which accidentally hits an auth-bypass route and returns member data in the HTML.
+
+A more insidious variant: HQ Brain is connected to the HQ telemetry table as a "live data source." A developer extends the telemetry payload (violating T-01) to include member IDs. HQ Brain then vectorizes and stores those IDs as part of its studio health model.
+
+**Why it happens:**
+The Brain template has no concept of a PII firewall in its ingestion pipeline. It ingests whatever is given to it. The HQ operator is a technical user who may not recognize that "helpful context" crosses the PII boundary.
+
+**Prevention:**
+Define an explicit source allowlist for HQ Brain in its configuration: only GymClassOS internal documentation, HQ telemetry aggregate tables, and `gymclassos.com` domain. Disable the URL crawler for HQ v2.0 or restrict it to a `gymclassos.com` allowlist. Add a validation step in the Brain document ingestion action that rejects CSV/spreadsheet uploads containing columns named `email`, `phone`, `name`, `member` (case-insensitive header scan). This is a guardrail, not a perfect filter, but it prevents the obvious accident. The HQ telemetry ingest schema (Pitfall T-01) already prevents telemetry from carrying PII to the table that Brain reads.
+
+**Warning signs:**
+- HQ Brain vector search returns member names or email addresses in results
+- Brain ingestion logs show documents from a `*.gymclassos.com` subdomain (a studio URL)
+- Brain knowledge base contains spreadsheet files
+
+**Phase to address:** BD-HQB (the source allowlist and CSV-rejection filter are day-one configuration for HQ Brain, before any documents are ingested)
+
+---
+
+## Area 5: Solo-Dev Operability of Unattended Systems (Cross-Cutting)
+
+### Pitfall O-01: Stuck Provisioning Jobs Have No Alert — Customer Waits Days
+
+**Risk:** HIGH — PROV + operability; the first signal is a customer support email, not a developer alert
+
+**What goes wrong:**
+A provisioning job gets stuck in `active` state in pg-boss because the Fly deploy step hangs waiting for an image build that will never complete (OOM on the Fly build machine). pg-boss has job expiry but only if `expireInSeconds` is configured — the default is indefinite. The job does not expire; it does not retry. The customer's signup email says "your studio is being set up." The developer discovers this 3 days later when the customer emails.
+
+**Why it happens:**
+pg-boss's defaults are generous. `expireInSeconds` and `retryLimit` are opt-in. Without explicit configuration, a job stays `active` forever. There is no external alerting on job state transitions — pg-boss is a DB queue, not an alerting system.
+
+**Prevention:**
+Configure the provisioning pg-boss job with `expireInSeconds: 600` (10 minutes max per step attempt) and `retryLimit: 3`. The state machine's timeout at each step is separate from pg-boss's retry — the step itself has a 5-minute timeout enforced via `Promise.race([stepFn(), timeout(300_000)])`. Add a HQ-level watchdog recurring job (every 5 minutes) that queries `SELECT * FROM pgboss.job WHERE name = 'provision-studio' AND state IN ('failed', 'expired') AND createdon > NOW() - INTERVAL '2 hours'`. On any result, send a HQ operator alert via email (Postmark — simpler than WhatsApp for dev ops alerts at v2.0). Also add a "provisioning health" panel to the HQ dashboard showing counts by state, visible on first login.
+
+**Warning signs:**
+- pg-boss `pgboss.job` table shows `state = 'failed'` or `state = 'expired'` for provisioning jobs
+- HQ `studios` table shows a studio in `provisioning` state for more than 15 minutes
+- No provisioning completions in logs for 24+ hours despite signup activity
+
+**Phase to address:** BD-PROV (the watchdog job and the HQ alert email ship with the provisioning system, not as a follow-up)
+
+---
+
+### Pitfall O-02: Telemetry Push Failures Cause False "At-Risk" Classifications by HQ Brain
+
+**Risk:** HIGH — TEL + HQB; the HQ Dispatcher sends a "we miss you" message to a studio that is perfectly healthy, damaging trust
+
+**What goes wrong:**
+The studio worker's daily telemetry push job fails (network error, HQ ingest endpoint returns 503, HQ telemetry token rotated without updating the studio Fly secret). The job fails silently. The studio's telemetry row in HQ stops updating. HQ Brain classifies the studio as dormant (zero AI tokens, zero bookings, zero active members for 48 hours) and the HQD sends the gym owner a reactivation message. The gym owner, whose studio is running perfectly, is confused and calls.
+
+**Why it happens:**
+HQ Brain's at-risk model uses telemetry data as a proxy for studio health without distinguishing "telemetry not received" from "studio actually inactive."
+
+**Prevention:**
+The HQ `studios` table must track `last_telemetry_received_at`. HQB's at-risk classification must exclude studios where `last_telemetry_received_at < NOW() - INTERVAL '48 hours'` — these are classified as "telemetry gap" (a technical issue) not "dormant" (a customer health issue). The watchdog job (Pitfall O-01) also checks for studios with no telemetry in 25+ hours and flags them as "telemetry interrupted" — generating an operator alert, not a customer-facing message. The studio telemetry push job uses pg-boss retry with exponential backoff so transient failures self-heal within hours without ever producing a false dormancy signal.
+
+**Warning signs:**
+- HQB at-risk cohort includes a studio the developer knows is actively used
+- `last_telemetry_received_at` on multiple studio rows is stale by more than 24 hours
+- HQD sends owner messages to healthy studios
+
+**Phase to address:** BD-TEL (the `last_telemetry_received_at` column and the exclusion logic in HQB's at-risk query must be designed together — not independently)
+
+---
+
+### Pitfall O-03: Per-Studio Fly App Compute Cost Scales Linearly With No Budget Alert
+
+**Risk:** MEDIUM — PROV + operability; invisible until a surprise $300+ Fly bill at 50 studios
+
+**What goes wrong:**
+Each studio gets one Fly app (edge-webhooks + worker). Even at `shared-cpu-1x` with 256MB, each idle machine costs ~$2-5/month in compute. At 20 studios this is $40-100/month in Fly compute alone — affordable but unmonitored. At 100 studios it is $200-500/month. There is no cost alert and no mechanism to scale idle studios down during off-hours.
+
+**Why it happens:**
+During development with 1-2 studios, Fly costs are negligible and invisible. The per-studio cost model's scaling implications are not modelled until a billing cycle surfaces them.
+
+**Prevention:**
+Configure Fly's `auto_stop_machines = "stop"` and `min_machines_running = 0` for the edge-webhooks process group (request-driven, can tolerate cold start). The worker process group that runs the pg-boss subscriber must stay alive — evaluate whether `auto_stop_machines` is safe for a pg-boss subscriber (a stopped machine does not process queued jobs). If pg-boss requires a persistent process, the worker stays always-on and the edge-webhooks machine stops when idle. Set a Fly org-level budget alert at $50/month and $100/month via the Fly dashboard. Model expected cost at 5, 10, 20, 50 studios before PROV ships and document the break-even and margin thresholds.
+
+**Warning signs:**
+- Monthly Fly bill is not tracked against a per-studio expected cost
+- `fly apps list` shows more apps than the confirmed active customer count
+- Fly machines running 24/7 for studios with zero WhatsApp activity in 30 days
+
+**Phase to address:** BD-PROV (the Fly process group configuration and budget alert setup are provisioning-time decisions — the `fly.toml` template used for every studio deploy must include the auto_stop configuration)
+
+---
+
+### Pitfall O-04: Studio Worker Crashes Without Recovery — WhatsApp Inbox Goes Silent
+
+**Risk:** HIGH — operability (cross-cutting GOD + PROV); a studio's staff can't see or respond to WhatsApp messages
+
+**What goes wrong:**
+A studio's Fly worker crashes (OOM on a large send queue, unhandled promise rejection in pg-boss subscriber, corrupted Neon connection after a Neon maintenance event). Fly restarts it, but the restart also fails (e.g. the Neon connection string secret was rotated but Fly secrets were not updated). The worker process is stuck in a restart loop. The studio's edge-webhooks Hono receiver is still running and accepting inbound WhatsApp messages — but no worker is consuming the pg-boss queue. Messages pile up. Staff see incoming messages but the agent never processes them. No alert fires.
+
+**Why it happens:**
+The worker crash recovery depends on Fly's built-in restart logic. If the restart also fails, Fly stops retrying after a configurable number of attempts and leaves the process `stopped`. There is no external monitor for this state.
+
+**Prevention:**
+Deploy edge-webhooks and worker as separate process groups in the Fly app so a worker crash does not take down the webhook receiver. Add a liveness HTTP endpoint to the worker's internal Hono admin surface: `GET /healthz` that returns 200 if the pg-boss subscriber is connected and active subscriptions are registered. Configure Fly to health-check this endpoint. The studio worker writes a heartbeat row to the studio Neon `worker_heartbeats` table every 5 minutes. The studio's telemetry push includes the last heartbeat timestamp. HQ's watchdog job (Pitfall O-01) alerts if any studio's last heartbeat is more than 15 minutes stale.
+
+**Warning signs:**
+- Studio's WhatsApp inbox shows incoming messages with no agent processing for more than 10 minutes during business hours
+- `fly status --app gymos-<slug>` shows the worker process as `stopped` or `failed`
+- HQ telemetry dashboard shows a studio with `last_heartbeat` more than 15 minutes ago
+
+**Phase to address:** BD-PROV (the Fly process group configuration, healthcheck endpoint, and heartbeat table are provisioning-template components — every studio must get them, not just studios that experienced a crash)
+
+---
+
+## Technical Debt Patterns
+
+| Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
+|---|---|---|---|
+| Linear provisioning without state machine | 2-3 days faster to write | First partial failure requires manual cleanup; no safe retry path | Never — state machine must be built before any real signup |
+| Shared Better Stack workspace for all studios | One fewer config step per studio | Cross-tenant log visibility; support engineers see PII from other studios while debugging | Never; per-studio log space is a PROV provisioning step |
+| `meta_approval_status = 'approved'` as seed default | Templates "work" in local dev immediately | First real campaign silently sends zero messages | Acceptable in local dev only; a real-studio provisioning seed must set `pending` |
+| HQ sending owner messages via studio WABA | Reuses existing send infrastructure | B2B opt-in violation; Meta policy breach | Never — WABA separation is a compliance hard requirement |
+| Storing studio Neon URL in HQ for "convenient health checks" | Enables direct DB queries during debugging | Violates PII boundary; HQ can now read all member data | Never — the boundary is the product |
+| Fixed 9:00am cron for all studio heartbeat campaigns | Simple to implement | Rate limit spikes; poor send quality at 10+ studios | Acceptable until >5 studios; must stagger before going beyond |
+| Telemetry push without `last_telemetry_received_at` tracking | Simpler telemetry schema | False at-risk signals from HQB lead to unwanted owner outreach | Never — this field is a first-class column, not a later addition |
+
+---
+
+## Integration Gotchas
+
+| Integration | Common Mistake | Correct Approach |
+|---|---|---|
+| Neon Management API | `POST /projects` is not idempotent — retrying creates a duplicate project | Check `GET /projects` for existing project by name before creating; record the project ID at first successful creation |
+| Vercel Projects API | Project creation and env var setup are separate API calls; if env var step fails, project exists with no config | Model as two state machine steps; retry env var step independently using the stored Vercel project ID |
+| Fly Apps / `fly deploy` | CLI exit 0 does not mean the app is serving — the deploy is async | Poll `GET /v1/apps/{app_name}/releases/latest` for `status: "complete"` before marking the Fly step done |
+| Meta Graph API (template status) | Template approval is not pushed — you must poll | Schedule a recurring check job every 30 minutes; emit an internal event when `status → APPROVED` |
+| WhatsApp 24h window at campaign scale | Checking window at enqueue time misses opt-outs and new sessions between enqueue and send | Always check window, opt-in status, and `whatsapp_opt_out_immediate` at actual send time in the worker |
+| pg-boss across multiple Neon databases | Running a single pg-boss instance against multiple databases is not supported | Each studio worker's pg-boss instance connects only to its own studio Neon; HQ's pg-boss connects only to HQ Neon; never cross-connect |
+| Drizzle migrations on fresh Neon projects | Running `drizzle-kit generate` at provision time produces different SQL if schema has drifted | Check pre-generated migration files into the repo; the provisioning flow runs `drizzle-kit migrate` using the checked-in files, not freshly generated SQL |
+| Better-auth on HQ vs on studio apps | HQ Better-auth and studio Better-auth use the same library but different `BETTER_AUTH_SECRET` values and different Neon databases — sessions are not shared | HQ session: HQ Neon + HQ BETTER_AUTH_SECRET. Studio session: studio Neon + studio BETTER_AUTH_SECRET. Never share secrets or Neon URLs between HQ and studios |
+
+---
+
+## Security Mistakes
+
+| Mistake | Risk | Prevention |
+|---|---|---|
+| Telemetry endpoint using a shared static token | Any party knowing the token can inject false telemetry; a compromised studio can poison HQ Brain | Per-studio telemetry token (generated at PROV, stored in studio Fly secrets), validated at HQ ingest by HMAC against a HQ master secret; rotate on request |
+| HQ provisioning webhook (`POST /provision`) without auth | Anyone can trigger provisioning of arbitrary cloud resources | Require the GymClassOS platform master key (HQ Vercel env) in the `Authorization` header; rate-limit to 10 requests/min/IP at the Vercel edge |
+| Studio secrets stored decrypted in HQ Neon | HQ Neon breach exposes every studio's Stripe key and WhatsApp App Secret simultaneously | Never store studio secrets in HQ Neon at all; credentials live only in the studio's own Fly secrets and Vercel env |
+| Admin seed user for new studio uses a predictable password | First-login takeover if provisioning emails are intercepted | Generate a 32-char random password; force-change on first login; deliver as a time-limited signed URL, not a visible password |
+| HQ super-admin session lacks CSRF protection | CSRF attack against HQ provisioning endpoint triggers unauthorized provisioning | Better-auth's built-in CSRF protection is on by default; verify it is not disabled in HQ auth config |
+| HQ Brain given access to raw telemetry payloads | If a future telemetry payload contains PII (Pitfall T-01 regression), Brain vectorizes and stores it permanently | HQ Brain reads from a separate `studio_metrics` aggregate view, not from the raw `telemetry_events` table |
 
 ---
 
 ## "Looks Done But Isn't" Checklist
 
-- [ ] `update-member` action schema has NO `marketingConsent`, `optedInAt`, `optedOutAt`, `whatsapp_opt_in` fields — verified by reading the Zod schema.
-- [ ] `update-form` / `create-form` action validates `fields` JSON against the `FormField` Zod schema before writing — verified by unit test with invalid field input.
-- [ ] `cancel-class` checks booking count before executing; returns `CLASS_HAS_BOOKINGS` error if > 0 and `force` is not set — verified by test with a seeded booking.
-- [ ] `cancel-class` inserts negative `pass_debits` rows for each refunded credit — verified by checking ledger balance after cancellation test.
-- [ ] All destructive/member-affecting v1.2 actions go through `propose-action` — verified by attempting to call them directly from the agent and confirming a proposal card appears.
-- [ ] `approve-proposal.ts` ACTION_ALLOWLIST and the `dashboardProposals.actionName` schema enum are in sync — no action in one list is missing from the other.
-- [ ] The `agent-chat.ts` system prompt has per-tab tool sections for Forms, Schedule, Members write tools — verified by reading the prompt.
-- [ ] No v1.2 action contains `enqueueOutboundWhatsApp` without explicit opt-in/window/template checks mirroring `send-template-to-members.ts`.
-- [ ] `publish-form` rejects forms with invalid field definitions (missing IDs, unknown types, `select` without options).
-- [ ] All v1.2 write actions use `defineAction` — no hand-written `/api/*` mutation routes without explicit `runWithRequestContext` wrapping.
-- [ ] Every write action that takes a record ID validates existence before mutating — no silent "0 rows updated" success.
-- [ ] New schema columns added for v1.2 are additive (nullable or with defaults), applied via `drizzle-kit generate` + `drizzle-kit migrate`, manually applied to gymos-demo Neon.
-- [ ] Agent system prompt instructs agent to call `view-screen` before any write to check for open editor state.
+- [ ] **Provisioning idempotency:** Re-run the provisioning job for an already-provisioned studio and confirm zero new Neon/Vercel/Fly resources are created.
+- [ ] **Rollback completeness:** Deliberately fail at each step (Neon created, Vercel created, Fly deploy) and confirm rollback leaves zero orphaned resources in all three providers.
+- [ ] **Slug uniqueness:** Concurrent signup test for the same slug — confirm exactly one provisioning run proceeds, the other receives a 409.
+- [ ] **PII boundary (Zod strict):** POST a telemetry payload containing `member_email: "test@test.com"` to the HQ ingest endpoint — confirm 422.
+- [ ] **PII in logs:** Trigger a WhatsApp opt-in error in the studio worker and confirm the error log contains a member UUID, not an email address.
+- [ ] **HQ schema guard:** Add a `database_url` column to the HQ `studios` table in a test migration and confirm the CI guard fails.
+- [ ] **WhatsApp opt-out race:** Enqueue a heartbeat campaign and simultaneously process an opt-out webhook for a member in the campaign — confirm the opted-out member receives no send.
+- [ ] **Template approval gate:** Run the GOD campaign runner with a template in `meta_approval_status = 'pending'` — confirm a clear error is logged and no sends are enqueued.
+- [ ] **Fork boundary:** `git diff upstream/main HEAD -- templates/` returns empty output after all HQ template copies are made.
+- [ ] **HQ org seed:** Log in as the HQ super-admin immediately after `runMigrations` and confirm HQ Brain and Dispatch show content (not empty) when documents are created.
+- [ ] **Stuck-job alert:** Force a provisioning pg-boss job to `failed` state — confirm the HQ watchdog fires an operator alert within 5 minutes.
+- [ ] **DNS propagation timing:** Complete a real provisioning run and confirm the provisioning state machine uses the Vercel deploy URL (not subdomain) for the healthcheck.
+- [ ] **Worker heartbeat alert:** Stop the studio worker process — confirm HQ watchdog alerts within 15 minutes.
 
 ---
 
 ## Recovery Strategies
 
 | Pitfall | Recovery Cost | Recovery Steps |
-|---------|---------------|----------------|
-| Agent cancelled a class with bookings (no pass refund) | HIGH | Manually insert negative `pass_debits` rows for affected bookings; notify members by phone if applicable; restore `class_occurrences.status` to `scheduled` if within 24h. |
-| Agent flipped `whatsapp_opt_in` / `marketing_consent` | HIGH | Restore via Neon PITR (6-hour window) if caught quickly; otherwise audit the `whatsapp_opt_in` `source` field and manual correction. Meta compliance: if a message was sent to an opted-out member, log the incident and document remediation. |
-| Agent published a form with malformed fields | MEDIUM | Set `status = 'draft'` immediately; fix fields via UI or direct DB update; re-publish after validation. Submissions received during the window: check `form_submissions` for the affected form+time range and manually review data integrity. |
-| Agent wrote to wrong member record (hallucinated ID match) | MEDIUM | Neon PITR if within 6 hours; otherwise identify the actual change from `gym_members.updated_at` and the agent conversation history; manually revert the specific fields. |
-| Agent called a messaging action directly (bypass `propose-action`) | MEDIUM | If message is still `queued` in pg-boss: update `messages.status = 'rejected'` and mark the pg-boss job failed. If already sent: cannot recall; document as compliance incident. |
-| Breaking DB migration applied via `drizzle-kit push` | CRITICAL | Immediately restore from Neon PITR; apply only the additive migration from scratch; post-mortem to identify who/what ran the push command. |
+|---|---|---|
+| Duplicate Neon projects from non-idempotent retry | MEDIUM | Identify orphan via Neon dashboard (`GET /projects`); delete orphan via `DELETE /projects/{project_id}`; update `provisioning_runs` with correct project ID |
+| Partial-failure + Fly app pointed at wrong Neon | HIGH | Manual: `fly secrets set DATABASE_URL=<correct_url> --app gymos-<slug>`; `fly deploy --app gymos-<slug>`; run migrations; verify worker health check |
+| PII in HQ telemetry table | HIGH | Identify the offending rows; delete them with a WHERE clause (audit-logged); fix the telemetry payload code and the Zod schema; re-run affected telemetry periods from aggregate queries only; log the incident |
+| Studio secrets leaked to HQ Neon in plain text | CRITICAL | Rotate all affected secrets immediately (Stripe key, WhatsApp App Secret, Better-auth secret per studio); update Fly secrets + Vercel env for each affected studio; audit HQ Neon access logs for reads of the compromised rows |
+| Templates not approved blocking campaigns | LOW | Resubmit templates via Meta Graph API; set `meta_approval_status = 'pending'` in studio DB; campaigns auto-resume when the recurring check job detects `APPROVED` status from Meta |
+| Stuck provisioning job | LOW | Query `pgboss.job` for the stuck step; manually invoke the step's idempotent handler via HQ admin action; or mark the run `failed_terminal` to trigger rollback and restart |
+| Studio worker crashed and not restarting | MEDIUM | `fly logs --app gymos-<slug>` to identify crash cause; `fly secrets set` any missing secrets; `fly deploy --app gymos-<slug>` to force restart; verify `/healthz` returns 200 |
+| HQD owner message sent from wrong WABA | MEDIUM | Identify sent messages via Meta Business Manager for the studio WABA; notify affected owners that the message was sent in error; document as compliance incident; fix HQD send path to use HQ WABA before next run |
+
+---
+
+## Pitfall-to-Phase Mapping
+
+| Pitfall | Prevention Phase | Verification |
+|---|---|---|
+| P-01: Non-idempotent provisioning | BD-PROV | Re-run provisioning; confirm no new resources |
+| P-02: Partial failure + no rollback | BD-PROV | Injected failures at each step; zero orphans after rollback |
+| P-03: Slug race condition | BD-PROV | Concurrent signup test; one succeeds, one 409 |
+| P-04: Secret leakage via logs | BD-PROV | Pino log audit; HQ Neon provisioning_runs schema inspection |
+| P-05: DNS propagation false rollback | BD-PROV | Observe first real provisioning run; healthcheck uses Vercel deploy URL |
+| P-06: Abusive signups + cost blowout | BD-PROV | 50 rapid signups; confirm rate limiter fires; zero provisioning jobs enqueued |
+| T-01: Telemetry PII payload | BD-TEL | PII payload → HQ ingest → 422 confirmed |
+| T-02: Error messages carry PII upward | BD-TEL | ESLint rule; Better Stack search for email patterns in worker logs |
+| T-03: HQ receives studio DB credentials | BD-HQ-FND | CI guard on HQ schema; studios table inspection |
+| T-04: Token records carry prompt content | BD-TEL | `ai_token_usage` schema audit; no session or prompt columns |
+| W-01: Heartbeat ignores opt-out | BD-GOD | Opt-out webhook → campaign enqueue → no send confirmed |
+| W-02: Sending storm from concurrent studios | BD-GOD | 3+ studio concurrent campaign; confirms staggered start times in logs |
+| W-03: Owner messages via wrong WABA | BD-HQD | HQD send code inspection; no studio WABA references |
+| W-04: Templates not approved before campaigns | BD-PROV + BD-GOD | Campaign runner with `meta_approval_status = 'pending'` → clear error |
+| F-01: Fork boundary violation | BD-HQ-FND | `git diff upstream/main HEAD -- templates/` is empty |
+| F-02: Dispatch/Brain org model mismatch | BD-HQ-FND | Super-admin login; Brain and Dispatch return content |
+| F-03: HQ Brain ingests member PII | BD-HQB | CSV upload with email column → rejection confirmed |
+| O-01: Stuck provisioning + no alert | BD-PROV | Force job to `failed`; operator alert within 5 minutes |
+| O-02: Telemetry failure → false at-risk | BD-TEL | Set `last_telemetry_received_at` to 49h ago; studio excluded from at-risk cohort |
+| O-03: Fly cost scaling unmonitored | BD-PROV | Fly budget alerts configured; auto_stop in fly.toml template |
+| O-04: Worker crash + no recovery path | BD-PROV | Kill worker; Fly auto-restarts; HQ watchdog fires heartbeat alert within 15 min |
 
 ---
 
 ## Sources
 
-All findings at HIGH confidence — derived directly from codebase inspection on 2026-06-18:
-
-- `apps/staff-web/server/db/schema.ts` — `gym_members` (consent columns), `whatsapp_opt_in` (optedOutAt, source), `class_occurrences` (status enum), `forms` (fields text column), `dashboardProposals` (actionName enum + ACTION_ALLOWLIST)
-- `apps/staff-web/features/forms/types.ts` — `FormField` interface (id, type, label, required, options); `FormFieldType` enum (the 11 valid types)
-- `apps/staff-web/features/forms/handlers/submissions.ts` — `JSON.parse(form.fields)` (line 143); field whitelist / required validation; `enqueueOutboundWhatsApp` inside lead-ack (line 518); `ON CONFLICT (member_id) DO NOTHING` opt-in upsert pattern
-- `apps/staff-web/actions/propose-action.ts` — `ACTION_ALLOWLIST` (hardcoded to 2 actions); `approve-proposal.ts` dynamic import + re-validate pattern
-- `apps/staff-web/server/plugins/agent-chat.ts` — current tool list (flat, not tab-segmented); system prompt tier structure
-- `apps/staff-web/AGENTS.md` — "Adding a New Gym Action" steps; Tier 1/2/3 posture; compliance gate description; `guard:allow-unscoped` pattern
-- Root `AGENTS.md` — "No breaking database changes — ever" (drizzle-push incident 2026-04-21, PR #252); "No unscoped queries" (slides incident 2026-04-28); "Optimistic UI by default"; "No DELETE without a WHERE"
-- `.planning/PROJECT.md` — v1.2 scope (Forms, Schedule, Members write tools); migration drift note (manual apply to Neon); `propose-action` posture per operation type; single-tenant tenancy model
+- `.planning/PROJECT.md` (2026-06-19): fork boundary, no-breaking-DB-changes, PII hard rule ("no member/lead PII ever flows up to HQ"), WhatsApp sender-layer enforcement, pg-boss queue model, single-tenant/multi-tenant deploy, provisioning automation as "key risk"
+- `AGENTS.md` conventions: no-unscoped-queries guard, no-drizzle-push guard, integration-webhooks queue pattern, no breaking DB changes (real incident: PR #252, nine templates, framework tables dropped in prod 2026-04-21), no unscoped queries (real incident: slides decks bug 2026-04-28), `accessFilter` + `ownableColumns()` model
+- Neon Management API reference: `POST /projects` has no idempotency key parameter; create always produces a new project; verified by API reference structure
+- Meta WhatsApp Cloud API documentation: template approval is asynchronous (24-72 hours per template per WABA); per-recipient template rate limits; opt-in requirements for template sends outside the 24-hour conversation window; `template_not_approved` error code
+- Fly.io documentation: `auto_stop_machines`, `min_machines_running`, process groups in `fly.toml`, health check configuration; machine compute cost model (always-on minimum cost per machine)
+- pg-boss documentation: `expireInSeconds` and `retryLimit` job options; `pgboss.job` state machine (created → active → completed / failed / expired); lack of cross-job-type ordering guarantees
+- Vercel Projects API documentation: project creation and environment variable management are separate API operations
+- GymClassOS v1 post-mortems (from memory in PROJECT.md and AGENTS.md): member upsert dual-unique-key gotcha (92cd3b6a), migration drift requiring manual apply to Neon, WhatsApp pipeline MYÜTIK relay and credential-scope issues
 
 ---
-*Pitfalls research for: v1.2 Agentic Tab Editing — GymClassOS Agent Write Access*
-*Researched: 2026-06-18*
-*Scope: Agent write-access pitfalls only. v1.1 UI Redesign pitfalls are in git history at the previous PITFALLS.md version.*
+
+*Pitfalls research for: GymClassOS v2.0 — Self-Serve Platform + Two-Tier Brain/Dispatcher*
+*Researched: 2026-06-19*
+*Supersedes: v1.2 Agentic Tab Editing PITFALLS.md (archived in git history)*

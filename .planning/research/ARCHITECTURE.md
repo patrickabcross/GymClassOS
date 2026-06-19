@@ -1103,3 +1103,840 @@ Within each tab: **Actions first, then navigation sync, then system prompt, then
 *v1.2 agentic tab editing integration architecture -- 2026-06-18*
 *Confidence: HIGH -- all claims from direct inspection of `apps/staff-web/` working tree on `master` branch*
 *Files read: `apps/staff-web/server/plugins/agent-chat.ts`, `apps/staff-web/actions/approve-proposal.ts`, `apps/staff-web/actions/propose-action.ts`, `apps/staff-web/actions/send-template-to-members.ts`, `apps/staff-web/server/routes/api/forms/[...path].ts`, `apps/staff-web/app/hooks/use-navigation-state.ts`, `apps/staff-web/actions/view-screen.ts`, `apps/staff-web/app/routes/gymos.forms._index.tsx`, `apps/staff-web/app/routes/gymos.schedule.tsx`, `apps/staff-web/app/routes/gymos.members.tsx`, `apps/staff-web/server/db/schema.ts`, `.agents/skills/context-awareness/SKILL.md`, `.agents/skills/real-time-sync/SKILL.md`, `.planning/PROJECT.md`, `AGENTS.md`*
+
+
+---
+
+---
+
+# v2.0 Self-Serve Platform + Two-Tier Brain/Dispatcher — Integration Architecture
+
+**Milestone:** v2.0 — Operator HQ (`apps/hq`) + Zero-touch Provisioning + PII-free Telemetry + Tier-2 Gym-owner Brain/Dispatcher
+**Researched:** 2026-06-19
+**Confidence:** HIGH for component topology (from direct repo inspection); MEDIUM for provisioning state-machine (Neon/Vercel/Fly APIs confirmed to exist; exact idempotency contracts unverified in prod); MEDIUM for Anthropic SDK token instrumentation (usage fields confirmed in SDK docs; exact wrapper integration point needs BD1 audit of createAgentChatPlugin internals)
+
+---
+
+## V2-0. The Three Structural Decisions That Drive v2.0
+
+Before diagrams: the constraints from PROJECT.md that shape this milestone's architecture.
+
+1. **apps/hq is a NEW deployable above the tenant layer.** It has its own Neon project, its own Better-auth instance, its own pnpm workspace app. It is NOT a super-admin route inside `apps/staff-web`. The existing per-studio deploys are untouched; HQ sits above them.
+2. **HQ never queries a studio Neon.** All cross-tier data flows upward (studio → HQ telemetry push). HQ reads its own Neon exclusively. This is the structural PII boundary: member data never leaves the studio Neon, because HQ has no credentials to reach it.
+3. **Provisioning runs inside HQ's own Fly worker.** The provisioning orchestrator is a multi-step, long-running workflow with external API calls (Neon API, Vercel API, Fly Machines API). It cannot run in a Vercel serverless function (timeout) or in an H3 loader (same problem). It runs as a pg-boss job inside a dedicated `services/hq-worker` Fly process against HQ's Neon.
+
+---
+
+## V2-1. System Overview (Three Tiers + HQ Layer)
+
+```
+ TIER 1 — OPERATOR HQ  (single instance, operator-only access)
+ ┌────────────────────────────────────────────────────────────────────┐
+ │  apps/hq  (Vercel — separate project from apps/staff-web)          │
+ │  ┌──────────────────────────────────────────────────────────────┐  │
+ │  │  React Router v7 SSR — single super-admin Better-auth login  │  │
+ │  │  /hq               dashboard / pilot report                  │  │
+ │  │  /hq/studios       provisioned studio list + health          │  │
+ │  │  /hq/brain         HQ Brain (gym-owner knowledge base)       │  │
+ │  │  /hq/dispatch      HQ Dispatcher (comms to gym-owners only)  │  │
+ │  │  /hq/content       website content generation (Content tmpl) │  │
+ │  │  /hq/content/video video generation (Videos template)        │  │
+ │  │  POST /api/signup  public signup endpoint (no auth guard)     │  │
+ │  │  POST /api/telemetry  ingest endpoint (token auth, no session)│  │
+ │  └──────────────────────┬───────────────────────────────────────┘  │
+ │                         │ Drizzle / neon-http                       │
+ │                         ▼                                           │
+ │  HQ Neon Postgres  (hq-prod — single project)                      │
+ │  ┌──────────────────────────────────────────────────────────────┐  │
+ │  │  hq_studios           provisioned customer registry          │  │
+ │  │  hq_provisioning_runs step-by-step saga log                  │  │
+ │  │  hq_studio_tokens     per-studio bearer token hashes         │  │
+ │  │  hq_telemetry_snapshots  aggregate metrics, NO PII           │  │
+ │  │  hq_token_usage       AI token counts by studio + date       │  │
+ │  │  brain_*              Brain template tables (gym-owner model) │  │
+ │  │  dispatch_*           Dispatch template tables                │  │
+ │  │  documents / compositions  Content + Video template tables   │  │
+ │  │  pgboss.*             HQ worker queue schema                  │  │
+ │  └──────────────────────────────────────────────────────────────┘  │
+ │                                                                     │
+ │  services/hq-worker  (Fly.io — separate app from gymos-edge-webhooks)  │
+ │  ┌──────────────────────────────────────────────────────────────┐  │
+ │  │  pg-boss workers:                                            │  │
+ │  │   provision-studio    Saga orchestrator (8 forward steps)    │  │
+ │  │   brain-ingest        HQ Brain distillation queue            │  │
+ │  └──────────────────────────────────────────────────────────────┘  │
+ └────────────────────────────────────────────────────────────────────┘
+           │ authenticated telemetry POST (aggregate only, no PII)
+           │ per-studio bearer token
+           ▼
+ TIER 2 — STUDIO DEPLOY  (one per gym customer, fully independent)
+ ┌────────────────────────────────────────────────────────────────────┐
+ │  apps/staff-web  (Vercel per-studio)                               │
+ │  EXISTING routes + ADDITIVE in v2.0:                               │
+ │   /gymos/brain      Tier-2 Brain (classes, fitness methods, brand) │
+ │   /gymos/settings   extended with digest/heartbeat toggles         │
+ │  NEW: anthropic.ts wrapper instruments every SDK call              │
+ │                         │ Drizzle / neon-http                      │
+ │                         ▼                                          │
+ │  Studio Neon Postgres  (per-studio — unchanged table topology)     │
+ │  ADDITIVE tables in v2.0:                                          │
+ │   studio_telemetry_state   token accumulator singleton             │
+ │   studio_owner_config      owner phone, timezone, GOD toggles      │
+ │   brain_*                  GOB Brain template tables               │
+ │                                                                    │
+ │  services/worker  (Fly.io per-studio — EXTENDED, not replaced)    │
+ │  EXISTING queues: inbound-whatsapp, outbound-whatsapp,             │
+ │                   stripe-event, class-reminder, housekeeping       │
+ │  NEW queues (v2.0):                                                │
+ │   telemetry-push       cron 02:00 UTC daily                        │
+ │   daily-owner-digest   cron 06:00 studio-tz daily                 │
+ │   heartbeat-reactivate cron 09:00 studio-tz daily                 │
+ └────────────────────────────────────────────────────────────────────┘
+           │
+  Tier-3 members via mobile + WhatsApp — architecture unchanged
+```
+
+---
+
+## V2-2. Component Responsibilities (New and Modified)
+
+### New Components
+
+| Component | Location | Responsibility | Owns (writes) | Never writes |
+|---|---|---|---|---|
+| `apps/hq` | Vercel — separate deploy | Operator dashboard: studio list, HQ Brain, HQ Dispatcher, Content/Video generation | HQ Neon only | ANY studio Neon — structurally impossible (no studio DB URL in HQ env) |
+| `packages/hq-schema` | pnpm workspace package | Drizzle schema for HQ Neon (shared between `apps/hq` and `services/hq-worker`) | Schema definitions only | — |
+| `services/hq-worker` | Fly.io — new app `hq-worker` | Provisioning Saga orchestrator + HQ Brain ingest queue | HQ Neon (provisioning runs, telemetry) | Studio Neons |
+| HQ signup endpoint | `apps/hq/server/routes/api/signup.ts` | Public H3 route: validate signup, insert `hq_studios`, enqueue `provision-studio` | `hq_studios` | — |
+| HQ telemetry ingest | `apps/hq/server/routes/api/telemetry.ts` | Token-authenticated public route: validate, Zod-parse, upsert snapshots | `hq_telemetry_snapshots`, `hq_token_usage` | Any member-level data — Zod schema rejects PII fields at parse time |
+| Anthropic wrapper | `apps/staff-web/server/lib/anthropic.ts` (new) | Wraps `anthropic.messages.create`; extracts `usage.input_tokens + output_tokens`; calls accumulator | `studio_telemetry_state` token columns | Nothing else |
+| Telemetry push job | `services/worker/src/queues/telemetry-push.ts` (new) | Daily cron: read `studio_telemetry_state`, assemble `TelemetrySnapshot`, POST to HQ ingest, reset accumulators | `studio_telemetry_state.last_push_at` | HQ Neon directly |
+| Daily digest job | `services/worker/src/queues/daily-owner-digest.ts` (new) | Generates owner day-summary; enqueues outbound-whatsapp for owner phone | `messages` (via queue enqueue) | Bypasses sendMessage — NEVER |
+| Heartbeat reactivate job | `services/worker/src/queues/heartbeat-reactivate.ts` (new) | Queries at-risk members; enqueues one outbound-whatsapp per member (up to batch limit) | Enqueues to `outbound-whatsapp` only | Member data sent to HQ |
+
+### Modified Components
+
+| Component | Location | Change | Category | Risk |
+|---|---|---|---|---|
+| `services/worker/src/index.ts` | Existing | Register 3 new pg-boss queues + workers + 3 cron schedules | TEL + GOD | Low — additive |
+| `services/worker/src/lib/env.ts` | Existing | Add `HQ_INGEST_URL`, `STUDIO_TELEMETRY_TOKEN`, `STUDIO_ID`, `STUDIO_TIMEZONE` (all optional; absent = feature disabled) | TEL + GOD | Low |
+| `apps/staff-web/server/db/schema.ts` | Existing | Add `studio_telemetry_state`, `studio_owner_config`, Brain template tables | TEL + GOD + GOB | Low — additive |
+| `apps/staff-web/server/plugins/agent-chat.ts` | Existing | Replace direct Anthropic SDK call with `anthropic.ts` wrapper; add `ask-brain` to tool list + system prompt | TEL + GOB | Medium |
+| `packages/queue/src/types.ts` | Existing | Add `TelemetryPushPayload`, `DailyDigestPayload`, `HeartbeatReactivatePayload` Zod types | TEL + GOD | Low |
+| `packages/queue/src/index.ts` | Existing | Export 3 new enqueue helpers | TEL + GOD | Low |
+| `pnpm-workspace.yaml` | Existing | Add `packages/hq-schema`, `services/hq-worker` to workspace | HQ-FND | Low |
+
+---
+
+## V2-3. Fork-Boundary Discipline for `apps/hq`
+
+`apps/hq` adapts four upstream templates: Dispatch, Brain, Content, Videos. The fork-boundary rule is identical to how `apps/staff-web` adapts Mail + Calendar:
+
+```
+gymos/
+├── apps/
+│   ├── staff-web/                    EXISTING — unchanged topology
+│   └── hq/                           NEW sibling app
+│       ├── app/
+│       │   └── routes/
+│       │       ├── hq._index.tsx     HQ dashboard (original)
+│       │       ├── hq.studios.tsx    Studio list + health (original)
+│       │       ├── hq.brain.tsx      COPY from templates/brain/app/routes/
+│       │       ├── hq.dispatch.tsx   COPY from templates/dispatch/app/routes/
+│       │       ├── hq.content.tsx    COPY from templates/content/app/routes/
+│       │       └── hq.videos.tsx     COPY from templates/videos/app/routes/
+│       ├── actions/
+│       │   ├── run.ts                COPY from templates/brain/actions/run.ts
+│       │   ├── ask-brain.ts          COPY from templates/brain/actions/ask-brain.ts
+│       │   ├── list-studios.ts       ORIGINAL — HQ-specific
+│       │   ├── trigger-provision.ts  ORIGINAL — enqueues provision-studio job
+│       │   └── ...                   other brain/dispatch/content/video action copies
+│       ├── server/
+│       │   ├── db/
+│       │   │   ├── schema.ts         imports from packages/hq-schema (NOT staff-web schema)
+│       │   │   └── migrations/       HQ-only migrations (separate from studio migrations)
+│       │   ├── plugins/
+│       │   │   ├── agent-chat.ts     HQ agent; HQD system prompt constraint built in
+│       │   │   └── db.ts             runMigrations for HQ Neon
+│       │   └── middleware/
+│       │       └── auth.ts           Better-auth against HQ Neon (separate instance)
+│       ├── react-router.config.ts
+│       ├── vite.config.ts
+│       ├── drizzle.config.ts         points to HQ_DATABASE_URL (NOT studio DATABASE_URL)
+│       ├── vercel.json               separate Vercel project
+│       └── package.json              name: "@gymos/hq"
+│
+├── packages/
+│   ├── queue/                        EXISTING + extended
+│   └── hq-schema/                   NEW
+│       ├── src/
+│       │   ├── schema.ts             hq_studios, hq_provisioning_runs, hq_studio_tokens,
+│       │   │                         hq_telemetry_snapshots, hq_token_usage
+│       │   ├── telemetry.ts          TelemetrySnapshot Zod schema (shared with worker)
+│       │   └── index.ts
+│       └── package.json              name: "@gymos/hq-schema"
+│
+├── services/
+│   ├── edge-webhooks/                EXISTING — unchanged
+│   ├── worker/                       EXISTING + extended (3 new queues)
+│   └── hq-worker/                   NEW
+│       ├── src/
+│       │   ├── queues/
+│       │   │   ├── provision-studio.ts  Saga orchestrator
+│       │   │   └── brain-ingest.ts      HQ Brain distillation
+│       │   ├── lib/
+│       │   │   ├── db.ts             Drizzle WS → HQ_DATABASE_URL_UNPOOLED
+│       │   │   ├── env.ts            NEON_API_KEY, VERCEL_API_TOKEN, FLY_API_TOKEN, etc.
+│       │   │   └── provision-apis/
+│       │   │       ├── neon.ts       Neon Management API wrapper
+│       │   │       ├── vercel.ts     Vercel API wrapper
+│       │   │       └── fly.ts        Fly Machines API wrapper
+│       │   └── index.ts              boots HQ worker; healthz PORT 3003
+│       ├── fly.toml                  separate Fly app (hq-worker)
+│       └── package.json              name: "@gymos/hq-worker"
+│
+└── templates/                        UNTOUCHED — fork boundary preserved
+    ├── brain/                        source for hq/actions/ copy-out
+    ├── dispatch/                     source for hq/actions/ copy-out
+    ├── content/                      source for hq/routes/ copy-out
+    └── videos/                       source for hq/routes/ copy-out
+```
+
+**Copy-out discipline:** Brain, Dispatch, Content, and Video template files are COPIED into `apps/hq/` then modified. Originals in `templates/` stay untouched. `apps/hq/server/db/schema.ts` imports from `packages/hq-schema`, not from any template barrel.
+
+---
+
+## V2-4. Provisioning Saga State Machine
+
+### Why a Saga, Not a Transaction
+
+Provisioning involves calls to three external APIs (Neon, Vercel, Fly) plus HQ DB writes. There is no distributed transaction across external APIs. The Saga pattern — forward steps with registered compensations, LIFO rollback on failure — is the correct model.
+
+### Steps (Forward)
+
+```
+Step 0: STARTED
+  Insert hq_provisioning_runs (status='started', all step_N_at = NULL)
+  Idempotency: if run row exists for this studio_id with status NOT IN
+  ('failed_terminal','completed'), skip insert and resume from last completed step
+
+Step 1: NEON_CREATED
+  POST https://console.neon.tech/api/v2/projects
+    { name: "<studio-slug>", region_id: "aws-eu-west-2", pg_version: 16 }
+  Response includes project.id + connection_uri (pooled) + connection_uri_unpooled
+  Write neon_project_id + db URLs to hq_provisioning_runs; raw credentials
+  stored encrypted in HQ secrets table
+  Compensation: DELETE /v2/projects/{project_id}
+
+Step 2: MIGRATIONS_RUN
+  Connect to new Neon (DATABASE_URL_UNPOOLED from Step 1)
+  Run drizzle-kit migrate against apps/staff-web schema
+  Compensation: none (Step 1 compensation deletes the project)
+
+Step 3: SEED_RUN
+  Run studio seed script against new Neon:
+    - Create admin user (owner_email from signup)
+    - Default class definitions
+    - Default WhatsApp templates
+    - INSERT studio_owner_config (owner_phone, studio_timezone from signup form)
+  Compensation: none (project deletion handles cleanup)
+
+Step 4: VERCEL_PROJECT_CREATED
+  POST https://api.vercel.com/v9/projects
+    { name: "gymos-<studio-slug>", framework: "react-router",
+      gitRepository: { type: "github", repo: "<fork-org/gymos>" } }
+  PUT /v9/projects/{id}/env  -- set DATABASE_URL, BETTER_AUTH_SECRET,
+    ANTHROPIC_API_KEY, HQ_INGEST_URL, STUDIO_ID, STUDIO_TIMEZONE, etc.
+  POST /v13/deployments  -- trigger initial deploy
+  Write vercel_project_id to hq_provisioning_runs
+  Compensation: DELETE /v9/projects/{project_id}
+
+Step 5: FLY_APP_CREATED
+  POST https://api.machines.dev/v1/apps
+    { app_name: "gymos-<studio-slug>-worker", org_slug: "<fly-org>" }
+  Set Fly secrets via flyctl or Machines API:
+    DATABASE_URL_UNPOOLED, WHATSAPP_ACCESS_TOKEN, STRIPE_SECRET_KEY, etc.
+  POST /v1/apps/{name}/machines  -- create machine with pre-built gymos-worker image
+    (web process: edge-webhooks; worker process: pg-boss workers)
+  Write fly_app_name to hq_provisioning_runs
+  Compensation: DELETE /v1/apps/gymos-<studio-slug>-worker
+
+Step 6: DNS_CONFIGURED
+  Set subdomain CNAME via Vercel project domain API or registrar API
+  Write subdomain to hq_provisioning_runs
+  Compensation: remove DNS record
+
+Step 7: TOKEN_ISSUED
+  Generate 256-bit random telemetry token (nanoid-based, opaque)
+  Compute token_hash = sha256(token)
+  INSERT hq_studio_tokens (studio_id, token_hash) ON CONFLICT DO NOTHING
+  Set STUDIO_TELEMETRY_TOKEN on Vercel project env + Fly app secret
+  Compensation: revoke (UPDATE hq_studio_tokens SET revoked_at=NOW())
+
+Step 8: REGISTERED  (terminal success)
+  UPDATE hq_studios SET status='active', provisioned_at=NOW()
+  UPDATE hq_provisioning_runs SET status='completed', completed_at=NOW()
+  Send "your studio is live" email to owner
+  No compensation needed
+```
+
+### Idempotency Contract
+
+Each step checks `step_N_at IS NULL` before executing. If already set, skip forward.
+
+- Neon: on 409 (duplicate project name), read the existing `project_id` from the error response and proceed.
+- Vercel: on 409 (project name conflict), fetch the existing project by name and continue.
+- Fly: on 400 (app name taken), treat as success and continue.
+- Token issuance: `ON CONFLICT (studio_id) DO NOTHING` — second call is a no-op.
+
+### Rollback (Compensation)
+
+On step N failure after step N-1 succeeded, execute compensations in reverse (LIFO):
+- Each compensation is best-effort; failures are logged to `hq_provisioning_runs.compensation_errors` JSON, not re-raised.
+- Terminal failure: set `status='failed_terminal'`, `hq_studios.status='provision_failed'`. HQ UI exposes manual cleanup.
+
+### Where It Runs
+
+The `provision-studio` pg-boss job runs in `services/hq-worker` against HQ Neon only. pg-boss drives exponential back-off retries. Job payload: `{ studioId, slug, ownerEmail, planId }`.
+
+### Signup Trigger
+
+The marketing site signup form POSTs to `POST /api/signup` in `apps/hq/server/routes/api/signup.ts`:
+1. Validate email + plan; check no duplicate `hq_studios` row.
+2. INSERT `hq_studios` (status='pending').
+3. Enqueue `provision-studio` job.
+4. Return 202. Redirect to `/pending` page. Completion email sent at Step 8.
+
+This endpoint is in `publicPaths` for the HQ Better-auth guard — no session required.
+
+---
+
+## V2-5. Telemetry Contract
+
+### PII Boundary (Structural, Not Policy)
+
+Four structural mechanisms prevent member PII from reaching HQ:
+
+| Mechanism | What it enforces |
+|---|---|
+| HQ Neon has no studio DB credentials | HQ cannot query any studio's `gym_members`, `conversations`, or any other studio table. The only path from studio to HQ is the authenticated telemetry POST. |
+| `TelemetrySnapshot` Zod schema with strict parsing | The ingest endpoint calls `TelemetrySnapshot.parse(body)` in strict mode. Any payload field not in the schema causes a 400 rejection. The schema has no `phone`, `email`, `name`, `memberId`, or `conversationId` field. |
+| HQD system prompt constraint (text) | "You MUST NEVER send messages about specific members or reference member PII. HQ Neon contains only aggregate telemetry — no member records." The agent has nothing to leak even if the constraint were bypassed, because HQ Neon physically contains no member data. |
+| Separate auth instances | `apps/hq` Better-auth is a separate instance against HQ Neon. Studio staff cannot log in to HQ. HQ operators cannot log in to studio staff-web. Session boundary is a deployment boundary. |
+
+### Telemetry Payload Schema
+
+```typescript
+// packages/hq-schema/src/telemetry.ts
+export const TelemetrySnapshot = z.object({
+  studioId: z.string(),               // from STUDIO_ID env var (NOT derived from member data)
+  periodStart: z.string().datetime(),
+  periodEnd: z.string().datetime(),
+
+  // Engagement — aggregate counts, no PII
+  activeMembers7d: z.number().int(),
+  activeMembers30d: z.number().int(),
+  newMembersThisPeriod: z.number().int(),
+  classesHeld: z.number().int(),
+  totalBookings: z.number().int(),
+  avgFillRate: z.number(),            // 0-1 ratio
+
+  // Retention
+  atRiskCount: z.number().int(),
+  churnedThisPeriod: z.number().int(),
+
+  // AI token usage — counts only, no content
+  llmInputTokens: z.number().int(),
+  llmOutputTokens: z.number().int(),
+  llmRequestCount: z.number().int(),
+
+  // Worker health
+  outboundMessagesSent: z.number().int(),
+  outboundMessagesFailed: z.number().int(),
+});
+```
+
+### Token Authentication
+
+```
+POST https://hq.gymclassos.com/api/telemetry
+Authorization: Bearer <STUDIO_TELEMETRY_TOKEN>
+Content-Type: application/json
+<TelemetrySnapshot JSON>
+```
+
+HQ ingest handler steps:
+1. Extract `Bearer <token>`.
+2. Compute `sha256(token)`.
+3. `SELECT studio_id FROM hq_studio_tokens WHERE token_hash = $1 AND revoked_at IS NULL`.
+4. `TelemetrySnapshot.strict().parse(body)` — rejects unknown fields.
+5. `INSERT INTO hq_telemetry_snapshots ... ON CONFLICT (studio_id, period_start) DO UPDATE`.
+6. `INSERT INTO hq_token_usage ... ON CONFLICT (studio_id, date) DO UPDATE SET ... = ... + $delta`.
+7. Enqueue `brain-ingest` job to HQ pg-boss.
+8. Return 200.
+
+### Token-Usage Instrumentation (Studio Side)
+
+All Anthropic calls in `apps/staff-web` route through `createAgentChatPlugin` in `agent-chat.ts`. The wrapper intercepts at the SDK level:
+
+```typescript
+// apps/staff-web/server/lib/anthropic.ts  (NEW)
+import Anthropic from "@anthropic-ai/sdk";
+import { accumulateTokenUsage } from "./telemetry-accumulator.js";
+
+const client = new Anthropic();
+
+export async function createMessage(
+  params: Anthropic.MessageCreateParamsNonStreaming,
+) {
+  const response = await client.messages.create(params);
+  // response.usage is always present on non-streaming responses
+  await accumulateTokenUsage(
+    response.usage.input_tokens,
+    response.usage.output_tokens,
+  );
+  return response;
+}
+```
+
+`accumulateTokenUsage` does an atomic SQL increment on `studio_telemetry_state`:
+
+```typescript
+await db.execute(sql`
+  UPDATE studio_telemetry_state
+  SET token_usage_today_input  = token_usage_today_input  + ${inputTokens},
+      token_usage_today_output = token_usage_today_output + ${outputTokens},
+      request_count_today      = request_count_today + 1,
+      updated_at               = NOW()
+  WHERE id = 'singleton'
+`);
+```
+
+The telemetry push job at 02:00 UTC reads these totals and resets them after successful push.
+
+### HQ Tables
+
+```sql
+-- packages/hq-schema — new tables
+CREATE TABLE hq_studios (
+  id            TEXT PRIMARY KEY,
+  slug          TEXT UNIQUE NOT NULL,
+  display_name  TEXT NOT NULL,
+  owner_email   TEXT NOT NULL,
+  status        TEXT NOT NULL DEFAULT 'pending',
+  plan_id       TEXT,
+  provisioned_at TEXT,
+  created_at    TEXT NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE hq_provisioning_runs (
+  id                  TEXT PRIMARY KEY,
+  studio_id           TEXT NOT NULL REFERENCES hq_studios(id),
+  status              TEXT NOT NULL DEFAULT 'started',
+  neon_project_id     TEXT,
+  vercel_project_id   TEXT,
+  fly_app_name        TEXT,
+  subdomain           TEXT,
+  step_1_at TEXT, step_2_at TEXT, step_3_at TEXT, step_4_at TEXT,
+  step_5_at TEXT, step_6_at TEXT, step_7_at TEXT, step_8_at TEXT,
+  compensation_errors TEXT NOT NULL DEFAULT '{}',
+  started_at          TEXT NOT NULL DEFAULT NOW(),
+  completed_at        TEXT,
+  updated_at          TEXT NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE hq_studio_tokens (
+  studio_id   TEXT PRIMARY KEY REFERENCES hq_studios(id),
+  token_hash  TEXT NOT NULL UNIQUE,   -- sha256(token); raw token never stored
+  created_at  TEXT NOT NULL DEFAULT NOW(),
+  revoked_at  TEXT
+);
+
+CREATE TABLE hq_telemetry_snapshots (
+  id           TEXT PRIMARY KEY,
+  studio_id    TEXT NOT NULL REFERENCES hq_studios(id),
+  period_start TEXT NOT NULL,
+  period_end   TEXT NOT NULL,
+  payload_json TEXT NOT NULL,
+  received_at  TEXT NOT NULL DEFAULT NOW(),
+  UNIQUE(studio_id, period_start)
+);
+
+CREATE TABLE hq_token_usage (
+  studio_id     TEXT NOT NULL REFERENCES hq_studios(id),
+  date          TEXT NOT NULL,         -- YYYY-MM-DD
+  input_tokens  INTEGER NOT NULL DEFAULT 0,
+  output_tokens INTEGER NOT NULL DEFAULT 0,
+  request_count INTEGER NOT NULL DEFAULT 0,
+  updated_at    TEXT NOT NULL DEFAULT NOW(),
+  PRIMARY KEY(studio_id, date)
+);
+```
+
+### Studio Tables (Additive)
+
+```sql
+-- apps/staff-web/server/db/schema.ts — additive migration
+CREATE TABLE studio_telemetry_state (
+  id                       TEXT PRIMARY KEY DEFAULT 'singleton',
+  token_usage_today_input  INTEGER NOT NULL DEFAULT 0,
+  token_usage_today_output INTEGER NOT NULL DEFAULT 0,
+  request_count_today      INTEGER NOT NULL DEFAULT 0,
+  outbound_sent_today      INTEGER NOT NULL DEFAULT 0,
+  outbound_failed_today    INTEGER NOT NULL DEFAULT 0,
+  last_push_at             TEXT,
+  last_push_status         TEXT,   -- 'ok' | 'error'
+  last_push_error          TEXT,
+  updated_at               TEXT NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE studio_owner_config (
+  id                   TEXT PRIMARY KEY DEFAULT 'singleton',
+  owner_phone_e164     TEXT NOT NULL,
+  studio_timezone      TEXT NOT NULL DEFAULT 'Europe/London',
+  digest_enabled       INTEGER NOT NULL DEFAULT 1,
+  heartbeat_enabled    INTEGER NOT NULL DEFAULT 1,
+  heartbeat_batch_size INTEGER NOT NULL DEFAULT 50,
+  created_at           TEXT NOT NULL DEFAULT NOW(),
+  updated_at           TEXT NOT NULL DEFAULT NOW()
+);
+```
+
+---
+
+## V2-6. Tier-2 Gym-owner Brain (GOB)
+
+GOB is the Brain template adapted for a gym studio's own knowledge: classes, fitness methods, instructor bios, studio ethos, brand voice. It runs INSIDE each studio deploy, not in HQ.
+
+**Component placement:**
+- Copy `templates/brain/app/routes/` into `apps/staff-web/app/routes/gymos.brain.tsx`
+- Copy `templates/brain/actions/` into `apps/staff-web/actions/` (prefixed `brain-*` to avoid collision)
+- Add Brain template tables to `apps/staff-web/server/db/schema.ts` via additive migration: `brain_sources`, `brain_raw_captures`, `brain_knowledge`, `brain_proposals`, `brain_sync_runs`, `brain_ingest_queue`
+
+**System prompt integration:** `apps/staff-web/server/plugins/agent-chat.ts` system prompt gains a Brain section; `ask-brain` is added to the tool list so the gym-facing agent can query studio knowledge (class descriptions, instructor specialties, studio policies).
+
+**What GOB does NOT contain:** member data. GOB sources are staff-authored or imported from public studio content (website copy, class descriptions). The PII boundary holds because GOB has no fields for member records.
+
+---
+
+## V2-7. Tier-2 Gym-owner Dispatcher (GOD)
+
+### Job 1: `daily-owner-digest` (cron: 06:00 studio-tz)
+
+1. pg-boss cron fires at 06:00 local time (from `studio_owner_config.studio_timezone`).
+2. Worker calls existing domain functions (reused as pure functions, not via HTTP): `list-fill-rate` logic, `list-renewals` logic, `list-at-risk-members` logic.
+3. Assembles digest data. Calls Anthropic SDK (through `anthropic.ts` wrapper) to generate natural-language summary.
+4. Looks up owner phone from `studio_owner_config.owner_phone_e164`.
+5. Inserts `messages` row (status='queued'). Enqueues to `outbound-whatsapp` queue with template `owner_daily_digest`.
+6. The existing `sendMessage` chokepoint applies all gates (opt-in, window, template-approved) identically to staff sends. No backdoor.
+
+### Job 2: `heartbeat-reactivate` (cron: 09:00 studio-tz)
+
+1. pg-boss cron fires at 09:00 local time.
+2. Run `list-at-risk-members` SQL query. Get list of at-risk member IDs.
+3. For each (up to `studio_owner_config.heartbeat_batch_size = 50` per day):
+   a. Skip if no `whatsapp_opt_in` row (opt-in pre-checked here AND re-checked in chokepoint).
+   b. INSERT `messages` row (status='queued', messageId='msg_`<nanoid>`').
+   c. `enqueueOutboundWhatsApp({ messageId, memberId, payload: { type: 'template', name: 'member_reactivation', vars: {...} } })`.
+4. Accumulate `outbound_sent_today` in `studio_telemetry_state`.
+
+The existing `sendMessage` chokepoint in `services/worker/src/domain/sendMessage.ts` is the ONLY path to the WhatsApp API. GOD does not call `sendViaMyutik` directly.
+
+---
+
+## V2-8. HQ Brain (HQB) and HQ Dispatcher (HQD)
+
+### HQB: Gym-owner Model
+
+HQB is the Brain template inside `apps/hq`, pointed at HQ Neon. Sources:
+- `hq_telemetry_snapshots` (aggregate metrics, no PII) — each studio is a `brain_sources` row; each telemetry period becomes a `brain_raw_captures` entry processed by the Brain distillation pipeline into `brain_knowledge`.
+- HQ-authored notes about studios (provisioning history, health notes, plan info).
+
+The HQ agent uses `ask-brain` to answer: "Which studios are at risk of churning?", "What's Hustle's engagement trend over the last 30 days?", "Which studios are not using the digest feature?".
+
+### HQD: Gym-owner Dispatcher
+
+HQD is the Dispatch template inside `apps/hq`. Destinations are gym-owner contact details. The system prompt enforces the operator communication constraint:
+
+```
+HQD CONSTRAINT: You may only send messages to gym-owners about GymClassOS
+product features, system updates, onboarding guidance, or aggregate performance
+insights (never quoting specific member counts from a studio's data unless
+derived from their own telemetry snapshot). You MUST NEVER send a message that
+references, implies knowledge of, or derives from any specific gym member,
+booking, conversation, or any PII. HQ Neon contains only aggregate telemetry
+and studio registry data — never member records.
+```
+
+HQD uses the Dispatch template's `dispatchDestinations` table for gym-owner contact info. Outbound messages flow through the operator's own WhatsApp Business account (separate WABA from any studio's WABA).
+
+---
+
+## V2-9. Data Flow Diagrams
+
+### Flow 1: Signup to Provisioned Studio (PROV)
+
+```
+Marketing site form → POST /api/signup (apps/hq, public)
+  validate + INSERT hq_studios (status='pending')
+  enqueueProvisionStudio to HQ pg-boss → return 202
+    ↓
+services/hq-worker: provision-studio job
+  Step 1 → Neon project created → project_id + db URLs saved
+  Step 2 → migrations run against new Neon
+  Step 3 → seed (admin user, class defs, owner_config row)
+  Step 4 → Vercel project created + env vars set + deploy triggered
+  Step 5 → Fly app + machines created + secrets set
+  Step 6 → subdomain DNS configured
+  Step 7 → telemetry token generated + hashed → stored + set as env var
+  Step 8 → hq_studios status='active' → owner email sent
+```
+
+### Flow 2: Daily Telemetry Push (TEL)
+
+```
+services/worker (studio) — 02:00 UTC cron
+  telemetry-push job
+    1. SELECT FROM studio_telemetry_state (singleton row)
+    2. COUNT active members 7d/30d, classes, bookings
+    3. Assemble TelemetrySnapshot → Zod validate (no PII fields exist)
+    4. POST https://hq.gymclassos.com/api/telemetry
+         Authorization: Bearer <STUDIO_TELEMETRY_TOKEN>
+    5. On 200: RESET accumulator columns, UPDATE last_push_at='ok'
+    6. On error: log, keep accumulators (retry accumulates into next day)
+        ↓
+apps/hq POST /api/telemetry (token-authenticated, no session)
+  sha256(token) → lookup hq_studio_tokens → get studio_id
+  TelemetrySnapshot.strict().parse(body) → rejects PII
+  UPSERT hq_telemetry_snapshots
+  UPSERT hq_token_usage
+  enqueue brain-ingest to HQ pg-boss
+  return 200
+        ↓
+services/hq-worker: brain-ingest job
+  process new snapshot → brain_raw_captures → Brain distillation pipeline
+  → brain_knowledge entries (gym-owner aggregate performance facts)
+```
+
+### Flow 3: Heartbeat Reactivation (GOD)
+
+```
+services/worker (studio) — 09:00 studio-tz cron
+  heartbeat-reactivate job
+    1. list-at-risk-members SQL → at-risk member IDs
+    2. For each (up to batch_size):
+       pre-check opt-in → skip if missing
+       INSERT messages (status='queued', messageId='msg_<nanoid>')
+       enqueueOutboundWhatsApp({ messageId, memberId, template: 'member_reactivation' })
+    3. accumulate outbound_sent_today in studio_telemetry_state
+        ↓
+outbound-whatsapp queue (EXISTING — unchanged)
+  sendMessage chokepoint:
+    hasOptIn re-check (defence in depth)
+    isInWindow gate
+    isTemplateApproved gate
+    sendViaMyutik (EXISTING path)
+    UPDATE messages.status = 'sent' | 'failed'
+```
+
+---
+
+## V2-10. New vs Modified Components (Canonical List)
+
+### New Files / Packages
+
+| Component | Location | Category |
+|---|---|---|
+| `apps/hq/` (entire app) | `apps/hq/` | HQ-FND |
+| `packages/hq-schema/` | `packages/hq-schema/` | HQ-FND |
+| `services/hq-worker/` | `services/hq-worker/` | HQ-FND + PROV |
+| `services/hq-worker/src/queues/provision-studio.ts` | above | PROV |
+| `services/hq-worker/src/lib/provision-apis/neon.ts` | above | PROV |
+| `services/hq-worker/src/lib/provision-apis/vercel.ts` | above | PROV |
+| `services/hq-worker/src/lib/provision-apis/fly.ts` | above | PROV |
+| `apps/hq/server/routes/api/signup.ts` | `apps/hq/` | PROV |
+| `apps/hq/server/routes/api/telemetry.ts` | `apps/hq/` | TEL |
+| `apps/hq/actions/list-studios.ts` | `apps/hq/` | HQ-FND |
+| `apps/hq/actions/trigger-provision.ts` | `apps/hq/` | PROV |
+| Brain action copies in `apps/hq/actions/` | `apps/hq/` | HQB |
+| Dispatch action copies in `apps/hq/actions/` | `apps/hq/` | HQD |
+| Content + Video route copies in `apps/hq/app/routes/` | `apps/hq/` | HQD |
+| `apps/staff-web/server/lib/anthropic.ts` | `apps/staff-web/` | TEL |
+| `apps/staff-web/server/lib/telemetry-accumulator.ts` | `apps/staff-web/` | TEL |
+| `services/worker/src/queues/telemetry-push.ts` | `services/worker/` | TEL |
+| `services/worker/src/queues/daily-owner-digest.ts` | `services/worker/` | GOD |
+| `services/worker/src/queues/heartbeat-reactivate.ts` | `services/worker/` | GOD |
+| `apps/staff-web/app/routes/gymos.brain.tsx` | `apps/staff-web/` | GOB |
+| Brain action copies in `apps/staff-web/actions/brain-*.ts` | `apps/staff-web/` | GOB |
+| Brain tables migration | `apps/staff-web/server/db/migrations/` | GOB |
+| `studio_telemetry_state` migration | `apps/staff-web/server/db/migrations/` | TEL |
+| `studio_owner_config` migration | `apps/staff-web/server/db/migrations/` | GOD |
+| `packages/hq-schema/src/telemetry.ts` | `packages/hq-schema/` | TEL |
+| `services/hq-worker/src/queues/brain-ingest.ts` | `services/hq-worker/` | HQB |
+
+### Modified Files
+
+| File | Change | Category | Risk |
+|---|---|---|---|
+| `services/worker/src/index.ts` | Register 3 new queues + cron schedules | TEL + GOD | Low — additive |
+| `services/worker/src/lib/env.ts` | Add optional env vars for TEL + GOD | TEL + GOD | Low |
+| `apps/staff-web/server/db/schema.ts` | Add 2 new tables + Brain tables | TEL + GOD + GOB | Low — additive |
+| `apps/staff-web/server/plugins/agent-chat.ts` | Anthropic wrapper + brain tool exposure | TEL + GOB | Medium |
+| `packages/queue/src/types.ts` | 3 new payload types | TEL + GOD | Low |
+| `packages/queue/src/index.ts` | 3 new enqueue helpers | TEL + GOD | Low |
+| `pnpm-workspace.yaml` | Add 2 new workspace members | HQ-FND | Low |
+
+### Explicitly Untouched
+
+| Path | Reason |
+|---|---|
+| `templates/*` | Fork boundary — all adaptation via copy-out |
+| `services/worker/src/domain/sendMessage.ts` | GOD reuses the chokepoint without modification |
+| `services/worker/src/queues/outbound-whatsapp.ts` | No change — GOD enqueues TO this queue |
+| `apps/staff-web/server/db/schema.ts` existing tables | No modifications — strictly additive migrations |
+| `services/edge-webhooks/` | Not involved in v2.0 |
+
+---
+
+## V2-11. Build Order (Dependency-Ordered)
+
+```
+Priority 1 — Foundation (everything depends on this):
+  HQ-FND: packages/hq-schema + apps/hq skeleton (auth, routes, agent-chat)
+           + HQ Neon project provisioned manually
+           + services/hq-worker skeleton (boss.ts, env.ts, index.ts)
+           + pnpm-workspace.yaml additions
+
+Priority 2 — Parallel after HQ-FND:
+
+  PROV: services/hq-worker/queues/provision-studio.ts (Saga)
+        + provision-apis/* (neon.ts, vercel.ts, fly.ts)
+        + apps/hq/server/routes/api/signup.ts
+        + hq_studios / hq_provisioning_runs / hq_studio_tokens tables
+
+  TEL:  packages/hq-schema/src/telemetry.ts (TelemetrySnapshot Zod schema)
+        + apps/hq/server/routes/api/telemetry.ts (ingest endpoint)
+        + hq_telemetry_snapshots / hq_token_usage tables
+        + apps/staff-web/server/lib/anthropic.ts (SDK wrapper)
+        + studio_telemetry_state migration
+        + services/worker/src/queues/telemetry-push.ts
+
+Priority 3 — Parallel after Priority 2:
+
+  HQB:  apps/hq brain route + action copies + HQB system prompt
+        + services/hq-worker brain-ingest queue
+        (depends on HQ-FND + TEL telemetry snapshots as Brain input)
+
+  HQD:  apps/hq dispatch route + action copies + HQD system prompt constraint
+        + Dispatch operator WhatsApp account setup
+        (depends on HQ-FND only; can overlap with HQB in same phase)
+
+  GOB:  apps/staff-web brain route + action copies + brain tables migration
+        + GOB section in agent-chat.ts system prompt
+        (depends on HQ-FND fork-boundary discipline confirmed + TEL wrapper in place)
+
+  GOD:  services/worker daily-owner-digest + heartbeat-reactivate queues
+        + studio_owner_config migration
+        + packages/queue type + enqueue additions
+        + member_reactivation + owner_daily_digest template registration
+        (depends on TEL accumulator in place; PROV provides owner_config seed)
+
+Priority 4 — Integration:
+  PROV end-to-end test (signup form → live studio with telemetry pushing to HQ)
+  HQB feeding from real telemetry snapshots
+  GOD sends flowing through real sendMessage chokepoint
+```
+
+### Recommended Phase Grouping for Roadmap
+
+| Phase | Categories | Rationale |
+|---|---|---|
+| BD1: HQ Foundation | HQ-FND | Creates `apps/hq`, HQ Neon, HQ auth, `services/hq-worker` skeleton, workspace wiring. Prerequisite for all other phases. |
+| BD2: Telemetry + Provisioning | TEL + PROV (parallel plans) | Both depend only on BD1. TEL (studio instrumentation) ships independently of PROV. Provisioning Saga is the highest-risk deliverable — ship early to discover API gotchas. |
+| BD3: HQ Brain + Dispatcher | HQB + HQD (parallel plans) | Both inside `apps/hq`; HQB needs BD2 telemetry snapshots as Brain input. Can be parallel plans within one phase. |
+| BD4: Studio Brain + Dispatcher | GOB + GOD (parallel plans) | Studio-side additions. GOB is additive (Brain route + tables). GOD reuses existing worker + chokepoint — low risk. Can be parallel plans. |
+
+---
+
+## V2-12. Anti-Patterns (v2.0-specific)
+
+### Anti-Pattern 1: HQ polling studio Neons for telemetry
+
+**What people do:** Give HQ connection strings for each studio Neon; HQ runs aggregate queries directly.
+**Why wrong:** Breaks single-tenant isolation; HQ credential leak exposes all studios; N connection pools in HQ; member PII directly accessible.
+**Instead:** Studio-push model (V2-5). HQ receives aggregate, PII-stripped snapshots on a schedule.
+
+### Anti-Pattern 2: Provisioning steps in a Vercel serverless function
+
+**What people do:** Signup handler runs all 8 steps synchronously inside the H3 route.
+**Why wrong:** Vercel function timeout (max 300s Pro) is exceeded by 8 sequential external API chains; no idempotent re-entry on failure; no retry.
+**Instead:** Enqueue a pg-boss job; provisioning runs in `services/hq-worker` with per-step idempotency and exponential back-off.
+
+### Anti-Pattern 3: GOD heartbeat bypassing sendMessage
+
+**What people do:** Heartbeat job calls `sendViaMyutik` directly to avoid queue overhead.
+**Why wrong:** Bypasses opt-in gate, window gate, and template-approved gate; violates Meta policy; corrupts `messages` delivery state.
+**Instead:** Insert a `messages` row and enqueue to `outbound-whatsapp`. The chokepoint is inviolable.
+
+### Anti-Pattern 4: Editing `templates/brain/` in place for HQ adaptations
+
+**What people do:** Modify the upstream Brain template directly because copy-out seems wasteful.
+**Why wrong:** Next `git merge upstream/main` overwrites those changes.
+**Instead:** Copy target files from `templates/brain/` into `apps/hq/` and modify the copies. `templates/` is the merge landing zone.
+
+### Anti-Pattern 5: Storing the raw telemetry token in the database
+
+**What people do:** Store `token TEXT` in `hq_studio_tokens` for easy lookup.
+**Why wrong:** DB leak exposes all studio telemetry endpoints to spoofing; raw tokens in DB are a standard credential-leak vector.
+**Instead:** Store only `token_hash = sha256(token)`. The raw token lives only in Fly/Vercel secrets. Lookup uses `WHERE token_hash = sha256($incoming)`.
+
+---
+
+## V2-13. Integration Points Reference
+
+| Integration Point | Files | Mechanism |
+|---|---|---|
+| Signup trigger | `apps/hq/server/routes/api/signup.ts` | Public H3 route; INSERT `hq_studios`; enqueue `provision-studio` |
+| Provisioning Saga | `services/hq-worker/src/queues/provision-studio.ts` | pg-boss single-worker job; per-step `step_N_at` idempotency |
+| Neon project API | `services/hq-worker/src/lib/provision-apis/neon.ts` | `POST https://console.neon.tech/api/v2/projects` with `Authorization: Bearer <NEON_API_KEY>` |
+| Vercel project API | `services/hq-worker/src/lib/provision-apis/vercel.ts` | Vercel SDK or `POST https://api.vercel.com/v9/projects` + env + deployment |
+| Fly Machines API | `services/hq-worker/src/lib/provision-apis/fly.ts` | `POST https://api.machines.dev/v1/apps` + `POST .../machines` |
+| Telemetry token issuance | `provision-studio.ts` Step 7 | nanoid → sha256 → `hq_studio_tokens`; raw token → Vercel/Fly secret |
+| AI token instrumentation | `apps/staff-web/server/lib/anthropic.ts` | Wraps `anthropic.messages.create`; reads `response.usage.*`; calls accumulator |
+| Telemetry push (studio→HQ) | `services/worker/src/queues/telemetry-push.ts` | pg-boss cron 02:00 UTC; `POST /api/telemetry` with bearer token |
+| Telemetry ingest (HQ) | `apps/hq/server/routes/api/telemetry.ts` | Token hash lookup → Zod parse → upsert snapshots + usage |
+| HQB Brain ingest | `services/hq-worker/src/queues/brain-ingest.ts` | Triggered after ingest; processes snapshot → `brain_raw_captures` → distillation |
+| GOD digest send | `services/worker/src/queues/daily-owner-digest.ts` | INSERT messages + enqueue outbound-whatsapp for owner phone |
+| GOD heartbeat send | `services/worker/src/queues/heartbeat-reactivate.ts` | INSERT messages + enqueue outbound-whatsapp per at-risk member (batch) |
+| sendMessage chokepoint | `services/worker/src/domain/sendMessage.ts` | UNCHANGED — all GOD sends flow through this |
+
+---
+
+## V2-14. Scaling Considerations
+
+| Concern | At 10 studios | At 100 studios | At 500+ studios |
+|---|---|---|---|
+| HQ Neon load | Negligible | Minimal | Enable Neon autoscaling; add read replica for Brain queries |
+| Telemetry ingest | ~10 daily POSTs | ~100 daily POSTs | Batch ingest endpoint + rate limit per token |
+| Provisioning Saga concurrency | Sequential fine (rare event) | Sequential fine | Set pg-boss `localConcurrency > 1` on provision queue |
+| HQB Brain distillation | ~10 captures/day | ~100 captures/day | HQ worker concurrency bump; Brain jobs are CPU not I/O |
+| hq-worker Fly machine | 1 small machine | 1 medium machine | 2-3 machines for HA |
+| Per-studio worker/Neon | Independent at every scale level | Independent | Each studio's own resources — linear in N studios, not per user |
+
+---
+
+## Sources
+
+- Direct inspection of `C:\Users\dimet\hustle` working tree on `master` (2026-06-19):
+  `apps/staff-web/server/db/schema.ts`, `services/worker/src/index.ts`, `services/worker/src/queues/outbound-whatsapp.ts`, `services/worker/src/domain/sendMessage.ts`, `services/worker/src/queues/housekeeping.ts`, `services/worker/src/lib/env.ts`, `packages/queue/src/types.ts`, `packages/queue/src/boss.ts`, `services/edge-webhooks/fly.toml`, `templates/brain/server/db/schema.ts`, `templates/dispatch/server/db/schema.ts`, `templates/content/server/db/schema.ts`, `apps/staff-web/server/plugins/agent-chat.ts`, `apps/staff-web/server/lib/app-secrets.ts`, `pnpm-workspace.yaml`, `.planning/PROJECT.md`, `.planning/research/ARCHITECTURE.md` (v1.0-v1.2 sections)
+- Neon Management API (`api-docs.neon.tech/reference/createproject`, `neon.com/blog/provision-postgres-neon-api`) — MEDIUM confidence: API confirmed to exist and accept project creation; idempotency on duplicate project names follows standard 409 pattern
+- Vercel API + SDK (`vercel.com/changelog/vercel-ts`, `vercel.com/docs/project-configuration/vercel-ts`) — MEDIUM confidence: Vercel SDK and REST API confirmed; TypeScript types available
+- Fly Machines API (`fly.io/docs/machines/api/`, `fly.io/docs/machines/api/apps-resource/`) — MEDIUM confidence: `POST /v1/apps` confirmed; `org_slug` required; machine creation via Machines resource confirmed
+- Anthropic TypeScript SDK (`platform.claude.com/docs/en/cli-sdks-libraries/sdks/typescript`) — HIGH confidence: `response.usage.input_tokens` + `response.usage.output_tokens` fields are documented and stable
+- Saga pattern (`dev.to/gabrielanhaia/saga-compensation-for-a-payments-flow-that-actually-unwinds`) — HIGH confidence in pattern; LIFO compensation stack is standard
+- pg-boss v12 patterns — HIGH confidence: `boss.schedule()` + `boss.work()` + `boss.createQueue()` proven in existing `services/worker/` codebase
+
+---
+
+*v2.0 Self-Serve Platform + Two-Tier Brain/Dispatcher integration architecture — 2026-06-19*
+*Confidence: HIGH for component topology, fork-boundary discipline, PII boundary mechanisms, and chokepoint reuse (all from direct repo inspection and proven patterns); MEDIUM for provisioning API specifics (APIs confirmed but not tested); MEDIUM for Anthropic token wrapper integration point (needs BD1 audit of createAgentChatPlugin internals to identify exact call-site)*

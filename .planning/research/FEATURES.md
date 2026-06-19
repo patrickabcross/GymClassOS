@@ -1,223 +1,365 @@
-# Feature Landscape: v1.2 Agentic Tab Editing
+# Feature Landscape: v2.0 Self-Serve Platform + Two-Tier Brain/Dispatcher
 
-**Domain:** Agent write-access to GymClassOS staff-web tabs (Forms / Schedule / Members)
-**Researched:** 2026-06-18
-**Scope:** NEW agent-write features only. Existing staff CRUD via HTTP + builder UIs is already shipped.
+**Domain:** Operator HQ console + zero-touch provisioning + per-studio brain/dispatcher + heartbeat reactivation
+**Researched:** 2026-06-19
+**Confidence:** HIGH for provisioning API capabilities (verified Neon/Vercel/Fly docs); HIGH for health-score/CS patterns (industry-standard); MEDIUM for AI content-generation workflow (emerging practice, agent-native templates observed not tested); HIGH for WhatsApp reactivation cadence (fitness-specific sources + existing GymClassOS worker constraints)
 
----
-
-## Summary
-
-v1.2 closes the gap between "the agent can read" and "the agent can act." The agent-native principle is that everything the UI can do, the agent can do. For three tabs — Forms, Schedule, Members — the UI already has full CRUD. v1.2 wraps those same database mutations in `defineAction` agent tools, adds the right HITL posture per operation, and updates the system prompt so the agent leads with context-appropriate write tools when those tabs are in view.
-
-The central question for each operation is: **how reversible is this, and does it affect members?** That single question drives everything: whether the agent acts directly, proposes for approval, or is blocked entirely. Edits that are invisible to members (draft form title, class capacity on a future class) are safe to act immediately. Edits that are visible to members or trigger downstream processes (publishing a form, cancelling a class) require the propose→approve posture. Edits that permanently destroy data or touch consent state are anti-features.
+> **Scope:** NEW features only. Already shipped and excluded from this document: staff WhatsApp inbox, class schedule, member CRM, payments, analytics, forms, campaigns, Stripe Connect flows, worker pipeline (opt-in / 24h-window / template-approved), agentic tab editing. This file covers v2.0 only — the seven requirement categories HQ-FND, PROV, TEL, HQB, HQD, GOB, GOD.
 
 ---
 
-## Cross-Cutting HITL/Confirmation Model
+## Requirement Category Mapping
 
-The existing propose→approve machinery (`propose-action` → `dashboard_proposals` → coach one-click `approve-proposal`) is the correct HITL channel. The v1.2 classification for each operation:
-
-| Posture | When to use | Existing precedent |
-|---------|-------------|-------------------|
-| **Act directly** | Edit is fully reversible, invisible to members, low-stakes (draft-only edits, capacity adjustments on future classes, profile field corrections) | `upsert-section-note`, `create-task` |
-| **Propose + approve** | Edit is visible to members, semi-irreversible, or affects bookings/payments (publish a form, cancel a class, close/archive a published form) | `send-template-to-members`, `create-checkout-link` |
-| **Blocked** | Destructive and irrecoverable (purge form + responses, hard-delete member, change consent flags) | N/A — not offered at all |
-
-**Post-action feedback** (cross-cutting differentiator): after any write, the agent must narrate what changed and link to the entity. "I've updated 'Schedule Enquiry' — it's now published at `/f/schedule-enquiry`." The agent should not silently succeed.
-
-**Optimistic UI constraint**: all mutations must trigger cache invalidation / loader revalidation so the tab reflects the agent's change without a manual refresh. The existing RR v7 loader pattern handles this if the action path is called correctly; for agent writes via `defineAction`, the UI must either poll via `useDbSync()` or the agent must call `navigate` to the edited entity's URL to force a loader re-run.
+| Code | What It Is | New vs Existing Foundation |
+|------|-----------|---------------------------|
+| **HQ-FND** | `apps/hq` shell — forked from agent-native Dispatch + Brain + Content + Video; own Neon; super-admin auth | Net-new app |
+| **PROV** | Zero-touch self-serve provisioning of independent per-customer systems | Net-new orchestrator + APIs |
+| **TEL** | Token-usage + engagement telemetry pushed up from each studio; no PII | Net-new pipeline |
+| **HQB** | HQ Brain — model of gym-owner customers + installation health + cohorts | Net-new data model in `apps/hq` |
+| **HQD** | HQ Dispatcher — Content + Video for GymClassOS website + WhatsApp to gym owners (product topics only) | Net-new dispatch in `apps/hq` |
+| **GOB** | Gym-owner Brain in the studio deploy — studio brand/classes/ethos | Net-new in `apps/staff-web` |
+| **GOD** | Gym-owner Dispatcher — daily digest + member heartbeat reactivation + activation nudges | Net-new in `apps/staff-web` + worker |
 
 ---
 
-## Forms
+## 1. Self-Serve Provisioning (PROV)
 
-### Context
+### Table Stakes
 
-The forms table has three statuses: `draft` → `published` → `closed` (or archived via `deletedAt`). A published form is live at `/f/<slug>` — embeddable on the studio website. Publishing is the key irreversibility threshold.
+Features a gym owner who clicks "Sign up" expects. Missing any = provisioning is broken or manual.
 
-The existing UI actions cover: create (insert `status=draft`), archive (soft-delete via `deletedAt`), restore, publish-toggle (`status=draft|published`), purge (hard delete form + responses). The builder UI at `/gymos/forms/:id` handles field editing.
+| Feature | Why Expected | Complexity | Category | Notes |
+|---------|--------------|------------|----------|-------|
+| **Signup form with studio details** | First touchpoint; captures studio name, owner name, email, WhatsApp number, subdomain choice | S | PROV | Static RR v7 page on GymClassOS marketing site; stores lead row in HQ Neon; does NOT trigger provisioning until email verified |
+| **Email verification before provisioning starts** | Prevents bot signups from consuming Neon/Vercel quota; industry-standard gate | S | PROV | Better-auth magic link or OTP; only after click does the HQ orchestrator enqueue a provisioning job |
+| **Fully automated infrastructure creation** | Modern SaaS — no "we'll set up your account in 1–2 business days" | L | PROV | HQ calls: Neon Management API (create project), Vercel API (create project + env vars + trigger deploy), Fly API (deploy edge-webhooks + worker machines); all three must succeed or the job rolls back |
+| **Idempotent provisioning with retry** | API calls fail transiently; a retry must not double-create resources | M | PROV | Each step writes a `provisioning_steps` row in HQ Neon with status; job resumes from last successful step on retry. Neon/Vercel APIs support idempotency keys or name-collision detection |
+| **Rollback on partial failure** | Half-provisioned tenant is worse than no tenant | M | PROV | If Fly deploy fails after Neon + Vercel succeed, the orchestrator must teardown the Neon project and Vercel project before surfacing an error to the owner |
+| **Migration + seed run as part of provisioning** | New studio Neon needs the full schema + initial data (class templates, default WhatsApp templates) | M | PROV | Orchestrator runs `drizzle-kit migrate` via a short-lived ephemeral task (not a Fly machine — use Neon HTTP driver from HQ directly, pointing at the new project's connection string) |
+| **Admin user created and credentials sent** | Owner needs a login to their new system | S | PROV | Orchestrator calls Better-auth's `createUser` against the new studio's staff-web app (or inserts directly into the new Neon), then emails a magic-link welcome message |
+| **Real-time status/progress UI during provisioning** | Signup → blank waiting screen = abandonment | M | PROV | After form submit, show a progress page (Steps: Email verified → DB created → App deployed → Worker started → Done); poll HQ via `useDbSync` or SSE; each step updates as the orchestrator job progresses |
+| **Post-provisioning welcome + setup checklist** | Owner lands in their new system and knows what to do next | S | PROV | Static onboarding checklist rendered on first login: Connect your WhatsApp number → Add your first class → Invite your team. Powered by agent-native `onboarding` skill — register steps in the studio staff-web app |
+| **Telemetry token issued at provisioning time** | Studio needs a signed token to authenticate its telemetry pushes to HQ | S | PROV | HQ generates a per-studio JWT (or opaque token), stores the secret in HQ Neon `studio_telemetry_tokens`, and sets it as an env var in the studio's Vercel + Fly apps at provisioning time |
+| **Subdomain / custom domain routing** | Each studio needs `studiox.gymclassos.com` or their own domain | M | PROV | Vercel API supports programmatic domain assignment; add subdomain pointing at the new Vercel project; custom CNAME support deferred to v2.x |
 
-### Table Stakes — Forms Write Tools
+### Differentiators
 
-These are the operations that make "agent can edit forms" feel complete. Without them the feature is a stub.
+| Feature | Value Proposition | Complexity | Category | Notes |
+|---------|-------------------|------------|----------|-------|
+| **Provisioning ETA display** | "Your studio will be ready in ~3 minutes" — sets expectation, reduces anxiety | S | PROV | Based on p90 provisioning time from telemetry; static estimate for v2.0 |
+| **WhatsApp number pre-validation during signup** | Catches invalid numbers before provisioning commits | S | PROV | E.164 Zod validation on the signup form; warn if number format looks wrong |
+| **Trial tier with feature flag** | First 14 days free, then billing kicks in — without blocking provisioning | M | PROV | `trial_ends_at` column on the `studios` HQ table; feature-flag check in staff-web routes reads from env var set at provisioning time |
+| **Provisioning webhook to HQ Brain** | As soon as provisioning completes, HQ Brain is seeded with the new studio's initial profile | S | HQ-FND + PROV | Orchestrator fires a `studio.provisioned` event after the job finishes; HQB processes it to create the initial Brain entity for this customer |
 
-| Operation | Description | Reversibility | HITL posture | Complexity | Notes |
-|-----------|-------------|---------------|--------------|------------|-------|
-| **create-form** | Create a new draft form with title (and optional description) | Fully reversible (archive it) | Act directly | Low | Reuses existing `intent=create` logic. Agent names it, gets back `{ id }`. Agent should navigate to `/gymos/forms/<id>` so staff can see it. |
-| **update-form-meta** | Edit title and/or description on any form | Fully reversible | Act directly | Low | Only allowed on drafts; if form is published, downgrade to propose+approve because the live form's identity changes. |
-| **update-form-fields** | Replace the `fields` JSON array (add/remove/reorder fields) | Reversible on drafts | Act directly on draft; propose+approve on published | Medium | Published form with live responses: field changes break existing response data alignment. Agent must check `status` before deciding posture. Zod schema must validate the fields array structure. |
-| **update-form-settings** | Edit `settings` JSON (thank-you message, redirect URL, close date) | Reversible on drafts | Act directly on draft | Low | Same draft-vs-published posture as fields. |
-| **publish-form** | Set `status=published` (makes form live at `/f/<slug>`) | Semi-irreversible (responses start arriving) | **Propose + approve** | Low | Existing UI does this one-click; agent must gate it. Rationale in proposal: "Publishing 'Schedule Enquiry' — it will be live at `/f/schedule-enquiry`. Approve to confirm." |
-| **unpublish-form** | Set `status=draft` (takes form offline, preserves responses) | Reversible | Act directly | Low | Staff may want to urgently pull a form; agent acting directly is acceptable. |
-| **close-form** | Set `status=closed` (form visible but no longer accepts submissions) | Semi-reversible | Act directly | Low | Less impactful than publish — no new harm, existing responses preserved. |
-| **archive-form** | Soft-delete a form (`deletedAt = now()`) | Reversible via restore | Act directly on drafts; propose+approve on published forms | Low | A published form with active responses being archived is meaningful. Draft archive is low stakes. |
-| **restore-form** | Clear `deletedAt` on an archived form | Fully reversible | Act directly | Low | Restoring a closed/published form is safe — it was live before. |
+### Anti-Features for PROV
 
-### Differentiators — Forms
-
-| Feature | Value | Complexity | Notes |
-|---------|-------|------------|-------|
-| **Post-write link** | After publishing, agent says: "Done — form is live at `/f/schedule-enquiry`. Copy that link to share it." | Low | Pure narration in the agent response. |
-| **Response-count awareness before archive** | Before archiving a published form, agent checks response count and warns: "This form has 14 responses — archiving hides it but keeps the responses. Confirm?" | Low | `list-form-responses` read tool (or inline in the write action) reads `COUNT(responses.formId)`. |
-| **Field suggestion from context** | When staff says "create an enquiry form", agent proposes a sensible default fields array (name, phone, message) instead of an empty form. | Medium | Agent constructs the fields JSON from domain knowledge. Not a separate tool — just agent reasoning in the response. |
-| **Draft-only field editing** | Agent explicitly refuses to edit fields on a published form without first unpublishing it, and explains why (response data alignment). | Low | Guard condition in `update-form-fields` action: check `status` before mutating. |
-
-### Anti-Features — Forms
-
-| Anti-Feature | Why blocked | What instead |
+| Anti-Feature | Why Avoid | What Instead |
 |---|---|---|
-| **Purge form + responses** | Hard delete of response data is irrecoverable. A solo studio owner cannot accidentally recover from a purge. | Agent archives the form. Staff purges via the UI's AlertDialog (which requires deliberate confirmation click). |
-| **Agent auto-publish without approval** | A published form goes live publicly and may receive real member data. Agent must always propose. | `propose-action` → `approve-proposal` flow. |
-| **Edit slug** | Slug is the public URL identity. Changing it breaks any embed already on the studio website. | Not exposed as an agent parameter. If a staff member explicitly asks, agent explains the risk and declines. |
-| **Modify form responses** | Responses are member-submitted data; mutating them is a data-integrity violation. | Read-only via a `list-form-responses` tool. |
+| **Manual human step in provisioning** | Defeats the product promise; doesn't scale past 5 studios without a full-time ops person | Full API automation. If any API doesn't support what we need, that's a blocker to resolve before shipping PROV |
+| **Shared Neon project / schema-per-tenant** | Violates the locked tenancy decision (single-tenant code, per-customer deploy); breaks "no `studio_id`" invariant | One Neon project per studio, always |
+| **Email/password credentials emailed in plain text** | Security and deliverability risk | Better-auth magic link — owner clicks link, sets password on first login |
+| **Provisioning on the same Vercel/Fly infra as the HQ app** | HQ failure takes down provisioning; HQ should be the control plane, not the runtime | Each studio gets independent Vercel + Fly apps; HQ only orchestrates |
+| **Multi-region Fly app per studio in v2.0** | Operational complexity; premature for one studio → dozens of studios | Single-region Fly app per studio; multi-region is a v3+ concern |
 
 ---
 
-## Schedule
+## 2. HQ Foundation (HQ-FND)
 
-### Context
+### Table Stakes
 
-Two tables: `class_definitions` (the catalog of class types — name, duration, default capacity, category, active) and `class_occurrences` (individual instances — starts_at, ends_at, capacity, status, notes, room). Status enum: `scheduled | cancelled | completed`. The existing schedule route is read-only from the agent's perspective; booking insertion is a demo-grade action in the RR v7 route action but not yet an agent tool.
+| Feature | Why Expected | Complexity | Category | Notes |
+|---------|--------------|------------|----------|-------|
+| **`apps/hq` app shell** | HQ needs its own app with its own auth context, isolated from studio staff-web | M | HQ-FND | Fork agent-native Dispatch + Brain templates into `apps/hq`; own Neon project (NOT a studio Neon); single super-admin login via Better-auth email/password |
+| **Studio registry (list of all provisioned studios)** | Operator needs to see all customers in one place | S | HQ-FND | `studios` table in HQ Neon: id, name, owner_email, owner_whatsapp, subdomain, provisioned_at, trial_ends_at, status (trial / active / suspended / churned) |
+| **Single super-admin login** | Only the operator (you) should access HQ | S | HQ-FND | Better-auth email/password; auth allowlist in env var; no self-serve signup on HQ |
 
-Key constraint from PROJECT.md: "low-risk edits (adjusting class capacity) may act directly; anything that messages members, publishes a form, or affects bookings/payments stays propose→approve."
+### Differentiators
 
-Cancelling a class has downstream effects: booked members lose their session, and depending on pass/payment policy, may expect a refund or credit. That makes cancellation the highest-stakes schedule operation.
+| Feature | Value | Complexity | Category | Notes |
+|---------|-------|------------|----------|-------|
+| **HQ agent with gym-owner context** | Ask "which studios haven't sent a WhatsApp this week?" — agent queries TEL data | M | HQ-FND | Register HQ-specific agent actions: `list-studios`, `get-studio-health`, `list-at-risk-studios`. Agent system prompt knows it's the operator console |
 
-### Table Stakes — Schedule Write Tools
+### Anti-Features for HQ-FND
 
-| Operation | Description | Reversibility | HITL posture | Complexity | Notes |
-|-----------|-------------|---------------|--------------|------------|-------|
-| **create-occurrence** | Insert a new `class_occurrences` row (definitionId, starts_at, capacity) | Reversible (cancel it) | Act directly | Low | Agent must look up `class_definitions` first to pick a valid `definitionId`. Return `{ occurrenceId, startsAt, className }`. |
-| **update-occurrence-capacity** | Change `capacity` on a future occurrence | Reversible | Act directly | Low | Only valid for `status=scheduled` future occurrences. Reducing below current booking count must error with a clear message ("8 members already booked — can't reduce to 5"). |
-| **reschedule-occurrence** | Update `starts_at` (and `ends_at` derived from duration) on a future occurrence | Semi-reversible (bookings exist) | **Propose + approve** | Low-Med | Booked members are not notified automatically (that's a separate WhatsApp action); agent should surface this. "4 members are booked — rescheduling won't notify them automatically. Approve to reschedule, then use the inbox to notify them." |
-| **cancel-occurrence** | Set `status=cancelled` on an occurrence | Largely irreversible (member trust impact) | **Propose + approve** | Low | Agent must state the booking count in rationale. Does NOT automatically issue pass credits or WhatsApp notifications — those are separate actions. Proposal card must call this out clearly. |
-| **update-occurrence-status** | Set `status=completed` on a past occurrence | Reversible to scheduled | Act directly | Low | Housekeeping — marking past classes done. No member impact. |
-| **create-class-definition** | Insert a new class type (name, duration_min, default_capacity, category) | Reversible (set active=false) | Act directly | Low | New class type has zero occurrences; no member impact until scheduled. |
-| **update-class-definition** | Edit name, description, duration_min, default_capacity on an existing definition | Low-risk | Act directly | Low | Changing `default_capacity` doesn't retroactively change existing occurrences. Changing `name` renames the class everywhere (including historical bookings display). Agent should warn on rename. |
-| **deactivate-class-definition** | Set `active=false` on a definition | Reversible | Act directly | Low | Hides it from scheduling UIs but doesn't affect existing occurrences. |
-
-### Differentiators — Schedule
-
-| Feature | Value | Complexity | Notes |
-|---------|-------|------------|-------|
-| **Booking count in proposal rationale** | When proposing a cancel/reschedule, agent always states: "X members are booked." Staff see the impact before approving. | Low | Agent reads `COUNT(bookings WHERE occurrenceId=... AND status=booked)` inline before writing the proposal. |
-| **Paired-action suggestion** | After approving a cancellation, agent offers: "Would you like me to draft a WhatsApp message to the 4 affected members?" Links the cancel to the existing WhatsApp propose→approve flow. | Medium | Agent creates a new `send-template-to-members` proposal. Requires identifying which members are booked. |
-| **Fill-rate context on create** | When agent creates an occurrence, it references the fill-rate of similar past classes: "Yoga typically fills to 85% — you've set capacity at 15, which is consistent with recent classes." | Low | Reads `list-fill-rate` data already available as a tool. |
-| **Past-occurrence guard** | Agent refuses to reschedule or cancel a `completed` occurrence, with a clear message. Only valid status transitions are offered. | Low | Guard in the action's `run` function: check `status` and `starts_at < now()`. |
-
-### Anti-Features — Schedule
-
-| Anti-Feature | Why blocked | What instead |
+| Anti-Feature | Why Avoid | What Instead |
 |---|---|---|
-| **Hard-delete occurrence or definition** | Bookings reference occurrences by FK. Hard-deleting orphans booking rows and breaks history. | Cancel (`status=cancelled`) for occurrences; `active=false` for definitions. No delete exposed to the agent. |
-| **Auto-notify booked members on cancellation/reschedule** | Notification is a separate member-facing action with WhatsApp compliance gates. Auto-bundling the notification into the cancellation tool bypasses the opt-in/24h-window/template-approved checks. | Agent proposes the notification separately, routing through `send-template-to-members` via `propose-action`. |
-| **Debit or refund passes on cancellation** | Pass credit logic is in the Stripe webhook reducer. Agent has no visibility into which booking used which pass, and issuing credits directly would bypass the ledger. | Defer to a future "cancel + credit" compound action. For v1.2, cancellation is status-only. |
-| **Bulk-cancel all future occurrences** | Studio-wide cancellations affect all booked members. Risk of a single mis-prompted bulk operation is too high for the propose→approve pattern to adequately gate. | Agent proposes per-occurrence, or staff uses the UI for bulk ops. |
-| **Agent-initiated booking** | The existing booking action is demo-grade (no capacity atomicity, no pass debit). Exposing it as an agent tool would create bookings that bypass production controls (BKG-03/04 not yet shipped). | Defer booking-as-agent-tool to a post-v1.2 milestone once the atomic booking action ships. |
+| **Multi-user HQ access (roles, team, sharing)** | Solo operator in v2.0; zero ROI on the auth complexity | Single super-admin. Revisit when a second person needs access |
+| **HQ accessing a studio's Neon directly** | Breaks the PII isolation guarantee; security/compliance nightmare | TEL pipeline pushes aggregate data up; HQ never queries studio DB |
 
 ---
 
-## Members
+## 3. Telemetry Pipeline (TEL)
 
-### Context
+### Table Stakes
 
-The `gym_members` table has: id, firstName, lastName, email, phoneE164, dateOfBirth, sex, heightCm, weightKg, goal, activityLevel, userId, createdAt. The `whatsapp_opt_in` table and any `marketing_consent` flag are explicitly protected.
+| Feature | Why Expected | Complexity | Category | Notes |
+|---------|--------------|------------|----------|-------|
+| **AI token usage instrumentation per studio** | Operator needs to know cost attribution per studio for billing/pricing decisions | M | TEL | Each studio's agent actions wrap `Anthropic SDK` calls and record `{ input_tokens, output_tokens, model, action_name, timestamp }` into a local `agent_token_usage` table (additive migration in studio Neon); worker pushes aggregate totals to HQ on a daily schedule |
+| **Mobile engagement metrics per studio** | Understand if members are actually using the mobile app | M | TEL | `{ daily_active_users, weekly_active_users, sessions_per_user_7d, feature_views: { calorie_counter, class_booking, inbox } }` — aggregated client-side in the Expo app, pushed via a `/api/telemetry` endpoint in staff-web that accepts and stores locally, then worker rolls up and pushes to HQ |
+| **Push cadence to HQ on a schedule** | Telemetry should be timely but not real-time | S | TEL | Daily pg-boss recurring job in studio worker; sends HTTP POST to HQ `/api/ingest-telemetry` with telemetry token in Authorization header |
+| **HQ ingestion endpoint** | HQ must receive and store the pushed aggregate data | M | TEL | `POST /api/ingest-telemetry` on HQ app; validates token against `studio_telemetry_tokens`; upserts into HQ `studio_metrics` table: `{ studio_id, date, dau, wau, token_input, token_output, class_fill_rate, active_members, dormant_members }` |
+| **Aggregate-only guarantee (no PII)** | Hard PII boundary — member names, emails, phones, conversations never leave the studio | M | TEL | Review TEL payload schema at design time; exclude any row-level member data; counts and rates only; lint check in code review to confirm no PII fields |
 
-The member detail page (`/gymos/members/:id`) is read-only from the agent side today. The route loader returns member data but the file has no action handler for profile edits — meaning the agent-write tools will be the FIRST edit surface for member profiles in this codebase. That's an opportunity: the agent is the primary edit surface, not an afterthought.
+### Differentiators
 
-Key constraint from PROJECT.md: "agent updates `gym_members` profile fields (name, phone_e164, email, notes) WITHOUT silently changing `whatsapp_opt_in` / `marketing_consent` state."
+| Feature | Value | Complexity | Category | Notes |
+|---------|-------|------------|----------|-------|
+| **WhatsApp send volume + template breakdown** | Operator can see if studios are using the WhatsApp feature or not | S | TEL | Add `whatsapp_sends_7d`, `whatsapp_templates_used` to the aggregate push; data lives in worker's `whatsapp_sends` audit log already |
+| **Stripe revenue aggregate** | See MRR per studio without accessing their Stripe account | S | TEL | Sum of `stripe_payments.amount` per studio, pushed as aggregate — no individual transaction detail |
 
-Note: `notes` may not yet be a column on `gym_members` (not present in the schema inspection). If absent, it requires an additive migration (`ALTER TABLE gym_members ADD COLUMN notes text`) before the tool can be implemented. This is safe (additive only).
+### Anti-Features for TEL
 
-### Table Stakes — Members Write Tools
-
-| Operation | Description | Reversibility | HITL posture | Complexity | Notes |
-|-----------|-------------|---------------|--------------|------------|-------|
-| **update-member-name** | Edit `firstName` and/or `lastName` | Reversible | Act directly | Low | Correction of typos, maiden name changes, etc. Non-sensitive. |
-| **update-member-phone** | Edit `phoneE164` (must be a valid E.164 value, Zod-validated) | Semi-reversible (changes WhatsApp routing) | **Propose + approve** | Low-Med | A phone change changes which WhatsApp number the worker routes to. Invalid E.164 could break future sends. Proposal rationale must state old and new number: "Changing phone from +44... to +44... — future WhatsApp messages will go to the new number." |
-| **update-member-email** | Edit `email` | Reversible | Act directly | Low | Email is informational only in v1 (no auth tied to gym_members for these members). Low risk. |
-| **update-member-notes** | Write or replace the `notes` field (coaching notes, flags, context) | Fully reversible | Act directly | Low | Notes are internal-only; never shown to members. Schema migration required if column doesn't exist yet. |
-| **update-member-profile-fields** | Edit `goal`, `activityLevel`, `dateOfBirth`, `sex`, `heightCm`, `weightKg` | Reversible | Act directly | Low | Used by the calorie counter and coaching context. Corrections are common (member updates goals in conversation). |
-
-### Differentiators — Members
-
-| Feature | Value | Complexity | Notes |
-|---------|-------|------------|-------|
-| **Post-edit navigation** | After updating a member, agent links directly: "Updated Sarah's phone number. [View profile →](/gymos/members/mem_abc123)" | Low | Pure narration + `navigate` call. |
-| **E.164 normalisation in agent** | Agent accepts "07911 123456" and normalises to `+447911123456` before calling the action. The action validates with Zod `e164` pattern; the agent layer attempts normalisation first and explains what it normalised to. | Low | The agent reasons about format; the action guards the final value with Zod. |
-| **Notes append mode** | Alongside replace, offer an append-to-notes variant: "I'll add this to Sarah's notes rather than replacing them — she has existing notes." Prevents coach losing context from a careless "update notes" prompt. | Low | Agent reads current notes length, offers choice. The action itself uses replace; append is agent-side string composition. |
-| **Opt-in status surfaced, not editable** | The agent shows the member's current opt-in status when updating phone: "Sarah is opted-in to WhatsApp — the new number will receive messages once she's next contacted." Makes clear it cannot change the opt-in. | Low | Read `whatsapp_opt_in` in the action's response payload; surface in narration. |
-
-### Anti-Features — Members
-
-| Anti-Feature | Why blocked | What instead |
+| Anti-Feature | Why Avoid | What Instead |
 |---|---|---|
-| **Update `whatsapp_opt_in` or `marketing_consent`** | Opt-in is a compliance record — the member's own consent. Only the member or an explicit staff consent-recording flow can change it. Silent agent mutation would be a GDPR/Meta policy violation. | Blocked in the action's Zod schema: these fields are not accepted parameters. Agent narration explains: "I can't change opt-in status — that's the member's own consent record." |
-| **Delete a gym_member row** | Members have FKs from bookings, passes, pass_debits, payments, conversations, whatsapp_opt_in. Hard delete cascades or orphans all of these. | Agent declines. Future off-boarding flow (post-v1.2) with data export and audit log. |
-| **Merge two member records** | Deduplication requires reassigning all FKs — complex, irreversible if done wrong. | Out of scope for v1.2. |
-| **Grant or debit passes** | Pass balance changes have financial implications and must flow through the Stripe webhook reducer path or an explicit pass-grant UI. Agent adding/subtracting passes directly bypasses the ledger. | Not exposed. For v1.2, pass-related operations remain staff-manual. |
-| **Link a gym_member to a Better-auth user_id** | Auth identity linkage is sensitive — incorrect linking could give one person access to another's mobile profile. | Blocked. v1.2 does not touch `userId`. |
-| **Send messages from member write tools** | WhatsApp sends always go through `propose-action` → `send-template-to-members`. Member write tools must not include a send shortcut that bypasses the worker chokepoint. | Agent creates a `send-template-to-members` proposal in the normal flow after updating the member. |
+| **Real-time telemetry streaming** | Network overhead + cost; aggregate is sufficient for the operator's decision-making | Daily batch push |
+| **Storing any member PII in HQ** | Violates the stated hard boundary; GDPR/data sovereignty risk if studios are in different jurisdictions | Aggregate counts only; no names, emails, phone numbers, messages |
+| **HQ querying studio Neon directly** | Authentication complexity + security risk; breaks the single-tenant model cleanly | TEL push from studio to HQ; HQ never pulls |
+
+---
+
+## 4. HQ Brain (HQB)
+
+### Table Stakes
+
+Operator CS observability — what defines "is this customer getting value / at-risk of churn."
+
+| Feature | Why Expected | Complexity | Category | Notes |
+|---------|--------------|------------|----------|-------|
+| **Studio health score** | Core operator CS signal: at a glance, which studios are healthy vs at-risk | M | HQB | Computed daily from TEL data: weighted composite of DAU trend, WhatsApp send rate, class fill rate, token usage, days since last owner login. Stored as `health_score` (0–100) in HQ `studio_metrics` |
+| **Activation status tracking** | Did the owner actually connect WhatsApp + run their first class + have active members? | S | HQB | Three activation milestones stored as nullable timestamps in `studios`: `whatsapp_connected_at`, `first_class_at`, `first_active_member_at`. Computed from TEL data on ingest |
+| **Cohort segmentation** | Group studios by health/lifecycle stage for targeted messaging | M | HQB | Rule-based cohorts computed from `studios` + `studio_metrics`: new (provisioned <30d), activating (provisioned >7d, not all milestones hit), healthy (health_score >70), at-risk (health_score <40 + declining trend), churned (status=churned) |
+| **At-risk studio list** | Operator needs to know which studios to worry about today | S | HQB | Sorted query on `studio_metrics` for `health_score < 40` or `dau = 0 for 7d`; surfaced as the default view in HQB tab of `apps/hq` |
+| **Per-studio timeline** | Chronological log of provisioning, activation milestones, telemetry anomalies, comms sent | M | HQB | `studio_events` table in HQ Neon: `{ studio_id, event_type, occurred_at, payload }`. Populated by: provisioning steps, TEL ingest anomalies, HQD sends |
+
+### Differentiators
+
+| Feature | Value | Complexity | Category | Notes |
+|---------|-------|------------|----------|-------|
+| **HQ agent with health context** | Ask "which studios haven't had a member book a class in 14 days?" and get an answer | M | HQB | `list-at-risk-studios` agent action queries `studio_metrics` with configurable thresholds; registered in HQ agent-chat |
+| **Token cost per studio per month** | Pricing/billing insight: is the AI usage covered by the studio's plan? | S | HQB | Derived from TEL `token_input + token_output` × Anthropic pricing rates; displayed on studio detail page |
+
+### Anti-Features for HQB
+
+| Anti-Feature | Why Avoid | What Instead |
+|---|---|---|
+| **ML-based health scoring** | Overkill for <20 studios; model maintenance complexity | Weighted rule-based formula with explicit coefficients; easy to tune manually |
+| **Real-time health score updates** | Not meaningful at hourly granularity; misleads more than it helps | Daily recompute on TEL ingest |
+| **Gainsight / third-party CS platform** | Per-MAU pricing; vendor lock-in; integrating it with the single-tenant model is more work than building | Custom HQ Brain |
+
+---
+
+## 5. HQ Dispatcher (HQD)
+
+### Table Stakes
+
+| Feature | Why Expected | Complexity | Category | Notes |
+|---------|--------------|------------|----------|-------|
+| **WhatsApp messaging to gym owners** | Primary communication channel (they're gym operators; WhatsApp is their world) | M | HQD | Uses the HQ's own WhatsApp Business Account (NOT the studio's WABA — the studio's number is for member comms only). Sends only to `studios.owner_whatsapp`. Topics: product updates, feature announcements, provisioning status only. Routed through HQ's own Fly worker |
+| **Approved templates for out-of-window sends** | HQD comms to gym owners are not always within 24h of their last inbound; same Meta rules apply | M | HQD | HQD must use approved templates for any send where the owner hasn't messaged GymClassOS in the last 24h. Template categories: feature announcements, onboarding nudges, activation reminders |
+| **Onboarding nudge sequence** | Newly provisioned studios need guided prompts to reach activation milestones | M | HQD | Automated sequence triggered by provisioning event: Day 1 → "Connect your WhatsApp number"; Day 3 (if not connected) → follow-up; Day 7 (if no first class) → "Set up your first class"; Day 14 (if not activated) → "Need help?" Each message is a distinct pg-boss job scheduled by HQD at provisioning time |
+| **Feature announcement broadcast** | Operator needs to tell all studios about new features | M | HQD | HQD action `broadcast-to-studios` takes a cohort filter + message draft; agent approves final template; job fan-out per studio via pg-boss |
+| **AI-generated Content for GymClassOS website** | Operator needs fresh marketing content (blog posts, landing pages, case studies) | M | HQD | Uses agent-native Content template adapted into `apps/hq/features/content/`; agent drafts content informed by HQB insights ("Studios using the class fill-rate widget have 30% better retention"); operator reviews + publishes |
+| **AI-generated Video for GymClassOS website** | Product demo / feature explanation videos | L | HQD | Uses agent-native Video template adapted into `apps/hq/features/video/`; likely text-to-video via an external AI API (Runway, Sora, etc.); requires API key + credit; operator reviews + publishes |
+
+### Differentiators
+
+| Feature | Value | Complexity | Category | Notes |
+|---------|-------|------------|----------|-------|
+| **Health-score-triggered messaging** | When a studio's health score drops below 40 for 3 consecutive days, HQD auto-proposes a "check in" WhatsApp to the owner | M | HQD | pg-boss recurring job checks `studio_metrics` for declining cohorts; creates a `propose-action` entry in HQ for the operator to approve before sending |
+| **Content seeded from HQB insights** | Blog post about "how to improve class fill rate" is drafted using the actual fill-rate data from studios | M | HQD | HQD agent action pulls aggregate stats from HQB (anonymised — no studio-specific attribution in public content), passes as context to content-generation agent |
+| **Usage-based activation prompts** | "You've had 3 enquiries this week but none have booked — try sending them a class schedule via WhatsApp" | M | HQD | Triggered by TEL anomaly detection: high form submissions + low bookings → activation nudge template |
+
+### Anti-Features for HQD
+
+| Anti-Feature | Why Avoid | What Instead |
+|---|---|---|
+| **HQD messaging gym members** | Hard PII boundary. HQD knows nothing about members. Member-facing comms are GOD's responsibility at Tier 2 inside the studio | HQD messages gym owners only, about product and system topics |
+| **Automated sends without operator approval** | Out-of-24h sends using templates must not go out without the operator verifying the message is appropriate | All HQD sends (except simple onboarding nudges from pre-approved templates) go through the `propose-action` / `approve-proposal` pattern in `apps/hq` |
+| **Email as primary channel to gym owners** | WhatsApp is already the owner's primary channel for their business; email is ignored | WhatsApp first; email as fallback for provisioning credentials only |
+| **Sending product metrics to gym owners in WhatsApp** | Metrics in WhatsApp are hard to read; creates noise and training operators to ignore the messages | Send a daily digest link (URL to their staff-web analytics tab) if a digest is requested — not raw numbers in WhatsApp |
+
+---
+
+## 6. Gym-Owner Brain (GOB)
+
+### Table Stakes
+
+| Feature | Why Expected | Complexity | Category | Notes |
+|---------|--------------|------------|----------|-------|
+| **Studio knowledge base** | The gym-owner brain needs a structured representation of what this studio is | M | GOB | Agent-native Brain template adapted in `apps/staff-web/features/brain/`; seeded at provisioning with: studio name, location, class types, pricing, key policies |
+| **Class catalog ingestion** | Brain must know the studio's class methods, instructors, timetable patterns to generate relevant comms | S | GOB | Brain reads from `class_definitions` (already exists) — no new table; Brain index includes class_name, description, default_capacity, category, active |
+| **Brand voice / ethos document** | Informs the tone of GOD-generated member messages | M | GOB | A freeform text document stored in Brain (agent-native Brain `knowledge_items` table or equivalent); owner edits via the `apps/staff-web/features/brain/` UI; GOD's prompt includes it verbatim |
+| **Studio FAQ / policies** | Cancellation policy, booking rules, class descriptions — feeds both the staff agent and member-facing comms | M | GOB | Same Brain `knowledge_items` store; agent-native Brain handles ingestion + RAG retrieval natively |
+
+### Differentiators
+
+| Feature | Value | Complexity | Category | Notes |
+|---------|-------|------------|----------|-------|
+| **Brain-aware staff agent** | When a staff member asks the inbox agent "what classes do we offer on Tuesdays?", agent queries GOB instead of just the schedule table — returns context-rich answer | M | GOB | Register a `search-studio-brain` action in `apps/staff-web`; agent-chat uses it when query is about studio identity, not operational data |
+| **Automatic Brain update on class definition change** | When a class is renamed or a new class type added, GOB re-indexes without manual trigger | M | GOB | `class_definitions` mutation actions fire an event that GOB's background job detects and re-ingests; uses agent-native `automations` skill |
+
+### Anti-Features for GOB
+
+| Anti-Feature | Why Avoid | What Instead |
+|---|---|---|
+| **Member data in GOB** | GOB is about the studio's identity, not its members. Member context lives in the inbox agent's per-conversation context | GOB = studio/brand knowledge; member data = existing `gym_members` + conversations |
+| **Internet-scraped content for GOB** | Web scraping the gym's website introduces stale / inaccurate information without the owner's review | Owner-controlled: owner inputs or reviews all Brain content |
+
+---
+
+## 7. Gym-Owner Dispatcher (GOD)
+
+### Table Stakes
+
+| Feature | Why Expected | Complexity | Category | Notes |
+|---------|--------------|------------|----------|-------|
+| **Daily studio digest to owner** | Gym owners want to know: what happened yesterday, what's coming today, what needs attention | M | GOD | Daily pg-boss job (configurable time, default 7am studio local time); generates a WhatsApp message to the gym owner via the studio's WABA; content: yesterday's class attendance, today's schedule, at-risk renewals, recent enquiries. Uses GOB brand voice. Must use a Meta-approved template |
+| **Dormant member detection** | Define "dormant": member who has not attended a class or booked in N days (default 30) | S | GOD | SQL query: `gym_members` with no `bookings` (status=attended) in past 30 days AND `whatsapp_opt_in` exists AND not churned; result set = candidates for heartbeat campaign |
+| **Heartbeat reactivation campaign — approved template send** | Regularly re-engage dormant members to pull them back | M | GOD | pg-boss recurring job (configurable cadence, default: every Monday); for each dormant member, enqueue a `send-template-to-members` job; all sends go through the EXISTING worker chokepoint (opt-in check + 24h-window + approved-template gate); no bypass |
+| **Heartbeat suppression rules** | Must not spam dormant members repeatedly; suppression prevents alienating people who have genuinely left | M | GOD | Suppression table `heartbeat_suppression`: `{ member_id, suppressed_until, reason }`; reasons: `no_response_after_3_attempts`, `explicit_opt_out`, `subscription_cancelled`. Member is added to suppression after 3 sent-but-no-response attempts within 90 days; removed on next booking |
+| **Activation layer — staff nudges** | Prompt the gym owner to use features they haven't discovered yet | M | GOD | Checks studio's activation milestones from TEL data (local copy); if `first_campaign_sent_at` is null and studio is >14 days old, GOD sends owner a nudge via WhatsApp: "You haven't sent a class reminder campaign yet — want me to draft one?" |
+| **GOD send queue via existing worker** | All GOD sends go through the existing `apps/worker` pg-boss queue + chokepoint | S | GOD | GOD actions produce pg-boss jobs targeting the same `whatsapp_send` queue the worker already processes; zero new send infrastructure |
+
+### Differentiators
+
+| Feature | Value | Complexity | Category | Notes |
+|---------|-------|------------|----------|-------|
+| **Brand-voice heartbeat messages** | Member receives a reactivation message that sounds like the studio (warm, personal, specific to the class type they used to attend), not a generic "we miss you" | M | GOD | Agent generates heartbeat template text using GOB brand voice + member's last attended class type; output reviewed by gym owner via propose→approve before sending |
+| **Time-of-day personalisation** | Send heartbeat at the time the member typically attended class (e.g. someone who always booked Saturday 9am receives their message Saturday morning) | M | GOD | Query `bookings.created_at` distribution per member to infer preferred day/time; schedule pg-boss job at that offset; fall back to studio default (Monday 9am) if insufficient history |
+| **Three-attempt cadence with escalation** | Attempt 1: warm check-in; Attempt 2 (14 days later if no response): specific offer / class highlight; Attempt 3 (14 days later): "last message before we stop" | M | GOD | State tracked in `heartbeat_sends` table: `{ member_id, attempt_number, sent_at, responded_at }`. Worker advances attempt number per member on each send cycle |
+| **Daily digest with agentic draft** | Owner doesn't manually compose the digest; the GOD agent drafts it, owner approves before it goes | M | GOD | GOD agent action reads schedule + bookings + at-risk members, drafts a WhatsApp-formatted digest, creates a `propose-action` in staff-web for owner one-tap approval; after approval, worker sends it |
+| **Reactivation success tracking** | Know which heartbeat cohorts actually come back | S | GOD | When a dormant member books a class after a heartbeat send, record the causal attribution in `heartbeat_sends.reactivation_at`; surface as "reactivated this month: N" in the analytics tab |
+
+### Anti-Features for GOD
+
+| Anti-Feature | Why Avoid | What Instead |
+|---|---|---|
+| **Automated heartbeat without any owner visibility** | Owner doesn't know their studio is messaging members on their behalf; trust and compliance risk | All GOD sends: either pre-approved template auto-send (low-risk, owner toggled this on) OR propose→approve; never fully silent |
+| **Bypassing the worker chokepoint** | The chokepoint (opt-in check + 24h-window + template-approved gate) is the only thing standing between the studio and Meta account suspension | GOD produces pg-boss jobs; worker processes them through the same chokepoint as all other sends |
+| **Unlimited heartbeat attempts** | After 3 unanswered attempts over 90 days, the person has clearly churned; continued messaging risks opt-out complaints and Meta policy flags | 3-attempt limit; then `heartbeat_suppression` row; never message again until member returns on their own |
+| **PII-rich heartbeat content ("Hi Sarah, we noticed you haven't attended since March 15th")** | Specific attendance data in WhatsApp messages could violate member expectations and GDPR legitimate-interest basis | Generic but warm: "Hi [first name], it's been a while since we've seen you at [studio name] — we'd love to welcome you back" — no specific dates or visit history in the message |
+| **Multi-channel campaign engine (email, SMS, push)** | Out of scope for v2.0; adding channels before validating WhatsApp adds cost + operational complexity | WhatsApp only for v2.0. Multi-channel is a v3+ feature |
+| **Segment-builder for heartbeat targeting** | Already deferred from v1 "multi-channel campaign engine"; heartbeat uses a fixed dormancy threshold, not a complex segment | Use the fixed "no booking in 30 days + opted-in" rule. The existing Campaigns segment builder (AE3) is for staff-manual campaigns; heartbeat is automated and doesn't need custom segmentation in v2.0 |
 
 ---
 
 ## Feature Dependencies
 
 ```
-update-member-phone    → must read whatsapp_opt_in (to narrate opt-in status) but NOT write it
-publish-form           → must check form status !== 'published' (idempotency guard)
-cancel-occurrence      → must read booking count for proposal rationale
-reschedule-occurrence  → must read booking count + surface WhatsApp notification suggestion
-update-occurrence-capacity → must read current booking count (guard: new capacity >= booked count)
-create-occurrence      → must list-classes first to resolve definitionId
-update-form-fields on published → must either refuse or require unpublish first
-propose-action enum    → must be extended to include new v1.2 action names, OR new actions self-handle proposal rows
-notes column           → may require additive migration on gym_members before update-member-notes ships
+PROV → HQ-FND
+  (PROV orchestrator lives inside `apps/hq`; HQ app must exist before PROV can run)
+
+PROV → TEL token issuance
+  (Telemetry token must be set at provisioning time)
+
+TEL → HQB health score computation
+  (HQB health scores are derived from TEL data; HQB is inert without TEL)
+
+TEL → HQD health-score-triggered messaging
+  (HQD can't detect at-risk studios without TEL data)
+
+HQB → HQD content generation
+  (HQD content is seeded from HQB insights; weak but real dependency)
+
+GOB → GOD heartbeat message quality
+  (GOD uses GOB brand voice in heartbeat drafts; GOD works without GOB but produces generic messages)
+
+GOD → worker chokepoint (existing)
+  (GOD produces pg-boss jobs; the worker chokepoint is ALREADY BUILT and must be used unmodified)
+
+GOD daily digest → GOB class knowledge
+  (Digest benefits from GOB's class descriptions; falls back to `class_definitions` table if GOB not seeded)
+
+HQ-FND (own Neon + Better-auth) → all other HQ features
+  (Nothing in HQ-FND's owned services can start until the HQ app and DB are running)
 ```
 
----
+### Key Dependency Notes
 
-## MVP Priority for v1.2
-
-The minimum that makes agentic tab editing feel real and useful on day one:
-
-**Forms (highest staff value, zero member risk on drafts):**
-1. `create-form` — act directly
-2. `update-form-meta` (title/description on drafts) — act directly
-3. `publish-form` — propose + approve
-4. `archive-form` (drafts only) — act directly
-
-**Schedule (operational, medium risk):**
-1. `update-occurrence-capacity` — act directly (most common daily need)
-2. `cancel-occurrence` — propose + approve (most impactful)
-3. `create-occurrence` — act directly
-
-**Members (low risk, high-frequency corrections):**
-1. `update-member-notes` — act directly (pure internal)
-2. `update-member-name` — act directly
-3. `update-member-email` — act directly
-4. `update-member-phone` — propose + approve
-
-**Defer within v1.2 if timeline pressured:**
-- `update-form-fields` / `update-form-settings` (higher complexity, lower urgency)
-- `reschedule-occurrence` (requires booking-count read + dual proposal logic)
-- `create-class-definition` / `update-class-definition` (rare operation)
-- `update-member-profile-fields` (goal/activity level — calorie counter dependency, less urgent for staff agent)
+- **PROV must ship before anything else** — it creates the per-studio systems that GOB and GOD run inside. HQ-FND is the container for PROV. Logical order: HQ-FND shell → PROV orchestrator → TEL pipeline → HQB → HQD → GOB + GOD.
+- **GOD does NOT depend on GOB for v2.0** — GOD can send a generic digest + heartbeat without a GOB brand-voice document. GOB enhances quality but is not a blocker; build GOB and GOD in parallel.
+- **TEL data won't exist on day one** — HQB and HQD must gracefully handle studios with no telemetry history (new provisions); health score defaults to "unknown" until first TEL push arrives.
+- **Worker chokepoint is an existing hard dependency for GOD** — GOD MUST NOT circumvent it. This is non-negotiable.
 
 ---
 
-## Implementation Notes (Agent-Native Conventions)
+## MVP Definition for v2.0
 
-Each tool follows the "Adding a New Gym Action" checklist from `apps/staff-web/AGENTS.md`:
+### Must ship (v2.0 launch criteria)
 
-1. Create `apps/staff-web/actions/<action-name>.ts` using `defineAction`.
-2. No `http` key on mutations (no GET).
-3. `// guard:allow-unscoped` comment on all gym tables (single-tenant, no `ownableColumns()`).
-4. Regen `.generated/actions-registry.js` after creating.
-5. Document in AGENTS.md Agent Actions table.
-6. Add to `agent-chat.ts` tool list with per-tab context awareness (tool surfaces when the matching tab is in view — use the navigation state the agent already receives via `view-screen`).
+- [ ] **HQ-FND**: `apps/hq` shell with Neon + Better-auth super-admin login — blocker for everything else
+- [ ] **PROV**: Neon + Vercel API automation with idempotent steps + rollback + progress UI — the product promise
+- [ ] **PROV**: Email verification gate + telemetry token issuance at provisioning time
+- [ ] **PROV**: Onboarding checklist in newly provisioned studio
+- [ ] **TEL**: Token-usage instrumentation + daily push to HQ
+- [ ] **TEL**: Studio engagement aggregate push (DAU/WAU, key feature views)
+- [ ] **HQB**: Health score computed from TEL data; cohort segmentation (new / activating / healthy / at-risk)
+- [ ] **HQB**: Studio list with health scores + at-risk flagging
+- [ ] **HQD**: Onboarding nudge sequence (WhatsApp to owner, pre-approved templates, day 1/3/7/14)
+- [ ] **GOB**: Brain shell + studio knowledge base UI; class catalog auto-ingestion
+- [ ] **GOD**: Dormant member detection query
+- [ ] **GOD**: Heartbeat reactivation send via existing worker chokepoint + suppression rules (3-attempt / 90-day)
+- [ ] **GOD**: Daily digest to owner (propose→approve → send via WABA)
 
-The `propose-action` schema must be extended: its `actionName` enum currently only allows `send-template-to-members | create-checkout-link`. For schedule/forms proposals it must accept the new v1.2 action names. Alternatively, new actions can self-handle the proposal pattern internally (write a `dashboard_proposals` row directly, return `{ proposalId }`) — but extending the existing enum is preferred for observability consistency.
+### Defer to v2.x (after v2.0 validation)
 
-No schema changes required for forms and schedule. The one additive-only risk is `notes` on `gym_members`: verify presence before implementing `update-member-notes`.
+- [ ] **GOD**: Time-of-day personalisation for heartbeat — add after proving basic heartbeat works
+- [ ] **GOD**: Three-attempt escalating cadence — v2.0 ships attempt 1 only; attempts 2 + 3 add after results measured
+- [ ] **HQD**: AI-generated Content + Video for GymClassOS website — valuable but lowest priority; content can be written manually until v2.x
+- [ ] **HQD**: Health-score-triggered automated messaging to at-risk studios — requires TEL data to stabilise first
+- [ ] **PROV**: Custom domain / CNAME support per studio — subdomain is sufficient for v2.0
+- [ ] **PROV**: Trial-tier feature flags — manual account management acceptable for first 5–10 signups
+- [ ] **GOB**: Automatic Brain re-index on class definition change — manual refresh is acceptable for v2.0
+
+### Defer to v3+ (product-market fit required first)
+
+- [ ] Multi-channel campaigns (email, SMS, push) for member reactivation
+- [ ] Self-service plan management and billing (Stripe integration for HQ billing to studios)
+- [ ] Multi-user / role-based HQ access
+- [ ] ML-based health scoring (replace rule-based)
+- [ ] Multi-region Fly deployment per studio
+
+---
+
+## Feature Prioritisation Matrix
+
+| Feature | User Value | Implementation Cost | Priority |
+|---------|------------|---------------------|----------|
+| HQ-FND shell + auth | HIGH (blocker) | M | P1 |
+| PROV: Neon + Vercel API automation | HIGH (the product promise) | L | P1 |
+| PROV: Progress UI during provisioning | HIGH (abandonment prevention) | M | P1 |
+| PROV: Idempotent steps + rollback | HIGH (correctness) | M | P1 |
+| TEL: Token usage push | HIGH (cost attribution) | M | P1 |
+| TEL: Engagement aggregate push | HIGH (health score input) | M | P1 |
+| HQB: Health score + cohorts | HIGH (operator insight) | M | P1 |
+| HQD: Onboarding nudge sequence | HIGH (activation rate) | M | P1 |
+| GOD: Heartbeat reactivation + suppression | HIGH (member retention value prop) | M | P1 |
+| GOD: Daily owner digest | MEDIUM (habit formation) | M | P1 |
+| GOB: Brain shell + class catalog | MEDIUM (enhances GOD quality) | M | P2 |
+| GOD: Three-attempt cadence | MEDIUM (optimises reactivation) | M | P2 |
+| HQD: Content + Video generation | MEDIUM (marketing flywheel) | L-M | P2 |
+| HQD: Health-score-triggered messaging | MEDIUM (proactive CS) | M | P2 |
+| GOD: Time-of-day personalisation | LOW (marginal lift) | M | P3 |
+| PROV: Custom domain support | LOW (nice UX) | M | P3 |
+
+---
+
+## Sources
+
+Research sources consulted for this document:
+
+- [Northflank: Multi-tenant SaaS platform deployment 2026](https://northflank.com/blog/multi-tenant-saas-platform-deployment) — single-tenant per-deploy automation patterns
+- [Neon API-first programmatic provisioning](https://neon.com/docs/get-started/built-to-scale) — Neon Management API capabilities confirmed
+- [ChurnBuster: B2B SaaS churn rate 2026](https://churnbuster.io/articles/b2b-saas-churn-rate) — health score signal selection
+- [SaaS Hero: Reduce churn B2B SaaS 2026](https://www.saashero.net/customer-retention/reduce-b2b-saas-churn-2026/) — activation depth in first 60 days as primary retention predictor
+- [buildmvpfast: Leading indicators of churn B2B SaaS 2026](https://www.buildmvpfast.com/blog/leading-indicators-churn-b2b-saas-2026) — login frequency, sticky-feature adoption, active-user-count as core health signals
+- [WATI: WhatsApp API for SaaS — growth and retention](https://www.wati.io/en/blog/whatsapp-api-for-saas/) — WhatsApp lifecycle messaging patterns for B2B SaaS; 98% open rate statistic
+- [Cloudstudio Manager: Reactivation campaigns for frozen/lapsed members 2026](https://cloudstudiomanager.com/reactivation-campaigns/) — fitness-specific dormant member cadence
+- [Hashmeta: Reactivation campaigns — winning back lost customers](https://hashmeta.com/blog/reactivation-campaigns-winning-back-lost-customers-through-strategic-re-engagement/) — 3–5 touch suppression ceiling; 90-day cutoff
+- [Keepme: WhatsApp integration for fitness operators](https://www.keepme.ai/connect/the-smartest-whatsapp-integration-for-fitness-operators/) — fitness studio WhatsApp automation, 18% reactivation rate via targeted vs 2% cold
+- [Digital Applied: Customer win-back campaigns 2026 playbook](https://www.digitalapplied.com/blog/customer-win-back-campaigns-2026-retention-playbook) — cadence structure and suppression rules
+
+---
+
+*Feature research for: GymClassOS v2.0 Self-Serve Platform + Two-Tier Brain/Dispatcher*
+*Researched: 2026-06-19*
