@@ -2,6 +2,7 @@ import type { Icon } from "@tabler/icons-react";
 import {
   IconActivityHeartbeat,
   IconBook2,
+  IconBuilding,
   IconChecks,
   IconDatabase,
   IconFileText,
@@ -955,6 +956,12 @@ export const navItems: Array<{
     label: "Provisioning",
     href: "/provisioning",
     icon: IconServer2,
+  },
+  {
+    view: "studios" as BrainView,
+    label: "Studios",
+    href: "/studios",
+    icon: IconBuilding,
   },
 ];
 
