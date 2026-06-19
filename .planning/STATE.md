@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: — Self-Serve Platform + Two-Tier Brain/Dispatcher
-status: verifying
-stopped_at: Phase BD3 context gathered
-last_updated: "2026-06-19T15:57:17.104Z"
+status: executing
+stopped_at: Completed BD3-01-PLAN.md
+last_updated: "2026-06-19T16:38:51.815Z"
 last_activity: 2026-06-19
 progress:
   total_phases: 4
@@ -30,9 +30,9 @@ Requirements: `.planning/REQUIREMENTS.md` (40 v2.0 reqs across 7 categories — 
 ## Current Position
 
 Milestone: v2.0 — Self-Serve Platform + Two-Tier Brain/Dispatcher
-Phase: BD2
-Plan: Not started
-Status: Phase complete — ready for verification
+Phase: BD3 (HQ Brain + Dispatcher) — EXECUTING
+Plan: 2 of 5
+Status: Ready to execute
 Last activity: 2026-06-19
 
 > **Predecessor:** v1.2 — Agentic Tab Editing is COMPLETE (code-verified, pushed, live on Vercel). Live agent+browser UAT (AE1-AE3 `*-HUMAN-UAT.md`) and the Mobile Demo (AE4) phase remain open and are tracked in the roadmap; they are not part of v2.0 scope.
@@ -65,8 +65,15 @@ Last activity: 2026-06-19
 | Phase BD2 P04 | 45 | 2 tasks | 9 files |
 | Phase BD2 P05 | 1145 | 3 tasks | 12 files |
 | Phase BD2 P06 | 45 | 4 tasks | 11 files |
+| Phase BD3 P01 | 838 | 2 tasks | 8 files |
 
 ## Accumulated Context
+
+### BD3-01 Decisions (2026-06-19)
+
+- **2026-06-19 BD3-01 — Used getDbExec() raw SQL (not db.execute()) for DISTINCT ON query in apps/hq: LibSQL Drizzle type has no .execute() at compile time; getDbExec() is the established pattern (usage-metrics.ts). Subpath @gymos/hq-schema/constants export added to hq-schema package.json (was missing).**
+- **2026-06-19 BD3-01 — Added apps/hq/vitest.config.ts scoped to server/**/*.test.ts (node env): apps/hq had no per-package vitest config; vite.config.ts is react-router SSR and causes preamble errors for pure TS tests.**
+- **2026-06-19 BD3-01 — Shared query helper factored into list-studios-query.ts: both api.studios.ts (resource route) and list-studios.ts (action) call queryStudiosWithHealth() with no duplication.**
 
 ### BD2-06 Decisions (2026-06-19)
 
@@ -163,9 +170,9 @@ Last activity: 2026-06-19
 
 ## Session Continuity
 
-Last session: 2026-06-19T15:57:17.081Z
-Stopped at: Phase BD3 context gathered
-Resume file: .planning/phases/BD3-hq-brain-dispatcher/BD3-CONTEXT.md
+Last session: 2026-06-19T16:38:51.804Z
+Stopped at: Completed BD3-01-PLAN.md
+Resume file: None
 
 ### PICK UP HERE — plan BD1
 
