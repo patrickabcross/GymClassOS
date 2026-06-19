@@ -2,7 +2,7 @@
 phase: BD1-hq-foundation
 plan: 03
 type: execute
-wave: 2
+wave: 3
 depends_on: ["01", "02"]
 files_modified:
   - apps/hq/server/plugins/auth.ts

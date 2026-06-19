@@ -2,7 +2,7 @@
 phase: BD1-hq-foundation
 plan: 04
 type: execute
-wave: 2
+wave: 3
 depends_on: ["02"]
 files_modified:
   - services/hq-worker/package.json

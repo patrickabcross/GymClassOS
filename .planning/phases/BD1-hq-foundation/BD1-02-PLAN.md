@@ -2,8 +2,8 @@
 phase: BD1-hq-foundation
 plan: 02
 type: execute
-wave: 1
-depends_on: []
+wave: 2
+depends_on: ["01"]
 files_modified:
   - packages/hq-schema/package.json
   - packages/hq-schema/tsconfig.json

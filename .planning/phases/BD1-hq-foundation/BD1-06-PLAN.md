@@ -2,7 +2,7 @@
 phase: BD1-hq-foundation
 plan: 06
 type: execute
-wave: 3
+wave: 4
 depends_on: ["01", "02"]
 files_modified:
   - scripts/guard-hq-fork-boundary.mjs
