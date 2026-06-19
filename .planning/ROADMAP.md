@@ -26,7 +26,8 @@
 
 ## Phases
 
-- [x] **Phase BD1: HQ Foundation** — `apps/hq` scaffolded (Dispatch + Brain copy-out fork; Videos/Yjs excluded); packages/hq-schema + HQ Neon; super-admin Better-auth; HQ org seed; `services/hq-worker` skeleton (flyctl baked in); CI guards; Anthropic call-site audit — **6 plans, 3 waves** (completed 2026-06-19)
+- [x] **Phase BD1: HQ Foundation** — `apps/hq` scaffolded (Dispatch + Brain copy-out fork; Videos/Yjs excluded); packages/hq-schema + HQ Neon; super-admin Better-auth; HQ org seed; `services/hq-worker` skeleton (flyctl baked in); CI guards; Anthropic call-site audit — **6 plans, 3 waves**
+ (completed 2026-06-19)
 - [ ] **Phase BD2: Telemetry + Provisioning** — Parallel TEL plan (Zod strict schema, studio token accumulator, daily push, HQ ingest) + PROV plan (8-step saga with LIFO rollback first, then happy path; idempotent; watchdog); both plans independent within the phase
 - [ ] **Phase BD3: HQ Brain + Dispatcher** — Parallel HQB plan (health scoring, cohort views, at-risk exclusion via `last_telemetry_received_at`) + HQD plan (own WABA, owner opt-in, onboarding nudge sequence, Content generation); HQD Meta templates submitted at BD2 completion
 - [ ] **Phase BD4: Studio Brain + Dispatcher** — Parallel GOB plan (Brain template copy-in to staff-web, class catalog auto-ingest, brand voice UI) + GOD plan (daily owner digest, heartbeat reactivation via existing chokepoint, suppression ceiling); GOD Meta templates submitted at BD3 completion
@@ -65,7 +66,15 @@ Plans:
   4. Deliberately failing the provisioning run at step 6 triggers LIFO rollback: no orphaned Neon projects, Vercel projects, or Fly apps remain after the compensating actions complete
   5. A studio's daily telemetry push arrives at `POST /api/telemetry` with a valid token; HQ records `last_telemetry_received_at`; submitting a payload containing a `member_email` field returns HTTP 422 (structurally rejected)
   6. HQ never stores or queries a studio's Neon connection string (CI guard confirms no such column exists in HQ schema)
-**Plans**: TBD
+**Plans**: 6 plans (3 waves)
+
+Plans:
+- [ ] BD2-01-PLAN.md (wave 1) -- HQ schema extension: additive v4-v7 migrations + Drizzle defs (hq_studios, hq_provisioning_runs, hq_telemetry_snapshots, hq_token_usage, hq_studio_tokens) + canonical TelemetrySnapshot Zod .strict() schema [TEL-04, TEL-05, TEL-06, PROV-07, PROV-08, PROV-09]
+- [ ] BD2-02-PLAN.md (wave 1) -- Provider adapters behind NeonApi/VercelApi/FlyApi interfaces (find-or-create idempotency) + mocks + flyctl-execa secrets (array args, key-name logging) + env token activation [PROV-02, PROV-04, PROV-05, PROV-06, PROV-08]
+- [ ] BD2-03-PLAN.md (wave 1) -- Studio telemetry capture: studio_telemetry_state + AFTER INSERT trigger on token_usage (fork-safe, no core edit) + buildTelemetrySnapshot aggregate SQL [TEL-01, TEL-02]
+- [ ] BD2-04-PLAN.md (wave 2) -- HQ ingest endpoint (sha256 token + .strict() 422 + last_telemetry_received_at) + studio daily pg-boss push job [TEL-03, TEL-04, TEL-05, TEL-06]
+- [ ] BD2-05-PLAN.md (wave 2) -- Saga core: LIFO rollback FIRST + per-step idempotency (runStep) + 8-step provision-studio saga against mocked adapters (live deferred) [PROV-02, PROV-03, PROV-04, PROV-05, PROV-06, PROV-08, PROV-09]
+- [ ] BD2-06-PLAN.md (wave 3) -- Public signup intake (202 + enqueue) + operator provisioning dashboard (per-step status) + watchdog (stuck runs + missing telemetry) + hq-worker registration [PROV-01, PROV-07, PROV-10]
 **UI hint**: yes
 
 ### Phase BD3: HQ Brain + Dispatcher
@@ -99,7 +108,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | BD1. HQ Foundation | 6/6 | Complete   | 2026-06-19 |
-| BD2. Telemetry + Provisioning | 0/TBD | Not started | - |
+| BD2. Telemetry + Provisioning | 0/6 | Not started | - |
 | BD3. HQ Brain + Dispatcher | 0/TBD | Not started | - |
 | BD4. Studio Brain + Dispatcher | 0/TBD | Not started | - |
 
