@@ -9,7 +9,8 @@
     "./schema": "./src/schema.ts",
     "./migrations": "./src/migrations.ts",
     "./telemetry": "./src/telemetry.ts",
-    "./token": "./src/token.ts"
+    "./token": "./src/token.ts",
+    "./constants": "./src/constants.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

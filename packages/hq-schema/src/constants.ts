@@ -34,3 +34,64 @@ export const HQ_ORG_SLUG = "gymclassos-hq";
  * row; the placeholder is left in place (harmless, idempotent).
  */
 export const HQ_ORG_MEMBER_ID = "hq-member-seed-v1";
+
+// ---------------------------------------------------------------------------
+// BD3 HQB — Health Classification Thresholds
+// ---------------------------------------------------------------------------
+// All thresholds are named constants so they can be tuned without hunting for
+// magic literals across the classification engine and its tests.
+// ---------------------------------------------------------------------------
+
+/**
+ * Studios with last_telemetry_received_at older than this are classified
+ * 'stale'. Set to 26h = 25h watchdog threshold + 1h buffer so a single
+ * missed push doesn't flip healthy studios to stale instantly.
+ */
+export const TELEMETRY_STALENESS_HOURS = 26;
+
+/**
+ * Active member count below which a studio is classified 'dormant'.
+ * A studio with fewer than 5 booking-active members in the snapshot period
+ * is considered disengaged.
+ */
+export const DORMANT_ACTIVE_MEMBERS_THRESHOLD = 5;
+
+/**
+ * Outbound messages sent count below which a studio is classified
+ * 'under-messaging'. Studios sending fewer than 10 messages per period
+ * are not using the WhatsApp channel effectively.
+ */
+export const UNDER_MESSAGING_THRESHOLD = 10;
+
+/**
+ * Retention rate below which a studio is classified 'low-retention'.
+ * A retention rate below 50% means more than half of previously active
+ * members did not return in the current period.
+ */
+export const LOW_RETENTION_THRESHOLD = 0.5;
+
+/**
+ * Retention rate at or above which a studio is a 'power-user' candidate
+ * (also requires POWER_USER_ACTIVE_MEMBERS_THRESHOLD + POWER_USER_MESSAGES_THRESHOLD).
+ * 75% retention = healthy, growing studio.
+ */
+export const POWER_USER_RETENTION_THRESHOLD = 0.75;
+
+/**
+ * Active member count at or above which a studio is a 'power-user' candidate.
+ * At least 20 booking-active members per period indicates a thriving studio.
+ */
+export const POWER_USER_ACTIVE_MEMBERS_THRESHOLD = 20;
+
+/**
+ * Messages sent count at or above which a studio is a 'power-user' candidate.
+ * At least 50 outbound messages per period indicates strong WhatsApp engagement.
+ */
+export const POWER_USER_MESSAGES_THRESHOLD = 50;
+
+/**
+ * Total token spend (input + output) above which a studio's AI usage is
+ * notable for the HQ operator console. Used in the future for cost-alert
+ * signals; not currently a health classification signal.
+ */
+export const HIGH_TOKEN_SPEND_THRESHOLD = 10000;
