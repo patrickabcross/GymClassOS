@@ -26,7 +26,7 @@
 
 ## Phases
 
-- [ ] **Phase BD1: HQ Foundation** — `apps/hq` scaffolded (Dispatch + Brain copy-out fork; Videos/Yjs excluded); packages/hq-schema + HQ Neon; super-admin Better-auth; HQ org seed; `services/hq-worker` skeleton (flyctl baked in); CI guards; Anthropic call-site audit — **6 plans, 3 waves**
+- [x] **Phase BD1: HQ Foundation** — `apps/hq` scaffolded (Dispatch + Brain copy-out fork; Videos/Yjs excluded); packages/hq-schema + HQ Neon; super-admin Better-auth; HQ org seed; `services/hq-worker` skeleton (flyctl baked in); CI guards; Anthropic call-site audit — **6 plans, 3 waves** (completed 2026-06-19)
 - [ ] **Phase BD2: Telemetry + Provisioning** — Parallel TEL plan (Zod strict schema, studio token accumulator, daily push, HQ ingest) + PROV plan (8-step saga with LIFO rollback first, then happy path; idempotent; watchdog); both plans independent within the phase
 - [ ] **Phase BD3: HQ Brain + Dispatcher** — Parallel HQB plan (health scoring, cohort views, at-risk exclusion via `last_telemetry_received_at`) + HQD plan (own WABA, owner opt-in, onboarding nudge sequence, Content generation); HQD Meta templates submitted at BD2 completion
 - [ ] **Phase BD4: Studio Brain + Dispatcher** — Parallel GOB plan (Brain template copy-in to staff-web, class catalog auto-ingest, brand voice UI) + GOD plan (daily owner digest, heartbeat reactivation via existing chokepoint, suppression ceiling); GOD Meta templates submitted at BD3 completion
@@ -51,7 +51,7 @@ Plans:
 - [x] BD1-05-PLAN.md (wave 1) — Anthropic call-site audit -> BD1-ANTHROPIC-AUDIT.md wrapper-insertion spec (gates BD2 TEL-01)
 - [x] BD1-03-PLAN.md (wave 2) — Better-auth single super-admin + HQ org seed in runMigrations; deployment-level isolation [HQ-FND-01, HQ-FND-04]
 - [x] BD1-04-PLAN.md (wave 2) — services/hq-worker Fly skeleton (pg-boss + /healthz) + flyctl baked into image for BD2 [HQ-FND-05]
-- [ ] BD1-06-PLAN.md (wave 3) — two CI guards: guard:hq-fork-boundary + guard:hq-no-pii, wired into pnpm guards chain [HQ-FND-06]
+- [x] BD1-06-PLAN.md (wave 3) — two CI guards: guard:hq-fork-boundary + guard:hq-no-pii, wired into pnpm guards chain [HQ-FND-06]
 **UI hint**: yes
 
 ### Phase BD2: Telemetry + Provisioning
@@ -98,7 +98,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| BD1. HQ Foundation | 5/6 | In Progress|  |
+| BD1. HQ Foundation | 6/6 | Complete   | 2026-06-19 |
 | BD2. Telemetry + Provisioning | 0/TBD | Not started | - |
 | BD3. HQ Brain + Dispatcher | 0/TBD | Not started | - |
 | BD4. Studio Brain + Dispatcher | 0/TBD | Not started | - |
@@ -417,7 +417,7 @@ Post-v1 backlog (HealthKit + native mobile, Coach View with health context, CRM 
 4. Member context panel in the inbox shows next-class + pass-balance for the opened conversation's member (real data)
 5. Stripe Checkout link generated for a 10-pack purchase + paid in Stripe test mode + resulting pass grant visible in member profile
 
-**Plans:** 5/6 plans executed
+**Plans:** 6/6 plans complete
 
 - [x] D1-01-schedule-surface-PLAN.md — Build /gymos/schedule week-grid + book-from-occurrence dialog (SCH-01, BKG-01) — completed 2026-05-19 (commits f5cdbdc6, dd50fe62, 23ee58f2)
 - [x] D1-02-members-directory-PLAN.md — Build /gymos/members + /gymos/members/:id profile with bookings + pass balance (MEM-01, MEM-02)
