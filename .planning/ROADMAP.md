@@ -117,7 +117,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | BD1. HQ Foundation | 6/6 | Complete   | 2026-06-19 |
 | BD2. Telemetry + Provisioning | 6/6 | Complete    | 2026-06-19 |
-| BD3. HQ Brain + Dispatcher | 5/5 | Complete   | 2026-06-19 |
+| BD3. HQ Brain + Dispatcher | 5/5 | Complete    | 2026-06-19 |
 | BD4. Studio Brain + Dispatcher | 0/TBD | Not started | - |
 
 **Coverage:** 40 v2.0 requirements mapped across 4 phases (BD1-BD4). All pending.
