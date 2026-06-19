@@ -229,6 +229,35 @@ export const messages = pgTable(
   }),
 );
 
+// BD2-03: studio_telemetry_state singleton — mirrors the table installed by
+// db.ts migration v14. The BD2-04 push job reads this row, builds a
+// TelemetrySnapshot, POSTs to HQ, then resets the accumulators.
+// KEEP THIS FILE IN SYNC with apps/staff-web/server/db/schema.ts studioTelemetryState.
+export const studioTelemetryState = pgTable("studio_telemetry_state", {
+  /** Always 'singleton' — one row per studio deploy. */
+  id: text("id").primaryKey(),
+  /** Input tokens accumulated since last telemetry push. */
+  tokenUsageTodayInput: integer("token_usage_today_input").notNull().default(0),
+  /** Output tokens accumulated since last telemetry push. */
+  tokenUsageTodayOutput: integer("token_usage_today_output")
+    .notNull()
+    .default(0),
+  /** API request count accumulated since last telemetry push. */
+  requestCountToday: integer("request_count_today").notNull().default(0),
+  /** Outbound WhatsApp messages sent today (written by the push job on reset). */
+  outboundSentToday: integer("outbound_sent_today").notNull().default(0),
+  /** Outbound WhatsApp messages failed today (written by the push job on reset). */
+  outboundFailedToday: integer("outbound_failed_today").notNull().default(0),
+  /** ISO 8601 timestamp of the last successful telemetry push to HQ. */
+  lastPushAt: text("last_push_at"),
+  /** Status of the last telemetry push: 'ok' | 'error' | null. */
+  lastPushStatus: text("last_push_status"),
+  /** ISO 8601 timestamp when this row was last modified. */
+  updatedAt: text("updated_at")
+    .notNull()
+    .default(sql`now()`),
+});
+
 export const schema = {
   webhookEvents,
   gymMembers,
@@ -242,6 +271,7 @@ export const schema = {
   passes,
   passDebits,
   secrets,
+  studioTelemetryState,
 };
 
 let _db: ReturnType<typeof drizzle> | undefined;

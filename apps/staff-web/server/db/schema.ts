@@ -498,6 +498,37 @@ export const dashboardProposals = table("dashboard_proposals", {
 });
 
 // ---------------------------------------------------------------------------
+// BD2-03 additions (2026-06-19) — Studio-side telemetry capture (TEL-01).
+// studio_telemetry_state is a singleton accumulator row (id='singleton')
+// written by the AFTER INSERT trigger on token_usage and read by the BD2-04
+// telemetry push job in services/worker. Strictly additive. Applied via the
+// runMigrations array (versions 14+15) in apps/staff-web/server/plugins/db.ts.
+// ---------------------------------------------------------------------------
+
+export const studioTelemetryState = table("studio_telemetry_state", {
+  /** Always 'singleton' — one row per studio deploy. */
+  id: text("id").primaryKey(),
+  /** Input tokens accumulated since last telemetry push. */
+  tokenUsageTodayInput: integer("token_usage_today_input").notNull().default(0),
+  /** Output tokens accumulated since last telemetry push. */
+  tokenUsageTodayOutput: integer("token_usage_today_output")
+    .notNull()
+    .default(0),
+  /** API request count accumulated since last telemetry push. */
+  requestCountToday: integer("request_count_today").notNull().default(0),
+  /** Outbound WhatsApp messages sent today (written by the push job on reset). */
+  outboundSentToday: integer("outbound_sent_today").notNull().default(0),
+  /** Outbound WhatsApp messages failed today (written by the push job on reset). */
+  outboundFailedToday: integer("outbound_failed_today").notNull().default(0),
+  /** ISO 8601 timestamp of the last successful telemetry push to HQ. */
+  lastPushAt: text("last_push_at"),
+  /** Status of the last telemetry push: 'ok' | 'error' | null. */
+  lastPushStatus: text("last_push_status"),
+  /** ISO 8601 timestamp when this row was last modified. */
+  updatedAt: text("updated_at").notNull().default(now()),
+});
+
+// ---------------------------------------------------------------------------
 // P1c.1 additions (2026-06-12) — Stripe Connect: connected (Custom-equivalent)
 // account. Strictly additive. Applied direct to gymos-demo Neon (migration
 // 0006_p1c1_connected_accounts.sql). Single-tenant: no studio_id FK.
