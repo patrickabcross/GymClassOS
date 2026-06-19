@@ -16,6 +16,7 @@
   "dependencies": {
     "@agent-native/core": "workspace:*",
     "@agent-native/dispatch": "workspace:*",
+    "@gymos/hq-schema": "workspace:*",
     "@libsql/client": "^0.15.8",
     "@radix-ui/react-tooltip": "^1.2.7",
     "@tabler/icons-react": "^3.40.0",

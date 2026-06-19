@@ -1,13 +1,37 @@
+/**
+ * apps/hq/server/db/index.ts
+ *
+ * HQ Drizzle database client.
+ *
+ * Mirrors the apps/staff-web/server/db/index.ts pattern exactly:
+ *   createGetDb(schema) + db Proxy + export { schema }
+ *
+ * Schema composition:
+ *   - Dispatch tables   — from @agent-native/dispatch/db (framework Dispatch)
+ *   - Brain tables      — from ./brain-schema.ts (Brain template copy-out)
+ *   - HQ schema tables  — from ./schema.ts → @gymos/hq-schema (hq_app_meta;
+ *                         BD2 will add studio_registry, provisioning_runs, etc.)
+ *
+ * The merged schema is passed to createGetDb so every HQ server route can
+ * query any of these tables through a single `db` handle.
+ */
+
 import { createGetDb } from "@agent-native/core/db";
-import { schema } from "@agent-native/dispatch/db";
+import { schema as dispatchSchema } from "@agent-native/dispatch/db";
 import * as brainSchema from "./brain-schema.js";
+import * as hqSchema from "./schema.js";
 import { registerShareableResource } from "@agent-native/core/sharing";
 
-const mergedSchema = { ...schema, ...brainSchema };
+export const schema = { ...dispatchSchema, ...brainSchema, ...hqSchema };
 
-export const getDb = createGetDb(mergedSchema);
+export const getDb = createGetDb(schema);
 
-export { mergedSchema as schema };
+// Backwards compat — many files import `db` directly
+export const db = new Proxy({} as any, {
+  get(_, prop) {
+    return (getDb() as any)[prop];
+  },
+});
 
 // Register Brain shareable resources
 registerShareableResource({
