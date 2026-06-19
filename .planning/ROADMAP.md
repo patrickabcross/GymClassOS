@@ -2,6 +2,103 @@
 
 ---
 
+## v2.0 — Self-Serve Platform + Two-Tier Brain/Dispatcher
+
+> **Started:** 2026-06-19 | **Branch:** `master`
+>
+> **Goal:** A gym signs up on the GymClassOS site and gets a fully provisioned, independent system with zero human steps; the operator (you) gets a brain/dispatcher to understand and grow your gym-owner customers; each gym gets its own brain/dispatcher to activate its members — all with no member PII ever leaving the studio deploy.
+>
+> **Three tiers:** Tier 1 = You / GymClassOS HQ (operator). Tier 2 = Gym-owners (your customers). Tier 3 = Gym members. Both Tier 1 and Tier 2 get their own Brain + Dispatcher.
+>
+> **Phase prefix:** BD — avoids `.planning/phases/` directory collisions with existing AE/R/D/P phase directories.
+
+### Key constraints baked into every phase
+
+- **Structural PII-up boundary:** No member names/emails/phones/message content in HQ Neon ever. Enforced by three mechanisms: no studio DB credentials in HQ env; Zod `.strict()` TelemetrySnapshot schema (422 on any unknown field); CI guard blocking HQ schema columns matching `*connection*`/`*database_url*`/`*dsn*`.
+- **Additive-only DB changes:** Both HQ Neon and each studio Neon. `drizzle-kit generate` + `drizzle-kit migrate` only; no `drizzle-kit push`; no DROP/TRUNCATE/destructive ALTER.
+- **Fork-boundary discipline:** `templates/` is never edited in place. HQ work in `apps/hq/`. Tier-2 additions in `apps/staff-web/` + `services/worker/`. Two-commit discipline: copy first, modify second.
+- **No local dev server:** NitroViteError prevents `pnpm dev` on staff-web. Verification via deploy or unit tests + `tsc`.
+- **Single super-admin:** HQ v2.0 is one operator account. Multi-user/roles deferred to v2.x.
+- **Provisioner in hq-worker, not Vercel:** 8-step saga exceeds Vercel timeout; must run as a Fly pg-boss job.
+- **Rollback before happy path:** PROV saga LIFO rollback compensation code ships before any real API calls are wired.
+- **WABA separation:** HQ owns its own WhatsApp Business Account for owner-comms; studio WABAs are member-comms only. Never mixed.
+- **Meta template lead times (calendar dependencies):** HQD owner-comms templates submitted at BD2 completion (2-7 day approval before BD3 HQD goes live). GOD member reactivation templates submitted at BD3 completion (2-7 day approval before BD4 GOD goes live).
+
+## Phases
+
+- [ ] **Phase BD1: HQ Foundation** — `apps/hq` scaffolded (Dispatch + Brain + Content + Video template copies); HQ Neon provisioned; super-admin Better-auth; HQ org seed; `services/hq-worker` skeleton; CI guards; Anthropic call-site audit
+- [ ] **Phase BD2: Telemetry + Provisioning** — Parallel TEL plan (Zod strict schema, studio token accumulator, daily push, HQ ingest) + PROV plan (8-step saga with LIFO rollback first, then happy path; idempotent; watchdog); both plans independent within the phase
+- [ ] **Phase BD3: HQ Brain + Dispatcher** — Parallel HQB plan (health scoring, cohort views, at-risk exclusion via `last_telemetry_received_at`) + HQD plan (own WABA, owner opt-in, onboarding nudge sequence, Content generation); HQD Meta templates submitted at BD2 completion
+- [ ] **Phase BD4: Studio Brain + Dispatcher** — Parallel GOB plan (Brain template copy-in to staff-web, class catalog auto-ingest, brand voice UI) + GOD plan (daily owner digest, heartbeat reactivation via existing chokepoint, suppression ceiling); GOD Meta templates submitted at BD3 completion
+
+## Phase Details
+
+### Phase BD1: HQ Foundation
+**Goal**: The operator can sign in to a running `apps/hq` control plane backed by its own Neon project; the structural PII boundary and fork-discipline CI guards are in place from day one; the Anthropic call-site is audited so the token-usage wrapper can be wired in BD2
+**Depends on**: Nothing (first BD phase)
+**Requirements**: HQ-FND-01, HQ-FND-02, HQ-FND-03, HQ-FND-04, HQ-FND-05, HQ-FND-06
+**Success Criteria** (what must be TRUE):
+  1. Operator can navigate to the `apps/hq` Vercel deploy, sign in as the single super-admin, and reach the HQ dashboard — no studio staff credential can authenticate to HQ
+  2. `git diff upstream/main HEAD -- templates/` returns empty (fork boundary preserved; all HQ modifications live under `apps/hq/`)
+  3. `pnpm guards` (CI guard suite) fails if any HQ schema migration adds a column matching `*connection*`, `*database_url*`, or `*dsn*`
+  4. Navigating to the HQ Brain or Dispatch routes returns real (non-empty) results — the HQ org + super-admin seed row is present, so `accessFilter`/`orgId` queries return data, not empty arrays
+  5. `services/hq-worker` `/healthz` endpoint responds with HTTP 200 on its Fly deploy (pg-boss bootstrapped against HQ Neon)
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase BD2: Telemetry + Provisioning
+**Goal**: Studios push aggregate (PII-free) telemetry to HQ on a schedule; HQ ingests it via a Zod-strict schema that structurally rejects PII; the provisioning saga (with LIFO rollback) orchestrates Neon + Vercel + Fly APIs to fully provision a new studio — idempotently and with operator-visible step progress
+**Depends on**: Phase BD1
+**Requirements**: TEL-01, TEL-02, TEL-03, TEL-04, TEL-05, TEL-06, PROV-01, PROV-02, PROV-03, PROV-04, PROV-05, PROV-06, PROV-07, PROV-08, PROV-09, PROV-10
+**Success Criteria** (what must be TRUE):
+  1. Submitting a signup on the GymClassOS site creates a `provisioning_run` row and returns immediately; the operator can see per-step status and progress in the HQ dashboard
+  2. A successfully provisioned studio has an independent Neon project, a Vercel staff-web deploy, and Fly edge-webhooks + worker — all reachable at their URLs — with zero manual operator steps
+  3. Retrying a provisioning run that previously succeeded at step 3 (Neon created, Vercel not yet created) resumes at step 4 without creating a second Neon project or Fly app
+  4. Deliberately failing the provisioning run at step 6 triggers LIFO rollback: no orphaned Neon projects, Vercel projects, or Fly apps remain after the compensating actions complete
+  5. A studio's daily telemetry push arrives at `POST /api/telemetry` with a valid token; HQ records `last_telemetry_received_at`; submitting a payload containing a `member_email` field returns HTTP 422 (structurally rejected)
+  6. HQ never stores or queries a studio's Neon connection string (CI guard confirms no such column exists in HQ schema)
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase BD3: HQ Brain + Dispatcher
+**Goal**: The operator can see a live model of all gym-owner customers (health cohorts, at-risk studios, performance over time) derived from telemetry; and can dispatch WhatsApp comms to gym owners about system/product topics via HQ's own WABA — never about member activity
+**Depends on**: Phase BD2 (telemetry snapshots flowing to HQ; PROV seeds studio_owner_config used by GOD templates in BD4)
+**Requirements**: HQB-01, HQB-02, HQB-03, HQB-04, HQB-05, HQD-01, HQD-02, HQD-03, HQD-04, HQD-05
+**Success Criteria** (what must be TRUE):
+  1. Operator can open the HQ console and see all provisioned studios listed with health summaries (active vs dormant, last telemetry received, token spend); studios with stale or missing telemetry are not falsely classified as healthy
+  2. Operator can view cohort views — at-risk studios and power-user studios — each derived from telemetry aggregates with `last_telemetry_received_at` exclusion applied
+  3. Operator can drill into a single studio's installation performance over time (telemetry history)
+  4. Operator can ask the HQ dispatcher agent to send a WhatsApp message to a gym owner about a system/product topic; the action's Zod schema structurally prevents any member-directed payload or member-PII field from being included
+  5. HQD owner messages route through a 24h-window + approved-template gate on HQ's own WABA (separate from any studio WABA); no HQD code references `services/worker` or `services/edge-webhooks`
+  6. Operator can use the HQ content surface (agent-native Content tools) to generate marketing content for the GymClassOS website from Brain insights
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase BD4: Studio Brain + Dispatcher
+**Goal**: Each studio deploy has a gym-owner Brain (classes, fitness methods, brand voice) that the owner can view and edit; the owner receives a daily WhatsApp digest of their own metrics; dormant members receive personalized reactivation messages through the existing worker sendMessage chokepoint — with a suppression ceiling enforced from day one
+**Depends on**: Phase BD2 (anthropic.ts wrapper in place; PROV seeds studio_owner_config; TEL accumulator pattern reused by daily digest)
+**Requirements**: GOB-01, GOB-02, GOB-03, GOD-01, GOD-02, GOD-03, GOD-04, GOD-05
+**Success Criteria** (what must be TRUE):
+  1. Studio owner can open `/gymos/brain` in the staff web app, view their studio Brain (brand voice, ethos, class methods), and edit the brand voice document — changes persist and are visible on reload
+  2. Studio Brain is pre-populated with the class catalog (from `class_definitions`) on Brain init — owner does not need to manually seed class data
+  3. Studio owner receives a daily WhatsApp digest of their studio's own metrics (delivered via the existing worker chokepoint; opt-in/24h-window/template gates apply unchanged)
+  4. A pg-boss heartbeat job runs daily at 09:00 in the studio's IANA timezone; it detects dormant members and enqueues reactivation messages through `sendMessage` (sendMessage.ts is NOT modified); all existing compliance gates apply
+  5. A member who has received 3 reactivation attempts within any 90-day window receives no further heartbeat messages (suppression ceiling enforced from day one); members who opt out are excluded synchronously
+**Plans**: TBD
+
+## Progress (v2.0 — Self-Serve Platform + Two-Tier Brain/Dispatcher)
+
+| Phase | Plans Complete | Status | Completed |
+|-------|----------------|--------|-----------|
+| BD1. HQ Foundation | 0/TBD | Not started | - |
+| BD2. Telemetry + Provisioning | 0/TBD | Not started | - |
+| BD3. HQ Brain + Dispatcher | 0/TBD | Not started | - |
+| BD4. Studio Brain + Dispatcher | 0/TBD | Not started | - |
+
+**Coverage:** 40 v2.0 requirements mapped across 4 phases (BD1-BD4). All pending.
+
+---
+
 ## v1.2 — Agentic Tab Editing  ✅ COMPLETE (code) — live UAT pending
 
 > **Started:** 2026-06-18 | **Completed (code):** 2026-06-19 | **Branch:** `master`
@@ -28,7 +125,8 @@
 - [x] **Phase AE1: Forms Write Tools** — Agent can create, edit, publish/unpublish, and archive/restore forms; establishes the per-tab gate pattern and AEX conventions
  (completed 2026-06-18)
 - [x] **Phase AE2: Schedule Write Tools** — Agent can create/edit class definitions, manage occurrences (capacity, cancel, reschedule, complete); cancel-with-bookings routed through propose→approve with atomic pass refund
-- [x] **Phase AE3: Members + Campaigns Write Tools** — Agent can update member profile fields (name, phone, email, notes); consent/opt-in state is structurally excluded. Folds in the Campaigns **custom segment builder** (filter members by # classes attended / recency of last attendance / inquiry date) — replacing today's single fixed "at-risk" segment. (completed 2026-06-18)
+- [x] **Phase AE3: Members + Campaigns Write Tools** — Agent can update member profile fields (name, phone, email, notes); consent/opt-in state is structurally excluded. Folds in the Campaigns **custom segment builder** (filter members by # classes attended / recency of last attendance / inquiry date) — replacing today's single fixed "at-risk" segment.
+ (completed 2026-06-18)
 - [→] **Phase AE4: Live Mobile Demo** — MOVED to its own **Mobile Demo** section below (separate mobile workstream, not agentic tab-editing). Summary: — Non-prod demo deploy with the member demo-gate relaxed (honor an explicit off-prod `DEMO_MODE`) + an EAS (or web) build pointed at it via `EXPO_PUBLIC_API_BASE`, so the customer can hand the member app to a real test cohort. **Unblocked 2026-06-18** by company iOS dev-account access.
 
 ## Phase Details

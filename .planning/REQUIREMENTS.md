@@ -7,7 +7,7 @@
 
 > **Research:** `.planning/research/SUMMARY.md` (+ STACK / FEATURES / ARCHITECTURE / PITFALLS). Headlines: 3 new deps (`@neondatabase/api-client`, `@vercel/sdk`, `execa`); provisioner runs in `services/hq-worker` on Fly (flyctl subprocess + org-scoped token — NOT a Vercel function); PII-up boundary is structural (Zod `.strict()` ingest schema + no studio DB creds in HQ + CI guard); HQ needs its own WABA (separate from any studio WABA); provisioning rollback/idempotency ships BEFORE the happy path.
 
-> **Three tiers:** Tier 1 = You / GymClassOS HQ (operator). Tier 2 = Gym-owners (your customers). Tier 3 = Gym members. Both Tier 1 and Tier 2 get their own Brain + Dispatcher. Hard boundary: Tier-1 dispatcher → gym-owners only, system topics only; member comms live at Tier 2 inside the studio deploy.
+> **Three tiers:** Tier 1 = You / GymClassOS HQ (operator). Tier 2 = Gym-owners (your customers). Tier 3 = Gym members. Both Tier 1 and Tier 2 get their own Brain + Dispatcher. Hard boundary: Tier-1 dispatcher -> gym-owners only, system topics only; member comms live at Tier 2 inside the studio deploy.
 
 ## v2.0 Requirements
 
@@ -99,23 +99,54 @@ Deferred beyond v2.0 (tracked, not in this roadmap):
 
 ## Traceability
 
-Populated during roadmap creation (phases use the `BD` prefix).
-
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| HQ-FND-01..06 | TBD | Pending |
-| PROV-01..10 | TBD | Pending |
-| TEL-01..06 | TBD | Pending |
-| HQB-01..05 | TBD | Pending |
-| HQD-01..05 | TBD | Pending |
-| GOB-01..03 | TBD | Pending |
-| GOD-01..05 | TBD | Pending |
+| HQ-FND-01 | Phase BD1 | Pending |
+| HQ-FND-02 | Phase BD1 | Pending |
+| HQ-FND-03 | Phase BD1 | Pending |
+| HQ-FND-04 | Phase BD1 | Pending |
+| HQ-FND-05 | Phase BD1 | Pending |
+| HQ-FND-06 | Phase BD1 | Pending |
+| TEL-01 | Phase BD2 | Pending |
+| TEL-02 | Phase BD2 | Pending |
+| TEL-03 | Phase BD2 | Pending |
+| TEL-04 | Phase BD2 | Pending |
+| TEL-05 | Phase BD2 | Pending |
+| TEL-06 | Phase BD2 | Pending |
+| PROV-01 | Phase BD2 | Pending |
+| PROV-02 | Phase BD2 | Pending |
+| PROV-03 | Phase BD2 | Pending |
+| PROV-04 | Phase BD2 | Pending |
+| PROV-05 | Phase BD2 | Pending |
+| PROV-06 | Phase BD2 | Pending |
+| PROV-07 | Phase BD2 | Pending |
+| PROV-08 | Phase BD2 | Pending |
+| PROV-09 | Phase BD2 | Pending |
+| PROV-10 | Phase BD2 | Pending |
+| HQB-01 | Phase BD3 | Pending |
+| HQB-02 | Phase BD3 | Pending |
+| HQB-03 | Phase BD3 | Pending |
+| HQB-04 | Phase BD3 | Pending |
+| HQB-05 | Phase BD3 | Pending |
+| HQD-01 | Phase BD3 | Pending |
+| HQD-02 | Phase BD3 | Pending |
+| HQD-03 | Phase BD3 | Pending |
+| HQD-04 | Phase BD3 | Pending |
+| HQD-05 | Phase BD3 | Pending |
+| GOB-01 | Phase BD4 | Pending |
+| GOB-02 | Phase BD4 | Pending |
+| GOB-03 | Phase BD4 | Pending |
+| GOD-01 | Phase BD4 | Pending |
+| GOD-02 | Phase BD4 | Pending |
+| GOD-03 | Phase BD4 | Pending |
+| GOD-04 | Phase BD4 | Pending |
+| GOD-05 | Phase BD4 | Pending |
 
 **Coverage:**
 - v2.0 requirements: 40 total (HQ-FND 6, PROV 10, TEL 6, HQB 5, HQD 5, GOB 3, GOD 5)
-- Mapped to phases: 0 (roadmap pending)
-- Unmapped: 40 ⚠️ (resolved by roadmapper)
+- Mapped to phases: 40
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-06-19*
-*Last updated: 2026-06-19 after initial v2.0 definition*
+*Last updated: 2026-06-19 — traceability populated by roadmapper (BD1-BD4, 40/40 mapped)*
