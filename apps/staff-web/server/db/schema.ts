@@ -553,3 +553,49 @@ export const connectedAccounts = table("connected_accounts", {
   createdAt: text("created_at").notNull().default(now()),
   updatedAt: text("updated_at").notNull().default(now()),
 });
+
+// ---------------------------------------------------------------------------
+// BD4-01: Studio Brain + Dispatcher — additive Drizzle table defs.
+//
+// Three new tables that support GOB (Brain knowledge) and GOD (owner
+// dispatcher). All are single-tenant by design — no studio_id FK.
+// Queries carry // guard:allow-unscoped — single-tenant studio Brain.
+// ---------------------------------------------------------------------------
+
+// GOB-01/02/03: Lightweight Brain knowledge store.
+// Three singleton rows: id='brand-voice', 'ethos', 'class-catalog'.
+export const studioBrainDocs = table("studio_brain_docs", {
+  id: text("id").primaryKey(),
+  docType: text("doc_type").notNull(),
+  title: text("title").notNull().default(""),
+  body: text("body").notNull().default(""),
+  seededAt: text("seeded_at"),
+  createdAt: text("created_at").notNull().default(now()),
+  updatedAt: text("updated_at").notNull().default(now()),
+});
+
+// GOD-01/02: Singleton config for the studio owner dispatcher.
+// One row per deploy (id='singleton'). Seeded by provisioner at deploy time.
+export const studioOwnerConfig = table("studio_owner_config", {
+  id: text("id").primaryKey(), // always 'singleton'
+  ownerPhoneE164: text("owner_phone_e164").notNull().default(""),
+  studioTimezone: text("studio_timezone").notNull().default("Europe/London"),
+  digestEnabled: integer("digest_enabled", { mode: "boolean" })
+    .notNull()
+    .default(true),
+  heartbeatEnabled: integer("heartbeat_enabled", { mode: "boolean" })
+    .notNull()
+    .default(true),
+  heartbeatBatchSize: integer("heartbeat_batch_size").notNull().default(50),
+  createdAt: text("created_at").notNull().default(now()),
+  updatedAt: text("updated_at").notNull().default(now()),
+});
+
+// GOD-04: Suppression ceiling tracker — max 3 attempts per member per 90-day
+// rolling window. Indexed via version-19 migration.
+export const reactivationAttempts = table("reactivation_attempts", {
+  id: text("id").primaryKey(),
+  memberId: text("member_id").notNull(),
+  sentAt: text("sent_at").notNull().default(now()),
+  createdAt: text("created_at").notNull().default(now()),
+});

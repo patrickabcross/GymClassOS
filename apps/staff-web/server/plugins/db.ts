@@ -147,6 +147,64 @@ export default runMigrations(
         updated_at               TEXT NOT NULL DEFAULT (datetime('now'))
       )`,
     },
+    // -------------------------------------------------------------------------
+    // BD4-01: Studio Brain + Dispatcher — three additive tables.
+    //
+    // Version 16: studio_brain_docs — lightweight Brain knowledge for GOB.
+    //   Three singleton rows per deploy: brand-voice, ethos, class-catalog.
+    //   id is the doc_type slug (singleton-per-type pattern).
+    //
+    // Version 17: studio_owner_config — singleton config consumed by GOD digest
+    //   and heartbeat scheduled jobs. Seeded by provisioner at deploy time.
+    //
+    // Version 18: reactivation_attempts — GOD-04 suppression ceiling tracker.
+    //   max 3 attempts per member per rolling 90-day window.
+    //
+    // Version 19: index on reactivation_attempts(member_id, sent_at) for
+    //   efficient 90-day rolling window suppression queries.
+    //
+    // Additive only — NO DROP / RENAME / TRUNCATE (CLAUDE.md constraint).
+    // All four versions register in this runMigrations array so they are
+    // auto-applied on server boot (unlike standalone .sql files in migrations/).
+    // -------------------------------------------------------------------------
+    {
+      version: 16,
+      sql: `CREATE TABLE IF NOT EXISTS studio_brain_docs (
+        id         TEXT PRIMARY KEY,
+        doc_type   TEXT NOT NULL,
+        title      TEXT NOT NULL DEFAULT '',
+        body       TEXT NOT NULL DEFAULT '',
+        seeded_at  TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+    },
+    {
+      version: 17,
+      sql: `CREATE TABLE IF NOT EXISTS studio_owner_config (
+        id                   TEXT PRIMARY KEY,
+        owner_phone_e164     TEXT NOT NULL DEFAULT '',
+        studio_timezone      TEXT NOT NULL DEFAULT 'Europe/London',
+        digest_enabled       INTEGER NOT NULL DEFAULT 1,
+        heartbeat_enabled    INTEGER NOT NULL DEFAULT 1,
+        heartbeat_batch_size INTEGER NOT NULL DEFAULT 50,
+        created_at           TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at           TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+    },
+    {
+      version: 18,
+      sql: `CREATE TABLE IF NOT EXISTS reactivation_attempts (
+        id         TEXT PRIMARY KEY,
+        member_id  TEXT NOT NULL,
+        sent_at    TEXT NOT NULL DEFAULT (datetime('now')),
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+    },
+    {
+      version: 19,
+      sql: `CREATE INDEX IF NOT EXISTS idx_reactivation_attempts_member_sent ON reactivation_attempts(member_id, sent_at)`,
+    },
     // Version 15: AFTER INSERT trigger on token_usage (Postgres only).
     // Step A: CREATE OR REPLACE FUNCTION — idempotent, never drops.
     // Step B: CREATE TRIGGER — guarded by pg_trigger check so re-running this
