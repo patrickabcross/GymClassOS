@@ -258,6 +258,78 @@ export const studioTelemetryState = pgTable("studio_telemetry_state", {
     .default(sql`now()`),
 });
 
+// BD4-02: studio_owner_config singleton — mirrors the table installed by
+// db.ts migration v17 (added by BD4-01). The GOD digest + heartbeat jobs
+// read this row to get the owner phone, timezone, and feature flags.
+// KEEP THIS FILE IN SYNC with apps/staff-web/server/db/schema.ts studioOwnerConfig.
+export const studioOwnerConfig = pgTable("studio_owner_config", {
+  /** Always 'singleton' — one row per studio deploy. */
+  id: text("id").primaryKey(),
+  /** Owner's WhatsApp phone in E.164 format; empty string until provisioned. */
+  ownerPhoneE164: text("owner_phone_e164").notNull().default(""),
+  /** IANA timezone for the studio; drives heartbeat + digest schedule. */
+  studioTimezone: text("studio_timezone").notNull().default("Europe/London"),
+  /** 1 = daily owner digest enabled (default); 0 = disabled. */
+  digestEnabled: integer("digest_enabled").notNull().default(1),
+  /** 1 = heartbeat reactivation enabled (default); 0 = disabled. */
+  heartbeatEnabled: integer("heartbeat_enabled").notNull().default(1),
+  /** Max dormant members processed per heartbeat run (default 50). */
+  heartbeatBatchSize: integer("heartbeat_batch_size").notNull().default(50),
+  createdAt: text("created_at").notNull().default(sql`now()`),
+  updatedAt: text("updated_at").notNull().default(sql`now()`),
+});
+
+// BD4-02: reactivation_attempts — mirrors the table installed by db.ts
+// migration v18/v19 (added by BD4-01). Tracks per-member heartbeat send
+// history for the 3/90-day suppression ceiling (GOD-04, day one).
+// KEEP THIS FILE IN SYNC with apps/staff-web/server/db/schema.ts reactivationAttempts.
+export const reactivationAttempts = pgTable("reactivation_attempts", {
+  id: text("id").primaryKey(),
+  memberId: text("member_id").notNull(),
+  /** ISO timestamp of the send — used in the rolling 90-day window query. */
+  sentAt: text("sent_at").notNull().default(sql`now()`),
+  createdAt: text("created_at").notNull().default(sql`now()`),
+});
+
+// BD4-02: studio_brain_docs — mirrors the table installed by db.ts migration
+// v16 (added by BD4-01). The heartbeat reads id='brand-voice' for
+// personalization; GOD-05 generic fallback when no row.
+// KEEP THIS FILE IN SYNC with apps/staff-web/server/db/schema.ts studioBrainDocs.
+export const studioBrainDocs = pgTable("studio_brain_docs", {
+  /** 'brand-voice' | 'ethos' | 'class-catalog' */
+  id: text("id").primaryKey(),
+  docType: text("doc_type").notNull(),
+  title: text("title").notNull().default(""),
+  body: text("body").notNull().default(""),
+  seededAt: text("seeded_at"),
+  createdAt: text("created_at").notNull().default(sql`now()`),
+  updatedAt: text("updated_at").notNull().default(sql`now()`),
+});
+
+// BD4-02: class_definitions — partial mirror; only the fields the heartbeat
+// dormancy SQL needs. The heartbeat uses raw db.execute() for the dormancy
+// LEFT JOIN, but having the Drizzle type available enables typed references
+// if/when needed.
+// KEEP THIS FILE IN SYNC with apps/staff-web/server/db/schema.ts classDefinitions.
+export const classDefinitions = pgTable("class_definitions", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  active: integer("active").notNull().default(1),
+});
+
+// BD4-02: bookings — partial mirror for dormancy detection.
+// The heartbeat dormancy SQL JOINs bookings via db.execute(); this Drizzle
+// mirror provides typed column refs for future Drizzle-query usage.
+// KEEP THIS FILE IN SYNC with apps/staff-web/server/db/schema.ts bookings.
+export const bookings = pgTable("bookings", {
+  id: text("id").primaryKey(),
+  occurrenceId: text("occurrence_id").notNull(),
+  memberId: text("member_id").notNull(),
+  status: text("status").notNull().default("booked"),
+  bookedAt: text("booked_at").notNull().default(sql`now()`),
+  attendedAt: text("attended_at"),
+});
+
 export const schema = {
   webhookEvents,
   gymMembers,
@@ -272,6 +344,11 @@ export const schema = {
   passDebits,
   secrets,
   studioTelemetryState,
+  studioOwnerConfig,
+  reactivationAttempts,
+  studioBrainDocs,
+  classDefinitions,
+  bookings,
 };
 
 let _db: ReturnType<typeof drizzle> | undefined;
