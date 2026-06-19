@@ -58,6 +58,24 @@ const EnvSchema = z.object({
   FLY_ORG_SLUG: z.string().min(1).optional(),
   // Source: registry.fly.io/<image>:latest built by CI
   GYMOS_WORKER_IMAGE: z.string().min(1).optional(),
+
+  // ---------------------------------------------------------------
+  // BD3 HQD — HQ WABA credentials (OPTIONAL — deferred-on-external-dependency)
+  //
+  // These creds are set by the operator AFTER Meta Business Manager phone
+  // number registration is complete (D-13). Until then, the hq-owner-send
+  // queue uses mockHqWabaClient and no live WABA calls are made.
+  //
+  // Set via: fly secrets set <NAME>=<value> -a gymos-hq-worker
+  // ---------------------------------------------------------------
+
+  // The phone number ID from the HQ WhatsApp Business Account (second phone).
+  // Source: Meta Business Manager → WhatsApp → Phone Numbers → <HQ number>
+  HQ_WABA_PHONE_NUMBER_ID: z.string().min(1).optional(),
+
+  // System User token for the HQ WABA account.
+  // Source: Meta Business Manager → System Users → Generate token
+  HQ_WABA_API_TOKEN: z.string().min(1).optional(),
 });
 
 export type Env = z.infer<typeof EnvSchema>;
