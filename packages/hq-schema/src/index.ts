@@ -11,6 +11,7 @@ export * from "./schema.js";
 export * from "./migrations.js";
 export * from "./constants.js";
 export * from "./telemetry.js";
+export * from "./token.js";
 
 /**
  * The name of the runMigrations bookkeeping table for HQ.

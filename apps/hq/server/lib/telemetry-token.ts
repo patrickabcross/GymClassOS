@@ -3,41 +3,16 @@
  *
  * Per-studio telemetry token helpers (D-05).
  *
+ * Re-exports from @gymos/hq-schema/token so that services/hq-worker
+ * can import these helpers without crossing the rootDir boundary.
+ * (BD2-05: moved canonical implementation to packages/hq-schema/src/token.ts)
+ *
  * HQ stores ONLY the sha256 hash in hq_studio_tokens; the studio holds the
- * plaintext (set as a studio-side secret by the provisioning saga, BD2-05/06).
+ * plaintext (set as a studio-side secret by the provisioning saga, BD2-05).
  *
  * Exports:
  *   hashToken(plain)         — sha256 hex of a plaintext token string.
  *   generateTelemetryToken() — cryptographically-random 48-char base64url token.
- *
- * BD2-06 (provisioning Step 7) imports these to issue + store a per-studio token.
  */
 
-import { createHash, randomBytes } from "crypto";
-
-/**
- * Compute the SHA-256 hex digest of a plaintext token.
- *
- * Used at ingest time: hash the incoming bearer token and look it up in
- * hq_studio_tokens.token_hash. Token comparison is thus index-equality on the
- * hash — no timing-sensitive string comparison needed (SQL = is constant-time
- * for a fixed-length hex column).
- */
-export function hashToken(plain: string): string {
-  return createHash("sha256").update(plain).digest("hex");
-}
-
-/**
- * Generate a cryptographically-random per-studio telemetry bearer token.
- *
- * Uses Node's crypto.randomBytes for CSPRNG output. The 36 random bytes
- * produce a 48-character base64url string (ceil(36 * 4/3) = 48), which gives
- * ~288 bits of entropy — well above the 128-bit minimum for secret tokens.
- *
- * BD2-06 Step 7 calls this once per studio, stores hashToken(token) in
- * hq_studio_tokens, and sets the plaintext as the studio's
- * STUDIO_TELEMETRY_TOKEN secret (Vercel env + Fly secret).
- */
-export function generateTelemetryToken(): string {
-  return randomBytes(36).toString("base64url");
-}
+export { hashToken, generateTelemetryToken } from "@gymos/hq-schema/token";
