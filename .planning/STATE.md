@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: — Self-Serve Platform + Two-Tier Brain/Dispatcher
 status: executing
-stopped_at: "Completed BD2-telemetry-provisioning BD2-03-PLAN.md (studio telemetry capture: token_usage trigger + buildTelemetrySnapshot)"
-last_updated: "2026-06-19T13:18:55.049Z"
+stopped_at: Completed BD2-telemetry-provisioning BD2-04-PLAN.md (HQ ingest endpoint + studio push job)
+last_updated: "2026-06-19T13:40:01.302Z"
 last_activity: 2026-06-19
 progress:
   total_phases: 4
@@ -31,7 +31,7 @@ Requirements: `.planning/REQUIREMENTS.md` (40 v2.0 reqs across 7 categories — 
 
 Milestone: v2.0 — Self-Serve Platform + Two-Tier Brain/Dispatcher
 Phase: BD2 (Telemetry + Provisioning) — EXECUTING
-Plan: 4 of 6
+Plan: 5 of 6
 Status: Ready to execute
 Last activity: 2026-06-19
 
@@ -62,8 +62,15 @@ Last activity: 2026-06-19
 | BD2 | 01 | 35min | 3 | 7 | 2026-06-19 |
 | BD2 | 02 | 16min | 3 | 10 | 2026-06-19 |
 | BD2 | 03 | 975s (~16min) | 3 | 6 | 2026-06-19 |
+| Phase BD2 P04 | 45 | 2 tasks | 9 files |
 
 ## Accumulated Context
+
+### BD2-04 Decisions (2026-06-19)
+
+- **2026-06-19 BD2-04 — ingest-helpers.ts pattern: pure business-logic helpers (extractBearerToken, hashToken, parseTelemetryBody, buildIngestPayload) extracted from the H3 handler into a separate file with no framework imports, so they can be unit-tested without a dev server — mirrors the auth-helpers.ts pattern established in BD1.**
+- **2026-06-19 BD2-04 — TDD approach: vi.mock of deep relative paths fails in Vite's module runner, so the test imports ingest-helpers.ts directly (not the H3 handler), achieving full behavioral coverage without mocking framework internals.**
+- **2026-06-19 BD2-04 — Route depth: telemetry route at server/routes/api/telemetry/ (4 levels) needs ../../../db/index.js (3 levels up). Caught and fixed at typecheck.**
 
 ### BD2-03 Decisions (2026-06-19)
 
@@ -138,8 +145,8 @@ Last activity: 2026-06-19
 
 ## Session Continuity
 
-Last session: 2026-06-19T13:18:55.039Z
-Stopped at: Completed BD2-telemetry-provisioning BD2-03-PLAN.md (studio telemetry capture: token_usage trigger + buildTelemetrySnapshot)
+Last session: 2026-06-19T13:40:01.290Z
+Stopped at: Completed BD2-telemetry-provisioning BD2-04-PLAN.md (HQ ingest endpoint + studio push job)
 Resume file: None
 
 ### PICK UP HERE — plan BD1
