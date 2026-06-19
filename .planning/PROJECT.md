@@ -10,27 +10,32 @@ GymClassOS is a boutique fitness studio management platform — staff back-offic
 
 Coaches and studio managers run their entire day from one inbox-and-schedule surface (WhatsApp conversations + class bookings + member context). Members book, pay, and log activity / nutrition from a native iOS/Android app (forked from agent-native's `packages/mobile-app`) that includes an in-app coaching agent — without staff cobbling together WhatsApp, calendar, calorie-tracking, and CRM tools.
 
-## Current Milestone: v1.2 — Agentic Tab Editing
+## Current Milestone: v2.0 — Self-Serve Platform + Two-Tier Brain/Dispatcher
 
-> **Started 2026-06-18.** A FUNCTIONAL milestone, distinct from v1.1. The v1.1 UI Redesign milestone (phases R1–R5) is complete and merged into `master` (2026-06-14). v1.0 Production work (P2/P3 product surfaces, WhatsApp deep-wire, mobile EAS build) remains pending and is tracked separately in the roadmap; v1.2 is scheduled ahead of it at the user's direction.
->
-> **Progress:** Phases AE1 (Forms), AE2 (Schedule), and AE3 (Members + Campaigns) write tools all complete — code-verified, runtime UAT deferred to the live Vercel deploy per the no-local-dev-server constraint. AE3 added the `update-member` action (`.strict()` consent exclusion + E.164-reject) and replaced the hardcoded at-risk Campaigns segment with a composable spec-driven builder (`save-segment`, app-state-backed, agent+UI parity). The v1.2 three-tab agentic-editing scope (Forms/Schedule/Members) is functionally done; AE4 (Live Mobile Demo) is the remaining roadmap phase.
+> **Started 2026-06-19.** Introduces an entirely new product layer (the operator HQ) plus a new tier of capability (gym-owner brain/dispatcher + member activation) and self-serve provisioning of fully independent per-customer systems. Prior milestone v1.2 (Agentic Tab Editing — phases AE1–AE3) is COMPLETE (code-verified, pushed, live on Vercel; live agent+browser UAT pending). v1.0 Production work and the Mobile Demo (AE4) phase remain tracked separately in the roadmap.
 
-**Goal:** Make the GymClassOS staff `/gymos` chat agent able to UPDATE each tab, not just read it — realizing the agent-native principle "everything the UI can do, the agent can do." Each tab effectively gains an agent that knows how to edit its content. v1.2 scope is THREE tabs: **Forms, Schedule, Members**.
+**Goal:** A gym signs up on the GymClassOS site and gets a fully provisioned, independent system with zero human steps; the operator (you) gets a brain/dispatcher to understand and grow your gym-owner customers; each gym gets its own brain/dispatcher to activate its members — all with no member PII ever leaving the studio deploy.
 
-**Target features:**
-- **Forms write tools** — agent creates a form, updates it (title/description/fields/settings), publishes/unpublishes, archives/restores — exposing the existing `/api/forms` CRUD as `defineAction` agent tools so the agent edits forms (e.g. the schedule-enquiry form) from chat.
-- **Schedule write tools** — agent creates/edits `class_definitions` and `class_occurrences` (set capacity, cancel, reschedule `starts_at`, mark status).
-- **Members write tools** — agent updates `gym_members` profile fields (name, phone_e164, email, notes) WITHOUT silently changing `whatsapp_opt_in` / `marketing_consent` state.
-- **Per-tab context-awareness** — the agent leads with the active tab's write tools (it already receives the active tab via the navigation-state hook + `view-screen`); `agent-chat.ts` system prompt updated with per-tab capability descriptions.
+**Three tiers:** Tier 1 = You / GymClassOS HQ (operator). Tier 2 = Gym-owners (your customers). Tier 3 = Gym members (your customers' customers). Both Tier 1 and Tier 2 get their own Brain + Dispatcher.
+
+**Target features (requirement categories refined in REQUIREMENTS.md):**
+- **HQ-FND** — `apps/hq` forked from agent-native **Dispatch + Brain** templates; own Neon project; single super-admin Better-auth login; fork-boundary discipline preserved.
+- **PROV** — **zero-touch self-serve provisioning**: signup on the GymClassOS site → HQ orchestrates Neon (create project) + Vercel (deploy `staff-web`) + Fly (edge-webhooks + worker), runs migrations + seed + admin user, sets per-customer secrets, subdomain/DNS, **idempotent retries + rollback on partial failure**, then registers the customer + issues a telemetry token. Signup → live system, no human step.
+- **TEL** — telemetry pipeline: per-studio AI **token-usage** instrumentation (net-new) + aggregate **mobile-app / user engagement + retention** metrics, pushed up on a schedule authenticated by the per-studio token; HQ ingests, **never queries a studio's Neon**. No PII.
+- **HQB** — HQ **Brain** (Tier 1): model of your gym-owner customers + per-installation performance; at-risk / health cohorts ("sets of clients").
+- **HQD** — HQ **Dispatcher** (Tier 1): generates marketing **Content + Video** for the GymClassOS website (agent-native Content + Video tools) from Brain insights; messages gym-owners **about system/product features only — never about their members**.
+- **GOB** — Gym-owner **Brain** (Tier 2, in the studio deploy): their classes, fitness methods, studio brand + ethos.
+- **GOD** — Gym-owner **Dispatcher** (Tier 2, in the studio deploy): **daily studio digest** to the owner + **daily heartbeat reactivation campaigns** to members + the **activation layer** driving GymClassOS usage; all member sends go through the existing worker chokepoint (opt-in / 24h-window / approved-template).
 
 **Key constraints carried in:**
-- Everything via `defineAction` (mutations = no `http` GET); Zod-validated inputs; optimistic UI on the matching UI surfaces; four-area agent-native checklist per feature (UI, Actions, Skills/Instructions in AGENTS.md, Application State).
-- Gym domain tables are single-tenant → `guard:allow-unscoped`; follow `apps/staff-web/AGENTS.md` "Adding a New Gym Action" steps (create action → regen `.generated` registry → document in AGENTS.md Agent Actions table → add to `agent-chat.ts` tool list).
-- No breaking DB changes — strictly additive.
-- Human-in-the-loop posture is decided per-operation at plan time: low-risk edits (editing a DRAFT form, adjusting class capacity) may act directly; anything that messages members, publishes a form, or affects bookings/payments stays propose→approve.
-- Out of scope for v1.2: campaigns, payments, settings, analytics tabs (follow-up milestone).
-- No local dev server (Nitro/Vite bug) — staff-web verifies via Fly deploy or unit tests + `tsc`.
+- **Completely independent per-customer systems** (own Neon + Vercel + Fly each); single-tenant code preserved; HQ sits *above* tenants and provisions them. No `studio_id`, no tenant scoping.
+- **Hard PII boundary:** Tier-1 dispatcher → gym-owners only, system topics only. Member-facing comms live at Tier 2 inside the studio deploy where member data legitimately lives. **No member/lead PII ever flows up to HQ** — telemetry is aggregate engagement + token usage only.
+- agent-native fork-boundary discipline: `templates/` untouched; HQ work in `apps/hq`, Tier-2 work in `apps/staff-web` + worker.
+- No breaking DB changes — strictly additive (both the HQ Neon and each studio Neon).
+- Provisioning automation (Neon/Vercel/Fly APIs + rollback) is the key risk → research-first milestone.
+- Solo dev; single super-admin for HQ v2.0; multi-user/roles deferred.
+- No local dev server (Nitro/Vite bug) for staff-web — verify via deploy or unit tests + `tsc`.
+- Phase prefix **`BD`** to avoid `.planning/phases/` collisions with existing AE/R/D/P dirs.
 
 ## Requirements
 
@@ -177,7 +182,9 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-18 — v1.2 Agentic Tab Editing: phases AE1 (Forms) + AE2 (Schedule) complete. AE3 (Members + Campaigns) next.*
+*Last updated: 2026-06-19 — Milestone v2.0 (Self-Serve Platform + Two-Tier Brain/Dispatcher) started. Introduces operator HQ (`apps/hq` from Dispatch+Brain+Content+Video), zero-touch self-serve provisioning of independent per-customer systems, PII-free telemetry up, and a Tier-2 gym-owner brain/dispatcher (digest + heartbeat reactivation). v1.2 Agentic Tab Editing complete (live, UAT pending).*
+
+*Earlier: 2026-06-18 — v1.2 Agentic Tab Editing: phases AE1 (Forms) + AE2 (Schedule) complete. AE3 (Members + Campaigns) next.*
 
 *Earlier: 2026-06-13 — P1c.1 Stripe Connect (Custom-equivalent) + customer purchase flows completed and validated end-to-end against production (live test-mode drop-in purchase flowed Checkout → Connect webhook → payment row + pass credit). STR-01/02 + PAY-01–04 moved to Validated. Deferred manual UAT (subscription/refund/Customer Portal/mobile live-tests) tracked in P1c.1-HUMAN-UAT.md — all extensions of the now-proven mechanism.*
 

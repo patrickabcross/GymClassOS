@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.2
-milestone_name: — Agentic Tab Editing
-status: complete
-stopped_at: v1.2 complete + pushed + deployed live to Vercel; AE4 split to its own Mobile Demo phase; live UAT pending (morning)
-last_updated: "2026-06-19T01:00:00.000Z"
+milestone: v2.0
+milestone_name: — Self-Serve Platform + Two-Tier Brain/Dispatcher
+status: defining requirements
+stopped_at: v2.0 started — milestone goals captured in PROJECT.md; defining requirements (research decision next)
+last_updated: "2026-06-19T12:00:00.000Z"
 last_activity: 2026-06-19
 progress:
-  total_phases: 3
-  completed_phases: 3
-  total_plans: 9
-  completed_plans: 9
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
 ---
 
 # Project State
@@ -29,11 +29,13 @@ Requirements: `.planning/REQUIREMENTS.md` (18 v1.2 reqs across 4 categories — 
 
 ## Current Position
 
-Milestone: v1.2 — Agentic Tab Editing — ✅ COMPLETE (code)
-Phase: AE3 complete (last v1.2 phase). AE4 (Live Mobile Demo) has been split into its own **Mobile Demo** phase — not started.
-Plans: 9/9 complete across AE1–AE3.
-Status: v1.2 code-complete & code-verified (`tsc` clean + 76/76 vitest). Live agent+browser UAT pending on the Vercel deploy — scheduled for the morning.
-Last activity: 2026-06-19
+Milestone: v2.0 — Self-Serve Platform + Two-Tier Brain/Dispatcher
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-06-19 — Milestone v2.0 started
+
+> **Predecessor:** v1.2 — Agentic Tab Editing is ✅ COMPLETE (code-verified, pushed, live on Vercel). Live agent+browser UAT (AE1–AE3 `*-HUMAN-UAT.md`) and the Mobile Demo (AE4) phase remain open and are tracked in the roadmap; they are not part of v2.0 scope.
 
 **Progress bar:** [██████████] 100% (3/3 v1.2 phases)
 
