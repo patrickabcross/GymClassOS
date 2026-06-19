@@ -108,7 +108,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | BD1. HQ Foundation | 6/6 | Complete   | 2026-06-19 |
-| BD2. Telemetry + Provisioning | 6/6 | Complete   | 2026-06-19 |
+| BD2. Telemetry + Provisioning | 6/6 | Complete    | 2026-06-19 |
 | BD3. HQ Brain + Dispatcher | 0/TBD | Not started | - |
 | BD4. Studio Brain + Dispatcher | 0/TBD | Not started | - |
 

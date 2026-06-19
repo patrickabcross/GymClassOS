@@ -4,7 +4,7 @@ milestone: v2.0
 milestone_name: — Self-Serve Platform + Two-Tier Brain/Dispatcher
 status: verifying
 stopped_at: Completed BD2-telemetry-provisioning BD2-06-PLAN.md (signup intake + dashboard + watchdog + worker registration)
-last_updated: "2026-06-19T14:40:57.885Z"
+last_updated: "2026-06-19T14:50:59.518Z"
 last_activity: 2026-06-19
 progress:
   total_phases: 4
@@ -30,8 +30,8 @@ Requirements: `.planning/REQUIREMENTS.md` (40 v2.0 reqs across 7 categories — 
 ## Current Position
 
 Milestone: v2.0 — Self-Serve Platform + Two-Tier Brain/Dispatcher
-Phase: BD2 (Telemetry + Provisioning) — EXECUTING
-Plan: 6 of 6
+Phase: BD2
+Plan: Not started
 Status: Phase complete — ready for verification
 Last activity: 2026-06-19
 
