@@ -10,9 +10,13 @@ GymClassOS is a boutique fitness studio management platform — staff back-offic
 
 Coaches and studio managers run their entire day from one inbox-and-schedule surface (WhatsApp conversations + class bookings + member context). Members book, pay, and log activity / nutrition from a native iOS/Android app (forked from agent-native's `packages/mobile-app`) that includes an in-app coaching agent — without staff cobbling together WhatsApp, calendar, calorie-tracking, and CRM tools.
 
-## Current Milestone: v2.0 — Self-Serve Platform + Two-Tier Brain/Dispatcher
+## Current Milestone: v2.0 — Self-Serve Platform + Two-Tier Brain/Dispatcher — ✅ SHIPPED 2026-06-19 (code)
 
-> **Started 2026-06-19.** Introduces an entirely new product layer (the operator HQ) plus a new tier of capability (gym-owner brain/dispatcher + member activation) and self-serve provisioning of fully independent per-customer systems. Prior milestone v1.2 (Agentic Tab Editing — phases AE1–AE3) is COMPLETE (code-verified, pushed, live on Vercel; live agent+browser UAT pending). v1.0 Production work and the Mobile Demo (AE4) phase remain tracked separately in the roadmap.
+> **Started & code-complete 2026-06-19** (BD1–BD4, 19 plans, 40/40 requirements). Archived → [`milestones/v2.0-ROADMAP.md`](milestones/v2.0-ROADMAP.md) · [`milestones/v2.0-REQUIREMENTS.md`](milestones/v2.0-REQUIREMENTS.md) · [`MILESTONES.md`](MILESTONES.md). Introduced an entirely new product layer (the operator HQ) plus a new tier of capability (gym-owner brain/dispatcher + member activation) and self-serve provisioning of fully independent per-customer systems.
+>
+> **Current State:** v2.0 code-complete, tagged. Remaining work is operational, not code: stand up the HQ Neon + HQ/studio deploys, set provider API tokens, submit + await Meta approval of the HQ owner-comms + GOD member-reactivation templates (2-7 day lead), then run the deferred live UAT items captured in each phase's `*-HUMAN-UAT.md` (BD1–BD4). Prior milestone v1.2 (Agentic Tab Editing AE1–AE3) is code-complete, live on Vercel; v1.0 Production + Mobile Demo (AE4) remain tracked in the roadmap.
+>
+> **Next milestone:** TBD — run `/gsd:new-milestone` after the v2.0 live-UAT/operational items are cleared. Candidate themes: zero-touch billing/trial gating at signup (PROV-FUT-01), HQ multi-user/roles, live-run hardening of the provisioning saga, and the Apple Health member-app integration.
 
 **Goal:** A gym signs up on the GymClassOS site and gets a fully provisioned, independent system with zero human steps; the operator (you) gets a brain/dispatcher to understand and grow your gym-owner customers; each gym gets its own brain/dispatcher to activate its members — all with no member PII ever leaving the studio deploy.
 

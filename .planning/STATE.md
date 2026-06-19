@@ -2,42 +2,44 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: — Self-Serve Platform + Two-Tier Brain/Dispatcher
-status: verifying
-stopped_at: Completed BD4-02-PLAN.md
-last_updated: "2026-06-19T18:50:52.236Z"
+status: milestone_complete
+stopped_at: v2.0 milestone shipped (BD1-BD4 complete, tagged v2.0)
+last_updated: "2026-06-19T22:06:57.286Z"
 last_activity: 2026-06-19
 progress:
   total_phases: 4
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  completed_phases: 4
+  total_plans: 19
+  completed_plans: 19
 ---
 
 # Project State
 
 ## Project Reference
 
-See: `.planning/PROJECT.md` (updated 2026-06-19 — Milestone v2.0 Self-Serve Platform + Two-Tier Brain/Dispatcher started)
-Roadmap: `.planning/ROADMAP.md` (v2.0 BD phases at top; v1.2 AE-phases below; v1.1 R-phases below that; v1.0 D/P phases below that)
-Requirements: `.planning/REQUIREMENTS.md` (40 v2.0 reqs across 7 categories — HQ-FND, PROV, TEL, HQB, HQD, GOB, GOD)
+See: `.planning/PROJECT.md` (updated 2026-06-19 — Milestone v2.0 SHIPPED)
+Roadmap: `.planning/ROADMAP.md` (v2.0 collapsed to a shipped summary at top; full detail archived in `milestones/v2.0-ROADMAP.md`; v1.2/v1.1/v1.0 phases below)
+Requirements: archived to `.planning/milestones/v2.0-REQUIREMENTS.md` (40/40 v2.0 reqs delivered). A fresh `REQUIREMENTS.md` is created by `/gsd:new-milestone`.
 
 **Core value:** A gym signs up on the GymClassOS site and gets a fully provisioned, independent system with zero human steps; the operator (you) gets a brain/dispatcher to understand and grow gym-owner customers; each gym gets its own brain/dispatcher to activate its members — all with no member PII ever leaving the studio deploy.
 
-**Current milestone:** v2.0 — Self-Serve Platform + Two-Tier Brain/Dispatcher. Introduces an entirely new operator HQ control plane (`apps/hq`) + zero-touch self-serve provisioning + PII-free telemetry + two-tier Brain/Dispatcher (HQ + per-studio).
+**Current milestone:** v2.0 — Self-Serve Platform + Two-Tier Brain/Dispatcher. **SHIPPED 2026-06-19 (code-complete, tagged `v2.0`).** Delivered the operator HQ control plane (`apps/hq`), zero-touch self-serve provisioning, PII-free telemetry, and the two-tier Brain/Dispatcher (HQ + per-studio).
 
-**Three new v2.0 dependencies (install in apps/hq only):** `@neondatabase/api-client`, `@vercel/sdk`, `execa`. All other stack deps already in the pnpm workspace.
+**Current focus:** Planning the next milestone. Before starting it, clear v2.0's operational tail: HQ Neon + HQ/studio deploys, provider API tokens, Meta template approvals (HQ owner-comms + GOD member-reactivation), then the deferred live UAT in each phase's `*-HUMAN-UAT.md`. Run `/gsd:new-milestone` when ready.
+
+**Three v2.0 dependencies (apps/hq only):** `@neondatabase/api-client`, `@vercel/sdk`, `execa`. All other stack deps already in the pnpm workspace.
 
 ## Current Position
 
-Milestone: v2.0 — Self-Serve Platform + Two-Tier Brain/Dispatcher
-Phase: BD4
-Plan: Not started
-Status: Phase complete — ready for verification
+Milestone: v2.0 — SHIPPED (code) 2026-06-19
+Phase: BD4 (last v2.0 phase) — complete
+Plan: —
+Status: Milestone complete — tagged `v2.0`; awaiting next milestone (`/gsd:new-milestone`)
 Last activity: 2026-06-19
 
-> **Predecessor:** v1.2 — Agentic Tab Editing is COMPLETE (code-verified, pushed, live on Vercel). Live agent+browser UAT (AE1-AE3 `*-HUMAN-UAT.md`) and the Mobile Demo (AE4) phase remain open and are tracked in the roadmap; they are not part of v2.0 scope.
+> **Open tails:** v2.0 live UAT (BD1–BD4 `*-HUMAN-UAT.md`) deferred-on-external-dependency. v1.2 Agentic Tab Editing is code-complete/live (AE1–AE3 live UAT pending). v1.0 Production + Mobile Demo (AE4) remain tracked in the roadmap.
 
-**Progress bar:** [..........] 0% (0/4 v2.0 phases)
+**Progress bar:** [██████████] 100% (4/4 v2.0 phases, 19/19 plans)
 
 ### v2.0 Phase Summary
 
