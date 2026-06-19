@@ -28,37 +28,17 @@ import {
 import { defineEventHandler, sendRedirect } from "h3";
 
 // ---------------------------------------------------------------------------
-// Single-super-admin allowlist helpers (exported for unit tests — no server
-// boot required, pure functions over process.env).
+// Single-super-admin allowlist helpers.
+//
+// Live in auth-helpers.ts (no @agent-native/core deps) so they can be
+// unit-tested without a dev server (no-local-dev-server constraint).
+// Re-exported here so callers can import from a single auth plugin entry point.
 // ---------------------------------------------------------------------------
-
-/**
- * Parse the single configured super-admin email from the environment.
- *
- * Returns the email trimmed + lowercased, or null if the env var is absent
- * or empty. Callers must treat null as "deny all" (not "allow all").
- */
-export function parseSuperAdminEmail(): string | null {
-  const raw = process.env.HQ_SUPER_ADMIN_EMAIL ?? "";
-  const trimmed = raw.trim().toLowerCase();
-  return trimmed.length > 0 ? trimmed : null;
-}
-
-/**
- * Returns true ONLY when `email` exactly matches the configured
- * HQ_SUPER_ADMIN_EMAIL (case-insensitive, trimmed).
- *
- * IMPORTANT — deny-by-default when HQ_SUPER_ADMIN_EMAIL is unset:
- *   - An unset/empty env var returns false for every email.
- *   - This is the OPPOSITE of staff-web's dev-fallback-allow-all policy.
- *   - HQ is the operator control plane. If the email is not set,
- *     no one gets in — that is the safe failure mode.
- */
-export function isSuperAdmin(email: string): boolean {
-  const configured = parseSuperAdminEmail();
-  if (!configured) return false; // deny-by-default when unset
-  return email.trim().toLowerCase() === configured;
-}
+import {
+  parseSuperAdminEmail as _parseSuperAdminEmail,
+  isSuperAdmin as _isSuperAdmin,
+} from "./auth-helpers.js";
+export { _parseSuperAdminEmail as parseSuperAdminEmail, _isSuperAdmin as isSuperAdmin };
 
 // ---------------------------------------------------------------------------
 // HQ Better-auth plugin
@@ -114,7 +94,7 @@ const allowlistHandler = defineEventHandler(async (event) => {
   const email = session.email;
   if (!email) return;
 
-  if (!isSuperAdmin(email)) {
+  if (!_isSuperAdmin(email)) {
     // Redirect to the access-denied page. We do NOT sign out here — the
     // /access-denied page can prompt the user to try a different account.
     // Signing out inside this middleware risks an OAuth-loop trap (Pitfall 4,
