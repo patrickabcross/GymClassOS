@@ -28,8 +28,9 @@
 
 - [x] **Phase BD1: HQ Foundation** — `apps/hq` scaffolded (Dispatch + Brain copy-out fork; Videos/Yjs excluded); packages/hq-schema + HQ Neon; super-admin Better-auth; HQ org seed; `services/hq-worker` skeleton (flyctl baked in); CI guards; Anthropic call-site audit — **6 plans, 3 waves**
  (completed 2026-06-19)
-- [x] **Phase BD2: Telemetry + Provisioning** — Parallel TEL plan (Zod strict schema, studio token accumulator, daily push, HQ ingest) + PROV plan (8-step saga with LIFO rollback first, then happy path; idempotent; watchdog); both plans independent within the phase (completed 2026-06-19)
-- [ ] **Phase BD3: HQ Brain + Dispatcher** — Parallel HQB plan (health scoring, cohort views, at-risk exclusion via `last_telemetry_received_at`) + HQD plan (own WABA, owner opt-in, onboarding nudge sequence, Content generation); HQD Meta templates submitted at BD2 completion
+- [x] **Phase BD2: Telemetry + Provisioning** — Parallel TEL plan (Zod strict schema, studio token accumulator, daily push, HQ ingest) + PROV plan (8-step saga with LIFO rollback first, then happy path; idempotent; watchdog); both plans independent within the phase
+ (completed 2026-06-19)
+- [ ] **Phase BD3: HQ Brain + Dispatcher** — Parallel HQB plan (health scoring, cohort views, at-risk exclusion via `last_telemetry_received_at`) + HQD plan (own WABA, owner opt-in, onboarding nudge sequence, Content generation); HQD Meta templates submitted at BD2 completion — **5 plans, 2 waves**
 - [ ] **Phase BD4: Studio Brain + Dispatcher** — Parallel GOB plan (Brain template copy-in to staff-web, class catalog auto-ingest, brand voice UI) + GOD plan (daily owner digest, heartbeat reactivation via existing chokepoint, suppression ceiling); GOD Meta templates submitted at BD3 completion
 
 ## Phase Details
@@ -88,7 +89,14 @@ Plans:
   4. Operator can ask the HQ dispatcher agent to send a WhatsApp message to a gym owner about a system/product topic; the action's Zod schema structurally prevents any member-directed payload or member-PII field from being included
   5. HQD owner messages route through a 24h-window + approved-template gate on HQ's own WABA (separate from any studio WABA); no HQD code references `services/worker` or `services/edge-webhooks`
   6. Operator can use the HQ content surface (agent-native Content tools) to generate marketing content for the GymClassOS website from Brain insights
-**Plans**: TBD
+**Plans**: 5 plans (2 waves)
+
+Plans:
+- [ ] BD3-01-PLAN.md (wave 1) — HQB classification engine (deterministic, staleness-first) + threshold constants + list-studios action + GET /api/studios read model [HQB-01, HQB-02, HQB-03, HQB-04]
+- [ ] BD3-03-PLAN.md (wave 1) — HQD send foundation: hq_whatsapp_opt_in/templates migrations (v8/v9) + mirrored gates (opt-in/window/template) + HqWabaClient mock + sendOwnerMessage orchestrator + no-worker-import CI guard [HQD-01, HQD-03]
+- [ ] BD3-02-PLAN.md (wave 2, after 01) — HQB console: /studios list (shadcn Table + health badges + cohort filter) + /studios/:id drill-in (recharts history, ClientOnly SSR-guarded) + snapshots resource route [HQB-01, HQB-04, HQB-05]
+- [ ] BD3-04-PLAN.md (wave 2, after 03) — send-owner-whatsapp .strict() member-excluded action + HQD system-prompt constraint + hq-owner-send pg-boss queue (mock client, live deferred) [HQD-02, HQD-03]
+- [ ] BD3-05-PLAN.md (wave 2, after 03) — Content fork (non-collab Tiptap, no Yjs/Notion) + document CRUD + Video thin stub [HQD-04, HQD-05]
 **UI hint**: yes
 
 ### Phase BD4: Studio Brain + Dispatcher
@@ -109,7 +117,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | BD1. HQ Foundation | 6/6 | Complete   | 2026-06-19 |
 | BD2. Telemetry + Provisioning | 6/6 | Complete    | 2026-06-19 |
-| BD3. HQ Brain + Dispatcher | 0/TBD | Not started | - |
+| BD3. HQ Brain + Dispatcher | 0/5 | Not started | - |
 | BD4. Studio Brain + Dispatcher | 0/TBD | Not started | - |
 
 **Coverage:** 40 v2.0 requirements mapped across 4 phases (BD1-BD4). All pending.
