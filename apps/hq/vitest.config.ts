@@ -14,8 +14,10 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
-    // Only match server-side unit tests, not browser/route tests.
-    include: ["server/**/*.test.ts"],
+    // Match server-side unit tests and action unit tests.
+    // actions/*.test.ts covers schema-level proofs (e.g. .strict() exclusion)
+    // that have no browser or dev-server dependency.
+    include: ["server/**/*.test.ts", "actions/**/*.test.ts"],
     environment: "node",
   },
   resolve: {
