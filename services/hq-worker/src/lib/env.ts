@@ -26,14 +26,38 @@ const EnvSchema = z.object({
     .default("info"),
 
   // ---------------------------------------------------------------
-  // BD2 PROV PLACEHOLDERS (NOT required in BD1 — arrive in BD2)
-  // These secrets let hq-worker shell out to flyctl + call Neon/Vercel
-  // APIs during the provisioning saga. Leave them optional here;
-  // BD2 makes them required and adds validation.
+  // BD2 PROV — Provider API tokens (operator-provided, OPTIONAL here)
+  //
+  // These secrets let hq-worker call Neon/Vercel APIs and shell out to
+  // flyctl during the provisioning saga (BD2-05).
+  //
+  // All six are optional so the worker starts without them.
+  // BD2-05's saga throws a clear "deferred-on-external-dependency" error
+  // if a live provisioning run starts while any of these are unset.
+  // Unit tests use mocked provider adapters and never need real values.
+  //
+  // Set via: fly secrets set <NAME>=<value> -a gymos-hq-worker
   // ---------------------------------------------------------------
-  // NEON_API_KEY: z.string().min(8).optional(),
-  // VERCEL_API_TOKEN: z.string().min(8).optional(),
-  // FLY_API_TOKEN: z.string().min(8).optional(),  // MUST be org-scoped, NOT a deploy token
+
+  // Neon Management API (Step 1: create studio Neon project)
+  // Source: Neon Console → Account Settings → API Keys
+  NEON_API_KEY: z.string().min(8).optional(),
+
+  // Vercel REST API (Step 4: create Vercel project + deploy + attach domain)
+  // Source: Vercel Dashboard → Settings → Tokens
+  VERCEL_BEARER_TOKEN: z.string().min(8).optional(),
+  // Source: Vercel Dashboard → Team Settings → General
+  VERCEL_TEAM_ID: z.string().min(1).optional(),
+
+  // Fly Machines API + flyctl (Step 5: create Fly app, set secrets, launch machine)
+  // MUST be an org-scoped token (fly tokens create org), NOT a deploy token.
+  // Deploy tokens cannot set secrets; org token is required.
+  // Source: fly tokens create org -n gymos-provisioner -o <org> (org-scoped)
+  FLY_API_TOKEN: z.string().min(8).optional(),
+  // Source: fly orgs list
+  FLY_ORG_SLUG: z.string().min(1).optional(),
+  // Source: registry.fly.io/<image>:latest built by CI
+  GYMOS_WORKER_IMAGE: z.string().min(1).optional(),
 });
 
 export type Env = z.infer<typeof EnvSchema>;

@@ -11,9 +11,12 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@gymos/queue": "workspace:*",
     "@gymos/hq-schema": "workspace:*",
+    "@gymos/queue": "workspace:*",
     "@hono/node-server": "^1.13.0",
+    "@neondatabase/api-client": "^2.7.2",
+    "@vercel/sdk": "^1.28.0",
+    "execa": "^9.6.1",
     "hono": "^4.6.0",
     "pg": "^8.13.0",
     "pg-boss": "^12.18.0",
