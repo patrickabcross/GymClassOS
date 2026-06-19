@@ -26,7 +26,7 @@
 
 ## Phases
 
-- [ ] **Phase BD1: HQ Foundation** — `apps/hq` scaffolded (Dispatch + Brain + Content + Video template copies); HQ Neon provisioned; super-admin Better-auth; HQ org seed; `services/hq-worker` skeleton; CI guards; Anthropic call-site audit
+- [ ] **Phase BD1: HQ Foundation** — `apps/hq` scaffolded (Dispatch + Brain copy-out fork; Videos/Yjs excluded); packages/hq-schema + HQ Neon; super-admin Better-auth; HQ org seed; `services/hq-worker` skeleton (flyctl baked in); CI guards; Anthropic call-site audit — **6 plans, 3 waves**
 - [ ] **Phase BD2: Telemetry + Provisioning** — Parallel TEL plan (Zod strict schema, studio token accumulator, daily push, HQ ingest) + PROV plan (8-step saga with LIFO rollback first, then happy path; idempotent; watchdog); both plans independent within the phase
 - [ ] **Phase BD3: HQ Brain + Dispatcher** — Parallel HQB plan (health scoring, cohort views, at-risk exclusion via `last_telemetry_received_at`) + HQD plan (own WABA, owner opt-in, onboarding nudge sequence, Content generation); HQD Meta templates submitted at BD2 completion
 - [ ] **Phase BD4: Studio Brain + Dispatcher** — Parallel GOB plan (Brain template copy-in to staff-web, class catalog auto-ingest, brand voice UI) + GOD plan (daily owner digest, heartbeat reactivation via existing chokepoint, suppression ceiling); GOD Meta templates submitted at BD3 completion
@@ -43,7 +43,15 @@
   3. `pnpm guards` (CI guard suite) fails if any HQ schema migration adds a column matching `*connection*`, `*database_url*`, or `*dsn*`
   4. Navigating to the HQ Brain or Dispatch routes returns real (non-empty) results — the HQ org + super-admin seed row is present, so `accessFilter`/`orgId` queries return data, not empty arrays
   5. `services/hq-worker` `/healthz` endpoint responds with HTTP 200 on its Fly deploy (pg-boss bootstrapped against HQ Neon)
-**Plans**: TBD
+**Plans**: 6 plans (3 waves)
+
+Plans:
+- [ ] BD1-01-PLAN.md (wave 1) — apps/hq scaffold: copy-out fork of Dispatch shell + Brain surfaces; exclude Videos/Yjs; MODIFICATIONS.md ledger [HQ-FND-02]
+- [ ] BD1-02-PLAN.md (wave 1) — packages/hq-schema package + apps/hq db plugin (runMigrations, additive) against HQ-own Neon [HQ-FND-03]
+- [ ] BD1-05-PLAN.md (wave 1) — Anthropic call-site audit -> BD1-ANTHROPIC-AUDIT.md wrapper-insertion spec (gates BD2 TEL-01)
+- [ ] BD1-03-PLAN.md (wave 2) — Better-auth single super-admin + HQ org seed in runMigrations; deployment-level isolation [HQ-FND-01, HQ-FND-04]
+- [ ] BD1-04-PLAN.md (wave 2) — services/hq-worker Fly skeleton (pg-boss + /healthz) + flyctl baked into image for BD2 [HQ-FND-05]
+- [ ] BD1-06-PLAN.md (wave 3) — two CI guards: guard:hq-fork-boundary + guard:hq-no-pii, wired into pnpm guards chain [HQ-FND-06]
 **UI hint**: yes
 
 ### Phase BD2: Telemetry + Provisioning
@@ -90,7 +98,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| BD1. HQ Foundation | 0/TBD | Not started | - |
+| BD1. HQ Foundation | 0/6 | Not started | - |
 | BD2. Telemetry + Provisioning | 0/TBD | Not started | - |
 | BD3. HQ Brain + Dispatcher | 0/TBD | Not started | - |
 | BD4. Studio Brain + Dispatcher | 0/TBD | Not started | - |
