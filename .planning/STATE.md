@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: — Self-Serve Platform + Two-Tier Brain/Dispatcher
 status: executing
-stopped_at: "Completed BD2-telemetry-provisioning BD2-02-PLAN.md (provider adapters: Neon/Vercel/Fly + mocks + TDD)"
-last_updated: "2026-06-19T12:58:13.896Z"
+stopped_at: "Completed BD2-telemetry-provisioning BD2-03-PLAN.md (studio telemetry capture: token_usage trigger + buildTelemetrySnapshot)"
+last_updated: "2026-06-19T13:18:55.049Z"
 last_activity: 2026-06-19
 progress:
   total_phases: 4
@@ -31,7 +31,7 @@ Requirements: `.planning/REQUIREMENTS.md` (40 v2.0 reqs across 7 categories — 
 
 Milestone: v2.0 — Self-Serve Platform + Two-Tier Brain/Dispatcher
 Phase: BD2 (Telemetry + Provisioning) — EXECUTING
-Plan: 3 of 6
+Plan: 4 of 6
 Status: Ready to execute
 Last activity: 2026-06-19
 
@@ -61,8 +61,17 @@ Last activity: 2026-06-19
 |-------|------|----------|-------|-------|-----------|
 | BD2 | 01 | 35min | 3 | 7 | 2026-06-19 |
 | BD2 | 02 | 16min | 3 | 10 | 2026-06-19 |
+| BD2 | 03 | 975s (~16min) | 3 | 6 | 2026-06-19 |
 
 ## Accumulated Context
+
+### BD2-03 Decisions (2026-06-19)
+
+- **2026-06-19 BD2-03 — studio_telemetry_state.updated_at is TEXT (not INTEGER epoch) to match the existing studio schema convention (gym_members, conversations etc. all use TEXT ISO timestamps).**
+- **2026-06-19 BD2-03 — mobileEngagement proxy = COUNT(*) FROM food_entries in window. Rationale: food_entries is the only mobile-app-exclusive table in the current studio schema; BD3 may refine to a richer session metric.**
+- **2026-06-19 BD2-03 — retentionRate = COUNT(DISTINCT member_id active this window) / COUNT(DISTINCT member_id active prior window). Documented approximation (not exact cohort intersection); 0 when prior denominator is 0.**
+- **2026-06-19 BD2-03 — @gymos/hq-schema added as workspace dep to services/worker (Rule-3 auto-fix: tsc --noEmit failed TS2307 without it; TelemetrySnapshotInput type used in buildTelemetrySnapshot).**
+- **2026-06-19 BD2-03 — Trigger guard uses DO $$ IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname='trg_token_usage_accumulate') to avoid DROP; wrapped in information_schema existence check for SQLite dev-path no-op.**
 
 ### BD2-02 Decisions (2026-06-19)
 
@@ -129,8 +138,8 @@ Last activity: 2026-06-19
 
 ## Session Continuity
 
-Last session: 2026-06-19T12:58:13.868Z
-Stopped at: Completed BD2-telemetry-provisioning BD2-02-PLAN.md (provider adapters: Neon/Vercel/Fly + mocks + TDD)
+Last session: 2026-06-19T13:18:55.039Z
+Stopped at: Completed BD2-telemetry-provisioning BD2-03-PLAN.md (studio telemetry capture: token_usage trigger + buildTelemetrySnapshot)
 Resume file: None
 
 ### PICK UP HERE — plan BD1
