@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: — Self-Serve Platform + Two-Tier Brain/Dispatcher
-status: roadmap created
-stopped_at: v2.0 roadmap written (BD1-BD4, 40 reqs mapped). Next — /gsd:plan-phase BD1
-last_updated: "2026-06-19T14:00:00.000Z"
+status: executing
+stopped_at: Completed BD1-hq-foundation BD1-01-PLAN.md (apps/hq scaffold)
+last_updated: "2026-06-19T10:53:39.080Z"
 last_activity: 2026-06-19
 progress:
   total_phases: 4
@@ -30,10 +30,10 @@ Requirements: `.planning/REQUIREMENTS.md` (40 v2.0 reqs across 7 categories — 
 ## Current Position
 
 Milestone: v2.0 — Self-Serve Platform + Two-Tier Brain/Dispatcher
-Phase: BD1 — HQ Foundation (not started)
-Plan: —
-Status: Roadmap created; ready for planning
-Last activity: 2026-06-19 — v2.0 roadmap written (BD1-BD4, 40 reqs)
+Phase: BD1-hq (HQ Foundation) — EXECUTING
+Plan: 2 of 6
+Status: Ready to execute
+Last activity: 2026-06-19
 
 > **Predecessor:** v1.2 — Agentic Tab Editing is COMPLETE (code-verified, pushed, live on Vercel). Live agent+browser UAT (AE1-AE3 `*-HUMAN-UAT.md`) and the Mobile Demo (AE4) phase remain open and are tracked in the roadmap; they are not part of v2.0 scope.
 
@@ -112,8 +112,8 @@ Last activity: 2026-06-19 — v2.0 roadmap written (BD1-BD4, 40 reqs)
 
 ## Session Continuity
 
-Last session: 2026-06-19
-Stopped at: v2.0 roadmap created (BD1-BD4, 40 reqs mapped). Ready to plan BD1.
+Last session: 2026-06-19T10:53:39.073Z
+Stopped at: Completed BD1-hq-foundation BD1-01-PLAN.md (apps/hq scaffold)
 Resume file: None
 
 ### PICK UP HERE — plan BD1
@@ -125,9 +125,11 @@ v2.0 roadmap is written. The four phases are defined with success criteria and r
 BD1 is the foundational phase: `apps/hq` scaffold, HQ Neon, super-admin Better-auth, HQ org seed, `services/hq-worker` skeleton, CI guards, and the Anthropic call-site audit. All other phases depend on BD1.
 
 **Research flags for upcoming phases (action at plan time):**
+
 - BD2 PROV plan: run `/gsd:research-phase` before planning. Three unverified items: Fly machine deploy sequencing, Vercel async deployment polling, Neon 409 response body shape.
 - BD3 HQD plan: run `/gsd:research-phase` before planning. HQ WABA second phone number registration in Meta Business Manager.
 
 **Calendar watch items (non-engineering, but gate BD3/BD4 go-live):**
+
 - Submit HQD owner-comms WhatsApp templates for Meta approval at BD2 completion.
 - Submit GOD member reactivation + owner digest templates for Meta approval at BD3 completion.

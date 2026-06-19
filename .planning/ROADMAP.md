@@ -46,7 +46,7 @@
 **Plans**: 6 plans (3 waves)
 
 Plans:
-- [ ] BD1-01-PLAN.md (wave 1) — apps/hq scaffold: copy-out fork of Dispatch shell + Brain surfaces; exclude Videos/Yjs; MODIFICATIONS.md ledger [HQ-FND-02]
+- [x] BD1-01-PLAN.md (wave 1) — apps/hq scaffold: copy-out fork of Dispatch shell + Brain surfaces; exclude Videos/Yjs; MODIFICATIONS.md ledger [HQ-FND-02]
 - [ ] BD1-02-PLAN.md (wave 1) — packages/hq-schema package + apps/hq db plugin (runMigrations, additive) against HQ-own Neon [HQ-FND-03]
 - [ ] BD1-05-PLAN.md (wave 1) — Anthropic call-site audit -> BD1-ANTHROPIC-AUDIT.md wrapper-insertion spec (gates BD2 TEL-01)
 - [ ] BD1-03-PLAN.md (wave 2) — Better-auth single super-admin + HQ org seed in runMigrations; deployment-level isolation [HQ-FND-01, HQ-FND-04]
@@ -98,7 +98,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| BD1. HQ Foundation | 0/6 | Not started | - |
+| BD1. HQ Foundation | 1/6 | In Progress|  |
 | BD2. Telemetry + Provisioning | 0/TBD | Not started | - |
 | BD3. HQ Brain + Dispatcher | 0/TBD | Not started | - |
 | BD4. Studio Brain + Dispatcher | 0/TBD | Not started | - |
@@ -417,7 +417,7 @@ Post-v1 backlog (HealthKit + native mobile, Coach View with health context, CRM 
 4. Member context panel in the inbox shows next-class + pass-balance for the opened conversation's member (real data)
 5. Stripe Checkout link generated for a 10-pack purchase + paid in Stripe test mode + resulting pass grant visible in member profile
 
-**Plans:** 3/3 plans complete
+**Plans:** 1/6 plans executed
 
 - [x] D1-01-schedule-surface-PLAN.md — Build /gymos/schedule week-grid + book-from-occurrence dialog (SCH-01, BKG-01) — completed 2026-05-19 (commits f5cdbdc6, dd50fe62, 23ee58f2)
 - [x] D1-02-members-directory-PLAN.md — Build /gymos/members + /gymos/members/:id profile with bookings + pass balance (MEM-01, MEM-02)
