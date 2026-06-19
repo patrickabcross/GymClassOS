@@ -30,7 +30,8 @@
  (completed 2026-06-19)
 - [x] **Phase BD2: Telemetry + Provisioning** — Parallel TEL plan (Zod strict schema, studio token accumulator, daily push, HQ ingest) + PROV plan (8-step saga with LIFO rollback first, then happy path; idempotent; watchdog); both plans independent within the phase
  (completed 2026-06-19)
-- [x] **Phase BD3: HQ Brain + Dispatcher** — Parallel HQB plan (health scoring, cohort views, at-risk exclusion via `last_telemetry_received_at`) + HQD plan (own WABA, owner opt-in, onboarding nudge sequence, Content generation); HQD Meta templates submitted at BD2 completion — **5 plans, 2 waves** (completed 2026-06-19)
+- [x] **Phase BD3: HQ Brain + Dispatcher** — Parallel HQB plan (health scoring, cohort views, at-risk exclusion via `last_telemetry_received_at`) + HQD plan (own WABA, owner opt-in, onboarding nudge sequence, Content generation); HQD Meta templates submitted at BD2 completion — **5 plans, 2 waves**
+ (completed 2026-06-19)
 - [ ] **Phase BD4: Studio Brain + Dispatcher** — Parallel GOB plan (Brain template copy-in to staff-web, class catalog auto-ingest, brand voice UI) + GOD plan (daily owner digest, heartbeat reactivation via existing chokepoint, suppression ceiling); GOD Meta templates submitted at BD3 completion
 
 ## Phase Details
@@ -109,7 +110,11 @@ Plans:
   3. Studio owner receives a daily WhatsApp digest of their studio's own metrics (delivered via the existing worker chokepoint; opt-in/24h-window/template gates apply unchanged)
   4. A pg-boss heartbeat job runs daily at 09:00 in the studio's IANA timezone; it detects dormant members and enqueues reactivation messages through `sendMessage` (sendMessage.ts is NOT modified); all existing compliance gates apply
   5. A member who has received 3 reactivation attempts within any 90-day window receives no further heartbeat messages (suppression ceiling enforced from day one); members who opt out are excluded synchronously
-**Plans**: TBD
+**Plans**: 2 plans (2 waves)
+
+Plans:
+- [ ] BD4-01-PLAN.md (wave 1) — GOB: additive studio_brain_docs (+ studio_owner_config + reactivation_attempts tables, all owned here to avoid db.ts collision) + class-catalog auto-ingest from class_definitions on Brain init + /gymos/brain owner view/edit UI (defineAction writes + useChangeVersions live-refresh) [GOB-01, GOB-02, GOB-03]
+- [ ] BD4-02-PLAN.md (wave 2, after 01) — GOD: daily owner digest (buildTelemetrySnapshot reuse, numeric; LLM deferred) + heartbeat @ 09:00 studio IANA tz (staggered hash%60) + deterministic dormant detection + reactivation via existing outbound-whatsapp chokepoint (sendMessage NOT modified) + 3/90 suppression ceiling + synchronous opt-out from day one + brand-voice personalization w/ generic fallback; live sends mock-first/deferred (D-15) [GOD-01, GOD-02, GOD-03, GOD-04, GOD-05]
 
 ## Progress (v2.0 — Self-Serve Platform + Two-Tier Brain/Dispatcher)
 
@@ -118,7 +123,7 @@ Plans:
 | BD1. HQ Foundation | 6/6 | Complete   | 2026-06-19 |
 | BD2. Telemetry + Provisioning | 6/6 | Complete    | 2026-06-19 |
 | BD3. HQ Brain + Dispatcher | 5/5 | Complete    | 2026-06-19 |
-| BD4. Studio Brain + Dispatcher | 0/TBD | Not started | - |
+| BD4. Studio Brain + Dispatcher | 0/2 | Not started | - |
 
 **Coverage:** 40 v2.0 requirements mapped across 4 phases (BD1-BD4). All pending.
 
