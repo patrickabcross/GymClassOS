@@ -19,10 +19,16 @@
 import { createGetDb } from "@agent-native/core/db";
 import { schema as dispatchSchema } from "@agent-native/dispatch/db";
 import * as brainSchema from "./brain-schema.js";
+import * as contentSchema from "./content-schema.js";
 import * as hqSchema from "./schema.js";
 import { registerShareableResource } from "@agent-native/core/sharing";
 
-export const schema = { ...dispatchSchema, ...brainSchema, ...hqSchema };
+export const schema = {
+  ...dispatchSchema,
+  ...brainSchema,
+  ...contentSchema,
+  ...hqSchema,
+};
 
 export const getDb = createGetDb(schema);
 
@@ -61,5 +67,15 @@ registerShareableResource({
   displayName: "Brain Proposal",
   titleColumn: "title",
   getResourcePath: (proposal) => `/brain/review/${proposal.id}`,
+  getDb,
+});
+
+registerShareableResource({
+  type: "document",
+  resourceTable: contentSchema.documents,
+  sharesTable: contentSchema.documentShares,
+  displayName: "Content Document",
+  titleColumn: "title",
+  getResourcePath: (doc) => `/content/${doc.id}`,
   getDb,
 });

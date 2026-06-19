@@ -342,4 +342,86 @@ CREATE TABLE IF NOT EXISTS hq_token_usage (
 )`,
     },
   },
+
+  // ─── BD3-05 HQD-04 Content documents ──────────────────────────────────────
+  // Non-collab document tables (D-03 / D-10): single super-admin, no Yjs/CRDT.
+  // NO Notion sync tables, NO comments tables — those are collab-only.
+  // ownableColumns() on `documents` provides org-scoping (HQ_ORG_ID).
+  // document_versions: version snapshot ring buffer (no collab dependency).
+  // document_shares: standard share table consumed by accessFilter.
+  // PII-up pass: no *connection*/*database_url*/*dsn* columns.
+
+  {
+    version: 10,
+    sql: {
+      postgres: `CREATE TABLE IF NOT EXISTS documents (
+  id          TEXT PRIMARY KEY,
+  parent_id   TEXT,
+  title       TEXT NOT NULL DEFAULT 'Untitled',
+  content     TEXT NOT NULL DEFAULT '',
+  icon        TEXT,
+  position    INTEGER NOT NULL DEFAULT 0,
+  is_favorite INTEGER NOT NULL DEFAULT 0,
+  created_at  TEXT NOT NULL DEFAULT NOW(),
+  updated_at  TEXT NOT NULL DEFAULT NOW(),
+  -- ownableColumns()
+  owner_email TEXT NOT NULL DEFAULT 'local@localhost',
+  org_id      TEXT,
+  visibility  TEXT NOT NULL DEFAULT 'private'
+);
+
+CREATE TABLE IF NOT EXISTS document_versions (
+  id          TEXT PRIMARY KEY,
+  owner_email TEXT NOT NULL DEFAULT 'local@localhost',
+  document_id TEXT NOT NULL,
+  title       TEXT NOT NULL,
+  content     TEXT NOT NULL,
+  created_at  TEXT NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS document_shares (
+  id             TEXT PRIMARY KEY,
+  resource_id    TEXT NOT NULL,
+  principal_type TEXT NOT NULL,
+  principal_id   TEXT NOT NULL,
+  role           TEXT NOT NULL DEFAULT 'viewer',
+  created_by     TEXT NOT NULL,
+  created_at     TEXT NOT NULL DEFAULT NOW()
+)`,
+      sqlite: `CREATE TABLE IF NOT EXISTS documents (
+  id          TEXT PRIMARY KEY,
+  parent_id   TEXT,
+  title       TEXT NOT NULL DEFAULT 'Untitled',
+  content     TEXT NOT NULL DEFAULT '',
+  icon        TEXT,
+  position    INTEGER NOT NULL DEFAULT 0,
+  is_favorite INTEGER NOT NULL DEFAULT 0,
+  created_at  TEXT NOT NULL DEFAULT datetime('now'),
+  updated_at  TEXT NOT NULL DEFAULT datetime('now'),
+  -- ownableColumns()
+  owner_email TEXT NOT NULL DEFAULT 'local@localhost',
+  org_id      TEXT,
+  visibility  TEXT NOT NULL DEFAULT 'private'
+);
+
+CREATE TABLE IF NOT EXISTS document_versions (
+  id          TEXT PRIMARY KEY,
+  owner_email TEXT NOT NULL DEFAULT 'local@localhost',
+  document_id TEXT NOT NULL,
+  title       TEXT NOT NULL,
+  content     TEXT NOT NULL,
+  created_at  TEXT NOT NULL DEFAULT datetime('now')
+);
+
+CREATE TABLE IF NOT EXISTS document_shares (
+  id             TEXT PRIMARY KEY,
+  resource_id    TEXT NOT NULL,
+  principal_type TEXT NOT NULL,
+  principal_id   TEXT NOT NULL,
+  role           TEXT NOT NULL DEFAULT 'viewer',
+  created_by     TEXT NOT NULL,
+  created_at     TEXT NOT NULL DEFAULT datetime('now')
+)`,
+    },
+  },
 ];
