@@ -74,7 +74,10 @@ Plans:
   3. Staff can rename, duplicate, and delete a composition (AlertDialog on delete); all three operations reflect immediately in the list
   4. Staff can tell the agent "create a 15-second promo for tomorrow's 7am yoga class" and a new composition appears in the Video tab with the agent-drafted scene data (copy, timing, class details pre-filled)
   5. The agent can edit an existing composition (e.g. "change the headline to use the studio's catchphrase") and the preview updates
-**Plans**: TBD
+**Plans**: 1 plan (1 wave)
+
+Plans:
+- [ ] CV3-01-PLAN.md (wave 1) — videoCompositions Drizzle export + VideoSpec Zod schema/validator (tested) + 7 video actions (list/get/create/update/rename/duplicate/delete, spec-validated) + ONE GymPromo Remotion component + ClientOnly @remotion/player editor route (live spec preview) + /gymos/video list (optimistic create + CSS poster + useChangeVersions live-refresh) + view-screen video branch + agent two-exposure (agent-chat Video section + AGENTS.md) [VID-01..04]
 **UI hint**: yes
 
 ### Phase CV4: Publish pipeline — member API + public SSR pages
@@ -107,7 +110,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | CV1. Foundation — deps, schema, scaffold, nav | 0/1 | Not started | - |
 | CV2. Content tab — Tiptap editor + agent tools | 0/1 | Not started | - |
-| CV3. Video tab — Remotion editor + agent tools | 0/TBD | Not started | - |
+| CV3. Video tab — Remotion editor + agent tools | 0/1 | Not started | - |
 | CV4. Publish pipeline — member API + public SSR pages | 0/TBD | Not started | - |
 | CV-RENDER. [GATED] Server-side MP4 render | 0/TBD | Gated — awaiting go-ahead | - |
 
