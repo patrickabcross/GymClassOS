@@ -4,8 +4,8 @@ milestone: v2.0
 milestone_name: — Self-Serve Platform + Two-Tier Brain/Dispatcher
 status: milestone_complete
 stopped_at: v2.0 milestone shipped (BD1-BD4 complete, tagged v2.0)
-last_updated: "2026-06-19T22:06:57.286Z"
-last_activity: 2026-06-19
+last_updated: "2026-06-20T07:48:51.399Z"
+last_activity: 2026-06-20
 progress:
   total_phases: 4
   completed_phases: 4
@@ -40,6 +40,12 @@ Last activity: 2026-06-19
 > **Open tails:** v2.0 live UAT (BD1–BD4 `*-HUMAN-UAT.md`) deferred-on-external-dependency. v1.2 Agentic Tab Editing is code-complete/live (AE1–AE3 live UAT pending). v1.0 Production + Mobile Demo (AE4) remain tracked in the roadmap.
 
 **Progress bar:** [██████████] 100% (4/4 v2.0 phases, 19/19 plans)
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 260620-c8p | Settings API Keys page: resolve secret status studio-global (by key) so saved keys show as set for every staff login, not just the saver | 2026-06-20 | ba34c8b8 | [260620-c8p-settings-api-keys-page-resolve-secret-st](./quick/260620-c8p-settings-api-keys-page-resolve-secret-st/) |
 
 ### v2.0 Phase Summary
 
