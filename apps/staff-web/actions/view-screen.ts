@@ -469,9 +469,32 @@ export default defineAction({
         if (doc) screen.selectedContentDocument = doc;
       }
     } else if (nav?.view === "video") {
-      // CV1 NAV-01 — context-aware of the Video tab. CV3 will surface the
-      // video_compositions list here.
-      screen.video = { note: "Video tab — compositions arrive in CV3." };
+      // CV3-01 — live video_compositions list. Replaces the CV1 static stub.
+      const { getDb, schema } = await import("../server/db/index.js");
+      const { eq, desc } = await import("drizzle-orm");
+      const db = getDb();
+      // guard:allow-unscoped — single-tenant video
+      const compositions = await db
+        .select({
+          id: schema.videoCompositions.id,
+          title: schema.videoCompositions.title,
+          status: schema.videoCompositions.status,
+          slug: schema.videoCompositions.slug,
+          updatedAt: schema.videoCompositions.updatedAt,
+        })
+        .from(schema.videoCompositions)
+        .orderBy(desc(schema.videoCompositions.updatedAt))
+        .limit(100);
+      screen.video = { compositions };
+      if (nav?.compositionId) {
+        // guard:allow-unscoped — single-tenant video
+        const [comp] = await db
+          .select()
+          .from(schema.videoCompositions)
+          .where(eq(schema.videoCompositions.id, nav.compositionId))
+          .limit(1);
+        if (comp) screen.selectedComposition = comp;
+      }
     } else if (nav?.view) {
       const emails = await fetchEmailList(nav.view, nav.search, nav.label);
       const selectedThreadIds = Array.isArray(nav.selectedThreadIds)
