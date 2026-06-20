@@ -205,6 +205,34 @@ export default runMigrations(
       version: 19,
       sql: `CREATE INDEX IF NOT EXISTS idx_reactivation_attempts_member_sent ON reactivation_attempts(member_id, sent_at)`,
     },
+    // -------------------------------------------------------------------------
+    // CV1 MIG-01: additive content + video tables. Single-tenant — NO studio_id,
+    // NO ownableColumns. Reads use // guard:allow-unscoped. NEVER DROP/RENAME.
+    // -------------------------------------------------------------------------
+    {
+      version: 20,
+      sql: `CREATE TABLE IF NOT EXISTS content_documents (
+        id         TEXT PRIMARY KEY,
+        title      TEXT NOT NULL DEFAULT '',
+        body       TEXT NOT NULL DEFAULT '',
+        status     TEXT NOT NULL DEFAULT 'draft' CHECK(status IN ('draft','published')),
+        slug       TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+    },
+    {
+      version: 21,
+      sql: `CREATE TABLE IF NOT EXISTS video_compositions (
+        id         TEXT PRIMARY KEY,
+        title      TEXT NOT NULL DEFAULT '',
+        spec       TEXT NOT NULL DEFAULT '{}',
+        status     TEXT NOT NULL DEFAULT 'draft' CHECK(status IN ('draft','published')),
+        slug       TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+    },
     // Version 15: AFTER INSERT trigger on token_usage (Postgres only).
     // Step A: CREATE OR REPLACE FUNCTION — idempotent, never drops.
     // Step B: CREATE TRIGGER — guarded by pg_trigger check so re-running this

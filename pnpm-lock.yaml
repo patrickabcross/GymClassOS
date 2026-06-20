@@ -249,6 +249,9 @@ importers:
       '@libsql/client':
         specifier: ^0.15.0
         version: 0.15.15
+      '@remotion/player':
+        specifier: 4.0.481
+        version: 4.0.481(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
       '@tabler/icons-react':
         specifier: ^3.40.0
         version: 3.44.0(react@19.2.6)
@@ -288,6 +291,9 @@ importers:
       recharts:
         specifier: ^3.8.1
         version: 3.8.1(@types/react@19.2.14)(react-dom@19.2.6(react@19.2.6))(react-is@19.2.4)(react@19.2.6)(redux@5.0.1)
+      remotion:
+        specifier: 4.0.481
+        version: 4.0.481(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
       stripe:
         specifier: ^19.0.0
         version: 19.3.1(@types/node@24.12.2)
@@ -10784,6 +10790,12 @@ packages:
       react: '>=16.8.0'
       react-dom: '>=16.8.0'
 
+  '@remotion/player@4.0.481':
+    resolution: {integrity: sha512-+oRSxxzA6B7J2RvWBAaHAGL2IchybA3TnK6e0/IAJfTUa9m0wN95GLels9MA2/EYuEQL+9Ydtx/lZSESJcyL5A==}
+    peerDependencies:
+      react: '>=16.8.0'
+      react-dom: '>=16.8.0'
+
   '@remotion/shapes@4.0.443':
     resolution: {integrity: sha512-s1nHTE3GDyrDm/Jq5j2NyDKKcuxTeshXW0uDOxvjvDccdvX7Orh+F0FV13X6hU83QAkl1mh3+nwFPRyIJlMmuQ==}
     peerDependencies:
@@ -17950,6 +17962,12 @@ packages:
 
   remotion@4.0.443:
     resolution: {integrity: sha512-zfqqhy4TN148lT2Rf6Xl6iYLnnCdh4WNpZM+iZ1aTe9vbMNY1Wb3FAcQNN2hnUi2hfPdD8zOpwdt9/KDRZEN9A==}
+    peerDependencies:
+      react: '>=16.8.0'
+      react-dom: '>=16.8.0'
+
+  remotion@4.0.481:
+    resolution: {integrity: sha512-OurH3eP6zoS9fwAOTpOy73kz1k7v6cshLoig7jYEI/mfn5fFdXU5/fiBOQom5N4QidnVyDF7ix/SATyv6AY2Cg==}
     peerDependencies:
       react: '>=16.8.0'
       react-dom: '>=16.8.0'
@@ -26601,6 +26619,12 @@ snapshots:
       react: 19.2.5
       react-dom: 19.2.5(react@19.2.5)
       remotion: 4.0.443(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
+
+  '@remotion/player@4.0.481(react-dom@19.2.6(react@19.2.6))(react@19.2.6)':
+    dependencies:
+      react: 19.2.6
+      react-dom: 19.2.6(react@19.2.6)
+      remotion: 4.0.481(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
 
   '@remotion/shapes@4.0.443(react-dom@19.2.5(react@19.2.5))(react@19.2.5)':
     dependencies:
@@ -35489,6 +35513,11 @@ snapshots:
     dependencies:
       react: 19.2.5
       react-dom: 19.2.5(react@19.2.5)
+
+  remotion@4.0.481(react-dom@19.2.6(react@19.2.6))(react@19.2.6):
+    dependencies:
+      react: 19.2.6
+      react-dom: 19.2.6(react@19.2.6)
 
   require-directory@2.1.1: {}
 
