@@ -53,6 +53,11 @@ const authPlugin = createAuthPlugin({
     "/api/forms/public", // public form metadata GET (used by embed.js)
     "/api/submit", // public form POST — anonymous lead upsert only
     "/embed", // /embed/schedule (P1c-05), /embed.js (P1c-06), /embed/buy (P1c.1-05)
+    // CV4 — public SSR marketing pages (content articles + video compositions).
+    // No staff session required. Each Nitro server route gates itself on
+    // status='published' (drafts → 404). Do NOT widen /_agent-native or /api.
+    "/c", // public SSR content pages (GET /c/:slug)
+    "/v", // public SSR video pages (GET /v/:slug)
     // Member mobile purchase return page — Stripe redirects here after checkout.
     // Members don't have staff sessions so the page must be reachable without auth.
     "/m/checkout-return",
@@ -114,7 +119,10 @@ const allowlistHandler = defineEventHandler(async (event) => {
     pathname.startsWith("/api/forms/public") ||
     pathname.startsWith("/api/submit") ||
     pathname.startsWith("/embed") ||
-    pathname.startsWith("/m/checkout-return")
+    pathname.startsWith("/m/checkout-return") ||
+    // CV4 — public SSR content + video pages (must mirror publicPaths above).
+    pathname.startsWith("/c/") ||
+    pathname.startsWith("/v/")
   ) {
     return;
   }

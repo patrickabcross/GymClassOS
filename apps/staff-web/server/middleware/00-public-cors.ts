@@ -29,6 +29,8 @@ const PUBLIC_EMBED_PREFIXES = [
   "/preview/", // public SSR form pages (alias of /f/)
   "/embed.js", // embed snippet (P1c-06)
   "/embed/", // schedule widget (P1c-05)
+  "/c/", // CV4 — public SSR content marketing pages
+  "/v/", // CV4 — public SSR video marketing pages
 ];
 
 export default defineEventHandler((event) => {
