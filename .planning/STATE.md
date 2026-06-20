@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: — Content & Video Studio
 status: planning
-stopped_at: Completed CV1-01-PLAN.md
-last_updated: "2026-06-20T09:15:35.075Z"
+stopped_at: Completed CV2-01-PLAN.md
+last_updated: "2026-06-20T09:34:00.000Z"
 last_activity: 2026-06-20 — Roadmap written (CV1-CV4 + gated CV-RENDER)
 progress:
   total_phases: 5
@@ -30,10 +30,10 @@ Requirements: `.planning/REQUIREMENTS.md` (v2.1 requirements, 11 in-scope: CONT-
 ## Current Position
 
 Milestone: v2.1 — Content & Video Studio (staff-web)
-Phase: CV1 — Foundation (not started)
-Plan: —
-Status: Roadmap complete. Ready to plan CV1.
-Last activity: 2026-06-20 — Roadmap written (CV1-CV4 + gated CV-RENDER)
+Phase: CV2 — Content tab (complete)
+Plan: 01
+Status: CV2-01 complete. Ready to plan CV3 (Video tab) or CV4 (Publish pipeline).
+Last activity: 2026-06-20 — CV2-01 executed: 7 content actions + Tiptap editor + agent tools
 
 > **Open tails from prior milestones:** v2.0 live UAT (BD1–BD4 `*-HUMAN-UAT.md`) deferred-on-external-dependency. v1.2 Agentic Tab Editing live UAT pending (AE1–AE3 deployed). v1.0 Production + Mobile Demo (AE4) remain tracked.
 
@@ -50,7 +50,7 @@ Last activity: 2026-06-20 — Roadmap written (CV1-CV4 + gated CV-RENDER)
 | Phase | Goal | Requirements | Status |
 |-------|------|--------------|--------|
 | CV1. Foundation | Tiptap + Remotion deps; additive `content_documents` + `video_compositions` schema; features/ scaffold; Content + Video tabs in GymosTopNav; application_state context-awareness; tsc + Nitro build clean | DEP-01, MIG-01, NAV-01 | Not started |
-| CV2. Content tab | `/gymos/content` list + Tiptap editor (create/rename/duplicate/delete/edit); useChangeVersions live-refresh; agent actions two-exposed | CONT-01, CONT-02, CONT-03, CONT-04, CONT-05 | Not started |
+| CV2. Content tab | `/gymos/content` list + Tiptap editor (create/rename/duplicate/delete/edit); useChangeVersions live-refresh; agent actions two-exposed | CONT-01, CONT-02, CONT-03, CONT-04, CONT-05 | **Complete** — CV2-01 (2026-06-20) |
 | CV3. Video tab | `/gymos/video` list + `@remotion/player` in-browser editor (create/rename/duplicate/delete/edit composition); agent actions two-exposed | VID-01, VID-02, VID-03, VID-04 | Not started |
 | CV4. Publish pipeline | `draft`/`published` toggle; `/api/m/content` member API (published only); public SSR `/c/:slug` page; published video embed/poster page | PUB-01, PUB-02, PUB-03, PUB-04 | Not started |
 | CV-RENDER [GATED] | Server-side MP4 render via Fly worker + pg-boss; MP4 storage + member surfacing | RENDER-01, RENDER-02 | Gated — awaiting go-ahead |
@@ -79,6 +79,7 @@ Last activity: 2026-06-20 — Roadmap written (CV1-CV4 + gated CV-RENDER)
 | Phase BD4 P01 | 14 | 3 tasks | 9 files |
 | Phase BD4 P02 | 25 | 3 tasks | 6 files |
 | Phase CV1-foundation P01 | 522 | 3 tasks | 13 files |
+| Phase CV2-content-tab P01 | 667 | 3 tasks | 14 files |
 
 ## Accumulated Context
 
@@ -95,6 +96,13 @@ Last activity: 2026-06-20 — Roadmap written (CV1-CV4 + gated CV-RENDER)
 - **2026-06-20 — Prior art for Content actions: apps/hq/actions/content-{create,list,get,update}-document.ts (forked from templates/content in BD3-05).** Use as the direct copy-and-adapt base. The main changes needed for staff-web: (a) remove ownableColumns/accessFilter (gym tables are single-tenant, use guard:allow-unscoped); (b) add `status` field (draft/published) not present in HQ version; (c) rename deepLink app from 'content' to match staff-web navigation.
 - **2026-06-20 — No member web portal constraint is the governing constraint for CV4.** `/c/:slug` public SSR page and `/api/m/content` member API are the delivery mechanisms; no new member login-required routes inside /gymos.
 - **2026-06-20 — RENDER-01 / RENDER-02 mapped to gated CV-RENDER phase.** Not counted in the default coverage total (11 in-scope reqs across CV1-CV4). Gated phase requires explicit go-ahead + infra planning before `/gsd:plan-phase CV-RENDER`.
+
+### CV2-01 Decisions (2026-06-20)
+
+- **2026-06-20 CV2-01 — actions-registry.ts is gitignored (auto-generated); content-* actions auto-discovered on next dev/build start.** Updated registry locally for tsc; do not commit.
+- **2026-06-20 CV2-01 — slugify("café & co") = "caf-co": strip non-ASCII as single codepoints (no NFD normalization first).** é is U+00E9 single codepoint; removed entirely rather than decomposed to e + combining accent. All 8 slug unit tests assert this exact output.
+- **2026-06-20 CV2-01 — @tiptap/extension-link imported as Link_ to avoid shadowing React Router Link.** Cosmetic alias only; no functional impact.
+- **2026-06-20 CV2-01 — Hard delete on content-delete-document (no soft-delete/deleted_at column).** Per plan hard_constraints; delete is always behind shadcn AlertDialog in UI; no new migration needed.
 
 ### BD4-01 Decisions (2026-06-19) — preserved for reference
 

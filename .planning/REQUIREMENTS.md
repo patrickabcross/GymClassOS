@@ -11,11 +11,11 @@
 
 ### CONT — Content tab (Tiptap docs)
 
-- [ ] **CONT-01**: Staff can open a `/gymos/content` tab and see a list of the studio's content documents (title, status draft/published, updated time).
-- [ ] **CONT-02**: Staff can create a new content document and edit it in a rich-text (Tiptap) editor — headings, lists, links, images — single-studio, **no real-time collaboration / Yjs**.
-- [ ] **CONT-03**: Staff can rename, duplicate, and delete a content document (delete is reversible-safe / soft where practical; confirm via shadcn AlertDialog).
-- [ ] **CONT-04**: The right-rail agent can create and edit content documents (draft marketing copy, rewrite, summarise) via `defineAction` tools that are two-exposed (registry + `agent-chat.ts` + `apps/staff-web/AGENTS.md`).
-- [ ] **CONT-05**: Content edits and the agent's writes stay in sync live in the UI (`useChangeVersions` / polling), matching the existing staff-web pattern.
+- [x] **CONT-01**: Staff can open a `/gymos/content` tab and see a list of the studio's content documents (title, status draft/published, updated time). *(CV2-01: gymos.content.tsx SSR loader + list UI)*
+- [x] **CONT-02**: Staff can create a new content document and edit it in a rich-text (Tiptap) editor — headings, lists, links, images — single-studio, **no real-time collaboration / Yjs**. *(CV2-01: gymos.content_.$id.tsx non-collab StarterKit+Image+Link, auto-save on blur)*
+- [x] **CONT-03**: Staff can rename, duplicate, and delete a content document (delete is reversible-safe / soft where practical; confirm via shadcn AlertDialog). *(CV2-01: DropdownMenu + Rename Dialog + Duplicate + Delete AlertDialog)*
+- [x] **CONT-04**: The right-rail agent can create and edit content documents (draft marketing copy, rewrite, summarise) via `defineAction` tools that are two-exposed (registry + `agent-chat.ts` + `apps/staff-web/AGENTS.md`). *(CV2-01: 7 content actions + Content tab section + AGENTS.md table)*
+- [x] **CONT-05**: Content edits and the agent's writes stay in sync live in the UI (`useChangeVersions` / polling), matching the existing staff-web pattern. *(CV2-01: useChangeVersions on list + agent live re-pull on editor)*
 
 ### VID — Video tab (Remotion editor)
 
@@ -73,11 +73,11 @@
 | DEP-01 | Phase CV1 | Complete |
 | MIG-01 | Phase CV1 | Complete |
 | NAV-01 | Phase CV1 | Complete |
-| CONT-01 | Phase CV2 | Pending |
-| CONT-02 | Phase CV2 | Pending |
-| CONT-03 | Phase CV2 | Pending |
-| CONT-04 | Phase CV2 | Pending |
-| CONT-05 | Phase CV2 | Pending |
+| CONT-01 | Phase CV2 | Complete (CV2-01) |
+| CONT-02 | Phase CV2 | Complete (CV2-01) |
+| CONT-03 | Phase CV2 | Complete (CV2-01) |
+| CONT-04 | Phase CV2 | Complete (CV2-01) |
+| CONT-05 | Phase CV2 | Complete (CV2-01) |
 | VID-01 | Phase CV3 | Pending |
 | VID-02 | Phase CV3 | Pending |
 | VID-03 | Phase CV3 | Pending |
