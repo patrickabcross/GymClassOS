@@ -442,10 +442,32 @@ export default defineAction({
         presets: ["at-risk"],
       };
     } else if (nav?.view === "content") {
-      // CV1 NAV-01 — context-aware of the Content tab. CV2 will surface the
-      // content_documents list here; for now report the active tab so the agent
-      // knows where the user is.
-      screen.content = { note: "Content tab — documents arrive in CV2." };
+      // CV2-01 — live content_documents list. Previously a CV1 stub.
+      const { getDb, schema } = await import("../server/db/index.js");
+      const { eq, desc } = await import("drizzle-orm");
+      const db = getDb();
+      // guard:allow-unscoped — single-tenant content
+      const documents = await db
+        .select({
+          id: schema.contentDocuments.id,
+          title: schema.contentDocuments.title,
+          status: schema.contentDocuments.status,
+          slug: schema.contentDocuments.slug,
+          updatedAt: schema.contentDocuments.updatedAt,
+        })
+        .from(schema.contentDocuments)
+        .orderBy(desc(schema.contentDocuments.updatedAt))
+        .limit(100);
+      screen.content = { documents };
+      if (nav?.documentId) {
+        // guard:allow-unscoped — single-tenant content
+        const [doc] = await db
+          .select()
+          .from(schema.contentDocuments)
+          .where(eq(schema.contentDocuments.id, nav.documentId))
+          .limit(1);
+        if (doc) screen.selectedContentDocument = doc;
+      }
     } else if (nav?.view === "video") {
       // CV1 NAV-01 — context-aware of the Video tab. CV3 will surface the
       // video_compositions list here.
