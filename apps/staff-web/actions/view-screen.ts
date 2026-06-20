@@ -441,6 +441,15 @@ export default defineAction({
         savedSegments: Array.isArray(seg?.segments) ? seg!.segments! : [],
         presets: ["at-risk"],
       };
+    } else if (nav?.view === "content") {
+      // CV1 NAV-01 — context-aware of the Content tab. CV2 will surface the
+      // content_documents list here; for now report the active tab so the agent
+      // knows where the user is.
+      screen.content = { note: "Content tab — documents arrive in CV2." };
+    } else if (nav?.view === "video") {
+      // CV1 NAV-01 — context-aware of the Video tab. CV3 will surface the
+      // video_compositions list here.
+      screen.video = { note: "Video tab — compositions arrive in CV3." };
     } else if (nav?.view) {
       const emails = await fetchEmailList(nav.view, nav.search, nav.label);
       const selectedThreadIds = Array.isArray(nav.selectedThreadIds)

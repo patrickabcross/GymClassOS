@@ -4,13 +4,13 @@ import { z } from "zod";
 
 export default defineAction({
   description:
-    "Navigate the staff UI to a specific gymos route (home, inbox, schedule, members, analytics, campaigns, forms, settings). Writes a navigate command to application state which the UI reads and auto-deletes.",
+    "Navigate the staff UI to a specific gymos route (home, inbox, schedule, members, analytics, campaigns, forms, brain, content, video, settings). Writes a navigate command to application state which the UI reads and auto-deletes.",
   schema: z.object({
     view: z
       .string()
       .optional()
       .describe(
-        "Gymos route to navigate to: home, inbox, schedule, members, analytics, campaigns, forms, settings",
+        "Gymos route to navigate to: home, inbox, schedule, members, analytics, campaigns, forms, brain, content, video, settings",
       ),
     threadId: z.string().optional().describe("Thread ID to open"),
     settingsSection: z

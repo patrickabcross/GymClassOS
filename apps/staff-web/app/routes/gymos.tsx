@@ -12,6 +12,7 @@
 
 import { Outlet } from "react-router";
 import { GymosTopNav } from "@/components/gymos/GymosTopNav";
+import { GymosNavBridge } from "@/components/gymos/GymosNavBridge";
 
 export function meta() {
   return [{ title: "GymClassOS" }];
@@ -29,6 +30,7 @@ export default function GymosLayout() {
   return (
     <div className="flex flex-col h-full w-full min-w-0 bg-background text-foreground">
       <GymosTopNav />
+      <GymosNavBridge />
       <div className="flex-1 min-h-0 min-w-0 overflow-hidden">
         <Outlet />
       </div>
