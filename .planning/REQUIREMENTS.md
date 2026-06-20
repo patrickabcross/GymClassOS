@@ -19,10 +19,10 @@
 
 ### VID — Video tab (Remotion editor)
 
-- [ ] **VID-01**: Staff can open a `/gymos/video` tab and see a list of the studio's video compositions (title, updated time, thumbnail/preview where available).
-- [ ] **VID-02**: Staff can create and edit a video composition in an in-browser Remotion editor with live preview via `@remotion/player` (text, images/brand assets, transitions) — **no server-side render required for authoring/preview**.
-- [ ] **VID-03**: Staff can rename, duplicate, and delete a video composition (confirm destructive actions via AlertDialog).
-- [ ] **VID-04**: The right-rail agent can assist authoring/editing compositions (e.g. draft a promo from a class/offer, adjust copy/scenes) via two-exposed `defineAction` tools.
+- [x] **VID-01**: Staff can open a `/gymos/video` tab and see a list of the studio's video compositions (title, updated time, thumbnail/preview where available).
+- [x] **VID-02**: Staff can create and edit a video composition in an in-browser Remotion editor with live preview via `@remotion/player` (text, images/brand assets, transitions) — **no server-side render required for authoring/preview**.
+- [x] **VID-03**: Staff can rename, duplicate, and delete a video composition (confirm destructive actions via AlertDialog).
+- [x] **VID-04**: The right-rail agent can assist authoring/editing compositions (e.g. draft a promo from a class/offer, adjust copy/scenes) via two-exposed `defineAction` tools.
 
 ### PUB — Publish pipeline (member-facing + public)
 
@@ -78,10 +78,10 @@
 | CONT-03 | Phase CV2 | Complete (CV2-01) |
 | CONT-04 | Phase CV2 | Complete (CV2-01) |
 | CONT-05 | Phase CV2 | Complete (CV2-01) |
-| VID-01 | Phase CV3 | Pending |
-| VID-02 | Phase CV3 | Pending |
-| VID-03 | Phase CV3 | Pending |
-| VID-04 | Phase CV3 | Pending |
+| VID-01 | Phase CV3 | Complete |
+| VID-02 | Phase CV3 | Complete |
+| VID-03 | Phase CV3 | Complete |
+| VID-04 | Phase CV3 | Complete |
 | PUB-01 | Phase CV4 | Pending |
 | PUB-02 | Phase CV4 | Pending |
 | PUB-03 | Phase CV4 | Pending |
