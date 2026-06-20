@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v2.0
-milestone_name: — Self-Serve Platform + Two-Tier Brain/Dispatcher
-status: milestone_complete
-stopped_at: v2.0 milestone shipped (BD1-BD4 complete, tagged v2.0)
-last_updated: "2026-06-20T07:48:51.399Z"
+milestone: v2.1
+milestone_name: — Content & Video Studio (staff-web)
+status: defining_requirements
+stopped_at: v2.1 started — defining requirements + roadmap (Content + Video tabs for staff-web)
+last_updated: "2026-06-20T08:00:00.000Z"
 last_activity: 2026-06-20
 progress:
-  total_phases: 4
-  completed_phases: 4
-  total_plans: 19
-  completed_plans: 19
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
 ---
 
 # Project State
@@ -31,11 +31,11 @@ Requirements: archived to `.planning/milestones/v2.0-REQUIREMENTS.md` (40/40 v2.
 
 ## Current Position
 
-Milestone: v2.0 — SHIPPED (code) 2026-06-19
-Phase: BD4 (last v2.0 phase) — complete
+Milestone: v2.1 — Content & Video Studio (staff-web) — STARTED 2026-06-20
+Phase: Not started (defining requirements → roadmap)
 Plan: —
-Status: Milestone complete — tagged `v2.0`; awaiting next milestone (`/gsd:new-milestone`)
-Last activity: 2026-06-19
+Status: Defining requirements (autonomous run — user pre-approved plan + execute)
+Last activity: 2026-06-20 — Milestone v2.1 started
 
 > **Open tails:** v2.0 live UAT (BD1–BD4 `*-HUMAN-UAT.md`) deferred-on-external-dependency. v1.2 Agentic Tab Editing is code-complete/live (AE1–AE3 live UAT pending). v1.0 Production + Mobile Demo (AE4) remain tracked in the roadmap.
 
