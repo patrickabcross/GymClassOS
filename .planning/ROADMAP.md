@@ -42,7 +42,10 @@
   3. `content_documents` and `video_compositions` tables exist in gymos-demo Neon (verified via Neon MCP); the migration is idempotent (running twice does not error)
   4. A staff user can click the Content tab and the Video tab in `GymosTopNav` and be routed to `/gymos/content` and `/gymos/video` respectively (routes exist, even if they show a placeholder)
   5. The agent can call `navigate` to `/gymos/content` and `/gymos/video`; `application_state` records the current active tab so `view-screen` can report it
-**Plans**: TBD
+**Plans**: 1 plan (1 wave)
+
+Plans:
+- [ ] CV1-01-PLAN.md (wave 1) — Remotion deps (Tiptap already present) + additive v20/v21 migrations (content_documents, video_compositions) + features/{content,video} scaffolds + Content/Video tabs in GymosTopNav + agent navigate/view-screen/GymosNavBridge wiring [DEP-01, MIG-01, NAV-01]
 **UI hint**: yes
 
 ### Phase CV2: Content tab — Tiptap editor + agent tools
@@ -99,7 +102,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| CV1. Foundation — deps, schema, scaffold, nav | 0/TBD | Not started | - |
+| CV1. Foundation — deps, schema, scaffold, nav | 0/1 | Not started | - |
 | CV2. Content tab — Tiptap editor + agent tools | 0/TBD | Not started | - |
 | CV3. Video tab — Remotion editor + agent tools | 0/TBD | Not started | - |
 | CV4. Publish pipeline — member API + public SSR pages | 0/TBD | Not started | - |
