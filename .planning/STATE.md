@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: — Content & Video Studio
-status: planning
-stopped_at: Completed CV4-publish-pipeline CV4-01-PLAN.md
-last_updated: "2026-06-20T10:22:33.161Z"
-last_activity: "2026-06-20 — CV2-01 executed: 7 content actions + Tiptap editor + agent tools"
+status: phases_built
+stopped_at: CV1-CV4 all built + committed on master (tsc clean, 115/115 tests). Production deploy HELD for explicit user go-ahead.
+last_updated: "2026-06-20T11:25:00.000Z"
+last_activity: "2026-06-20 — CV1-CV4 executed (Content + Video Studio fully built, not yet deployed)"
 progress:
-  total_phases: 5
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_phases: 4
+  completed_phases: 4
+  total_plans: 4
+  completed_plans: 4
 ---
 
 # Project State
@@ -30,14 +30,14 @@ Requirements: `.planning/REQUIREMENTS.md` (v2.1 requirements, 11 in-scope: CONT-
 ## Current Position
 
 Milestone: v2.1 — Content & Video Studio (staff-web)
-Phase: CV2 — Content tab (complete)
-Plan: 01
-Status: CV2-01 complete. Ready to plan CV3 (Video tab) or CV4 (Publish pipeline).
-Last activity: 2026-06-20 — CV2-01 executed: 7 content actions + Tiptap editor + agent tools
+Phase: CV4 — Publish pipeline (complete) — ALL 4 active phases built
+Plan: —
+Status: CV1-CV4 built + committed on master. Full staff-web `tsc` clean (0 errors), 115/115 unit tests pass. **NOT deployed** — production push held for explicit user go-ahead (autonomous run pre-approved build only). CV-RENDER remains gated.
+Last activity: 2026-06-20 — CV1-CV4 executed autonomously (Content + Video Studio)
 
 > **Open tails from prior milestones:** v2.0 live UAT (BD1–BD4 `*-HUMAN-UAT.md`) deferred-on-external-dependency. v1.2 Agentic Tab Editing live UAT pending (AE1–AE3 deployed). v1.0 Production + Mobile Demo (AE4) remain tracked.
 
-**Progress bar (v2.1):** [░░░░░░░░░░] 0% (0/4 active phases, 0/TBD plans)
+**Progress bar (v2.1):** [██████████] 100% (4/4 active phases, 4/4 plans) — built, not yet deployed
 
 ### Quick Tasks Completed
 
@@ -49,13 +49,13 @@ Last activity: 2026-06-20 — CV2-01 executed: 7 content actions + Tiptap editor
 
 | Phase | Goal | Requirements | Status |
 |-------|------|--------------|--------|
-| CV1. Foundation | Tiptap + Remotion deps; additive `content_documents` + `video_compositions` schema; features/ scaffold; Content + Video tabs in GymosTopNav; application_state context-awareness; tsc + Nitro build clean | DEP-01, MIG-01, NAV-01 | Not started |
+| CV1. Foundation | Tiptap + Remotion deps; additive `content_documents` + `video_compositions` schema; features/ scaffold; Content + Video tabs in GymosTopNav; application_state context-awareness; tsc clean | DEP-01, MIG-01, NAV-01 | **Complete** — CV1-01 (2026-06-20) |
 | CV2. Content tab | `/gymos/content` list + Tiptap editor (create/rename/duplicate/delete/edit); useChangeVersions live-refresh; agent actions two-exposed | CONT-01, CONT-02, CONT-03, CONT-04, CONT-05 | **Complete** — CV2-01 (2026-06-20) |
-| CV3. Video tab | `/gymos/video` list + `@remotion/player` in-browser editor (create/rename/duplicate/delete/edit composition); agent actions two-exposed | VID-01, VID-02, VID-03, VID-04 | Not started |
-| CV4. Publish pipeline | `draft`/`published` toggle; `/api/m/content` member API (published only); public SSR `/c/:slug` page; published video embed/poster page | PUB-01, PUB-02, PUB-03, PUB-04 | Not started |
+| CV3. Video tab | `/gymos/video` list + `@remotion/player` in-browser editor (create/rename/duplicate/delete/edit composition); agent actions two-exposed | VID-01, VID-02, VID-03, VID-04 | **Complete** — CV3-01 (2026-06-20) |
+| CV4. Publish pipeline | `draft`/`published` toggle; `/api/m/content` member API (published only); public SSR `/c/:slug` + `/v/:slug` pages | PUB-01, PUB-02, PUB-03, PUB-04 | **Complete** — CV4-01 (2026-06-20) |
 | CV-RENDER [GATED] | Server-side MP4 render via Fly worker + pg-boss; MP4 storage + member surfacing | RENDER-01, RENDER-02 | Gated — awaiting go-ahead |
 
-**Next action:** `/gsd:plan-phase CV1`
+**Next action:** Deploy to production (push `master` → Vercel) — HELD for explicit user go-ahead — then live UAT (Content + Video tabs, publish, /c + /v pages, /api/m/content). Migrations v20/v21 apply on deploy; verify tables in gymos-demo Neon after.
 
 ## Performance Metrics
 

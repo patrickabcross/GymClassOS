@@ -24,10 +24,10 @@
 
 ## Phases
 
-- [ ] **Phase CV1: Foundation — deps, schema, scaffold, nav** — Remotion + Tiptap (no collab) deps added to staff-web; additive `content_documents` + `video_compositions` migrations; `features/content/` + `features/video/` scaffold copied from templates; Content + Video tabs wired into `GymosTopNav`; `application_state` context-awareness; build verified clean (tsc + Nitro bundle)
-- [ ] **Phase CV2: Content tab — Tiptap editor + agent tools** — `/gymos/content` list + Tiptap editor (create/rename/duplicate/delete/edit body); `useChangeVersions` live-refresh; agent actions two-exposed (registry + `agent-chat.ts` + `apps/staff-web/AGENTS.md`)
-- [ ] **Phase CV3: Video tab — Remotion editor + agent tools** — `/gymos/video` list + `@remotion/player` in-browser editor (create/rename/duplicate/delete/edit composition); agent actions two-exposed
-- [ ] **Phase CV4: Publish pipeline — member API + public SSR pages** — `draft`/`published` toggle on both content + video; `/api/m/content` member API endpoint (published only, demo-member gated); public SSR `/c/:slug` content page; published video embed (`@remotion/player`) + poster page
+- [x] **Phase CV1: Foundation — deps, schema, scaffold, nav** ✅ — Remotion 4.0.481 + @remotion/player added (Tiptap non-collab already present); additive v20 `content_documents` + v21 `video_compositions` migrations; `features/{content,video}` scaffold; Content + Video tabs in `GymosTopNav`; `GymosNavBridge` + view-screen branches; tsc clean *(3afa8044, f1963367, 3ad6ed3b)*
+- [x] **Phase CV2: Content tab — Tiptap editor + agent tools** ✅ — `/gymos/content` list + non-collab Tiptap editor (create/rename/duplicate/delete/edit); `useChangeVersions` live-refresh; 7 content actions two-exposed; tsc clean, 8/8 tests *(5ddb4f09, 1bd07cce, dc99d2d3)*
+- [x] **Phase CV3: Video tab — Remotion editor + agent tools** ✅ — `/gymos/video` list + `@remotion/player` editor (ClientOnly+React.lazy SSR guard); `GymPromo` composition; Zod spec validation; 7 video actions two-exposed; tsc clean, 32/32 tests *(67c3a62e, 9ea66195, bd5d88fd)*
+- [x] **Phase CV4: Publish pipeline — member API + public SSR pages** ✅ — content/video set-status (draft↔published) + buttons; `/api/m/content` (requireDemoMember, published-only); public Nitro SSR `/c/:slug` (sanitized) + `/v/:slug` (poster+caption); publicPaths updated; tsc clean, 14/14 tests *(60a4136a, 55d58dbe, 0dc794cd)*
 - [ ] **Phase CV-RENDER: [GATED] Server-side MP4 render** — `@remotion/renderer` on a Fly render worker; pg-boss queued export job; MP4 stored and surfaced to members. REQUIRES EXPLICIT GO-AHEAD before planning — not part of default build.
 
 ## Phase Details
