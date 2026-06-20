@@ -80,6 +80,9 @@ export function GymosTopNav() {
   const isSettings = path.startsWith("/gymos/settings");
   // BD4-01: Studio Brain (GOB-03) — admin-only tab.
   const isBrain = path.startsWith("/gymos/brain");
+  // CV1 NAV-01: Content + Video studio tabs (admin-only authoring surfaces).
+  const isContent = path.startsWith("/gymos/content");
+  const isVideo = path.startsWith("/gymos/video");
 
   // P1b.1-livefix: sign-out hits the better-auth backward-compat shim at
   // POST /_agent-native/auth/logout (see packages/core/src/server/auth.ts:2697
@@ -142,6 +145,16 @@ export function GymosTopNav() {
       {isAdmin && (
         <Link to="/gymos/brain" className={tabClass(isBrain)}>
           Brain
+        </Link>
+      )}
+      {isAdmin && (
+        <Link to="/gymos/content" className={tabClass(isContent)}>
+          Content
+        </Link>
+      )}
+      {isAdmin && (
+        <Link to="/gymos/video" className={tabClass(isVideo)}>
+          Video
         </Link>
       )}
       {/* Right-aligned cluster: Settings (admin-only) + Sign out (always).
