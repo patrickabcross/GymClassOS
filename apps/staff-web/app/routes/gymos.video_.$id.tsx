@@ -46,6 +46,8 @@ import {
   IconArrowUp,
   IconArrowDown,
   IconVideo,
+  IconWorld,
+  IconWorldOff,
 } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -125,6 +127,7 @@ export default function VideoEditorPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [publishing, setPublishing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [spec, setSpec] = useState<VideoSpec>(defaultSpec());
@@ -208,6 +211,44 @@ export default function VideoEditorPage() {
   const handleTitleBlur = useCallback(() => {
     void handleSave({ title });
   }, [handleSave, title]);
+
+  // ── Publish / Unpublish (CV4) ─────────────────────────────────────────────
+  const handleSetStatus = useCallback(
+    async (targetStatus: "draft" | "published") => {
+      if (!id || !composition) return;
+      setPublishing(true);
+      setError(null);
+      try {
+        const res = await fetch(
+          "/_agent-native/actions/video-set-status",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id, status: targetStatus }),
+          },
+        );
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = (await res.json()) as
+          | { updated: true; status: string; slug: string | null }
+          | { error: string };
+        if ("error" in data) throw new Error(data.error);
+        setComposition((prev) =>
+          prev
+            ? {
+                ...prev,
+                status: targetStatus,
+                slug: (data as { updated: true; status: string; slug: string | null }).slug ?? prev.slug,
+              }
+            : prev,
+        );
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : "Status update failed");
+      } finally {
+        setPublishing(false);
+      }
+    },
+    [id, composition],
+  );
 
   // ── Agent live re-pull (VID-04) ───────────────────────────────────────────
   useEffect(() => {
@@ -339,6 +380,33 @@ export default function VideoEditorPage() {
           <IconDeviceFloppy className="size-4" />
           {saving ? "Saving…" : "Save"}
         </Button>
+
+        {/* Publish / Unpublish button (CV4) — outside ClientOnly, plain UI */}
+        {composition?.status === "published" ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => void handleSetStatus("draft")}
+            disabled={publishing}
+            className="gap-1.5"
+            title={`Unpublish — live at /v/${composition.slug ?? ""}`}
+          >
+            <IconWorldOff className="size-4" />
+            {publishing ? "Updating…" : "Unpublish"}
+          </Button>
+        ) : (
+          <Button
+            type="button"
+            size="sm"
+            onClick={() => void handleSetStatus("published")}
+            disabled={publishing}
+            className="gap-1.5"
+          >
+            <IconWorld className="size-4" />
+            {publishing ? "Publishing…" : "Publish"}
+          </Button>
+        )}
       </div>
 
       {/* Two-column layout (lg: player left, editor right; mobile: stacked) */}
