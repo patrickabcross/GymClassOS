@@ -58,7 +58,10 @@ Plans:
   3. Staff can rename a document (inline or dialog), duplicate it (new draft with "(Copy)" suffix), and delete it (shadcn AlertDialog confirmation); delete is safe — soft-delete where practical, or a hard-delete with a confirmation guard
   4. Staff can tell the right-rail agent "draft a welcome post for our new HIIT class" and a new document appears in the Content tab with agent-written body — without a page reload (`useChangeVersions` triggers refresh)
   5. The agent can edit an existing document's content (e.g. "rewrite the intro paragraph to be more energetic") and the editor reflects the updated content live
-**Plans**: TBD
+**Plans**: 1 plan (1 wave)
+
+Plans:
+- [ ] CV2-01-PLAN.md (wave 1) — content_documents Drizzle table + 7 content actions (list/create/get/update/rename/duplicate/delete) + /gymos/content list + non-collab Tiptap editor (StarterKit+Placeholder+Image+Link) + optimistic New-document + useChangeVersions live-refresh + view-screen content branch + agent two-exposure (agent-chat Content section + AGENTS.md) [CONT-01..05]
 **UI hint**: yes
 
 ### Phase CV3: Video tab — Remotion editor + agent tools
@@ -103,7 +106,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | CV1. Foundation — deps, schema, scaffold, nav | 0/1 | Not started | - |
-| CV2. Content tab — Tiptap editor + agent tools | 0/TBD | Not started | - |
+| CV2. Content tab — Tiptap editor + agent tools | 0/1 | Not started | - |
 | CV3. Video tab — Remotion editor + agent tools | 0/TBD | Not started | - |
 | CV4. Publish pipeline — member API + public SSR pages | 0/TBD | Not started | - |
 | CV-RENDER. [GATED] Server-side MP4 render | 0/TBD | Gated — awaiting go-ahead | - |
