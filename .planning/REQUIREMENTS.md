@@ -26,10 +26,10 @@
 
 ### PUB — Publish pipeline (member-facing + public)
 
-- [ ] **PUB-01**: Staff can move a content document between `draft` and `published` states; only `published` items are exposed beyond staff.
-- [ ] **PUB-02**: Published content is exposed to the member mobile app via a `/api/m/*` endpoint (read-only, demo-member gated like the other member APIs) — **no new member web portal**.
-- [ ] **PUB-03**: Published content is rendered on a public SSR marketing page (e.g. `/c/:slug`) so it is crawlable/shareable, reusing the existing public-path + SSR pattern (mirrors `/f`, `/embed`).
-- [ ] **PUB-04**: A published video composition is surfaced to members/public via the same publish model — as an embedded `@remotion/player` (web) and/or a poster + link — pending the RENDER decision below for true MP4 playback/social export.
+- [x] **PUB-01**: Staff can move a content document between `draft` and `published` states; only `published` items are exposed beyond staff.
+- [x] **PUB-02**: Published content is exposed to the member mobile app via a `/api/m/*` endpoint (read-only, demo-member gated like the other member APIs) — **no new member web portal**.
+- [x] **PUB-03**: Published content is rendered on a public SSR marketing page (e.g. `/c/:slug`) so it is crawlable/shareable, reusing the existing public-path + SSR pattern (mirrors `/f`, `/embed`).
+- [x] **PUB-04**: A published video composition is surfaced to members/public via the same publish model — as an embedded `@remotion/player` (web) and/or a poster + link — pending the RENDER decision below for true MP4 playback/social export.
 
 ### Cross-cutting (each tab must satisfy)
 
@@ -82,9 +82,9 @@
 | VID-02 | Phase CV3 | Complete |
 | VID-03 | Phase CV3 | Complete |
 | VID-04 | Phase CV3 | Complete |
-| PUB-01 | Phase CV4 | Pending |
-| PUB-02 | Phase CV4 | Pending |
-| PUB-03 | Phase CV4 | Pending |
-| PUB-04 | Phase CV4 | Pending |
+| PUB-01 | Phase CV4 | Complete |
+| PUB-02 | Phase CV4 | Complete |
+| PUB-03 | Phase CV4 | Complete |
+| PUB-04 | Phase CV4 | Complete |
 | RENDER-01 | Phase CV-RENDER (GATED) | Gated — awaiting go-ahead |
 | RENDER-02 | Phase CV-RENDER (GATED) | Gated — awaiting go-ahead |

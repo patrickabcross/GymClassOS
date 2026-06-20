@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: — Content & Video Studio
 status: planning
-stopped_at: Completed CV3-video-tab-01-PLAN.md
-last_updated: "2026-06-20T09:59:14.549Z"
+stopped_at: Completed CV4-publish-pipeline CV4-01-PLAN.md
+last_updated: "2026-06-20T10:22:33.161Z"
 last_activity: "2026-06-20 — CV2-01 executed: 7 content actions + Tiptap editor + agent tools"
 progress:
   total_phases: 5
@@ -81,6 +81,7 @@ Last activity: 2026-06-20 — CV2-01 executed: 7 content actions + Tiptap editor
 | Phase CV1-foundation P01 | 522 | 3 tasks | 13 files |
 | Phase CV2-content-tab P01 | 667 | 3 tasks | 14 files |
 | Phase CV3-video-tab P01 | 810 | 3 tasks | 17 files |
+| Phase CV4-publish-pipeline P01 | 834 | 3 tasks | 17 files |
 
 ## Accumulated Context
 
@@ -154,8 +155,8 @@ Last activity: 2026-06-20 — CV2-01 executed: 7 content actions + Tiptap editor
 
 ## Session Continuity
 
-Last session: 2026-06-20T09:59:14.541Z
-Stopped at: Completed CV3-video-tab-01-PLAN.md
+Last session: 2026-06-20T10:22:33.153Z
+Stopped at: Completed CV4-publish-pipeline CV4-01-PLAN.md
 Resume file: None
 
 ### PICK UP HERE — plan CV1
