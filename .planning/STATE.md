@@ -1,13 +1,13 @@
 ---
 gsd_state_version: 1.0
 milestone: v2.1
-milestone_name: Content & Video Studio (staff-web)
-status: roadmap_complete
-stopped_at: v2.1 roadmap written — 4 active phases (CV1-CV4) + 1 gated phase (CV-RENDER). Ready to plan CV1.
-last_updated: "2026-06-20T08:30:00.000Z"
-last_activity: 2026-06-20
+milestone_name: — Content & Video Studio
+status: planning
+stopped_at: Completed CV1-01-PLAN.md
+last_updated: "2026-06-20T09:15:35.075Z"
+last_activity: 2026-06-20 — Roadmap written (CV1-CV4 + gated CV-RENDER)
 progress:
-  total_phases: 4
+  total_phases: 5
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -78,6 +78,7 @@ Last activity: 2026-06-20 — Roadmap written (CV1-CV4 + gated CV-RENDER)
 | Phase BD3 P05 | 687 | 3 tasks | 14 files |
 | Phase BD4 P01 | 14 | 3 tasks | 9 files |
 | Phase BD4 P02 | 25 | 3 tasks | 6 files |
+| Phase CV1-foundation P01 | 522 | 3 tasks | 13 files |
 
 ## Accumulated Context
 
@@ -144,8 +145,8 @@ Last activity: 2026-06-20 — Roadmap written (CV1-CV4 + gated CV-RENDER)
 
 ## Session Continuity
 
-Last session: 2026-06-20
-Stopped at: v2.1 roadmap complete (CV1–CV4 + gated CV-RENDER). REQUIREMENTS.md traceability filled. STATE.md updated.
+Last session: 2026-06-20T09:15:35.067Z
+Stopped at: Completed CV1-01-PLAN.md
 Resume file: None
 
 ### PICK UP HERE — plan CV1
@@ -157,6 +158,7 @@ v2.1 roadmap is written. The four active phases are defined with success criteri
 CV1 is the foundational phase: Tiptap (no collab) + `@remotion/player` deps installed in `apps/staff-web/package.json`; additive `content_documents` + `video_compositions` `runMigrations` versions; `features/content/` + `features/video/` scaffolded from templates; Content + Video tabs added to `GymosTopNav`; `application_state` updated for context-awareness; tsc + Nitro build verified clean.
 
 **Prior art to mine at plan time:**
+
 - `apps/hq/actions/content-{create,list,get,update}-document.ts` — BD3-05 non-collab Content fork; adapt imports + add `status` field + remove `ownableColumns`/`accessFilter` (use `guard:allow-unscoped`)
 - `apps/hq/app/routes/content._index.tsx` + `content.$id.tsx` — list + editor UI; adapt to staff-web gymos route conventions
 - `apps/hq/server/lib/documents.ts` — `parseDocumentFavorite` helper; copy into `apps/staff-web/server/lib/`

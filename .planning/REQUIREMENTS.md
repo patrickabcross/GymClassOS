@@ -33,9 +33,9 @@
 
 ### Cross-cutting (each tab must satisfy)
 
-- [ ] **NAV-01**: Content and Video appear as tabs in `GymosTopNav.tsx`, navigable by the agent via the `navigate` action, with `application_state` exposing the current tab/selection (context-awareness).
-- [ ] **DEP-01**: New dependencies (Tiptap minus collaboration; Remotion + `@remotion/player`) added to `apps/staff-web/package.json`; the Vercel/Nitro build succeeds (helper/test files in `server/lib`, not `server/plugins`).
-- [ ] **MIG-01**: New tables (`content_documents`, `video_compositions`, plus any join/asset tables) added as **additive-only** `runMigrations` versions in the studio Neon; no rename/drop; verified against the live `gymos-demo` DB.
+- [x] **NAV-01**: Content and Video appear as tabs in `GymosTopNav.tsx`, navigable by the agent via the `navigate` action, with `application_state` exposing the current tab/selection (context-awareness).
+- [x] **DEP-01**: New dependencies (Tiptap minus collaboration; Remotion + `@remotion/player`) added to `apps/staff-web/package.json`; the Vercel/Nitro build succeeds (helper/test files in `server/lib`, not `server/plugins`).
+- [x] **MIG-01**: New tables (`content_documents`, `video_compositions`, plus any join/asset tables) added as **additive-only** `runMigrations` versions in the studio Neon; no rename/drop; verified against the live `gymos-demo` DB.
 
 ---
 
@@ -70,9 +70,9 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DEP-01 | Phase CV1 | Pending |
-| MIG-01 | Phase CV1 | Pending |
-| NAV-01 | Phase CV1 | Pending |
+| DEP-01 | Phase CV1 | Complete |
+| MIG-01 | Phase CV1 | Complete |
+| NAV-01 | Phase CV1 | Complete |
 | CONT-01 | Phase CV2 | Pending |
 | CONT-02 | Phase CV2 | Pending |
 | CONT-03 | Phase CV2 | Pending |
