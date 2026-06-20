@@ -618,3 +618,25 @@ export const contentDocuments = table("content_documents", {
   createdAt: text("created_at").notNull().default(now()),
   updatedAt: text("updated_at").notNull().default(now()),
 });
+
+// ---------------------------------------------------------------------------
+// CV3-01: Video compositions — template-driven Remotion compositions for
+// in-browser promo video authoring.
+//
+// DDL created by migration v21 (CV1-01, apps/staff-web/server/plugins/db.ts).
+// This Drizzle export is the schema-layer reference; NO new migration needed
+// (table already exists). Single-tenant: no ownableColumns, no studio_id.
+// Reads carry // guard:allow-unscoped — single-tenant video.
+// spec column is JSON TEXT validated by VideoSpecSchema before persist.
+// Status stays 'draft' throughout CV3; 'published' member-exposure arrives CV4.
+// ---------------------------------------------------------------------------
+export const videoCompositions = table("video_compositions", {
+  id: text("id").primaryKey(),
+  title: text("title").notNull().default(""),
+  /** JSON TEXT — VideoSpec validated by VideoSpecSchema before every write. */
+  spec: text("spec").notNull().default("{}"),
+  status: text("status").notNull().default("draft"),
+  slug: text("slug"),
+  createdAt: text("created_at").notNull().default(now()),
+  updatedAt: text("updated_at").notNull().default(now()),
+});
