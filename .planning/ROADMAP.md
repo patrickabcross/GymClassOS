@@ -89,7 +89,10 @@ Plans:
   2. A member mobile app call to `GET /api/m/content` returns only published content documents, gated by `requireDemoMember` — draft documents are never returned
   3. Visiting `/c/:slug` in a browser (no login) renders a public SSR page with the full published document body — the page is server-side rendered (HTML in source), crawlable, and shareable
   4. Visiting the published video equivalent (e.g. `/v/:slug`) renders a public SSR page with an embedded `@remotion/player` (for web preview) or a video poster with a "Watch" caption — without requiring a server-side MP4 render; the page is also crawlable
-**Plans**: TBD
+**Plans**: 1 plan (1 wave)
+
+Plans:
+- [ ] CV4-01-PLAN.md (wave 1) — content-set-status + video-set-status (slug-on-publish, two-exposed) + Publish/Unpublish editor buttons + /api/m/content (published-only, requireDemoMember) + public SSR /c/:slug (sanitized Tiptap body) + public SSR /v/:slug (poster + Watch caption) + auth.ts publicPaths /c+/v [PUB-01, PUB-02, PUB-03, PUB-04]
 **UI hint**: yes
 
 ### Phase CV-RENDER: [GATED] Server-side MP4 render
@@ -111,7 +114,7 @@ Plans:
 | CV1. Foundation — deps, schema, scaffold, nav | 0/1 | Not started | - |
 | CV2. Content tab — Tiptap editor + agent tools | 0/1 | Not started | - |
 | CV3. Video tab — Remotion editor + agent tools | 0/1 | Not started | - |
-| CV4. Publish pipeline — member API + public SSR pages | 0/TBD | Not started | - |
+| CV4. Publish pipeline — member API + public SSR pages | 0/1 | Not started | - |
 | CV-RENDER. [GATED] Server-side MP4 render | 0/TBD | Gated — awaiting go-ahead | - |
 
 **Coverage:** 11/11 in-scope v2.1 requirements mapped across CV1-CV4 (CONT-01..05, VID-01..04, PUB-01..04, NAV-01, DEP-01, MIG-01). RENDER-01/RENDER-02 mapped to the gated CV-RENDER phase (not part of the default build).
