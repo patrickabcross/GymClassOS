@@ -2,6 +2,113 @@
 
 ---
 
+## v2.1 — Content & Video Studio (staff-web) — IN PROGRESS
+
+> **Started:** 2026-06-20 | **Branch:** `master`
+>
+> **Goal:** HUSTLE staff can author rich content documents and video compositions inside the staff app — with the right-rail agent assisting — and publish them so they reach members (mobile app + public marketing pages), without a new member web portal.
+>
+> **Phase prefix:** CV — avoids `.planning/phases/` directory collisions with existing AE/R/D/P/BD phase directories.
+
+### Key constraints baked into every phase
+
+- **No local dev server:** NitroViteError prevents `pnpm dev` on staff-web. Verification via unit tests + `tsc` + post-deploy smoke on `gym-class-os.vercel.app`.
+- **Additive-only DB changes:** Strictly additive `runMigrations` versions against gymos-demo Neon (`billowing-sun-51091059`). No DROP/RENAME/TRUNCATE. No `drizzle-kit push`.
+- **Fork-boundary discipline:** Copy agent-native Content + Videos templates into `apps/staff-web/features/{content,video}/`, then modify. Never edit `templates/` in place.
+- **Helper/test files in `server/lib`, not `server/plugins`:** Nitro build error on Vercel if utilities land in `server/plugins/` (only plugins allowed there — must export Nitro plugin objects).
+- **No Yjs / Tiptap collaboration extensions:** Single-studio staff use; strip all `@tiptap/extension-collaboration` and `y-*` deps from the Content fork.
+- **No member web portal:** Member-facing output = `/api/m/*` member API endpoints + public SSR marketing pages (mirrors `/f`, `/embed`). No new member-web routes inside the staff app login.
+- **Single-tenant code preserved:** No `studio_id` column anywhere. One Neon per studio.
+- **RENDER is gated:** Server-side MP4 render (`@remotion/renderer` on Fly) is NOT part of the default build. CV4-RENDER is an optional phase; include only with explicit go-ahead.
+- **Prior art in `apps/hq`:** BD3 shipped a non-collab Content surface + a Video stub. Mine `apps/hq/actions/content-*.ts` and `apps/hq/app/routes/content.*.tsx` for the adaptation pattern before writing new code.
+
+## Phases
+
+- [ ] **Phase CV1: Foundation — deps, schema, scaffold, nav** — Remotion + Tiptap (no collab) deps added to staff-web; additive `content_documents` + `video_compositions` migrations; `features/content/` + `features/video/` scaffold copied from templates; Content + Video tabs wired into `GymosTopNav`; `application_state` context-awareness; build verified clean (tsc + Nitro bundle)
+- [ ] **Phase CV2: Content tab — Tiptap editor + agent tools** — `/gymos/content` list + Tiptap editor (create/rename/duplicate/delete/edit body); `useChangeVersions` live-refresh; agent actions two-exposed (registry + `agent-chat.ts` + `apps/staff-web/AGENTS.md`)
+- [ ] **Phase CV3: Video tab — Remotion editor + agent tools** — `/gymos/video` list + `@remotion/player` in-browser editor (create/rename/duplicate/delete/edit composition); agent actions two-exposed
+- [ ] **Phase CV4: Publish pipeline — member API + public SSR pages** — `draft`/`published` toggle on both content + video; `/api/m/content` member API endpoint (published only, demo-member gated); public SSR `/c/:slug` content page; published video embed (`@remotion/player`) + poster page
+- [ ] **Phase CV-RENDER: [GATED] Server-side MP4 render** — `@remotion/renderer` on a Fly render worker; pg-boss queued export job; MP4 stored and surfaced to members. REQUIRES EXPLICIT GO-AHEAD before planning — not part of default build.
+
+## Phase Details
+
+### Phase CV1: Foundation — deps, schema, scaffold, nav
+**Goal**: The Vercel build succeeds with Tiptap (no collab) and `@remotion/player` installed; the studio Neon has additive `content_documents` and `video_compositions` tables; `features/content/` and `features/video/` scaffolds are in place; Content + Video tabs appear in `GymosTopNav`; the agent can navigate to both tabs; `application_state` exposes the current tab selection
+**Depends on**: Nothing (first CV phase)
+**Requirements**: DEP-01, MIG-01, NAV-01
+**Success Criteria** (what must be TRUE):
+  1. `pnpm tsc --noEmit` in `apps/staff-web` passes with no errors after adding Tiptap + Remotion packages
+  2. The Vercel Nitro build completes (no `server/plugins/` helper-file bundling error); verified by a clean deploy
+  3. `content_documents` and `video_compositions` tables exist in gymos-demo Neon (verified via Neon MCP); the migration is idempotent (running twice does not error)
+  4. A staff user can click the Content tab and the Video tab in `GymosTopNav` and be routed to `/gymos/content` and `/gymos/video` respectively (routes exist, even if they show a placeholder)
+  5. The agent can call `navigate` to `/gymos/content` and `/gymos/video`; `application_state` records the current active tab so `view-screen` can report it
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase CV2: Content tab — Tiptap editor + agent tools
+**Goal**: Staff can manage the full lifecycle of rich content documents — list, create, edit (Tiptap), rename, duplicate, delete — and the right-rail agent can do all of the same things via two-exposed `defineAction` tools; edits stay live in the UI via `useChangeVersions` polling
+**Depends on**: Phase CV1 (tables + scaffold + nav in place)
+**Requirements**: CONT-01, CONT-02, CONT-03, CONT-04, CONT-05
+**Success Criteria** (what must be TRUE):
+  1. Staff can open `/gymos/content`, see a list of documents (title, status, updated time), and click "New document" — a new draft row appears immediately (optimistic) and persists
+  2. Staff can open a document in the Tiptap editor and type headings, lists, links, and insert images; the body saves on blur or manual save — no Yjs/collaboration UI or websocket dependency
+  3. Staff can rename a document (inline or dialog), duplicate it (new draft with "(Copy)" suffix), and delete it (shadcn AlertDialog confirmation); delete is safe — soft-delete where practical, or a hard-delete with a confirmation guard
+  4. Staff can tell the right-rail agent "draft a welcome post for our new HIIT class" and a new document appears in the Content tab with agent-written body — without a page reload (`useChangeVersions` triggers refresh)
+  5. The agent can edit an existing document's content (e.g. "rewrite the intro paragraph to be more energetic") and the editor reflects the updated content live
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase CV3: Video tab — Remotion editor + agent tools
+**Goal**: Staff can manage the full lifecycle of video compositions — list, create, preview in `@remotion/player`, rename, duplicate, delete — and the right-rail agent can assist authoring (draft promo scenes, adjust copy) via two-exposed tools; no server-side render is required for authoring or preview
+**Depends on**: Phase CV1 (tables + scaffold + nav in place; `@remotion/player` dep already installed)
+**Requirements**: VID-01, VID-02, VID-03, VID-04
+**Success Criteria** (what must be TRUE):
+  1. Staff can open `/gymos/video`, see a list of compositions (title, updated time, thumbnail/poster where available), and click "New composition" — a new row appears immediately
+  2. Staff can open a composition and see a live `@remotion/player` preview in the browser; they can edit text overlays, timing, or brand-asset references and the player re-renders the preview without a page reload
+  3. Staff can rename, duplicate, and delete a composition (AlertDialog on delete); all three operations reflect immediately in the list
+  4. Staff can tell the agent "create a 15-second promo for tomorrow's 7am yoga class" and a new composition appears in the Video tab with the agent-drafted scene data (copy, timing, class details pre-filled)
+  5. The agent can edit an existing composition (e.g. "change the headline to use the studio's catchphrase") and the preview updates
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase CV4: Publish pipeline — member API + public SSR pages
+**Goal**: Staff can promote content documents and video compositions from `draft` to `published`; published items are accessible to members via the member mobile API and to the public via crawlable SSR marketing pages — with no new member web portal and no new staff-login-required member routes
+**Depends on**: Phase CV2 (content documents complete) and Phase CV3 (video compositions complete)
+**Requirements**: PUB-01, PUB-02, PUB-03, PUB-04
+**Success Criteria** (what must be TRUE):
+  1. A staff user can click a "Publish" button on any content document or video composition and it transitions to `published` state; clicking again (or an "Unpublish" action) reverts to `draft`; only `published` items appear in any member-facing or public surface
+  2. A member mobile app call to `GET /api/m/content` returns only published content documents, gated by `requireDemoMember` — draft documents are never returned
+  3. Visiting `/c/:slug` in a browser (no login) renders a public SSR page with the full published document body — the page is server-side rendered (HTML in source), crawlable, and shareable
+  4. Visiting the published video equivalent (e.g. `/v/:slug`) renders a public SSR page with an embedded `@remotion/player` (for web preview) or a video poster with a "Watch" caption — without requiring a server-side MP4 render; the page is also crawlable
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase CV-RENDER: [GATED] Server-side MP4 render
+**Goal**: Staff can export a finished video composition to an MP4 file via a server-side render job; rendered files are stored in object storage and surfaced to members for native video playback and available to download for social posting
+**Depends on**: Phase CV3 (compositions authored and previewed), plus explicit operator go-ahead on new Fly render worker infra + recurring compute cost
+**Requirements**: RENDER-01, RENDER-02
+**Success Criteria** (what must be TRUE):
+  1. Staff can click "Export to MP4" on a video composition; a pg-boss job is enqueued and the UI shows render progress (queued → rendering → done)
+  2. A rendered MP4 file is retrievable from object storage and accessible via a signed URL surfaced in the staff Video tab
+  3. Members can play the rendered MP4 in the mobile app via the `/api/m/*` member API
+  4. Staff can download the MP4 from the Video tab for direct social media posting
+**Plans**: TBD
+**Note**: GATED — requires explicit go-ahead before `/gsd:plan-phase CV-RENDER` is run. Not part of the default CV1-CV4 build.
+
+## Progress (v2.1 — Content & Video Studio)
+
+| Phase | Plans Complete | Status | Completed |
+|-------|----------------|--------|-----------|
+| CV1. Foundation — deps, schema, scaffold, nav | 0/TBD | Not started | - |
+| CV2. Content tab — Tiptap editor + agent tools | 0/TBD | Not started | - |
+| CV3. Video tab — Remotion editor + agent tools | 0/TBD | Not started | - |
+| CV4. Publish pipeline — member API + public SSR pages | 0/TBD | Not started | - |
+| CV-RENDER. [GATED] Server-side MP4 render | 0/TBD | Gated — awaiting go-ahead | - |
+
+**Coverage:** 11/11 in-scope v2.1 requirements mapped across CV1-CV4 (CONT-01..05, VID-01..04, PUB-01..04, NAV-01, DEP-01, MIG-01). RENDER-01/RENDER-02 mapped to the gated CV-RENDER phase (not part of the default build).
+
+---
+
 ## ✅ v2.0 — Self-Serve Platform + Two-Tier Brain/Dispatcher — SHIPPED 2026-06-19
 
 **4 phases (BD1–BD4), 19 plans, 40/40 requirements.** Operator HQ control plane + zero-touch self-serve provisioning + PII-free telemetry + two-tier (HQ + per-studio) Brain/Dispatcher. Full detail archived → [`milestones/v2.0-ROADMAP.md`](milestones/v2.0-ROADMAP.md) · requirements → [`milestones/v2.0-REQUIREMENTS.md`](milestones/v2.0-REQUIREMENTS.md) · summary → [`MILESTONES.md`](MILESTONES.md).
@@ -37,7 +144,7 @@
  (completed 2026-06-19)
 - [x] **Phase BD3: HQ Brain + Dispatcher** — Parallel HQB plan (health scoring, cohort views, at-risk exclusion via `last_telemetry_received_at`) + HQD plan (own WABA, owner opt-in, onboarding nudge sequence, Content generation); HQD Meta templates submitted at BD2 completion — **5 plans, 2 waves**
  (completed 2026-06-19)
-- [x] **Phase BD4: Studio Brain + Dispatcher** — Parallel GOB plan (Brain template copy-in to staff-web, class catalog auto-ingest, brand voice UI) + GOD plan (daily owner digest, heartbeat reactivation via existing chokepoint, suppression ceiling); GOD Meta templates submitted at BD3 completion (completed 2026-06-19)
+- [x] **Phase BD4: Studio Brain + Dispatcher** — Parallel GOB plan (Brain template copy-in to staff-web, class catalog auto-ingest, brand voice UI) + GOD plan (daily owner digest, heartbeat reactivation via existing chokepoint, suppression ceiling); GOD Meta templates submitted at BD3 completion (completed 2026-06-19)
 
 ## Phase Details
 
@@ -226,7 +333,7 @@ Plans:
 | AE2. Schedule Write Tools | 3/3 | Complete | 2026-06-18 |
 | AE3. Members + Campaigns Write Tools | 3/3 | Complete | 2026-06-19 |
 
-**Coverage:** 18 v1.2 requirements (AEF/AES/AEM/AEX) delivered across AE1–AE3, plus the Campaigns segment-builder reqs (AEM-03/AEM-04) folded into AE3. All code-complete and code-verified (`tsc` clean + 76/76 vitest). Per-phase live agent+browser UAT runs on the Vercel deploy and is tracked in each phase’s `*-HUMAN-UAT.md`.
+**Coverage:** 18 v1.2 requirements (AEF/AES/AEM/AEX) delivered across AE1–AE3, plus the Campaigns segment-builder reqs (AEM-03/AEM-04) folded into AE3. All code-complete and code-verified (`tsc` clean + 76/76 vitest). Per-phase live agent+browser UAT runs on the Vercel deploy and is tracked in each phase's `*-HUMAN-UAT.md`.
 
 ---
 
@@ -856,4 +963,6 @@ Plans:
 *Revised: 2026-06-01 — P1c Public Site Integrations planned (7 plans) + executed + verified live on deploy → marked Complete. Migrations 0003+0004 applied to gymos-demo Neon. FORMS-01..04 + EMBED-01..06 added (140 reqs total). Checkout-link + visual-browser checks deferred (studio Stripe setup / dev-server NitroViteError).*
 *Revised: 2026-06-14 — merged `redesign/ui-refresh` into master. v1.1 UI Redesign roadmap (R1–R5, complete) now leads this file above the v1.0 section.*
 *Revised: 2026-06-18 — v1.2 Agentic Tab Editing roadmap (AE1–AE3) prepended at top. 18 requirements mapped across 3 phases.*
+*Revised: 2026-06-19 — v2.0 Self-Serve Platform + Two-Tier Brain/Dispatcher (BD1–BD4) prepended at top, collapsed to details block (shipped). 40/40 requirements delivered.*
+*Revised: 2026-06-20 — v2.1 Content & Video Studio (CV1–CV4 + gated CV-RENDER) prepended at top. 11 in-scope requirements mapped; RENDER-01/02 mapped to gated phase.*
 *Out of v1 scope: Native mobile (v1.x), HealthKit, Coach View with health context, CRM campaigns + segments, Knowledge Base, Operational Reporting, bsport-migration productisation, A2A. See REQUIREMENTS.md §Post-v1 Backlog and PLATFORM-VISION.md.*

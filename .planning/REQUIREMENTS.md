@@ -68,4 +68,23 @@
 
 ## Traceability
 
-<!-- Filled by the roadmapper: REQ-ID → Phase. -->
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| DEP-01 | Phase CV1 | Pending |
+| MIG-01 | Phase CV1 | Pending |
+| NAV-01 | Phase CV1 | Pending |
+| CONT-01 | Phase CV2 | Pending |
+| CONT-02 | Phase CV2 | Pending |
+| CONT-03 | Phase CV2 | Pending |
+| CONT-04 | Phase CV2 | Pending |
+| CONT-05 | Phase CV2 | Pending |
+| VID-01 | Phase CV3 | Pending |
+| VID-02 | Phase CV3 | Pending |
+| VID-03 | Phase CV3 | Pending |
+| VID-04 | Phase CV3 | Pending |
+| PUB-01 | Phase CV4 | Pending |
+| PUB-02 | Phase CV4 | Pending |
+| PUB-03 | Phase CV4 | Pending |
+| PUB-04 | Phase CV4 | Pending |
+| RENDER-01 | Phase CV-RENDER (GATED) | Gated — awaiting go-ahead |
+| RENDER-02 | Phase CV-RENDER (GATED) | Gated — awaiting go-ahead |

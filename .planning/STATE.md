@@ -1,13 +1,13 @@
 ---
 gsd_state_version: 1.0
 milestone: v2.1
-milestone_name: — Content & Video Studio (staff-web)
-status: defining_requirements
-stopped_at: v2.1 started — defining requirements + roadmap (Content + Video tabs for staff-web)
-last_updated: "2026-06-20T08:00:00.000Z"
+milestone_name: Content & Video Studio (staff-web)
+status: roadmap_complete
+stopped_at: v2.1 roadmap written — 4 active phases (CV1-CV4) + 1 gated phase (CV-RENDER). Ready to plan CV1.
+last_updated: "2026-06-20T08:30:00.000Z"
 last_activity: 2026-06-20
 progress:
-  total_phases: 0
+  total_phases: 4
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -17,29 +17,27 @@ progress:
 
 ## Project Reference
 
-See: `.planning/PROJECT.md` (updated 2026-06-19 — Milestone v2.0 SHIPPED)
-Roadmap: `.planning/ROADMAP.md` (v2.0 collapsed to a shipped summary at top; full detail archived in `milestones/v2.0-ROADMAP.md`; v1.2/v1.1/v1.0 phases below)
-Requirements: archived to `.planning/milestones/v2.0-REQUIREMENTS.md` (40/40 v2.0 reqs delivered). A fresh `REQUIREMENTS.md` is created by `/gsd:new-milestone`.
+See: `.planning/PROJECT.md` (updated 2026-06-20 — Milestone v2.1 started)
+Roadmap: `.planning/ROADMAP.md` (v2.1 section at top; v2.0 collapsed to shipped summary; full v2.0 detail archived in `milestones/v2.0-ROADMAP.md`)
+Requirements: `.planning/REQUIREMENTS.md` (v2.1 requirements, 11 in-scope: CONT-01..05, VID-01..04, PUB-01..04, NAV-01, DEP-01, MIG-01; RENDER-01/02 gated)
 
-**Core value:** A gym signs up on the GymClassOS site and gets a fully provisioned, independent system with zero human steps; the operator (you) gets a brain/dispatcher to understand and grow gym-owner customers; each gym gets its own brain/dispatcher to activate its members — all with no member PII ever leaving the studio deploy.
+**Core value:** HUSTLE staff can author rich content documents and video compositions inside the staff app — with the right-rail agent assisting — and publish them so they reach members (mobile app + public marketing pages), without a new member web portal.
 
-**Current milestone:** v2.0 — Self-Serve Platform + Two-Tier Brain/Dispatcher. **SHIPPED 2026-06-19 (code-complete, tagged `v2.0`).** Delivered the operator HQ control plane (`apps/hq`), zero-touch self-serve provisioning, PII-free telemetry, and the two-tier Brain/Dispatcher (HQ + per-studio).
+**Current milestone:** v2.1 — Content & Video Studio (staff-web). Started 2026-06-20. Adds `/gymos/content` (Tiptap, non-collab) + `/gymos/video` (Remotion `@remotion/player` editor) tabs to `apps/staff-web`, plus a publish pipeline for member mobile API + public SSR pages.
 
-**Current focus:** Planning the next milestone. Before starting it, clear v2.0's operational tail: HQ Neon + HQ/studio deploys, provider API tokens, Meta template approvals (HQ owner-comms + GOD member-reactivation), then the deferred live UAT in each phase's `*-HUMAN-UAT.md`. Run `/gsd:new-milestone` when ready.
-
-**Three v2.0 dependencies (apps/hq only):** `@neondatabase/api-client`, `@vercel/sdk`, `execa`. All other stack deps already in the pnpm workspace.
+**Prior art:** `apps/hq` has a non-collab Content surface (BD3 HQD-04: `apps/hq/actions/content-*.ts` + `apps/hq/app/routes/content.*.tsx`) — mine before writing new staff-web content code. The HQ Video surface is a thin deferred stub only (no Remotion dep in `apps/hq`).
 
 ## Current Position
 
-Milestone: v2.1 — Content & Video Studio (staff-web) — STARTED 2026-06-20
-Phase: Not started (defining requirements → roadmap)
+Milestone: v2.1 — Content & Video Studio (staff-web)
+Phase: CV1 — Foundation (not started)
 Plan: —
-Status: Defining requirements (autonomous run — user pre-approved plan + execute)
-Last activity: 2026-06-20 — Milestone v2.1 started
+Status: Roadmap complete. Ready to plan CV1.
+Last activity: 2026-06-20 — Roadmap written (CV1-CV4 + gated CV-RENDER)
 
-> **Open tails:** v2.0 live UAT (BD1–BD4 `*-HUMAN-UAT.md`) deferred-on-external-dependency. v1.2 Agentic Tab Editing is code-complete/live (AE1–AE3 live UAT pending). v1.0 Production + Mobile Demo (AE4) remain tracked in the roadmap.
+> **Open tails from prior milestones:** v2.0 live UAT (BD1–BD4 `*-HUMAN-UAT.md`) deferred-on-external-dependency. v1.2 Agentic Tab Editing live UAT pending (AE1–AE3 deployed). v1.0 Production + Mobile Demo (AE4) remain tracked.
 
-**Progress bar:** [██████████] 100% (4/4 v2.0 phases, 19/19 plans)
+**Progress bar (v2.1):** [░░░░░░░░░░] 0% (0/4 active phases, 0/TBD plans)
 
 ### Quick Tasks Completed
 
@@ -47,23 +45,23 @@ Last activity: 2026-06-20 — Milestone v2.1 started
 |---|-------------|------|--------|-----------|
 | 260620-c8p | Settings API Keys page: resolve secret status studio-global (by key) so saved keys show as set for every staff login, not just the saver | 2026-06-20 | ba34c8b8 | [260620-c8p-settings-api-keys-page-resolve-secret-st](./quick/260620-c8p-settings-api-keys-page-resolve-secret-st/) |
 
-### v2.0 Phase Summary
+### v2.1 Phase Summary
 
 | Phase | Goal | Requirements | Status |
 |-------|------|--------------|--------|
-| BD1. HQ Foundation | Operator can sign in to a running `apps/hq` control plane; PII boundary + fork CI guards in place; Anthropic call-site audited | HQ-FND-01..06 | Not started |
-| BD2. Telemetry + Provisioning | Studios push PII-free telemetry to HQ; provisioning saga (LIFO rollback first) orchestrates Neon + Vercel + Fly; idempotent retries | TEL-01..06, PROV-01..10 | Not started |
-| BD3. HQ Brain + Dispatcher | Operator sees health cohorts of gym-owner customers from telemetry; dispatches owner-comms via HQ WABA; generates website Content | HQB-01..05, HQD-01..05 | Not started |
-| BD4. Studio Brain + Dispatcher | Each studio has a gym-owner Brain; daily owner digest + heartbeat reactivation through existing chokepoint; suppression ceiling from day one | GOB-01..03, GOD-01..05 | Not started |
+| CV1. Foundation | Tiptap + Remotion deps; additive `content_documents` + `video_compositions` schema; features/ scaffold; Content + Video tabs in GymosTopNav; application_state context-awareness; tsc + Nitro build clean | DEP-01, MIG-01, NAV-01 | Not started |
+| CV2. Content tab | `/gymos/content` list + Tiptap editor (create/rename/duplicate/delete/edit); useChangeVersions live-refresh; agent actions two-exposed | CONT-01, CONT-02, CONT-03, CONT-04, CONT-05 | Not started |
+| CV3. Video tab | `/gymos/video` list + `@remotion/player` in-browser editor (create/rename/duplicate/delete/edit composition); agent actions two-exposed | VID-01, VID-02, VID-03, VID-04 | Not started |
+| CV4. Publish pipeline | `draft`/`published` toggle; `/api/m/content` member API (published only); public SSR `/c/:slug` page; published video embed/poster page | PUB-01, PUB-02, PUB-03, PUB-04 | Not started |
+| CV-RENDER [GATED] | Server-side MP4 render via Fly worker + pg-boss; MP4 storage + member surfacing | RENDER-01, RENDER-02 | Gated — awaiting go-ahead |
 
-**Next action:** `/gsd:plan-phase BD1`
+**Next action:** `/gsd:plan-phase CV1`
 
 ## Performance Metrics
 
-**v2.0 milestone start:** 2026-06-19
-**v1.2 reference velocity (completed 2026-06-18 → 2026-06-19):**
+**v2.1 milestone start:** 2026-06-20
 
-- AE1-AE3: 3 phases, 9 plans, ~1 day elapsed
+**v2.0 reference velocity (completed 2026-06-19, single ~9h session):**
 
 | Phase | Plan | Duration | Tasks | Files | Completed |
 |-------|------|----------|-------|-------|-----------|
@@ -83,94 +81,43 @@ Last activity: 2026-06-20 — Milestone v2.1 started
 
 ## Accumulated Context
 
-### BD4-01 Decisions (2026-06-19)
+### v2.1 Roadmap Decisions (2026-06-20)
+
+- **2026-06-20 — Phase prefix CV to avoid .planning/phases/ collisions with BD/AE/R/D/P dirs.**
+- **2026-06-20 — 4 active phases (coarse granularity): CV1 Foundation, CV2 Content tab, CV3 Video tab, CV4 Publish pipeline.** CV-RENDER is gated (not part of the default build).
+- **2026-06-20 — DEP-01 + MIG-01 + NAV-01 all land in CV1.** These are cross-cutting infrastructure reqs; landing them first unblocks CV2 and CV3 in parallel.
+- **2026-06-20 — CV2 and CV3 are independently executable after CV1 completes.** Content and Video don't depend on each other. They can be planned and run in parallel (coarse granularity means one execution order is fine; call `/gsd:plan-phase CV2` then CV3 sequentially).
+- **2026-06-20 — CV4 depends on both CV2 (content_documents published state) and CV3 (video_compositions published state).** The publish pipeline needs both entity types to exist.
+- **2026-06-20 — Strip Yjs from the Tiptap fork.** The HQ Content surface (BD3-05) already demonstrates the non-collab pattern — copy it. Remove `@tiptap/extension-collaboration`, `@tiptap/extension-collaboration-cursor`, `y-prosemirror`, `yjs`, `y-indexeddb` from the staff-web Tiptap install.
+- **2026-06-20 — @remotion/player only (no @remotion/renderer) for CV1-CV4.** `@remotion/renderer` is headless Chromium and requires a server process; it is gated to CV-RENDER. In-browser preview via `@remotion/player` has no server dependency.
+- **2026-06-20 — Helper/test files in server/lib, NOT server/plugins.** Nitro bundler error on Vercel if utilities land in server/plugins/ (plugins must export Nitro plugin objects). The HQ BD-series phases all followed this rule.
+- **2026-06-20 — Prior art for Content actions: apps/hq/actions/content-{create,list,get,update}-document.ts (forked from templates/content in BD3-05).** Use as the direct copy-and-adapt base. The main changes needed for staff-web: (a) remove ownableColumns/accessFilter (gym tables are single-tenant, use guard:allow-unscoped); (b) add `status` field (draft/published) not present in HQ version; (c) rename deepLink app from 'content' to match staff-web navigation.
+- **2026-06-20 — No member web portal constraint is the governing constraint for CV4.** `/c/:slug` public SSR page and `/api/m/content` member API are the delivery mechanisms; no new member login-required routes inside /gymos.
+- **2026-06-20 — RENDER-01 / RENDER-02 mapped to gated CV-RENDER phase.** Not counted in the default coverage total (11 in-scope reqs across CV1-CV4). Gated phase requires explicit go-ahead + infra planning before `/gsd:plan-phase CV-RENDER`.
+
+### BD4-01 Decisions (2026-06-19) — preserved for reference
 
 - **2026-06-19 BD4-01 — All three BD4 tables owned by BD4-01 to prevent db.ts collision with BD4-02: studio_brain_docs (v16), studio_owner_config (v17), reactivation_attempts (v18), index (v19) all in BD4-01; BD4-02 reads them without touching db.ts.**
 - **2026-06-19 BD4-01 — Pure helper extraction to brain-init-helpers.ts: vitest.unit.config.ts + ESM vitest cannot import @agent-native/core (CJS React "module is not defined"); pure helpers extracted to *-helpers.ts (mirrors create-checkout-link-helpers.ts pattern).**
 - **2026-06-19 BD4-01 — Collapsible shadcn primitive for Class Methods: progressive disclosure — Class Methods section collapsed by default on /gymos/brain per AGENTS.md rule.**
 - **2026-06-19 BD4-01 — Client-side fetch in gymos.brain.tsx (no loader): readAppState and getDb() in a React Router v7 loader need request context; client-side pattern matches gymos.campaigns.tsx segment-fetch.**
 
-### BD3-04 Decisions (2026-06-19)
-
-- **2026-06-19 BD3-04 — vitest.config.ts extended to include actions/**/*.test.ts: existing config only covered server/**/*.test.ts; action schema tests (e.g. OwnerSendSchema) have no browser/DB dependency and fit under actions/**
-- **2026-06-19 BD3-04 — agent-chat.ts copy-out fork: dispatchAgentChatPlugin is a pre-instantiated Nitro plugin object with no systemPromptSuffix option; createAgentChatPlugin factory must be called directly to inject HQD_CONSTRAINT into the system prompt. MODIFICATIONS.md updated with origin path and merge guidance.**
-- **2026-06-19 BD3-04 — Terminal gate errors in hq-owner-send handler are swallowed (logged + return, no re-raise): OwnerNoOptInError/OwnerWindowExpiredError/OwnerTemplateNotApprovedError are operator-config errors, not transient failures; wasting pg-boss retries on them would spam logs without useful retries.**
-- **2026-06-19 BD3-04 — HQ_WABA_PHONE_NUMBER_ID + HQ_WABA_API_TOKEN added as optional env fields in hq-worker; absence falls back to mockHqWabaClient cleanly (deferred-on-external-dependency D-13).**
-
-### BD3-02 Decisions (2026-06-19)
-
-- **2026-06-19 BD3-02 — recharts pinned to 2.15.4 (2.x latest stable) in apps/hq: plan forbids 3.x beta; 3.8.1 is current latest on npm but plan required 2.x; 2.15.4 is safe mid-ship stable.**
-- **2026-06-19 BD3-02 — ClientOnly from @agent-native/core/client takes ReactNode children (not render prop): plan pattern `{() => (<ResponsiveContainer>...)}` is wrong for this implementation; switched to direct JSX children. Same SSR-guard semantics.**
-- **2026-06-19 BD3-02 — ChartCard.dataKey widened to string: TokenPoint adds totalTokens (not in keyof StudioSnapshotPoint); TS2322 would block token chart. Widened to string; recharts consumes it as string internally.**
-
-### BD3-01 Decisions (2026-06-19)
-
-- **2026-06-19 BD3-01 — Used getDbExec() raw SQL (not db.execute()) for DISTINCT ON query in apps/hq: LibSQL Drizzle type has no .execute() at compile time; getDbExec() is the established pattern (usage-metrics.ts). Subpath @gymos/hq-schema/constants export added to hq-schema package.json (was missing).**
-- **2026-06-19 BD3-01 — Added apps/hq/vitest.config.ts scoped to server/**/*.test.ts (node env): apps/hq had no per-package vitest config; vite.config.ts is react-router SSR and causes preamble errors for pure TS tests.**
-- **2026-06-19 BD3-01 — Shared query helper factored into list-studios-query.ts: both api.studios.ts (resource route) and list-studios.ts (action) call queryStudiosWithHealth() with no duplication.**
-
-### BD2-06 Decisions (2026-06-19)
-
-- **2026-06-19 BD2-06 — @gymos/queue added as workspace dep to @gymos/hq: the signup intake handler is the provision-studio queue producer; getBoss() needed in the HQ web app, not just hq-worker.**
-- **2026-06-19 BD2-06 — Watchdog source uses line comments (//) not JSDoc block comments: esbuild 0.21.x treats */5 inside a block comment as a comment-close token, causing a transform error on the cron string.**
-- **2026-06-19 BD2-06 — crypto.randomUUID() used instead of nanoid: nanoid is not in @gymos/hq deps; Node built-in randomUUID() produces UUIDs with equivalent uniqueness for studioId/runId.**
-- **2026-06-19 BD2-06 — Task 4 human-verify checkpoint auto-approved as deferred-on-external-dependency: live deploy verification (curl signup, dashboard, Fly logs) requires HQ Vercel deploy + provider tokens not yet set by operator.**
-- **2026-06-19 BD2-06 — Drizzle execute<T>() requires T extends Record<string, unknown>: StuckRun and StaleTelemetryStudio interfaces must extend that constraint for watchdog raw SQL queries to typecheck.**
-
-### BD2-05 Decisions (2026-06-19)
-
-- **2026-06-19 BD2-05 — LIFO compensation order: 7(revoke_token)→6(remove_dns)→5(delete_fly_app)→4(delete_vercel)→1(delete_neon). Steps 2, 3, 8 have no compensation (project deletion covers 2/3; step 8 registry write is idempotent). Compensation is best-effort (errors collected, never re-raised).**
-- **2026-06-19 BD2-05 — runStep(runId, stepNum, fn) calls getHqDb() internally — enables vi.mock('./db.js') in unit tests without injecting a db argument (matches compensate.ts pattern).**
-- **2026-06-19 BD2-05 — Token helpers (hashToken, generateTelemetryToken) moved from apps/hq/server/lib/telemetry-token.ts to packages/hq-schema/src/token.ts to avoid tsc rootDir violation when hq-worker imports them. apps/hq re-exports from @gymos/hq-schema/token for backward compatibility.**
-- **2026-06-19 BD2-05 — pg-boss 12 WorkHandler receives Job<T>[] (array, not single item); handler destructures jobs[0] (batch size defaults to 1). This differs from pg-boss docs examples that show a single job.**
-- **2026-06-19 BD2-05 — provision-studio.ts useMockApis param defaults true so unit tests skip live-run token guard; registerProvisionStudio passes false for production runs.**
-
-### BD2-04 Decisions (2026-06-19)
-
-- **2026-06-19 BD2-04 — ingest-helpers.ts pattern: pure business-logic helpers (extractBearerToken, hashToken, parseTelemetryBody, buildIngestPayload) extracted from the H3 handler into a separate file with no framework imports, so they can be unit-tested without a dev server — mirrors the auth-helpers.ts pattern established in BD1.**
-- **2026-06-19 BD2-04 — TDD approach: vi.mock of deep relative paths fails in Vite's module runner, so the test imports ingest-helpers.ts directly (not the H3 handler), achieving full behavioral coverage without mocking framework internals.**
-- **2026-06-19 BD2-04 — Route depth: telemetry route at server/routes/api/telemetry/ (4 levels) needs ../../../db/index.js (3 levels up). Caught and fixed at typecheck.**
-
-### BD2-03 Decisions (2026-06-19)
-
-- **2026-06-19 BD2-03 — studio_telemetry_state.updated_at is TEXT (not INTEGER epoch) to match the existing studio schema convention (gym_members, conversations etc. all use TEXT ISO timestamps).**
-- **2026-06-19 BD2-03 — mobileEngagement proxy = COUNT(*) FROM food_entries in window. Rationale: food_entries is the only mobile-app-exclusive table in the current studio schema; BD3 may refine to a richer session metric.**
-- **2026-06-19 BD2-03 — retentionRate = COUNT(DISTINCT member_id active this window) / COUNT(DISTINCT member_id active prior window). Documented approximation (not exact cohort intersection); 0 when prior denominator is 0.**
-- **2026-06-19 BD2-03 — @gymos/hq-schema added as workspace dep to services/worker (Rule-3 auto-fix: tsc --noEmit failed TS2307 without it; TelemetrySnapshotInput type used in buildTelemetrySnapshot).**
-- **2026-06-19 BD2-03 — Trigger guard uses DO $$ IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname='trg_token_usage_accumulate') to avoid DROP; wrapped in information_schema existence check for SQLite dev-path no-op.**
-
-### BD2-02 Decisions (2026-06-19)
-
-- **2026-06-19 BD2-02 — @neondatabase/api-client version is 2.x (actual published) not 10.x (as documented in research); pinned to ^2.7.2. API surface is compatible.**
-- **2026-06-19 BD2-02 — Vercel SDK getProjects returns union type (GetProjectsResponseBody2 | GetProjectsResponseBody3 | Array<...>); Array.isArray guard normalises to project list for find-or-create.**
-- **2026-06-19 BD2-02 — execa call spans multiple lines in fly.ts — test runtime-verifies array-arg form; single-line grep from plan is a style check only, not a semantic constraint.**
-
-### BD2-01 Decisions (2026-06-19)
-
-- **2026-06-19 BD2-01 — TelemetrySnapshot exported without .strict() — callers apply .strict() at ingest boundary to keep schema composable (push job doesn't need strict mode, ingest endpoint does).**
-- **2026-06-19 BD2-01 — Per-package vitest.config.ts added to hq-schema; root vitest.config.ts only covers tests/integration/** — new per-package unit test packages need their own scoped config.**
-- **2026-06-19 BD2-01 — apps/hq/server/db/schema.ts needed no change: export * from @gymos/hq-schema/schema auto-flows new tables into merged HQ db schema.**
-
-### v2.0 Roadmap Decisions
+### v2.0 Roadmap Decisions — preserved for reference
 
 - **2026-06-19 — Phase prefix BD (not integer) to avoid .planning/phases/ collisions with existing AE/R/D/P phase directories.**
 - **2026-06-19 — 4 phases (coarse granularity).** Research converged on BD1-BD4. BD2 and BD4 each contain two parallel plans within the phase (TEL+PROV in BD2; GOB+GOD in BD4).
 - **2026-06-19 — Provisioner runs in services/hq-worker (Fly), not Vercel.** 8-step saga exceeds Vercel's 300-second timeout. pg-boss job in hq-worker drives forward steps and LIFO rollback.
-- **2026-06-19 — PROV rollback code ships before happy-path code (CRITICAL).** Non-idempotent provisioning creates orphaned cloud resources. Prevention: check GET before POST for each provider; build LIFO rollback first; test by deliberately failing at each step.
-- **2026-06-19 — Three PII-up enforcement mechanisms (all three must ship together in BD1/BD2).** (1) No studio DB credentials in HQ env. (2) Zod `.strict()` TelemetrySnapshot schema (422 on unknown fields). (3) CI guard blocking HQ schema columns named `*connection*`/`*database_url*`/`*dsn*`.
-- **2026-06-19 — HQ needs its own WABA (separate from any studio WABA).** Using a studio WABA for B2B owner comms is a Meta compliance violation. HQD WABA is registered to the GymClassOS business account; owner opt-ins stored in HQ Neon `hq_whatsapp_opt_in`. No HQD code touches `services/worker` or `services/edge-webhooks`.
-- **2026-06-19 — Anthropic call-site audit is a BD1 task, not BD2.** The `createAgentChatPlugin` internals must be audited in BD1 to confirm the exact interception point for the token-usage wrapper. This audit gates the TEL plan in BD2.
-- **2026-06-19 — Meta template approval lead times are calendar dependencies, not engineering tasks.** HQD owner-comms templates submitted at BD2 completion (2-7 day wait before BD3 HQD can send live messages). GOD member reactivation templates submitted at BD3 completion (2-7 day wait before BD4 GOD heartbeat goes live).
-- **2026-06-19 — BD2 PROV plan needs /gsd:research-phase before planning.** Three unverified items: (a) Fly machine deploy sequencing (flyctl secrets set timing vs. machine creation); (b) Vercel async deployment polling with @vercel/sdk 1.27.0; (c) Neon 409 response body shape for idempotent step-1.
-- **2026-06-19 — BD3 HQD plan needs /gsd:research-phase before planning.** HQ WABA second phone number registration in Meta Business Manager — procedure not yet confirmed.
-- **2026-06-19 — services/hq-worker Dockerfile must include flyctl.** Fly secrets cannot be set via the Machines REST API (restricted to Fly KMS, not GA). flyctl CLI is the only working path. Base image + version pinning decided in BD2 PROV planning.
-- **2026-06-19 — GOD suppression ceiling (3 attempts / 90-day window) ships from day one (Pitfall W-01).** Not retrofitted after launch. `heartbeat_suppression` table with attempt tracking created in the same BD4 plan that adds the heartbeat queue.
-- **2026-06-19 — GOD heartbeat cron start times staggered by hash(studio_id) % 60 min (Pitfall W-02).** Prevents send storms when multiple studios provision at the same time (all would otherwise fire at exactly 09:00).
-- **2026-06-19 — `sendMessage.ts` is NOT modified in BD4.** All GOD sends use INSERT messages -> enqueue outbound-whatsapp -> existing chokepoint. The chokepoint handles opt-in / 24h-window / template-approved gates unchanged.
-- **2026-06-19 — HQ org + super-admin seed row in runMigrations (Pitfall F-02).** Without the org seed, Brain and Dispatch routes return empty because `accessFilter` scopes to `orgId`. Seed runs at migration time, not at application boot.
-- **2026-06-19 — New v2.0 packages in pnpm workspace: `packages/hq-schema`, `services/hq-worker`.** Both added to `pnpm-workspace.yaml` in BD1.
+- **2026-06-19 — PROV rollback code ships before happy-path code (CRITICAL).** Non-idempotent provisioning creates orphaned cloud resources.
+- **2026-06-19 — Three PII-up enforcement mechanisms (all three must ship together in BD1/BD2).**
+- **2026-06-19 — HQ needs its own WABA (separate from any studio WABA).**
+- **2026-06-19 — Anthropic call-site audit is a BD1 task, not BD2.**
+- **2026-06-19 — Meta template approval lead times are calendar dependencies, not engineering tasks.**
+- **2026-06-19 — GOD suppression ceiling (3 attempts / 90-day window) ships from day one (Pitfall W-01).**
+- **2026-06-19 — GOD heartbeat cron start times staggered by hash(studio_id) % 60 min (Pitfall W-02).**
+- **2026-06-19 — `sendMessage.ts` is NOT modified in BD4.**
+- **2026-06-19 — HQ org + super-admin seed row in runMigrations (Pitfall F-02).**
 
-### v1.2 Roadmap Decisions (preserved for reference)
+### v1.2 Roadmap Decisions — preserved for reference
 
 - **2026-06-18 — Phase prefix AE to avoid .planning/phases/ collisions.**
 - **2026-06-18 — Gate atomicity: new gated actions must update both `ACTION_ALLOWLIST` in `approve-proposal.ts` AND Zod enum in `propose-action.ts` in the same commit.**
@@ -179,18 +126,11 @@ Last activity: 2026-06-20 — Milestone v2.1 started
 - **2026-06-18 — No local dev server constraint continues (NitroViteError).**
 - **2026-06-18 — Two-exposure rule per action: action file registry + system prompt bullet, both required.**
 
-### v1.1 Roadmap Decisions (preserved for reference)
-
-- **2026-06-12 — Phase prefix R to avoid .planning/phases/ collisions at merge time.**
-- **2026-06-12 — Hustle brand hex is an open dependency (hustle.css placeholder values until customer confirms).**
-- **2026-06-12 — No local dev server constraint.**
-
-### v1.0 Accumulated Context (from master — preserved for reference)
+### v1.0 Accumulated Context — preserved for reference
 
 **P1c-WIDE VERIFICATION CONSTRAINT:** The local `agent-native dev` server cannot boot (`NitroViteError: Vite environment "nitro" is unavailable` -> 503 on server routes). NO plan can run a local HTTP walkthrough. Verify via replay against live Neon DB via Neon MCP or defer to e2e smoke test on Vercel deploy.
 
 - **2026-05-17 — Two-milestone restructure:** Demo Sprint (week 1) + Production v1 (weeks 2-9).
-- **2026-05-17 — Stripe direct restricted-API-key (NOT Connect)** (later reversed 2026-06-12 to Connect Custom accounts).
 - **2026-05-17 — pg-boss on Neon (NOT BullMQ + Redis):** Queue lives in same Neon DB; no Redis service.
 - **2026-05-17 — Calorie counter built fresh (NOT fork OpenNutriTracker):** OpenNutriTracker is Flutter + GPL v3.
 - **2026-05-17 (late) — Member surface = Expo fork of `packages/mobile-app`** (NOT web PWA).
@@ -204,24 +144,24 @@ Last activity: 2026-06-20 — Milestone v2.1 started
 
 ## Session Continuity
 
-Last session: 2026-06-19T18:41:36.502Z
-Stopped at: Completed BD4-02-PLAN.md
+Last session: 2026-06-20
+Stopped at: v2.1 roadmap complete (CV1–CV4 + gated CV-RENDER). REQUIREMENTS.md traceability filled. STATE.md updated.
 Resume file: None
 
-### PICK UP HERE — plan BD1
+### PICK UP HERE — plan CV1
 
-v2.0 roadmap is written. The four phases are defined with success criteria and requirement mappings.
+v2.1 roadmap is written. The four active phases are defined with success criteria and requirement mappings.
 
-**Next step — plan Phase BD1:** `/gsd:plan-phase BD1`
+**Next step — plan Phase CV1:** `/gsd:plan-phase CV1`
 
-BD1 is the foundational phase: `apps/hq` scaffold, HQ Neon, super-admin Better-auth, HQ org seed, `services/hq-worker` skeleton, CI guards, and the Anthropic call-site audit. All other phases depend on BD1.
+CV1 is the foundational phase: Tiptap (no collab) + `@remotion/player` deps installed in `apps/staff-web/package.json`; additive `content_documents` + `video_compositions` `runMigrations` versions; `features/content/` + `features/video/` scaffolded from templates; Content + Video tabs added to `GymosTopNav`; `application_state` updated for context-awareness; tsc + Nitro build verified clean.
 
-**Research flags for upcoming phases (action at plan time):**
+**Prior art to mine at plan time:**
+- `apps/hq/actions/content-{create,list,get,update}-document.ts` — BD3-05 non-collab Content fork; adapt imports + add `status` field + remove `ownableColumns`/`accessFilter` (use `guard:allow-unscoped`)
+- `apps/hq/app/routes/content._index.tsx` + `content.$id.tsx` — list + editor UI; adapt to staff-web gymos route conventions
+- `apps/hq/server/lib/documents.ts` — `parseDocumentFavorite` helper; copy into `apps/staff-web/server/lib/`
+- `apps/hq/app/routes/content.video.tsx` — thin stub only (no Remotion); CV1 scaffold can be similarly thin; CV3 adds `@remotion/player`
 
-- BD2 PROV plan: run `/gsd:research-phase` before planning. Three unverified items: Fly machine deploy sequencing, Vercel async deployment polling, Neon 409 response body shape.
-- BD3 HQD plan: run `/gsd:research-phase` before planning. HQ WABA second phone number registration in Meta Business Manager.
+**CV2 + CV3 can be planned in parallel after CV1 completes** (no dependency between them). CV4 depends on both.
 
-**Calendar watch items (non-engineering, but gate BD3/BD4 go-live):**
-
-- Submit HQD owner-comms WhatsApp templates for Meta approval at BD2 completion.
-- Submit GOD member reactivation + owner digest templates for Meta approval at BD3 completion.
+**RENDER go-ahead note:** If server-side MP4 render is approved at any point, run `/gsd:plan-phase CV-RENDER`. The gated phase is fully specified in ROADMAP.md (RENDER-01/RENDER-02) but blocked on explicit infra/cost decision.
