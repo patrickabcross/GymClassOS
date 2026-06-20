@@ -32,23 +32,24 @@
  *   Only a presence flag + masked last4 (e.g. "••••WXYZ") are emitted.
  */
 
-import { defineNitroPlugin } from "nitropack/runtime";
 import type { H3Event } from "h3";
 import { listRequiredSecrets } from "@agent-native/core/secrets";
 import { readAppSecretByKey } from "../lib/app-secrets.js";
 import "../register-secrets.js";
 
-// Pure helpers live in a separate file with no framework imports so the unit
-// test can import them without pulling in nitropack/runtime or @agent-native/core
-// (BD4-01 decision: ESM vitest cannot import CJS-bound framework modules).
-export type { SecretPresence } from "./secrets-status-override-helpers.js";
-export { buildSecretStatusPayload } from "./secrets-status-override-helpers.js";
+// Pure helpers live in server/lib/ (NOT server/plugins/) with no framework
+// imports, for two reasons: (1) the unit test can import them without pulling in
+// nitropack/runtime or @agent-native/core (BD4-01 decision: ESM vitest cannot
+// import CJS-bound framework modules); (2) Nitro's plugin auto-loader requires a
+// default export from every file under server/plugins/ — a helper/test file there
+// breaks the production build (MISSING_EXPORT "default").
+import { buildSecretStatusPayload } from "../lib/secrets-status-override-helpers.js";
 
 // ---------------------------------------------------------------------------
 // Nitro plugin — registers the middleware that intercepts collection-GET
 // ---------------------------------------------------------------------------
 
-export default defineNitroPlugin(async (nitroApp) => {
+export default async function secretsStatusOverridePlugin(nitroApp: unknown) {
   // The override middleware: intercept GET /_agent-native/secrets (collection
   // root only), return by-key resolved status. Fall through for everything else.
   const overrideMiddleware = async (
@@ -120,4 +121,4 @@ export default defineNitroPlugin(async (nitroApp) => {
       "[secrets-status-override] nitroApp.h3['~middleware'] not available at plugin load time; override skipped.",
     );
   }
-});
+}

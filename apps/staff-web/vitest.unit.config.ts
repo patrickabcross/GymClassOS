@@ -24,7 +24,7 @@ export default defineConfig({
       "app/lib/**/*.test.ts",
       "shared/**/*.test.ts",
       "actions/**/*.test.ts",
-      "server/plugins/**/*.test.ts",
+      "server/lib/**/*.test.ts",
     ],
   },
 });
