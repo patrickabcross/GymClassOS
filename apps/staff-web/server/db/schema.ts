@@ -599,3 +599,22 @@ export const reactivationAttempts = table("reactivation_attempts", {
   sentAt: text("sent_at").notNull().default(now()),
   createdAt: text("created_at").notNull().default(now()),
 });
+
+// ---------------------------------------------------------------------------
+// CV2-01: Content documents — flat table for rich-text content authoring.
+//
+// DDL created by migration v20 (CV1-01, apps/staff-web/server/plugins/db.ts).
+// This Drizzle export is the schema-layer reference; no new migration needed.
+// Single-tenant: no ownableColumns, no studio_id. Reads carry
+// // guard:allow-unscoped — single-tenant content.
+// Status stays 'draft' here; 'published' support arrives in CV4.
+// ---------------------------------------------------------------------------
+export const contentDocuments = table("content_documents", {
+  id: text("id").primaryKey(),
+  title: text("title").notNull().default(""),
+  body: text("body").notNull().default(""),
+  status: text("status").notNull().default("draft"),
+  slug: text("slug"),
+  createdAt: text("created_at").notNull().default(now()),
+  updatedAt: text("updated_at").notNull().default(now()),
+});
