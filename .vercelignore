@@ -1,9 +1,0 @@
-# Vercel CLI does not read .gitignore — exclude heavy build artifacts and
-# local-only dirs from the source upload (10MB request-body limit).
-# The remote build regenerates .output / .vercel/output itself.
-**/.output
-**/.vercel/output
-**/.turbo
-.planning
-docs
-*.log
