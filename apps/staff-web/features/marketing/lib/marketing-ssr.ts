@@ -222,13 +222,15 @@ function navBar(L: LocaleContent): string {
     .map((l) => `<a href="${escapeHtml(l.href)}">${escapeHtml(l.label)}</a>`)
     .join("\n    ");
   return `<header class="r-nav">
-  <a class="wordmark" href="${escapeHtml(L.path)}" aria-label="${escapeHtml(SITE.name)}"><b>run</b><span>Studio</span><span class="dot">.</span></a>
-  <nav class="r-nav-links">
-    ${links}
-  </nav>
-  <div class="r-nav-right">
-    <a class="r-login" href="${escapeHtml(SITE.appPath)}">${escapeHtml(L.nav.login)}</a>
-    <a class="btn btn-pulse" href="${escapeHtml(L.ctaHref)}">${escapeHtml(L.nav.cta)} <span class="chev">&rsaquo;</span></a>
+  <div class="r-wrap r-nav-inner">
+    <a class="wordmark" href="${escapeHtml(L.path)}" aria-label="${escapeHtml(SITE.name)}"><b>run</b><span>Studio</span><span class="dot">.</span></a>
+    <nav class="r-nav-links">
+      ${links}
+    </nav>
+    <div class="r-nav-right">
+      <a class="r-login" href="${escapeHtml(SITE.appPath)}">${escapeHtml(L.nav.login)}</a>
+      <a class="btn btn-pulse" href="${escapeHtml(L.ctaHref)}">${escapeHtml(L.nav.cta)} <span class="chev">&rsaquo;</span></a>
+    </div>
   </div>
 </header>`;
 }
@@ -605,7 +607,8 @@ svg{display:block}
 .btn .chev{font-family:var(--f-mono);font-weight:700}
 
 /* nav */
-.r-nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-content:space-between;gap:20px;padding-block:16px;padding-inline:max(var(--gutter),calc((100% - var(--maxw)) / 2));background:color-mix(in srgb,var(--ink) 80%,transparent);backdrop-filter:saturate(140%) blur(10px);border-bottom:1px solid rgba(243,241,234,.1)}
+.r-nav{position:sticky;top:0;z-index:50;background:color-mix(in srgb,var(--ink) 80%,transparent);backdrop-filter:saturate(140%) blur(10px);border-bottom:1px solid rgba(243,241,234,.1)}
+.r-nav-inner{display:flex;align-items:center;justify-content:space-between;gap:20px;padding-block:16px}
 .r-nav-links{display:flex;gap:28px;align-items:center;font-size:13.5px;color:var(--lane)}
 .r-nav-links a:hover{color:var(--track)}
 @media(max-width:760px){.r-nav-links{display:none}}
