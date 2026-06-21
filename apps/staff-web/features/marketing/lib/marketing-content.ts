@@ -505,7 +505,7 @@ const fr: LocaleContent = {
     stats: [
       { value: "2 840 €", label: "récupérés / mois" },
       { value: "94 %", label: "de cours remplis" },
-      { value: "7 h", label: "d'administratif gagnées / semaine" },
+      { value: "7 h", label: "d'admin gagnées / semaine" },
       { value: "38", label: "messages traités / jour" },
     ],
   },
