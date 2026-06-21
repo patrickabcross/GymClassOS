@@ -50,7 +50,7 @@ export interface LocaleContent {
   metaTitle: string;
   metaDescription: string;
   ctaHref: string;
-  nav: { links: NavLink[]; cta: string };
+  nav: { links: NavLink[]; login: string; cta: string };
   hero: {
     eyebrow: string;
     h1: string; // trusted HTML
@@ -102,6 +102,7 @@ const uk: LocaleContent = {
       { label: "The agent", href: "#agent" },
       { label: "Proof", href: "#proof" },
     ],
+    login: "Log in",
     cta: "Run my studio",
   },
   hero: {
@@ -187,7 +188,7 @@ const uk: LocaleContent = {
         time: "6:15 PM",
       },
     ],
-    videoTag: "AI film · 9:16",
+    videoTag: "AI film · 16:9",
     videoCaption: "A day run by your studio · 0:58",
   },
   proof: {
@@ -251,6 +252,7 @@ const us: LocaleContent = {
       { label: "The agent", href: "#agent" },
       { label: "Proof", href: "#proof" },
     ],
+    login: "Log in",
     cta: "Get a demo",
   },
   hero: {
@@ -336,7 +338,7 @@ const us: LocaleContent = {
         time: "6:15 PM",
       },
     ],
-    videoTag: "AI film · 9:16",
+    videoTag: "AI film · 16:9",
     videoCaption: "A day run by your studio · 0:58",
   },
   proof: {
@@ -400,6 +402,7 @@ const fr: LocaleContent = {
       { label: "L'agent", href: "#agent" },
       { label: "Preuves", href: "#proof" },
     ],
+    login: "Connexion",
     cta: "Faire tourner mon studio",
   },
   hero: {
@@ -493,7 +496,7 @@ const fr: LocaleContent = {
         time: "18:15",
       },
     ],
-    videoTag: "Film IA · 9:16",
+    videoTag: "Film IA · 16:9",
     videoCaption: "Une journée gérée par votre studio · 0:58",
   },
   proof: {
@@ -561,6 +564,7 @@ const de: LocaleContent = {
       { label: "Der Agent", href: "#agent" },
       { label: "Belege", href: "#proof" },
     ],
+    login: "Anmelden",
     cta: "Demo anfragen",
   },
   hero: {
@@ -646,7 +650,7 @@ const de: LocaleContent = {
         time: "18:15",
       },
     ],
-    videoTag: "KI-Film · 9:16",
+    videoTag: "KI-Film · 16:9",
     videoCaption: "Ein Tag, betrieben von Ihrem Studio · 0:58",
   },
   proof: {

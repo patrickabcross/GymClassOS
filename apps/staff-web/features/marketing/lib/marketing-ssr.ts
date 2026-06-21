@@ -226,24 +226,57 @@ function navBar(L: LocaleContent): string {
   <nav class="r-nav-links">
     ${links}
   </nav>
-  <a class="btn btn-pulse" href="${escapeHtml(L.ctaHref)}">${escapeHtml(L.nav.cta)} <span class="chev">&rsaquo;</span></a>
+  <div class="r-nav-right">
+    <a class="r-login" href="${escapeHtml(SITE.appPath)}">${escapeHtml(L.nav.login)}</a>
+    <a class="btn btn-pulse" href="${escapeHtml(L.ctaHref)}">${escapeHtml(L.nav.cta)} <span class="chev">&rsaquo;</span></a>
+  </div>
 </header>`;
+}
+
+// The WhatsApp agent thread, shown not described (BRAND.md §6). Rendered in the
+// hero so the brand's core surface is above the fold.
+function phoneMarkup(L: LocaleContent): string {
+  const bubbles = L.agent.bubbles
+    .map(
+      (b) =>
+        `<div class="bubble ${b.who}">${escapeHtml(b.text)}<span class="time">${escapeHtml(b.time)}</span></div>`,
+    )
+    .join("\n                ");
+  return `<div class="phone" role="img" aria-label="${escapeHtml(L.agent.phoneWho)}">
+          <div class="phone-screen">
+            <div class="phone-top">
+              <span class="av">${MARK_SVG}</span>
+              <span><span class="who">${escapeHtml(L.agent.phoneWho)}</span><br><span class="stat-mini">${escapeHtml(L.agent.phoneStatus)}</span></span>
+            </div>
+            <div class="phone-body">
+              <span class="day-tag">${escapeHtml(L.agent.dayTag)}</span>
+              <div class="thread">
+                ${bubbles}
+              </div>
+            </div>
+          </div>
+        </div>`;
 }
 
 function heroSection(L: LocaleContent): string {
   return `<section class="r-hero">
     <div class="ghost" aria-hidden="true">${GHOST_SVG}</div>
-    <div class="r-wrap r-hero-inner reveal">
-      <div class="mark-lockup">
-        <span class="mark">${MARK_SVG}</span>
-        <span class="eyebrow on-dark">${escapeHtml(L.hero.eyebrow)}</span>
+    <div class="r-wrap r-hero-grid">
+      <div class="reveal">
+        <div class="mark-lockup">
+          <span class="mark">${MARK_SVG}</span>
+          <span class="eyebrow on-dark">${escapeHtml(L.hero.eyebrow)}</span>
+        </div>
+        <h1 class="r-h1">${L.hero.h1}</h1>
+        <p class="r-lead">${escapeHtml(L.hero.lead)}</p>
+        <div class="r-cta">
+          <a class="btn btn-pulse" href="${escapeHtml(L.ctaHref)}">${escapeHtml(L.hero.cta)} <span class="chev">&rsaquo;</span></a>
+          <a class="btn btn-ghost on-dark" href="#agent">${escapeHtml(L.hero.ctaSecondary)}</a>
+          <span class="note">${escapeHtml(L.hero.note)}</span>
+        </div>
       </div>
-      <h1 class="r-h1">${L.hero.h1}</h1>
-      <p class="r-lead">${escapeHtml(L.hero.lead)}</p>
-      <div class="r-cta">
-        <a class="btn btn-pulse" href="${escapeHtml(L.ctaHref)}">${escapeHtml(L.hero.cta)} <span class="chev">&rsaquo;</span></a>
-        <a class="btn btn-ghost on-dark" href="#agent">${escapeHtml(L.hero.ctaSecondary)}</a>
-        <span class="note">${escapeHtml(L.hero.note)}</span>
+      <div class="reveal">
+        ${phoneMarkup(L)}
       </div>
     </div>
   </section>`;
@@ -291,36 +324,14 @@ function loopSection(L: LocaleContent): string {
 }
 
 function agentSection(L: LocaleContent): string {
-  const bubbles = L.agent.bubbles
-    .map(
-      (b) =>
-        `<div class="bubble ${b.who}">${escapeHtml(b.text)}<span class="time">${escapeHtml(b.time)}</span></div>`,
-    )
-    .join("\n                ");
-  return `<section class="r-sec sec-light" id="agent">
-    <div class="r-wrap">
-      <div class="r-head reveal">
-        <span class="eyebrow">${escapeHtml(L.agent.eyebrow)}</span>
+  return `<section class="r-sec sec-dark" id="agent">
+    <div class="r-wrap film-wrap">
+      <div class="r-head center reveal">
+        <span class="eyebrow on-dark">${escapeHtml(L.agent.eyebrow)}</span>
         <h2 class="r-h2">${escapeHtml(L.agent.h2)}</h2>
         <p class="r-lead">${escapeHtml(L.agent.lead)}</p>
       </div>
-      <div class="agent-grid reveal">
-        <div class="phone" role="img" aria-label="${escapeHtml(L.agent.phoneWho)}">
-          <div class="phone-screen">
-            <div class="phone-top">
-              <span class="av">${MARK_SVG}</span>
-              <span><span class="who">${escapeHtml(L.agent.phoneWho)}</span><br><span class="stat-mini">${escapeHtml(L.agent.phoneStatus)}</span></span>
-            </div>
-            <div class="phone-body">
-              <span class="day-tag">${escapeHtml(L.agent.dayTag)}</span>
-              <div class="thread">
-                ${bubbles}
-              </div>
-            </div>
-          </div>
-        </div>
-        ${videoSlot({ ar: "ar-9x16", tag: L.agent.videoTag, caption: L.agent.videoCaption })}
-      </div>
+      ${videoSlot({ ar: "ar-16x9", tag: L.agent.videoTag, caption: L.agent.videoCaption, className: "reveal" })}
     </div>
   </section>`;
 }
@@ -598,6 +609,9 @@ svg{display:block}
 .r-nav-links{display:flex;gap:28px;align-items:center;font-size:13.5px;color:var(--lane)}
 .r-nav-links a:hover{color:var(--track)}
 @media(max-width:760px){.r-nav-links{display:none}}
+.r-nav-right{display:flex;align-items:center;gap:16px}
+.r-login{font-size:13.5px;font-weight:500;color:var(--lane);white-space:nowrap}
+.r-login:hover{color:var(--track)}
 
 .mark{display:inline-grid;place-items:center;border-radius:14px;background:var(--ink);width:46px;height:46px;flex:none}
 .mark svg{width:26px;height:26px}
@@ -605,9 +619,10 @@ svg{display:block}
 
 /* hero */
 .r-hero{position:relative;min-height:clamp(520px,80vh,800px);display:flex;align-items:center;overflow:hidden;background:radial-gradient(80% 60% at 82% 14%,rgba(14,92,80,.42),transparent 60%),radial-gradient(60% 50% at 10% 92%,rgba(14,92,80,.22),transparent 55%),var(--ink)}
-.r-hero .ghost{position:absolute;right:-8%;top:50%;transform:translateY(-50%);width:min(52vw,560px);opacity:.06;pointer-events:none}
+.r-hero .ghost{position:absolute;left:-10%;top:50%;transform:translateY(-50%);width:min(48vw,520px);opacity:.05;pointer-events:none}
 .r-hero .ghost svg{width:100%;height:auto}
-.r-hero-inner{position:relative;z-index:2;max-width:900px}
+.r-hero-grid{position:relative;z-index:2;display:grid;gap:clamp(32px,5vw,56px);align-items:center}
+@media(min-width:920px){.r-hero-grid{grid-template-columns:1.05fr .95fr}}
 .mark-lockup{display:inline-flex;align-items:center;gap:12px}
 .r-cta{margin-top:32px;display:flex;gap:12px;flex-wrap:wrap;align-items:center}
 .r-cta.center{justify-content:center}
