@@ -80,8 +80,9 @@ export function GymosTopNav() {
   const isSettings = path.startsWith("/gymos/settings");
   // BD4-01: Studio Brain (GOB-03) — admin-only tab.
   const isBrain = path.startsWith("/gymos/brain");
-  // CV1 NAV-01: Content + Video studio tabs (admin-only authoring surfaces).
-  const isContent = path.startsWith("/gymos/content");
+  // CV1 NAV-01: Video studio tab (admin-only authoring surface).
+  // Content tab is intentionally hidden from the nav — gyms aren't writing
+  // articles. The /gymos/content route still exists but is unlinked.
   const isVideo = path.startsWith("/gymos/video");
 
   // P1b.1-livefix: sign-out hits the better-auth backward-compat shim at
@@ -147,11 +148,7 @@ export function GymosTopNav() {
           Brain
         </Link>
       )}
-      {isAdmin && (
-        <Link to="/gymos/content" className={tabClass(isContent)}>
-          Content
-        </Link>
-      )}
+      {/* Content tab hidden — gyms aren't writing articles. Route still exists. */}
       {isAdmin && (
         <Link to="/gymos/video" className={tabClass(isVideo)}>
           Video
