@@ -1,4 +1,4 @@
-// GymClassOS Payments — real page (replaces the Coming Soon stub).
+// RunStudio Payments — real page (replaces the Coming Soon stub).
 // Shows the 100 most-recent Stripe payments with the member who paid.
 
 import { useLoaderData, Link } from "react-router";
@@ -18,7 +18,7 @@ import {
 import type { LoaderFunctionArgs } from "react-router";
 
 export function meta() {
-  return [{ title: "GymClassOS — Payments" }];
+  return [{ title: "RunStudio — Payments" }];
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────

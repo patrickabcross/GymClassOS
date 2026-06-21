@@ -1,4 +1,4 @@
-// GymClassOS Member Profile — R4-02 visual refresh: pass-balance pill + next-class card + bookings timeline.
+// RunStudio Member Profile — R4-02 visual refresh: pass-balance pill + next-class card + bookings timeline.
 //
 // URL: /gymos/members/:id
 //
@@ -23,7 +23,7 @@ import { CheckoutLinkButton } from "@/components/gymos/CheckoutLinkButton";
 import type { LoaderFunctionArgs } from "react-router";
 
 export function meta() {
-  return [{ title: "GymClassOS — Member Profile" }];
+  return [{ title: "RunStudio — Member Profile" }];
 }
 
 // ─── Loader ──────────────────────────────────────────────────────────────────

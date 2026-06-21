@@ -90,7 +90,7 @@ function relativeTime(iso: string): string {
 // ─── Meta ─────────────────────────────────────────────────────────────────────
 
 export function meta() {
-  return [{ title: "GymClassOS — Video" }];
+  return [{ title: "RunStudio — Video" }];
 }
 
 // ─── Loader ──────────────────────────────────────────────────────────────────

@@ -2,7 +2,7 @@ import { redirect } from "react-router";
 import { Spinner } from "@/components/ui/spinner";
 
 export function meta() {
-  return [{ title: "GymClassOS" }];
+  return [{ title: "RunStudio" }];
 }
 
 // Legacy Mail-template thread path. Anything matching /<view>/<threadId>

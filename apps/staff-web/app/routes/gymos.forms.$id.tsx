@@ -1,4 +1,4 @@
-// GymClassOS Forms Builder — Edit Page (P1c-04).
+// RunStudio Forms Builder — Edit Page (P1c-04).
 //
 // Forked from templates/forms/app/pages/FormBuilderPage.tsx.
 // STRIPPED from upstream:
@@ -90,7 +90,7 @@ import type {
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "react-router";
 
 export function meta() {
-  return [{ title: "GymClassOS — Form Builder" }];
+  return [{ title: "RunStudio — Form Builder" }];
 }
 
 // ─── Field type defaults ──────────────────────────────────────────────────────

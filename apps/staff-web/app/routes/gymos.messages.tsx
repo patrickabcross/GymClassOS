@@ -1,4 +1,4 @@
-// GymClassOS WhatsApp Messages — R3-04 (NAME-03 route rename).
+// RunStudio WhatsApp Messages — R3-04 (NAME-03 route rename).
 //
 // Relocated from gymos.inbox.tsx in R3 naming pass. The old route
 // /gymos/inbox now lives as a 301 redirect shim → /gymos/messages.
@@ -74,7 +74,7 @@ import { ImportLeadsDialog } from "@/components/gymos/ImportLeadsDialog";
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "react-router";
 
 export function meta() {
-  return [{ title: "GymClassOS — Messages" }];
+  return [{ title: "RunStudio — Messages" }];
 }
 
 // ─── Loader ──────────────────────────────────────────────────────────────────

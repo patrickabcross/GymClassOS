@@ -1,4 +1,4 @@
-// GymClassOS top-nav strip (INBX-07 demo cohesion).
+// RunStudio top-nav strip (INBX-07 demo cohesion).
 //
 // Visual unifier that ties the four demo surfaces (Inbox / Schedule / Members /
 // Payments) into one back-office product. Active tab is highlighted via
@@ -31,7 +31,7 @@ export function GymosTopNav() {
         adminOpen?: boolean;
       }
     | undefined;
-  const displayName = rootData?.skin?.displayName ?? "GymClassOS";
+  const displayName = rootData?.skin?.displayName ?? "RunStudio";
   const logo = rootData?.skin?.logo ?? null;
   const adminEmails = rootData?.adminEmails ?? [];
   const adminOpen = rootData?.adminOpen ?? false;

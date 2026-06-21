@@ -3,16 +3,16 @@ import { Spinner } from "@/components/ui/spinner";
 
 export function meta() {
   return [
-    { title: "GymClassOS" },
+    { title: "RunStudio" },
     {
       name: "description",
       content:
-        "GymClassOS — boutique fitness studio operating system. WhatsApp inbox, class schedule, and member context in one surface.",
+        "RunStudio — boutique fitness studio operating system. WhatsApp inbox, class schedule, and member context in one surface.",
     },
   ];
 }
 
-// Demo-time root redirect: land staff straight in the GymClassOS WhatsApp inbox.
+// Demo-time root redirect: land staff straight in the RunStudio WhatsApp inbox.
 // Both server loader and client loader so the navigation completes before
 // hydration. Post-demo (P0 audit) this file moves to apps/staff-web/.
 export function loader() {

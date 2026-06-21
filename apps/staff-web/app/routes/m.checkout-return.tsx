@@ -18,8 +18,8 @@ export const meta: MetaFunction = ({ data }) => {
     {
       title:
         result === "success"
-          ? "Payment complete — GymClassOS"
-          : "Checkout — GymClassOS",
+          ? "Payment complete — RunStudio"
+          : "Checkout — RunStudio",
     },
   ];
 };
@@ -99,7 +99,7 @@ export default function CheckoutReturn() {
           marginTop: 8,
         }}
       >
-        You can now close this window and return to the GymClassOS app.
+        You can now close this window and return to the RunStudio app.
       </p>
     </div>
   );

@@ -12,18 +12,29 @@
  * must be reachable without a staff session — see the `publicPaths` + allowlist
  * skip entries added in server/plugins/auth.ts.
  *
- * CONTENT IS PLATFORM-BRANDED ("GymClassOS") per the product owner's choice.
+ * CONTENT IS PLATFORM-BRANDED ("RunStudio") per the product owner's choice.
+ * The homepage follows the RunStudio brand book (docs/brand book/BRAND.md):
+ * the double meaning of "run" (operate + move), the agent reporting over
+ * WhatsApp, pulse held to accent-only, warm --track ground, Space Grotesk /
+ * Inter / Space Mono. The homepage is a fully self-contained document; the
+ * privacy page keeps the lighter shared shell below.
  */
 
 import { getMethod, type H3Event } from "h3";
+import {
+  LOCALES,
+  LOCALE_ORDER,
+  type LocaleCode,
+  type LocaleContent,
+} from "./marketing-content.js";
 
 // ---------------------------------------------------------------------------
 // Static site facts (single source of truth for both pages)
 // ---------------------------------------------------------------------------
 
 const SITE = {
-  name: "GymClassOS",
-  tagline: "Run your studio's entire day from one inbox-and-schedule surface.",
+  name: "RunStudio",
+  tagline: "You teach. Your AI runs everything else.",
   contactEmail: "patrickabcross@outlook.com",
   // Privacy policy effective / last-updated date (ISO). Bump when the policy
   // text materially changes.
@@ -76,9 +87,17 @@ function htmlResponse(event: H3Event, html: string): Response {
   });
 }
 
-export function renderHomePage(event: H3Event): Response {
-  return htmlResponse(event, homePage());
+function makeHomeRenderer(code: LocaleCode) {
+  return (event: H3Event): Response =>
+    htmlResponse(event, homePage(LOCALES[code]));
 }
+
+// One renderer per market. The bare "/" route is canonical UK English.
+export const renderHomeUK = makeHomeRenderer("uk");
+export const renderHomeUS = makeHomeRenderer("us");
+export const renderHomeFR = makeHomeRenderer("fr");
+export const renderHomeDE = makeHomeRenderer("de");
+export const renderHomePage = renderHomeUK;
 
 export function renderPrivacyPage(event: H3Event): Response {
   return htmlResponse(event, privacyPage());
@@ -136,7 +155,7 @@ ${opts.body}
 function header(): string {
   return `<header class="nav">
   <a class="brand" href="/">
-    <span class="brand-mark">GC</span>
+    <span class="brand-mark">RS</span>
     <span class="brand-name">${escapeHtml(SITE.name)}</span>
   </a>
   <div class="nav-right">
@@ -166,59 +185,271 @@ function footer(): string {
 // Homepage
 // ---------------------------------------------------------------------------
 
-function featureCard(icon: string, title: string, body: string): string {
-  return `<div class="card">
-    <div class="card-icon">${icon}</div>
-    <h3>${escapeHtml(title)}</h3>
-    <p>${escapeHtml(body)}</p>
+// The RunStudio motion mark — a double chevron (play/run arrow + runner's
+// forward lean). Used in the nav and the WhatsApp thread avatar. (BRAND.md §4)
+const MARK_SVG = `<svg viewBox="0 0 58 58" aria-hidden="true"><path d="M20 16 L36 29 L20 42" fill="none" stroke="#C8FF3D" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><path d="M30 16 L46 29 L30 42" fill="none" stroke="#16786A" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/></svg>`;
+const PLAY_SVG = `<svg viewBox="0 0 24 24" fill="none"><path d="M8 6 L18 12 L8 18 Z" fill="#14171C"/></svg>`;
+
+/**
+ * An AI-video slot. Renders a poster placeholder (pulse play button + mono
+ * caption) that is layout-stable. To drop in a real AI-generated clip, replace
+ * the placeholder markup with a <video> tag, e.g.:
+ *   <video src="/marketing/it-just-runs.mp4" poster="/marketing/it-just-runs.jpg"
+ *          autoplay muted loop playsinline></video>
+ * Keep the wrapper's aspect-ratio class so the layout doesn't shift.
+ */
+function videoSlot(opts: {
+  ar: "ar-16x9" | "ar-9x16";
+  tag: string;
+  caption: string;
+  className?: string;
+}): string {
+  return `<div class="video-slot ${opts.ar}${opts.className ? " " + opts.className : ""}">
+    <span class="video-slot__tag">${escapeHtml(opts.tag)}</span>
+    <!-- Drop a real AI clip in here: <video src="…" poster="…" autoplay muted loop playsinline></video> -->
+    <div class="video-slot__play" aria-hidden="true">${PLAY_SVG}</div>
+    <span class="video-slot__cap"><span class="rec"></span> ${escapeHtml(opts.caption)}</span>
   </div>`;
 }
 
-function homePage(): string {
-  // Inline Tabler-style stroke icons (no emoji-as-icon per conventions).
-  const iconChat = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M8 9h8"/><path d="M8 13h6"/><path d="M18 4a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3h-5l-5 3v-3H6a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3z"/></svg>`;
-  const iconCalendar = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><path d="M16 3v4"/><path d="M8 3v4"/><path d="M4 11h16"/><path d="M11 15h1v3"/></svg>`;
-  const iconDevice = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2z"/><path d="M11 5h2"/><path d="M12 17v.01"/></svg>`;
+// Giant ghost motion-mark that drifts behind the hero.
+const GHOST_SVG = `<svg viewBox="0 0 58 58"><path d="M16 10 L40 29 L16 48" fill="none" stroke="#C8FF3D" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><path d="M30 10 L54 29 L30 48" fill="none" stroke="#16786A" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 
-  const body = `${header()}
-<main>
-  <section class="hero">
-    <div class="hero-inner">
-      <p class="eyebrow">Boutique fitness studio OS</p>
-      <h1>${escapeHtml(SITE.tagline)}</h1>
-      <p class="lede">${escapeHtml(SITE.name)} brings WhatsApp conversations, class bookings, and member context together on one screen — so coaches and studio managers stop cobbling together separate messaging, calendar, and CRM tools.</p>
-      <div class="hero-actions">
-        <a class="btn btn-primary btn-lg" href="${SITE.appPath}">Open the app</a>
-        <a class="btn btn-ghost btn-lg" href="/privacy">Read our privacy policy</a>
-      </div>
-    </div>
-  </section>
+// ─── Section builders (every field escaped except hero.h1, trusted markup) ───
 
-  <section class="features">
-    <div class="features-grid">
-      ${featureCard(iconChat, "WhatsApp inbox with context", "Every member conversation sits next to their bookings, pass balance, and history — reply in the moment without switching apps.")}
-      ${featureCard(iconCalendar, "Schedule, bookings & passes", "Run the class timetable, manage capacity and bookings, and track pass credits and renewals from one schedule.")}
-      ${featureCard(iconDevice, "Members on mobile", "Members book, pay, and log activity from the studio's existing app — including a calorie counter and coaching assistant.")}
-    </div>
-  </section>
-
-  <section class="cta-band">
-    <div class="cta-inner">
-      <h2>One surface for your studio's day</h2>
-      <p>Coaches run the inbox and schedule; members self-serve on mobile. Payments are handled securely by Stripe.</p>
-      <a class="btn btn-primary btn-lg" href="${SITE.appPath}">Open the app</a>
-    </div>
-  </section>
-</main>
-${footer()}`;
-
-  return shell({
-    title: `${SITE.name} — boutique fitness studio operating system`,
-    description: SITE.tagline,
-    body,
-  });
+function navBar(L: LocaleContent): string {
+  const links = L.nav.links
+    .map((l) => `<a href="${escapeHtml(l.href)}">${escapeHtml(l.label)}</a>`)
+    .join("\n    ");
+  return `<header class="r-nav">
+  <a class="wordmark" href="${escapeHtml(L.path)}" aria-label="${escapeHtml(SITE.name)}"><b>run</b><span>Studio</span><span class="dot">.</span></a>
+  <nav class="r-nav-links">
+    ${links}
+  </nav>
+  <a class="btn btn-pulse" href="${escapeHtml(L.ctaHref)}">${escapeHtml(L.nav.cta)} <span class="chev">&rsaquo;</span></a>
+</header>`;
 }
 
+function heroSection(L: LocaleContent): string {
+  return `<section class="r-hero">
+    <div class="ghost" aria-hidden="true">${GHOST_SVG}</div>
+    <div class="r-wrap r-hero-inner reveal">
+      <div class="mark-lockup">
+        <span class="mark">${MARK_SVG}</span>
+        <span class="eyebrow on-dark">${escapeHtml(L.hero.eyebrow)}</span>
+      </div>
+      <h1 class="r-h1">${L.hero.h1}</h1>
+      <p class="r-lead">${escapeHtml(L.hero.lead)}</p>
+      <div class="r-cta">
+        <a class="btn btn-pulse" href="${escapeHtml(L.ctaHref)}">${escapeHtml(L.hero.cta)} <span class="chev">&rsaquo;</span></a>
+        <a class="btn btn-ghost on-dark" href="#agent">${escapeHtml(L.hero.ctaSecondary)}</a>
+        <span class="note">${escapeHtml(L.hero.note)}</span>
+      </div>
+    </div>
+  </section>`;
+}
+
+function problemSection(L: LocaleContent): string {
+  const points = L.problem.points
+    .map((p) => `<li>${escapeHtml(p)}</li>`)
+    .join("\n          ");
+  return `<section class="r-sec sec-light" id="problem">
+    <div class="r-wrap">
+      <div class="r-head reveal">
+        <span class="eyebrow">${escapeHtml(L.problem.eyebrow)}</span>
+        <h2 class="r-h2">${escapeHtml(L.problem.h2)}</h2>
+      </div>
+      <div class="problem-card reveal">
+        <h3>${escapeHtml(L.problem.heading)}</h3>
+        <ul class="vs-list pain">
+          ${points}
+        </ul>
+      </div>
+    </div>
+  </section>`;
+}
+
+function loopSection(L: LocaleContent): string {
+  const steps = L.loop.steps
+    .map(
+      (s) =>
+        `<div class="pri"><span class="n">${escapeHtml(s.k)}</span><h3>${escapeHtml(s.title)}</h3><p>${escapeHtml(s.body)}</p></div>`,
+    )
+    .join("\n        ");
+  return `<section class="r-sec sec-dark" id="how">
+    <div class="r-wrap">
+      <div class="r-head reveal">
+        <span class="eyebrow on-dark">${escapeHtml(L.loop.eyebrow)}</span>
+        <h2 class="r-h2">${escapeHtml(L.loop.h2)}</h2>
+        <p class="r-lead">${escapeHtml(L.loop.lead)}</p>
+      </div>
+      <div class="loop reveal">
+        ${steps}
+      </div>
+    </div>
+  </section>`;
+}
+
+function agentSection(L: LocaleContent): string {
+  const bubbles = L.agent.bubbles
+    .map(
+      (b) =>
+        `<div class="bubble ${b.who}">${escapeHtml(b.text)}<span class="time">${escapeHtml(b.time)}</span></div>`,
+    )
+    .join("\n                ");
+  return `<section class="r-sec sec-light" id="agent">
+    <div class="r-wrap">
+      <div class="r-head reveal">
+        <span class="eyebrow">${escapeHtml(L.agent.eyebrow)}</span>
+        <h2 class="r-h2">${escapeHtml(L.agent.h2)}</h2>
+        <p class="r-lead">${escapeHtml(L.agent.lead)}</p>
+      </div>
+      <div class="agent-grid reveal">
+        <div class="phone" role="img" aria-label="${escapeHtml(L.agent.phoneWho)}">
+          <div class="phone-screen">
+            <div class="phone-top">
+              <span class="av">${MARK_SVG}</span>
+              <span><span class="who">${escapeHtml(L.agent.phoneWho)}</span><br><span class="stat-mini">${escapeHtml(L.agent.phoneStatus)}</span></span>
+            </div>
+            <div class="phone-body">
+              <span class="day-tag">${escapeHtml(L.agent.dayTag)}</span>
+              <div class="thread">
+                ${bubbles}
+              </div>
+            </div>
+          </div>
+        </div>
+        ${videoSlot({ ar: "ar-9x16", tag: L.agent.videoTag, caption: L.agent.videoCaption })}
+      </div>
+    </div>
+  </section>`;
+}
+
+function proofSection(L: LocaleContent): string {
+  const stats = L.proof.stats
+    .map(
+      (s) =>
+        `<div class="stat-cell"><div class="stat">${escapeHtml(s.value)}</div><div class="stat-label">${escapeHtml(s.label)}</div></div>`,
+    )
+    .join("\n        ");
+  return `<section class="r-sec sec-dark" id="proof">
+    <div class="r-wrap">
+      <div class="r-head center reveal">
+        <span class="eyebrow on-dark">${escapeHtml(L.proof.eyebrow)}</span>
+        <h2 class="r-h2">${escapeHtml(L.proof.h2)}</h2>
+      </div>
+      <div class="stat-row reveal">
+        ${stats}
+      </div>
+    </div>
+  </section>`;
+}
+
+function objectionsSection(L: LocaleContent): string {
+  const items = L.objections.items
+    .map(
+      (o) =>
+        `<div class="obj-card"><h3>${escapeHtml(o.q)}</h3><p>${escapeHtml(o.a)}</p></div>`,
+    )
+    .join("\n        ");
+  return `<section class="r-sec sec-light" id="faq">
+    <div class="r-wrap">
+      <div class="r-head reveal">
+        <span class="eyebrow">${escapeHtml(L.objections.eyebrow)}</span>
+        <h2 class="r-h2">${escapeHtml(L.objections.h2)}</h2>
+      </div>
+      <div class="obj-grid reveal">
+        ${items}
+      </div>
+      <p class="trust reveal">${escapeHtml(L.objections.trust)}</p>
+    </div>
+  </section>`;
+}
+
+function finalCtaSection(L: LocaleContent): string {
+  return `<section class="r-sec sec-dark">
+    <div class="r-wrap">
+      <div class="final-cta reveal">
+        <span class="eyebrow on-dark">${escapeHtml(L.finalCta.eyebrow)}</span>
+        <h2 class="r-h2">${escapeHtml(L.finalCta.h2)}</h2>
+        <div class="r-cta">
+          <a class="btn btn-pulse" href="${escapeHtml(L.ctaHref)}">${escapeHtml(L.finalCta.cta)} <span class="chev">&rsaquo;</span></a>
+          <a class="btn btn-ghost on-dark" href="#agent">${escapeHtml(L.finalCta.ctaSecondary)}</a>
+        </div>
+      </div>
+    </div>
+  </section>`;
+}
+
+function localeSwitcher(L: LocaleContent): string {
+  const links = LOCALE_ORDER.map((code) => {
+    const t = LOCALES[code];
+    const cur = code === L.code ? ' aria-current="page"' : "";
+    return `<a href="${escapeHtml(t.path)}"${cur}>${escapeHtml(t.label)}</a>`;
+  }).join("");
+  return `<div class="r-switch"><span class="r-switch-label">${escapeHtml(L.footer.switchLabel)}</span>${links}</div>`;
+}
+
+function footerBar(L: LocaleContent): string {
+  return `<footer class="r-foot">
+  <div class="r-wrap r-foot-inner">
+    <a class="wordmark on-dark" href="${escapeHtml(L.path)}"><b>run</b><span>Studio</span><span class="dot">.</span></a>
+    <div class="r-foot-links">
+      <a href="/privacy">${escapeHtml(L.footer.privacy)}</a>
+      <a href="mailto:${escapeHtml(SITE.contactEmail)}">${escapeHtml(L.footer.contact)}</a>
+    </div>
+    ${localeSwitcher(L)}
+    <span class="r-foot-tag">&copy; ${SITE.policyUpdated.slice(0, 4)} ${escapeHtml(SITE.name)} &middot; runstudio.ai</span>
+  </div>
+</footer>`;
+}
+
+const REVEAL_SCRIPT = `<script>
+(function(){
+  if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    document.querySelectorAll(".reveal").forEach(function(el){ el.classList.add("in"); });
+    return;
+  }
+  var io = new IntersectionObserver(function(entries){
+    entries.forEach(function(e){ if (e.isIntersecting){ e.target.classList.add("in"); io.unobserve(e.target); } });
+  }, { threshold: 0.15 });
+  document.querySelectorAll(".reveal").forEach(function(el){ io.observe(el); });
+})();
+</script>`;
+
+/** Full standalone homepage for one market — "The Disappearing Software". */
+function homePage(L: LocaleContent): string {
+  const body = `${navBar(L)}
+<main>
+  ${heroSection(L)}
+  ${problemSection(L)}
+  ${loopSection(L)}
+  ${agentSection(L)}
+  ${proofSection(L)}
+  ${objectionsSection(L)}
+  ${finalCtaSection(L)}
+</main>
+${footerBar(L)}
+${REVEAL_SCRIPT}`;
+
+  return `<!DOCTYPE html>
+<html lang="${escapeHtml(L.lang)}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${escapeHtml(L.metaTitle)}</title>
+<meta name="description" content="${escapeHtml(L.metaDescription)}">
+<meta name="theme-color" content="#14171C">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap">
+<style>${homeCSS()}</style>
+</head>
+<body class="r-body">
+${body}
+</body>
+</html>`;
+}
 // ---------------------------------------------------------------------------
 // Privacy policy
 // ---------------------------------------------------------------------------
@@ -302,7 +533,209 @@ ${footer()}`;
 }
 
 // ---------------------------------------------------------------------------
+// Homepage CSS — RunStudio brand tokens (docs/brand book/tokens.css) + the
+// "Disappearing Software" layout. Self-contained; pulse held to accent only.
+// ---------------------------------------------------------------------------
+
+function homeCSS(): string {
+  return `
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --ink:#14171C;--ink-soft:#2A2F38;--pulse:#C8FF3D;--pulse-deep:#9FD500;
+  --distance:#0E5C50;--distance-soft:#16786A;--track:#F3F1EA;--track-deep:#E7E3D7;
+  --lane:#9AA1AC;--lane-faint:#C9CDD3;--white:#FFFFFF;
+  --f-display:"Space Grotesk","Helvetica Neue",Arial,sans-serif;
+  --f-body:"Inter","Helvetica Neue",Arial,sans-serif;
+  --f-mono:"Space Mono",ui-monospace,Menlo,monospace;
+  --ls-display:-0.025em;--ls-eyebrow:0.16em;
+  --r-card:14px;--r-pill:100px;--r-bubble:15px;
+  --maxw:1080px;--gutter:clamp(20px,5vw,64px);--section-y:clamp(56px,9vw,120px);
+  --ease:cubic-bezier(.7,0,.2,1);--dur:1.1s;
+}
+@media (prefers-reduced-motion:reduce){:root{--dur:0.001ms}}
+html{scroll-behavior:smooth}
+.r-body{background:var(--ink);color:var(--track);font-family:var(--f-body);font-size:17px;line-height:1.55;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+svg{display:block}
+.r-wrap{max-width:var(--maxw);margin:0 auto;padding-inline:var(--gutter)}
+.r-sec{padding-block:var(--section-y)}
+.sec-light{background:var(--track);color:var(--ink)}
+.sec-dark{background:var(--ink);color:var(--track)}
+
+/* type */
+.r-h1{font-family:var(--f-display);font-weight:700;letter-spacing:var(--ls-display);line-height:.97;font-size:clamp(40px,5.6vw,82px);margin:22px 0 0;max-width:20ch;color:var(--track)}
+.r-h1 .fade{color:var(--lane)}
+.r-h1 .verb{color:var(--pulse)}
+.r-h2{font-family:var(--f-display);font-weight:600;letter-spacing:var(--ls-display);font-size:clamp(28px,4.4vw,46px);line-height:1.04;margin:0}
+.sec-light .r-h2{color:var(--ink)}
+.sec-dark .r-h2{color:var(--track)}
+.r-h2.on-ink{color:var(--track)}
+.r-lead{font-size:clamp(18px,2.1vw,22px);line-height:1.5;margin-top:14px;color:var(--ink-soft)}
+.sec-dark .r-lead{color:var(--lane)}
+.r-hero .r-lead{color:var(--lane-faint);max-width:44ch}
+.eyebrow{font-family:var(--f-mono);font-size:12.5px;text-transform:uppercase;letter-spacing:var(--ls-eyebrow);color:var(--distance);display:inline-flex;align-items:center;gap:9px}
+.eyebrow::before{content:"";width:7px;height:7px;border-radius:2px;background:var(--pulse);flex:none}
+.eyebrow.on-dark{color:var(--pulse)}
+
+/* wordmark */
+.wordmark{font-family:var(--f-display);letter-spacing:var(--ls-display);font-size:22px;line-height:1;display:inline-flex;align-items:baseline;color:var(--track)}
+.wordmark b{font-weight:700}.wordmark span{font-weight:400}
+.wordmark .dot{color:var(--pulse);font-weight:700}
+.wordmark.on-dark{color:var(--track)}
+
+/* buttons */
+.btn{font-family:var(--f-body);font-weight:500;font-size:17px;border-radius:var(--r-pill);padding:14px 26px;border:1px solid transparent;display:inline-flex;align-items:center;gap:10px;cursor:pointer;transition:background .25s var(--ease),color .25s var(--ease),border-color .25s var(--ease);white-space:nowrap}
+.btn-pulse{background:var(--pulse);color:var(--ink);font-weight:600}
+.btn-pulse:hover{background:#d6ff63}
+.btn-ghost{background:transparent;color:var(--ink);border-color:var(--track-deep)}
+.btn-ghost:hover{border-color:var(--ink)}
+.btn-ghost.on-dark{color:var(--track);border-color:rgba(243,241,234,.25)}
+.btn-ghost.on-dark:hover{border-color:var(--track)}
+.btn .chev{font-family:var(--f-mono);font-weight:700}
+
+/* nav */
+.r-nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-content:space-between;gap:20px;padding-block:16px;padding-inline:max(var(--gutter),calc((100% - var(--maxw)) / 2));background:color-mix(in srgb,var(--ink) 80%,transparent);backdrop-filter:saturate(140%) blur(10px);border-bottom:1px solid rgba(243,241,234,.1)}
+.r-nav-links{display:flex;gap:28px;align-items:center;font-size:13.5px;color:var(--lane)}
+.r-nav-links a:hover{color:var(--track)}
+@media(max-width:760px){.r-nav-links{display:none}}
+
+.mark{display:inline-grid;place-items:center;border-radius:14px;background:var(--ink);width:46px;height:46px;flex:none}
+.mark svg{width:26px;height:26px}
+.r-nav .mark{width:34px;height:34px}.r-nav .mark svg{width:20px;height:20px}
+
+/* hero */
+.r-hero{position:relative;min-height:clamp(520px,80vh,800px);display:flex;align-items:center;overflow:hidden;background:radial-gradient(80% 60% at 82% 14%,rgba(14,92,80,.42),transparent 60%),radial-gradient(60% 50% at 10% 92%,rgba(14,92,80,.22),transparent 55%),var(--ink)}
+.r-hero .ghost{position:absolute;right:-8%;top:50%;transform:translateY(-50%);width:min(52vw,560px);opacity:.06;pointer-events:none}
+.r-hero .ghost svg{width:100%;height:auto}
+.r-hero-inner{position:relative;z-index:2;max-width:900px}
+.mark-lockup{display:inline-flex;align-items:center;gap:12px}
+.r-cta{margin-top:32px;display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.r-cta.center{justify-content:center}
+.r-cta .note{font-family:var(--f-mono);font-size:12.5px;color:var(--lane)}
+
+/* phone + thread */
+.phone{background:#1b1f26;border:1px solid rgba(243,241,234,.12);border-radius:30px;padding:14px;box-shadow:0 40px 90px -34px rgba(0,0,0,.7);max-width:360px;margin-inline:auto;width:100%}
+.phone-screen{background:var(--track);border-radius:20px;overflow:hidden}
+.phone-top{background:var(--distance);color:var(--track);padding:14px 16px;display:flex;align-items:center;gap:11px}
+.phone-top .av{width:34px;height:34px;border-radius:10px;background:var(--ink);display:grid;place-items:center;flex:none}
+.phone-top .av svg{width:20px;height:20px}
+.phone-top .who{font-family:var(--f-display);font-weight:600;font-size:15px;letter-spacing:var(--ls-display)}
+.phone-top .stat-mini{font-family:var(--f-mono);font-size:11px;opacity:.85}
+.phone-body{padding:16px;display:flex;flex-direction:column;gap:10px;min-height:360px}
+.day-tag{align-self:center;font-family:var(--f-mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--lane);background:var(--track-deep);padding:4px 12px;border-radius:var(--r-pill)}
+.thread{display:flex;flex-direction:column;gap:10px}
+.bubble{max-width:86%;padding:11px 14px;border-radius:var(--r-bubble);font-size:15px;line-height:1.45}
+.bubble.agent{align-self:flex-start;background:var(--pulse);color:var(--ink);border-bottom-left-radius:5px}
+.bubble.user{align-self:flex-end;background:var(--distance-soft);color:var(--white);border-bottom-right-radius:5px}
+.bubble .time{display:block;font-family:var(--f-mono);font-size:10.5px;margin-top:5px;opacity:.65}
+
+/* section heads */
+.r-head{max-width:54ch;margin-bottom:clamp(28px,4vw,48px)}
+.r-head.center{margin-inline:auto;text-align:center}
+.r-head .r-h2{margin-top:14px}
+.film-wrap{max-width:940px;margin-inline:auto}
+
+/* the shift */
+.vs{display:grid;gap:18px}
+@media(min-width:760px){.vs{grid-template-columns:1fr 1fr}}
+.vs-card{border-radius:var(--r-card);padding:28px;border:1px solid}
+.vs-card.old{background:transparent;border-color:rgba(20,23,28,.16);color:var(--ink-soft)}
+.vs-card.new{background:var(--ink);border-color:var(--ink);color:var(--track)}
+.vs-card h3{font-family:var(--f-mono);font-size:12.5px;text-transform:uppercase;letter-spacing:.14em;margin:0 0 16px}
+.vs-card.old h3{color:var(--lane)}
+.vs-card.new h3{color:var(--pulse)}
+.vs-list{list-style:none;display:flex;flex-direction:column;gap:12px;font-size:13.5px}
+.vs-list li{display:flex;gap:11px;align-items:flex-start;line-height:1.4}
+.vs-list li::before{font-family:var(--f-mono);font-weight:700;flex:none}
+.vs-card.old .vs-list li::before{content:"\\00d7";color:var(--lane)}
+.vs-card.new .vs-list li::before{content:"\\203a";color:var(--pulse)}
+
+/* problem (pain list) */
+.problem-card{border:1px solid rgba(20,23,28,.16);border-radius:var(--r-card);padding:clamp(24px,4vw,40px);color:var(--ink-soft)}
+.problem-card h3{font-family:var(--f-mono);font-size:12.5px;text-transform:uppercase;letter-spacing:.14em;color:var(--lane);margin:0 0 18px}
+.vs-list.pain{display:grid;gap:13px}
+@media(min-width:680px){.vs-list.pain{grid-template-columns:1fr 1fr;gap:13px 30px}}
+.problem-card .vs-list li::before{content:"\\00d7";color:var(--lane);font-family:var(--f-mono);font-weight:700;flex:none}
+
+/* the loop (5 steps) */
+.loop{display:grid;gap:1px;background:rgba(243,241,234,.12);border:1px solid rgba(243,241,234,.12);border-radius:var(--r-card);overflow:hidden;grid-template-columns:repeat(auto-fit,minmax(176px,1fr))}
+.pri{background:var(--ink);padding:26px}
+.pri .n{font-family:var(--f-mono);color:var(--pulse);font-size:12.5px;letter-spacing:.1em}
+.pri h3{font-family:var(--f-display);font-weight:600;letter-spacing:var(--ls-display);font-size:19px;margin:12px 0 8px;color:var(--track)}
+.pri p{margin:0;font-size:13.5px;color:var(--lane);line-height:1.5}
+
+/* agent (thread + film) */
+.agent-grid{display:grid;gap:clamp(24px,4vw,44px);align-items:center}
+@media(min-width:860px){.agent-grid{grid-template-columns:minmax(0,360px) 1fr}}
+.agent-grid .video-slot{max-width:420px;margin-inline:auto;width:100%}
+
+/* proof */
+.stat-row{display:grid;gap:22px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+.stat-cell{text-align:center}
+.stat{font-family:var(--f-display);font-weight:700;letter-spacing:var(--ls-display);font-size:clamp(40px,6.4vw,76px);line-height:1;color:var(--ink)}
+.stat .unit{color:var(--distance)}
+.stat-label{font-family:var(--f-mono);font-size:12.5px;text-transform:uppercase;letter-spacing:.1em;color:var(--ink-soft);margin-top:10px;line-height:1.4}
+.sec-dark .stat{color:var(--track)}
+.sec-dark .stat .unit{color:var(--pulse)}
+.sec-dark .stat-label{color:var(--lane)}
+
+/* objections + trust */
+.obj-grid{display:grid;gap:16px}
+@media(min-width:760px){.obj-grid{grid-template-columns:1fr 1fr}}
+.obj-card{background:var(--white);border:1px solid var(--track-deep);border-radius:var(--r-card);padding:24px}
+.obj-card h3{font-family:var(--f-display);font-weight:600;letter-spacing:var(--ls-display);font-size:18px;margin:0 0 8px;color:var(--ink)}
+.obj-card p{margin:0;font-size:15px;color:var(--ink-soft);line-height:1.5}
+.trust{margin:clamp(28px,4vw,40px) auto 0;text-align:center;font-family:var(--f-mono);font-size:12.5px;letter-spacing:.04em;color:var(--lane);max-width:64ch}
+
+/* final CTA */
+.final-cta{max-width:760px;margin:0 auto;text-align:center}
+.final-cta .eyebrow{justify-content:center;display:inline-flex}
+.final-cta .r-h2{margin:16px auto 0;max-width:20ch}
+.final-cta .r-cta{margin-top:26px;justify-content:center}
+
+/* video slot */
+.video-slot{position:relative;border-radius:var(--r-card);overflow:hidden;background:radial-gradient(120% 90% at 30% 15%,color-mix(in srgb,var(--distance) 30%,var(--ink)) 0%,var(--ink) 60%);border:1px solid rgba(243,241,234,.12);display:grid;place-items:center;isolation:isolate;box-shadow:0 50px 120px -50px rgba(0,0,0,.8)}
+.video-slot.ar-16x9{aspect-ratio:16/9}
+.video-slot.ar-9x16{aspect-ratio:9/16}
+.video-slot video,.video-slot img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:-1}
+.video-slot::after{content:"";position:absolute;inset:0;background:linear-gradient(115deg,transparent 35%,color-mix(in srgb,var(--pulse) 10%,transparent) 50%,transparent 65%);background-size:220% 100%;animation:sheen 6s var(--ease) infinite;z-index:-1}
+@keyframes sheen{0%{background-position:140% 0}100%{background-position:-40% 0}}
+@media(prefers-reduced-motion:reduce){.video-slot::after{animation:none}}
+.video-slot__play{width:64px;height:64px;border-radius:50%;background:var(--pulse);display:grid;place-items:center;box-shadow:0 10px 40px rgba(0,0,0,.35);transition:transform .3s var(--ease)}
+.video-slot:hover .video-slot__play{transform:scale(1.07)}
+.video-slot__play svg{width:26px;height:26px}
+.video-slot__cap{position:absolute;left:18px;bottom:16px;right:18px;font-family:var(--f-mono);font-size:12.5px;letter-spacing:.04em;color:var(--track);display:flex;align-items:center;gap:9px}
+.video-slot__cap .rec{width:8px;height:8px;border-radius:50%;background:var(--pulse);box-shadow:0 0 0 4px color-mix(in srgb,var(--pulse) 25%,transparent);flex:none}
+.video-slot__tag{position:absolute;top:14px;left:14px;font-family:var(--f-mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink);background:var(--pulse);padding:4px 9px;border-radius:var(--r-pill);z-index:1}
+
+/* closing */
+.foot-cta{background:var(--ink);color:var(--track);border-radius:24px;padding:clamp(40px,6vw,72px);text-align:center}
+.foot-cta .eyebrow{justify-content:center;display:inline-flex}
+.foot-cta .r-h2{margin:16px auto 0;max-width:18ch}
+.foot-cta .r-cta{margin-top:26px}
+
+/* footer */
+.r-foot{background:var(--ink);border-top:1px solid rgba(243,241,234,.12);padding-block:40px;color:var(--lane);font-size:13.5px}
+.r-foot-inner{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:18px}
+.r-foot-links{display:flex;gap:18px}
+.r-foot-links a:hover{color:var(--track)}
+.r-foot-tag{font-family:var(--f-mono);font-size:12.5px;color:var(--lane)}
+.r-switch{display:flex;align-items:center;gap:8px;font-family:var(--f-mono);font-size:12px}
+.r-switch-label{text-transform:uppercase;letter-spacing:.12em;opacity:.65}
+.r-switch a{padding:3px 9px;border-radius:var(--r-pill);border:1px solid rgba(243,241,234,.16);color:var(--lane)}
+.r-switch a:hover{color:var(--track);border-color:var(--track)}
+.r-switch a[aria-current=page]{background:var(--pulse);color:var(--ink);border-color:var(--pulse)}
+
+/* reveal */
+.reveal{opacity:0;transform:translateY(18px);transition:opacity var(--dur) var(--ease),transform var(--dur) var(--ease)}
+.reveal.in{opacity:1;transform:none}
+@media(prefers-reduced-motion:reduce){.reveal{opacity:1;transform:none}}
+`;
+}
+
+// ---------------------------------------------------------------------------
 // CSS (self-contained; HSL token system mirrors the forms SSR pages)
+// Used by the privacy page (shared shell).
 // ---------------------------------------------------------------------------
 
 function CSS(): string {

@@ -1,4 +1,4 @@
-// GymClassOS Forms Builder — List Page (P1c-04).
+// RunStudio Forms Builder — List Page (P1c-04).
 //
 // Staff forms list: view all forms, create new ones, publish/archive them,
 // and navigate to the builder. STAFF-ONLY — behind the existing staff auth.
@@ -55,7 +55,7 @@ import { cn } from "@/lib/utils";
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "react-router";
 
 export function meta() {
-  return [{ title: "GymClassOS — Forms" }];
+  return [{ title: "RunStudio — Forms" }];
 }
 
 // ─── Loader ──────────────────────────────────────────────────────────────────

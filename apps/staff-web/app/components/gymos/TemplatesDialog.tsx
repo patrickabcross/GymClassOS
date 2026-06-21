@@ -1,4 +1,4 @@
-// GymClassOS WhatsApp Templates picker — P1b.1-05 / WA-08.
+// RunStudio WhatsApp Templates picker — P1b.1-05 / WA-08.
 //
 // Surfaces the worker-chokepoint template send path in the staff inbox. Single
 // shadcn Dialog: left pane lists all whatsapp_templates rows; right pane

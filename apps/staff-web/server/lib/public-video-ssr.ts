@@ -172,7 +172,7 @@ function renderVideoPage(comp: VideoComp): string {
   const aspectClass = isSquare ? "poster-square" : "poster-landscape";
 
   // Description from title + first scene text
-  const description = `${comp.title} — Watch preview in the GymClassOS app`;
+  const description = `${comp.title} — Watch preview in the RunStudio app`;
 
   const posterContent = imageUrl
     ? `<img class="poster-img" src="${escapeHtml(imageUrl)}" alt="${escapeHtml(posterText)}">`
@@ -207,7 +207,7 @@ h1.vid-title{font-size:1.75rem;font-weight:700;line-height:1.25;letter-spacing:-
   <div class="poster ${aspectClass}">
     ${posterContent}
   </div>
-  <p class="watch">Watch — preview available in the GymClassOS app</p>
+  <p class="watch">Watch — preview available in the RunStudio app</p>
 </div>
 </body>
 </html>`;

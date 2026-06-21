@@ -2,7 +2,7 @@ import { ScheduledMessagesPage } from "@/pages/ScheduledMessagesPage";
 import { Spinner } from "@/components/ui/spinner";
 
 export function meta() {
-  return [{ title: "Scheduled Messages — GymClassOS" }];
+  return [{ title: "Scheduled Messages — RunStudio" }];
 }
 
 export function HydrateFallback() {

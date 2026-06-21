@@ -1,4 +1,4 @@
-// GymClassOS AI Noticeboard — P3 home (replaces the WhatsApp inbox as /gymos index).
+// RunStudio AI Noticeboard — P3 home (replaces the WhatsApp inbox as /gymos index).
 //
 // P3-04: This file replaces the old inbox (moved verbatim to gymos.inbox.tsx).
 // /gymos is now the post-login landing — a Polsia-style noticeboard dashboard.
@@ -20,7 +20,7 @@ import { BoardCard } from "@/components/gymos/Noticeboard/BoardCard";
 import { TasksSection } from "@/components/gymos/Noticeboard/TasksSection";
 
 export function meta() {
-  return [{ title: "GymClassOS — Home" }];
+  return [{ title: "RunStudio — Home" }];
 }
 
 export async function loader() {

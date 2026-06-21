@@ -12,8 +12,8 @@
 
 @source "./**/*.{ts,tsx}";
 
-/* GymClassOS brand tokens — bare @theme so utilities compile to var() references (R-01).
-   Declared AFTER the upstream agent-native.css @import so GymClassOS wins on overlap (R-13). */
+/* RunStudio brand tokens — bare @theme so utilities compile to var() references (R-01).
+   Declared AFTER the upstream agent-native.css @import so RunStudio wins on overlap (R-13). */
 @theme {
   --color-studio-accent: hsl(var(--studio-accent));
   --color-studio-accent-soft: hsl(var(--studio-accent-soft));
@@ -40,7 +40,7 @@
   --input: 220 10% 90%;
   --ring: 220 10% 40%;
   --radius: 0.5rem;
-  /* GymClassOS default accent fallback (orange-500 / orange-50) */ /* guard:allow-color — hex in comment, value lives in the token below as bare HSL */
+  /* RunStudio default accent fallback (orange-500 / orange-50) */ /* guard:allow-color — hex in comment, value lives in the token below as bare HSL */
   --studio-accent: 25 95% 53%;
   --studio-accent-soft: 33 100% 96%;
   --sidebar-background: 220 10% 97%;

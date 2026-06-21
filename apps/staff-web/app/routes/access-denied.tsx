@@ -22,7 +22,7 @@ import { Button } from "@/components/ui/button";
 
 export function meta() {
   return [
-    { title: "Access not permitted — GymClassOS" },
+    { title: "Access not permitted — RunStudio" },
     { name: "robots", content: "noindex" },
   ];
 }
@@ -47,7 +47,7 @@ export default function AccessDenied() {
   return (
     <main role="main" className="min-h-screen flex flex-col bg-background">
       <header className="px-6 py-4">
-        <div className="text-sm font-semibold text-foreground">GymClassOS</div>
+        <div className="text-sm font-semibold text-foreground">RunStudio</div>
       </header>
       <div className="flex-1 flex flex-col items-center justify-center gap-6 px-6">
         <IconLock size={40} className="text-muted-foreground" aria-hidden />

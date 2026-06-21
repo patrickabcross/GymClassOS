@@ -1,4 +1,4 @@
-// GymClassOS Analytics — P1b.1-06 + P1b.1-livefix (business metrics) + 260531-kbm redesign.
+// RunStudio Analytics — P1b.1-06 + P1b.1-livefix (business metrics) + 260531-kbm redesign.
 //
 // Read-only operational dashboard, two sections:
 //   Activity   — Fill Rate, Cancellation Rate, Pass Utilisation
@@ -58,7 +58,7 @@ import {
 import type { LoaderFunctionArgs } from "react-router";
 
 export function meta() {
-  return [{ title: "GymClassOS — Analytics" }];
+  return [{ title: "RunStudio — Analytics" }];
 }
 
 // ─── Pricing constants ──────────────────────────────────────────────────────

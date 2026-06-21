@@ -1,4 +1,4 @@
-// GymClassOS Schedule — month-grid calendar with day drill-down.
+// RunStudio Schedule — month-grid calendar with day drill-down.
 //
 // Route: /gymos/schedule (file naming: dot separator = path segment in RR v7
 // framework mode, matching the existing gymos.tsx inbox route).
@@ -78,7 +78,7 @@ import { NewClassDialog } from "@/components/gymos/NewClassDialog";
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "react-router";
 
 export function meta() {
-  return [{ title: "GymClassOS — Schedule" }];
+  return [{ title: "RunStudio — Schedule" }];
 }
 
 // ─── Action: insert booking row (demo-grade, no atomicity) ──────────────────

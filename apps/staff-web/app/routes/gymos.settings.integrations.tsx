@@ -1,4 +1,4 @@
-// GymClassOS Settings — Stripe Connect integration + restricted-key fallback.
+// RunStudio Settings — Stripe Connect integration + restricted-key fallback.
 //
 // P1c.1 rework (2026-06-12):
 //   Primary surface: "Connect Stripe" button → create-connect-account →
@@ -35,7 +35,7 @@ import { getDb } from "../../server/db";
 import { readConnectedAccount } from "../../server/lib/connected-account.js";
 
 export function meta() {
-  return [{ title: "GymClassOS — Stripe Integration" }];
+  return [{ title: "RunStudio — Stripe Integration" }];
 }
 
 // Stripe API version pin — matches stripe.ts + worker.
@@ -320,14 +320,14 @@ export default function StripeIntegrations() {
         <div>
           <h1 className="text-sm font-semibold mb-1">Stripe Integration</h1>
           <p className="text-[12px] text-muted-foreground">
-            Connect your studio&apos;s Stripe account so GymClassOS can process
+            Connect your studio&apos;s Stripe account so RunStudio can process
             class pass purchases and memberships on your behalf.
           </p>
         </div>
 
         {/* Cost note (Pitfall 7 — fees.payer: "application") */}
         <div className="rounded-md bg-muted/40 border border-border/40 px-4 py-3 text-[12px] text-muted-foreground">
-          GymClassOS covers Stripe processing fees during the pilot (no platform
+          RunStudio covers Stripe processing fees during the pilot (no platform
           fee charged to the studio).
         </div>
 

@@ -82,7 +82,7 @@ interface CompositionDetail {
 // ─── Meta ─────────────────────────────────────────────────────────────────────
 
 export function meta() {
-  return [{ title: "GymClassOS — Edit Composition" }];
+  return [{ title: "RunStudio — Edit Composition" }];
 }
 
 // ─── API helpers ─────────────────────────────────────────────────────────────

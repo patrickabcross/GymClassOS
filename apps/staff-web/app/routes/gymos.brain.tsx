@@ -58,7 +58,7 @@ type ClassEntry = {
 // ─── Meta ─────────────────────────────────────────────────────────────────────
 
 export function meta() {
-  return [{ title: "GymClassOS — Studio Brain" }];
+  return [{ title: "RunStudio — Studio Brain" }];
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────

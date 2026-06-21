@@ -17,7 +17,7 @@ const authPlugin = createAuthPlugin({
     "https://www.googleapis.com/auth/userinfo.email",
   ],
   marketing: {
-    appName: "GymClassOS",
+    appName: "RunStudio",
     tagline: "Run your studio's day from one inbox-and-schedule surface.",
     features: [
       "WhatsApp conversations alongside member context",
@@ -32,6 +32,11 @@ const authPlugin = createAuthPlugin({
     // an exact-only match (it never prefix-matches the bare root), so listing
     // "/" here makes ONLY the root public — not the whole app.
     "/",
+    // Localized market homepages (SSR via server/routes/{uk,us,fr,de}.get.ts).
+    "/uk",
+    "/us",
+    "/fr",
+    "/de",
     "/privacy",
     // Mobile-app server routes — each gates itself via requireDemoMember
     // (DEMO_MODE + X-Demo-Member-Id). Prefix match covers
@@ -102,6 +107,10 @@ const allowlistHandler = defineEventHandler(async (event) => {
     pathname.startsWith("/_better_auth") ||
     pathname.startsWith("/_") ||
     pathname === "/" ||
+    pathname === "/uk" ||
+    pathname === "/us" ||
+    pathname === "/fr" ||
+    pathname === "/de" ||
     pathname === "/privacy" ||
     pathname.startsWith("/api/m") ||
     pathname.startsWith("/pick-member") ||

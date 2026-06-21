@@ -91,7 +91,7 @@ function bodyPreview(html: string, maxLength = 180): string {
 // ─── Meta ─────────────────────────────────────────────────────────────────────
 
 export function meta() {
-  return [{ title: "GymClassOS — Content" }];
+  return [{ title: "RunStudio — Content" }];
 }
 
 // ─── Loader ──────────────────────────────────────────────────────────────────

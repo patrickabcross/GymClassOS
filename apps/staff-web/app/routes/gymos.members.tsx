@@ -1,4 +1,4 @@
-// GymClassOS Members — R4-03: card-default directory with Tabs card/table toggle, avatars, membership badges, search.
+// RunStudio Members — R4-03: card-default directory with Tabs card/table toggle, avatars, membership badges, search.
 
 import {
   useLoaderData,
@@ -26,7 +26,7 @@ import { cn } from "@/lib/utils";
 import type { LoaderFunctionArgs } from "react-router";
 
 export function meta() {
-  return [{ title: "GymClassOS — Members" }];
+  return [{ title: "RunStudio — Members" }];
 }
 
 // ─── Loader ──────────────────────────────────────────────────────────────────

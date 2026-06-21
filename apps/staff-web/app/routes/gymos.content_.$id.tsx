@@ -58,7 +58,7 @@ interface DocumentDetail {
 // ─── Meta ─────────────────────────────────────────────────────────────────────
 
 export function meta() {
-  return [{ title: "GymClassOS — Edit Document" }];
+  return [{ title: "RunStudio — Edit Document" }];
 }
 
 // ─── API helpers ─────────────────────────────────────────────────────────────

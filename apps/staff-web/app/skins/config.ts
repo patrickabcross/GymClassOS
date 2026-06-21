@@ -10,7 +10,7 @@ export interface SkinConfig {
 
 const skins: Record<SkinName, SkinConfig> = {
   default: {
-    displayName: "GymClassOS",
+    displayName: "RunStudio",
     logo: null, // wordmark only for default (R2 D-04)
   },
   hustle: {

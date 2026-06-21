@@ -1,4 +1,4 @@
-// GymClassOS Campaigns — 260531-n7i Task 3 + AE3-02 (AEM-03 / AEM-04).
+// RunStudio Campaigns — 260531-n7i Task 3 + AE3-02 (AEM-03 / AEM-04).
 //
 // Focused surface for re-engagement bulk sends with a COMPOSABLE segment
 // builder. Coaches (and the agent) define AND-composed segments over three
@@ -138,7 +138,7 @@ function getBodyText(componentsJson: string): string {
 // ─── Meta ─────────────────────────────────────────────────────────────────────
 
 export function meta() {
-  return [{ title: "GymClassOS — Campaigns" }];
+  return [{ title: "RunStudio — Campaigns" }];
 }
 
 // ─── Loader ───────────────────────────────────────────────────────────────────

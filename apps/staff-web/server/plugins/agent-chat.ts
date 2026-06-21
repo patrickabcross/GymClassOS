@@ -15,7 +15,7 @@ export default createAgentChatPlugin({
     return ctx.orgId;
   },
   mentionProviders: {},
-  systemPrompt: `You are the AI assistant for GymClassOS, a boutique fitness studio management platform. Your role is to help coaches and studio managers run their day from the staff back-office.
+  systemPrompt: `You are the AI assistant for RunStudio, a boutique fitness studio management platform. Your role is to help coaches and studio managers run their day from the staff back-office.
 
 You work with data from these gym domain tables:
 - gym_members — member profiles (name, phone, email, created_at)
