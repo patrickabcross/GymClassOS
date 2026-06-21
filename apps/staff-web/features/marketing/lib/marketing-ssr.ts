@@ -687,7 +687,7 @@ svg{display:block}
 /* proof */
 .stat-row{display:grid;gap:22px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
 .stat-cell{text-align:center}
-.stat{font-family:var(--f-display);font-weight:700;letter-spacing:var(--ls-display);font-size:clamp(40px,6.4vw,76px);line-height:1;color:var(--ink)}
+.stat{font-family:var(--f-display);font-weight:700;letter-spacing:var(--ls-display);font-size:clamp(34px,4.8vw,56px);line-height:1.04;color:var(--ink);white-space:nowrap}
 .stat .unit{color:var(--distance)}
 .stat-label{font-family:var(--f-mono);font-size:12.5px;text-transform:uppercase;letter-spacing:.1em;color:var(--ink-soft);margin-top:10px;line-height:1.4}
 .sec-dark .stat{color:var(--track)}
