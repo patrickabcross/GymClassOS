@@ -5,6 +5,8 @@ export const QUEUE_NAMES = {
   INBOUND_WHATSAPP: "inbound-whatsapp",
   STRIPE_EVENT: "stripe-event",
   CLASS_REMINDER: "class-reminder",
+  /** MPV Phase 2: nightly materialiser — fills class_occurrences from class_schedule_rules */
+  CLASS_MATERIALIZE: "class-materialize",
 } as const;
 
 export const OutboundWhatsAppPayload = z.object({

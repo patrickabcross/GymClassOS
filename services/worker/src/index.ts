@@ -24,6 +24,7 @@ import { registerHousekeeping } from "./queues/housekeeping.js";
 import { registerTelemetryPush } from "./queues/telemetry-push.js";
 import { registerDailyOwnerDigest } from "./queues/daily-owner-digest.js";
 import { registerHeartbeatReactivate } from "./queues/heartbeat-reactivate.js";
+import { registerMaterializeClassOccurrences } from "./queues/materialize-class-occurrences.js";
 
 async function main() {
   const env = getEnv();
@@ -46,6 +47,7 @@ async function main() {
     QUEUE_NAMES.OUTBOUND_WHATSAPP,
     QUEUE_NAMES.STRIPE_EVENT,
     QUEUE_NAMES.CLASS_REMINDER,
+    QUEUE_NAMES.CLASS_MATERIALIZE,
     "templates-sync",
     "telemetry-push",
     "daily-owner-digest",
@@ -92,6 +94,12 @@ async function main() {
   // Suppression ceiling (3/90 days) and opt-out exclusion enforced synchronously from day one.
   await registerHeartbeatReactivate(boss);
   log.info("[worker] heartbeat-reactivate registered");
+
+  // MPV Phase 2: nightly class occurrence materialiser (04:00 UTC).
+  // Reads active class_schedule_rules and inserts occurrences for the next 8 weeks
+  // using ON CONFLICT DO NOTHING (idempotent via partial unique index on rule_id+starts_at).
+  await registerMaterializeClassOccurrences(boss);
+  log.info("[worker] class-materialize (recurring class occurrences) registered");
 
   // Tiny admin/healthz HTTP for Fly health checks (MEDIUM #10).
   // MUST listen on PORT 3002 — fly.toml [[services]] for the worker
