@@ -22,6 +22,7 @@ import { getMethod, getRequestURL, type H3Event } from "h3";
 import { eq } from "drizzle-orm";
 import { getDb, schema } from "../db/index.js";
 import { sanitizeContentHtml } from "./sanitize-html.js";
+import { tenantBrand } from "./tenant-brand.js";
 
 // ─── In-memory cache (60s TTL) ───────────────────────────────────────────────
 
@@ -100,10 +101,12 @@ function notFoundPage(): string {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Page not found</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="${tenantBrand.googleFontsHref}" rel="stylesheet">
 <style>
-@font-face{font-family:"Inter";font-style:normal;font-weight:100 900;font-display:swap;src:url("/fonts/inter-variable.woff2") format("woff2-variations")}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-html{font-family:"Inter",system-ui,-apple-system,sans-serif}
+html{font-family:${tenantBrand.fontFamily}}
 body{background:#fff;color:#111;min-height:100vh;-webkit-font-smoothing:antialiased;display:flex;align-items:center;justify-content:center;padding:32px 16px}
 .not-found{text-align:center}
 .not-found h1{font-size:1.5rem;font-weight:600;margin-bottom:8px}
@@ -135,10 +138,12 @@ function renderContentPage(doc: ContentDoc): string {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${escapeHtml(doc.title)}</title>
 ${description ? `<meta name="description" content="${escapeHtml(description)}">` : ""}
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="${tenantBrand.googleFontsHref}" rel="stylesheet">
 <style>
-@font-face{font-family:"Inter";font-style:normal;font-weight:100 900;font-display:swap;src:url("/fonts/inter-variable.woff2") format("woff2-variations")}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-html{font-family:"Inter",system-ui,-apple-system,sans-serif;font-feature-settings:"cv02","cv03","cv04","cv11"}
+html{font-family:${tenantBrand.fontFamily};font-feature-settings:"cv02","cv03","cv04","cv11"}
 body{background:#fff;color:#111;min-height:100vh;-webkit-font-smoothing:antialiased}
 .page{max-width:720px;margin:0 auto;padding:48px 24px 96px}
 h1.doc-title{font-size:2rem;font-weight:700;line-height:1.2;letter-spacing:-0.02em;margin-bottom:24px;color:#0f172a}
