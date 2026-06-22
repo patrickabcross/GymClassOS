@@ -1,10 +1,11 @@
 // GOB-03: Studio Brain — owner view + edit surface.
 //
-// Renders under gymos.tsx <Outlet/> and inherits GymosTopNav. Three sections
+// Renders under gymos.tsx <Outlet/> and inherits GymosTopNav. Four sections
 // with progressive disclosure (shadcn Collapsible):
-//   1. Brand Voice — editable Textarea + Save button
-//   2. Studio Ethos — editable Textarea + Save button
-//   3. Class Methods — read-only class cards (collapsed by default)
+//   0. Brand & Styling  — URL-extract + 11 token fields + live preview + Save
+//   1. Brand Voice      — editable Textarea + Save button
+//   2. Studio Ethos     — editable Textarea + Save button
+//   3. Class Methods    — read-only class cards (collapsed by default)
 //
 // Data is fetched client-side via GET /_agent-native/actions/get-brain-docs
 // (no SSR loader — Brain content is owner-only, not public). On mount, if
@@ -13,7 +14,7 @@
 // Live-refresh via useChangeVersions(["action"]) — any write (including by
 // the agent) triggers a re-fetch.
 //
-// Requirements: GOB-01, GOB-02, GOB-03.
+// Requirements: GOB-01, GOB-02, GOB-03, 260622-jga T3.
 
 import { useState, useEffect, useCallback } from "react";
 import { useChangeVersions } from "@agent-native/core/client";
@@ -25,6 +26,8 @@ import {
   IconChevronDown,
   IconChevronUp,
   IconRefresh,
+  IconPalette,
+  IconWorld,
 } from "@tabler/icons-react";
 import {
   Collapsible,
@@ -32,6 +35,8 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -53,6 +58,34 @@ type ClassEntry = {
   description: string | null;
   durationMin: number;
   category: string | null;
+};
+
+type BrandTokens = {
+  displayName: string;
+  fontFamily: string;
+  googleFontsHref: string;
+  primary: string;
+  primaryText: string;
+  secondaryAccent: string;
+  ink: string;
+  bg: string;
+  bgAlt: string;
+  radius: number;
+  logoUrl: string;
+};
+
+const EMPTY_BRAND: BrandTokens = {
+  displayName: "",
+  fontFamily: "",
+  googleFontsHref: "",
+  primary: "",
+  primaryText: "",
+  secondaryAccent: "",
+  ink: "",
+  bg: "",
+  bgAlt: "",
+  radius: 8,
+  logoUrl: "",
 };
 
 // ─── Meta ─────────────────────────────────────────────────────────────────────
@@ -79,6 +112,12 @@ export default function GymosBrain() {
   const [savingBrand, setSavingBrand] = useState(false);
   const [savingEthos, setSavingEthos] = useState(false);
 
+  // Brand & Styling state
+  const [brandTokens, setBrandTokens] = useState<BrandTokens>(EMPTY_BRAND);
+  const [extractUrl, setExtractUrl] = useState("");
+  const [extracting, setExtracting] = useState(false);
+  const [savingBrandStyle, setSavingBrandStyle] = useState(false);
+
   // Class Methods section collapsed by default (progressive disclosure)
   const [methodsOpen, setMethodsOpen] = useState(false);
 
@@ -96,6 +135,16 @@ export default function GymosBrain() {
       const eth = data.find((d) => d.id === "ethos");
       if (bv) setBrandVoice(bv.body);
       if (eth) setEthos(eth.body);
+      // Hydrate brand tokens from stored JSON
+      const bs = data.find((d) => d.id === "brand-styling");
+      if (bs?.body) {
+        try {
+          const parsed = JSON.parse(bs.body) as Partial<BrandTokens>;
+          setBrandTokens((prev) => ({ ...prev, ...parsed }));
+        } catch {
+          // leave defaults
+        }
+      }
     } catch {
       // silent — user sees stale state; toast on explicit save
     } finally {
@@ -149,6 +198,16 @@ export default function GymosBrain() {
       const eth = data.find((d) => d.id === "ethos");
       if (bv) setBrandVoice(bv.body);
       if (eth) setEthos(eth.body);
+      // Hydrate brand tokens
+      const bs = data.find((d) => d.id === "brand-styling");
+      if (bs?.body) {
+        try {
+          const parsed = JSON.parse(bs.body) as Partial<BrandTokens>;
+          setBrandTokens((prev) => ({ ...prev, ...parsed }));
+        } catch {
+          // leave defaults
+        }
+      }
       setLoading(false);
       // Seed class catalog if needed
       await seedIfNeeded(data);
@@ -205,6 +264,70 @@ export default function GymosBrain() {
     [fetchDocs],
   );
 
+  // --- Brand extract handler ------------------------------------------------
+  const handleExtract = useCallback(async () => {
+    if (!extractUrl.trim()) {
+      toast.error("Enter a URL to extract from");
+      return;
+    }
+    setExtracting(true);
+    try {
+      const res = await fetch("/_agent-native/actions/brain-extract-brand", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: extractUrl.trim() }),
+      });
+      const data = await res.json() as { ok: boolean; tokens?: BrandTokens; error?: string };
+      if (!data.ok || !data.tokens) {
+        toast.error(
+          `Extract failed — ${data.error ?? "unknown error"}`,
+        );
+        return;
+      }
+      setBrandTokens(data.tokens);
+      toast.success("Brand tokens extracted — review and save");
+    } catch {
+      toast.error("Network error — extract failed");
+    } finally {
+      setExtracting(false);
+    }
+  }, [extractUrl]);
+
+  // --- Save brand styling ---------------------------------------------------
+  const handleSaveBrandStyle = useCallback(async () => {
+    setSavingBrandStyle(true);
+    try {
+      const res = await fetch("/_agent-native/actions/update-brain-doc", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: "brand-styling",
+          body: JSON.stringify(brandTokens),
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        toast.error(
+          `Failed to save — ${(err as { error?: string }).error ?? res.statusText}`,
+        );
+        return;
+      }
+      const data = await res.json() as { updated: boolean; reason?: string };
+      if (!data.updated) {
+        toast.error(`Validation failed — ${data.reason ?? "invalid tokens"}`);
+        return;
+      }
+      toast.success("Brand & Styling saved");
+      fetchDocs();
+    } catch {
+      toast.error("Network error — changes not saved");
+    } finally {
+      setSavingBrandStyle(false);
+    }
+  }, [brandTokens, fetchDocs]);
+
   // --- Derived data ---------------------------------------------------------
   const catalogDoc = docs.find((d) => d.id === "class-catalog");
   let classes: ClassEntry[] = [];
@@ -238,6 +361,148 @@ export default function GymosBrain() {
           Your studio's brand knowledge, editable here
         </span>
       </div>
+
+      {/* ── Brand & Styling ──────────────────────────────────────────────── */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <IconPalette className="size-4 text-muted-foreground" />
+            Brand & Styling
+          </CardTitle>
+          <p className="text-xs text-muted-foreground">
+            Visual identity tokens — colours, fonts, and logo. Used by public
+            SSR pages (forms, schedule widget, embeds, videos). Paste your
+            website URL and click Fetch &amp; extract to auto-fill.
+          </p>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          {/* URL extractor row */}
+          <div className="flex gap-2">
+            <Input
+              type="url"
+              placeholder="https://yourstudio.com"
+              value={extractUrl}
+              onChange={(e) => setExtractUrl(e.target.value)}
+              className="text-sm flex-1"
+            />
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={extracting}
+              onClick={handleExtract}
+            >
+              <IconWorld className="size-3.5 mr-1.5" />
+              {extracting ? "Fetching…" : "Fetch & extract"}
+            </Button>
+          </div>
+
+          {/* Token fields — 2-column grid on wider screens */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {(
+              [
+                { key: "displayName", label: "Studio name", type: "text" },
+                { key: "fontFamily", label: "Font family", type: "text" },
+                {
+                  key: "googleFontsHref",
+                  label: "Google Fonts URL",
+                  type: "url",
+                },
+                { key: "primary", label: "Primary colour", type: "text" },
+                {
+                  key: "primaryText",
+                  label: "Primary text colour",
+                  type: "text",
+                },
+                {
+                  key: "secondaryAccent",
+                  label: "Secondary accent",
+                  type: "text",
+                },
+                { key: "ink", label: "Body text colour", type: "text" },
+                { key: "bg", label: "Background", type: "text" },
+                { key: "bgAlt", label: "Alt background", type: "text" },
+                { key: "radius", label: "Border radius (px)", type: "number" },
+                { key: "logoUrl", label: "Logo URL", type: "url" },
+              ] as { key: keyof BrandTokens; label: string; type: string }[]
+            ).map(({ key, label, type }) => (
+              <div key={key} className="flex flex-col gap-1">
+                <Label htmlFor={`bt-${key}`} className="text-xs">
+                  {label}
+                </Label>
+                <Input
+                  id={`bt-${key}`}
+                  type={type}
+                  value={String(brandTokens[key])}
+                  onChange={(e) =>
+                    setBrandTokens((prev) => ({
+                      ...prev,
+                      [key]:
+                        type === "number"
+                          ? Number(e.target.value)
+                          : e.target.value,
+                    }))
+                  }
+                  className="text-sm"
+                />
+              </div>
+            ))}
+          </div>
+
+          {/* Live preview swatch */}
+          <div
+            className="rounded-lg p-4 flex items-center gap-3 border"
+            style={{ background: brandTokens.bg || "#ffffff" }}
+          >
+            {brandTokens.logoUrl && (
+              <img
+                src={brandTokens.logoUrl}
+                alt="logo preview"
+                className="h-8 w-auto object-contain"
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).style.display = "none";
+                }}
+              />
+            )}
+            <div
+              className="flex-1 min-w-0 text-sm font-semibold truncate"
+              style={{ color: brandTokens.ink || "#111111" }}
+            >
+              {brandTokens.displayName || "Studio Name"}
+            </div>
+            <div
+              className="text-xs px-3 py-1 font-medium"
+              style={{
+                background: brandTokens.primary || "#000000",
+                color: brandTokens.primaryText || "#ffffff",
+                borderRadius: `${brandTokens.radius ?? 8}px`,
+              }}
+            >
+              Book now
+            </div>
+            <div
+              className="text-xs px-3 py-1 font-medium"
+              style={{
+                background: brandTokens.secondaryAccent || "#555555",
+                color: "#ffffff",
+                borderRadius: `${brandTokens.radius ?? 8}px`,
+              }}
+            >
+              Learn more
+            </div>
+          </div>
+
+          <div className="flex justify-end">
+            <Button
+              size="sm"
+              disabled={savingBrandStyle}
+              onClick={handleSaveBrandStyle}
+            >
+              <IconDeviceFloppy className="size-3.5 mr-1.5" />
+              {savingBrandStyle ? "Saving…" : "Save brand tokens"}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* ── Brand Voice ──────────────────────────────────────────────────── */}
       <Card>
