@@ -2100,10 +2100,21 @@ export function SettingsPanel({
 }: SettingsPanelProps) {
   const { status: builder, loading: builderLoading } = useBuilderStatus();
   const connected = builder?.configured ?? false;
-  // GymClassOS fork: connectUrl/orgName/envManaged/credentialSource/builderFlow
-  // were only used by the removed LLM section. builderBranchesAvailable is
-  // still used by CapabilityStatusStrip.
+  const connectUrl = builder?.cliAuthUrl ?? builder?.connectUrl;
+  const orgName = builder?.orgName;
+  const envManaged = !!builder?.envManaged;
+  const credentialSource = builder?.credentialSource;
   const builderBranchesAvailable = !!builder?.builderEnabled;
+  const builderFlow = useBuilderConnectFlow({
+    popupUrl: connectUrl,
+    trackingSource: "settings_panel_builder_card",
+  });
+
+  // Detect whether the app registered any secrets — controls whether the
+  // "API Keys & Connections" section renders at all.
+  const [focusSecretKey, setFocusSecretKey] = useState<string | undefined>(
+    undefined,
+  );
 
   // Accordion: only one section open at a time (null = all closed)
   const [openSection, setOpenSection] = useState<string | null>(
@@ -2132,8 +2143,30 @@ export function SettingsPanel({
   useEffect(() => {
     const section = normalizeSettingsSection(initialSection);
     if (!section) return;
+    if (section !== "secrets") setFocusSecretKey(undefined);
     openSettingsSection(section, true);
   }, [initialSection, sectionRequestKey, openSettingsSection]);
+
+  // Support `#secrets:<KEY>` hash fragments from the onboarding CTA — opens
+  // the section and focuses the matching input.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handleHash = () => {
+      const hash = window.location.hash?.replace(/^#/, "") ?? "";
+      const section = normalizeSettingsSection(hash);
+      if (!section) return;
+      if (hash.startsWith("secrets:") || hash === "secrets") {
+        const key = hash.slice("secrets:".length);
+        setFocusSecretKey(key || undefined);
+      } else {
+        setFocusSecretKey(undefined);
+      }
+      openSettingsSection(section, true);
+    };
+    handleHash();
+    window.addEventListener("hashchange", handleHash);
+    return () => window.removeEventListener("hashchange", handleHash);
+  }, [openSettingsSection]);
 
   return (
     <div
@@ -2189,13 +2222,147 @@ export function SettingsPanel({
         onToggle={() => toggle("account")}
       />
 
-      {/* GymClassOS fork: Settings panel trimmed to Account + Integrations only for
-          the white-labelled RunStudio product. Removed the following sections from
-          the render (component definitions kept intact for traceability / upstream
-          merges): LLM, App default model, Agent limits, Voice Transcription,
-          Demo mode, Automations, API Keys & Connections, Hosting, Database,
-          File uploads, Authentication, Email, Usage, Connected Agents (A2A).
-          Restore any block by reverting this hunk. */}
+      {/* LLM */}
+      <LLMSectionInner
+        builderFlow={builderFlow}
+        builderLoading={builderLoading}
+        connectUrl={connectUrl}
+        connected={connected}
+        orgName={orgName}
+        envManaged={envManaged}
+        credentialSource={credentialSource}
+        open={openSection === "llm"}
+        onToggle={() => toggle("llm")}
+      />
+
+      {/* App default model */}
+      <AppModelDefaultsSectionInner
+        open={openSection === "app-models"}
+        onToggle={() => toggle("app-models")}
+      />
+
+      {/* Agent limits */}
+      <AgentLimitsSectionInner
+        open={openSection === "limits"}
+        onToggle={() => toggle("limits")}
+      />
+
+      {/* Voice transcription */}
+      <SettingsSection
+        icon={<IconMicrophone size={14} />}
+        title="Voice Transcription"
+        subtitle="How the composer microphone turns your voice into text."
+        open={openSection === "voice"}
+        onToggle={() => toggle("voice")}
+      >
+        <VoiceTranscriptionSection />
+      </SettingsSection>
+
+      {/* Demo mode */}
+      <SettingsSection
+        icon={<IconEyeOff size={14} />}
+        title="Demo mode"
+        subtitle="Replace names, emails, and numbers with realistic fake data everywhere — in the UI and what the agent sees. IDs and structure are preserved so the app keeps working."
+        open={openSection === "demo-mode"}
+        onToggle={() => toggle("demo-mode")}
+      >
+        <DemoModeSection />
+      </SettingsSection>
+
+      {/* Automations */}
+      <SettingsSection
+        icon={<IconBolt size={14} />}
+        title="Automations"
+        subtitle="Event-triggered and scheduled automations."
+        open={openSection === "automations"}
+        onToggle={() => toggle("automations")}
+      >
+        <AutomationsSection />
+      </SettingsSection>
+
+      {/* API Keys & Connections */}
+      <SettingsSection
+        id={settingsSectionDomId("secrets")}
+        icon={<IconKey size={14} />}
+        title="API Keys & Connections"
+        subtitle="Service credentials and automation keys."
+        open={openSection === "secrets"}
+        onToggle={() => toggle("secrets")}
+      >
+        <SecretsSection focusKey={focusSecretKey} />
+      </SettingsSection>
+
+      {/* Hosting
+          GymClassOS fork: removed the inline UseBuilderCard "Connect Builder.io"
+          CTA. Surfaces are white-labelled. Manual setup card retained as the
+          actual guidance path. */}
+      <SettingsSection
+        icon={<IconCloud size={14} />}
+        title="Hosting"
+        subtitle="Deploy your app to the cloud."
+        open={openSection === "hosting"}
+        onToggle={() => toggle("hosting")}
+      >
+        <div className="space-y-2">
+          <ManualSetupCard hint="Deploy to Netlify, Vercel, Cloudflare, Fly.io, or any Nitro-supported target." />
+        </div>
+      </SettingsSection>
+
+      {/* Database
+          GymClassOS fork: removed Builder.io connect CTA. */}
+      <SettingsSection
+        icon={<IconDatabase size={14} />}
+        title="Database"
+        subtitle="Connect a cloud database for persistent storage."
+        open={openSection === "database"}
+        onToggle={() => toggle("database")}
+      >
+        <div className="space-y-2">
+          <ManualSetupCard hint="Set DATABASE_URL in your .env to connect Neon, Supabase, Turso, or any Postgres/SQLite database." />
+        </div>
+      </SettingsSection>
+
+      {/* File uploads
+          GymClassOS fork: removed Builder.io connect CTA. */}
+      <SettingsSection
+        icon={<IconUpload size={14} />}
+        title="File uploads"
+        subtitle="Where user-uploaded files (avatars, chat attachments) are stored."
+        open={openSection === "uploads"}
+        onToggle={() => toggle("uploads")}
+      >
+        <div className="space-y-2">
+          <ManualSetupCard hint="Without a provider, files are stored as base64 in your database. Fine for dev, not recommended for production." />
+        </div>
+      </SettingsSection>
+
+      {/* Authentication
+          GymClassOS fork: removed Builder.io connect CTA. */}
+      <SettingsSection
+        icon={<IconShield size={14} />}
+        title="Authentication"
+        subtitle="Set up user authentication and access control."
+        open={openSection === "auth"}
+        onToggle={() => toggle("auth")}
+      >
+        <div className="space-y-2">
+          <ManualSetupCard hint="Configure Better Auth with BETTER_AUTH_SECRET and optional Google/GitHub OAuth providers." />
+        </div>
+      </SettingsSection>
+
+      {/* Email */}
+      <EmailSectionInner
+        open={openSection === "email"}
+        onToggle={() => toggle("email")}
+      />
+
+      {/* Browser Automation
+          GymClassOS fork: section removed entirely (Builder-only feature in
+          the upstream framework, irrelevant for customer-facing gym product).
+          Restore by reverting this hunk if a non-Builder browser automation
+          provider is added upstream. */}
+      {/* Background Agent
+          GymClassOS fork: section removed entirely (Builder-only feature). */}
 
       {/* Integrations */}
       <SettingsSection
@@ -2208,6 +2375,28 @@ export function SettingsPanel({
         <Suspense fallback={null}>
           <IntegrationsPanel />
         </Suspense>
+      </SettingsSection>
+
+      {/* Usage & spend */}
+      <SettingsSection
+        icon={<IconCoin size={14} />}
+        title="Usage"
+        subtitle="Track token consumption and estimated cost — broken down by chat, automations, and background jobs."
+        open={openSection === "usage"}
+        onToggle={() => toggle("usage")}
+      >
+        <UsageSection />
+      </SettingsSection>
+
+      {/* A2A Agents */}
+      <SettingsSection
+        icon={<IconTopologyRing2 size={14} />}
+        title="Connected Agents (A2A)"
+        subtitle="Manage remote agents connected via the A2A protocol."
+        open={openSection === "a2a"}
+        onToggle={() => toggle("a2a")}
+      >
+        <AgentsSection />
       </SettingsSection>
     </div>
   );
