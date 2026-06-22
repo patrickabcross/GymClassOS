@@ -77,11 +77,25 @@ export async function loader(_args: Route.LoaderArgs) {
     .filter(Boolean);
   const adminOpen = adminEmails.length === 0;
 
+  // Operator allowlist for framework settings access (RunStudio operator only —
+  // distinct from GYMOS_ADMIN_EMAILS / studio managers). Comma-separated env;
+  // when unset/empty, fall back to the Patrick default so the operator keeps
+  // access before the env var is configured on Vercel. NOT "everyone" on empty.
+  const operatorEmailsFromEnv = (process.env.RUNSTUDIO_OPERATOR_EMAILS ?? "")
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+  const operatorEmails =
+    operatorEmailsFromEnv.length > 0
+      ? operatorEmailsFromEnv
+      : ["patrickalexanderross@outlook.com"];
+
   return {
     skin: { name: skinName, ...skin },
     accentHex,
     adminEmails,
     adminOpen,
+    operatorEmails,
   };
 }
 

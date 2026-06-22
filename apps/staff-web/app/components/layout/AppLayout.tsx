@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
-import { Link, useNavigate, useLocation, useSearchParams } from "react-router";
+import { Link, useNavigate, useLocation, useSearchParams, useRouteLoaderData } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { CommandPalette } from "./CommandPalette";
@@ -53,6 +53,7 @@ import {
   FeedbackButton,
   NotificationsBell,
   agentNativePath,
+  useSession,
 } from "@agent-native/core/client";
 import { InvitationBanner, OrgSwitcher } from "@agent-native/core/client/org";
 import { ExtensionsSidebarSection } from "@agent-native/core/client/extensions";
@@ -124,6 +125,18 @@ const collapsibleViews = [
 export function AppLayout({ children }: AppLayoutProps) {
   const location = useLocation();
   const isMobile = useIsMobile();
+  // Operator gating: compute before any early returns so hooks are never
+  // called conditionally. isOperator gates the settings gear in the gymos
+  // AgentSidebar — gym admins/coaches never see the framework infra settings.
+  const { session } = useSession();
+  const rootData = useRouteLoaderData("root") as
+    | { operatorEmails?: string[] }
+    | undefined;
+  const operatorEmails = rootData?.operatorEmails ?? [];
+  const isOperator =
+    !!session?.email &&
+    operatorEmails.includes(session.email.toLowerCase());
+
   if (BARE_ROUTES.has(location.pathname)) {
     return <>{children}</>;
   }
@@ -154,6 +167,7 @@ export function AppLayout({ children }: AppLayoutProps) {
             "Which classes haven't been filled in the last week?",
             "Which customers should I reach out to?",
           ]}
+          showSettingsGear={isOperator}
         >
           {children}
         </AgentSidebar>
