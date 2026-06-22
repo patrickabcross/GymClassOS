@@ -33,7 +33,7 @@ Milestone: v2.1 — Content & Video Studio (staff-web)
 Phase: CV4 — Publish pipeline (complete) — ALL 4 active phases built
 Plan: —
 Status: CV1-CV4 built + committed on master. Full staff-web `tsc` clean (0 errors), 115/115 unit tests pass. **NOT deployed** — production push held for explicit user go-ahead (autonomous run pre-approved build only). CV-RENDER remains gated.
-Last activity: 2026-06-22 — Completed quick task 260622-d1v: trim agent-chat Settings panel + fix LLM env-status app_secrets false-negative
+Last activity: 2026-06-22 — Quick task 260622-e4a: revert SettingsPanel trim, gate operator gear, AGENT_NATIVE_SINGLE_TENANT flag, env-status fix
 
 > **Open tails from prior milestones:** v2.0 live UAT (BD1–BD4 `*-HUMAN-UAT.md`) deferred-on-external-dependency. v1.2 Agentic Tab Editing live UAT pending (AE1–AE3 deployed). v1.0 Production + Mobile Demo (AE4) remain tracked.
 
@@ -45,6 +45,7 @@ Last activity: 2026-06-22 — Completed quick task 260622-d1v: trim agent-chat S
 |---|-------------|------|--------|-----------|
 | 260620-c8p | Settings API Keys page: resolve secret status studio-global (by key) so saved keys show as set for every staff login, not just the saver | 2026-06-20 | ba34c8b8 | [260620-c8p-settings-api-keys-page-resolve-secret-st](./quick/260620-c8p-settings-api-keys-page-resolve-secret-st/) |
 | 260622-d1v | Trim agent-chat Settings panel to Account+Integrations only; fix LLM env-status app_secrets false-negative | 2026-06-22 | 2ecf2387 | [260622-d1v-trim-agent-chat-settings-panel-to-accoun](./quick/260622-d1v-trim-agent-chat-settings-panel-to-accoun/) |
+| 260622-e4a | Revert SettingsPanel trim; gate agent-chat gear behind operator allowlist; AGENT_NATIVE_SINGLE_TENANT flag; env-status app_secrets fix | 2026-06-22 | 4d6fe256 | [260622-e4a-revert-settings-panel-trim-gate-sidebar-](./quick/260622-e4a-revert-settings-panel-trim-gate-sidebar-/) |
 
 ### v2.1 Phase Summary
 
