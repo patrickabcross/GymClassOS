@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: — Content & Video Studio
 status: deployed
-stopped_at: "2026-06-22 — Quick task 260622-ifj complete: HUSTLE tenant brand wired into all 5 customer-facing SSR surfaces + Remotion GymPromo. Poppins everywhere, #FAD02C primary, #121212 text-on-primary. typecheck exit 0."
+stopped_at: "2026-06-22 — Quick task 260622-lp3 complete: trainers roster Phase 1 — trainers table v22-26 + 23-name seed + list/create/update-trainer actions + location+trainer cols on class_occurrences + ManageTrainersDialog + NewClassDialog selects. typecheck exit 0."
 last_updated: "2026-06-22T00:00:00.000Z"
-last_activity: "2026-06-22 — Quick task 260622-ifj: tenant-brand.ts + 5 SSR renderers (Poppins, HUSTLE accent defaults) + GymPromo Poppins + public-video RunStudio->Hustle"
+last_activity: "2026-06-22 — Quick task 260622-lp3: trainers table (v22-v26 migrations, 23-name idempotent seed), list/create/update-trainer actions (two-exposure: agent-chat.ts + AGENTS.md), location+trainerId columns on class_occurrences, ManageTrainersDialog, NewClassDialog trainer+location selects"
 progress:
   total_phases: 4
   completed_phases: 4
@@ -49,6 +49,7 @@ Last activity: 2026-06-22 — Quick task 260622-e4a: revert SettingsPanel trim, 
 | 260622-f8j | Generalize operator chrome gate: rename showSettingsGear -> showOperatorChrome; also hide Workspace button, FeedbackButton, and model picker for non-operators | 2026-06-22 | 88bc6766 | [260622-f8j-generalize-operator-chrome-gate-also-hid](./quick/260622-f8j-generalize-operator-chrome-gate-also-hid/) |
 | 260622-g2k | Fast: env-status no-short-circuit — app_secrets always checked, so a key in BOTH env and app_secrets reports configured (clears false "AI assistant not configured") | 2026-06-22 | (see git) | — |
 | 260622-ifj | HUSTLE tenant brand restyle — tenant-brand.ts config (Poppins, #FAD02C, #121212) + 5 customer-facing SSR surfaces + Remotion GymPromo; "RunStudio" -> "Hustle" in /v pages | 2026-06-22 | 08c7beba | [260622-ifj-customer-facing-hustle-brand-restyle-ten](./quick/260622-ifj-customer-facing-hustle-brand-restyle-ten/) |
+| 260622-lp3 | Trainers roster Phase 1 — trainers table (v22-v26, 23-name seed), list/create/update-trainer actions, location+trainer columns on class_occurrences, ManageTrainersDialog + NewClassDialog trainer/location selects | 2026-06-22 | 652b5a40 | [260622-lp3-recurring-staff-phase-1-trainers-roster-](./quick/260622-lp3-recurring-staff-phase-1-trainers-roster-/) |
 
 ### v2.1 Phase Summary
 
