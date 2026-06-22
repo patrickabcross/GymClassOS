@@ -83,7 +83,8 @@ export default defineAction({
     // 1. SSRF-guarded fetch
     const fetched = await safeFetch(url);
     if (!fetched.ok) {
-      return { ok: false as const, error: `FETCH_FAILED: ${fetched.error}` };
+      const reason = "error" in fetched ? fetched.error : "unknown error";
+      return { ok: false as const, error: `FETCH_FAILED: ${reason}` };
     }
 
     // 2. Reduce HTML to brand signals

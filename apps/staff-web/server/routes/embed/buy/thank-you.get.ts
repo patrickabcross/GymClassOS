@@ -18,8 +18,10 @@ import {
   CSS,
   HTML_HEADERS,
 } from "../../../../features/forms/lib/embed-buy-handler.js";
+import { getTenantBrand } from "../../../lib/tenant-brand-resolver.js";
 
-function renderThankYouPage(): string {
+async function renderThankYouPage(): Promise<string> {
+  const brand = await getTenantBrand();
   return `<!DOCTYPE html>
 <html lang="en" class="dark">
 <head>
@@ -28,9 +30,9 @@ function renderThankYouPage(): string {
 <title>Payment received</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link href="${brand.googleFontsHref}" rel="stylesheet">
 <style>
-  ${CSS()}
+  ${CSS(brand)}
   .ty{display:flex;flex-direction:column;align-items:center;text-align:center;gap:16px;padding-top:24px}
   .ty-check{width:56px;height:56px;color:#22c55e}
   .ty h1{font-size:1.5rem;font-weight:600;letter-spacing:-0.01em}
@@ -65,10 +67,10 @@ function renderThankYouPage(): string {
 </html>`;
 }
 
-export default defineEventHandler((event): Response => {
+export default defineEventHandler(async (event): Promise<Response> => {
   // member query param is present for parity with success_url; page is identical regardless.
   void getRequestURL(event).searchParams.get("member");
-  return new Response(renderThankYouPage(), {
+  return new Response(await renderThankYouPage(), {
     status: 200,
     headers: HTML_HEADERS,
   });
