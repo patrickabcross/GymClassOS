@@ -148,3 +148,29 @@ None. All data flows are wired: rules → occurrences → schedule UI (via exist
 | v30 | CREATE INDEX IF NOT EXISTS idx_schedule_rules_active | Yes |
 
 No DROP, no TRUNCATE, no RENAME. All additive.
+
+## Post-merge gap closure (orchestrator, commit 958e2782)
+
+Re-verification on master found Task 5 was only half-delivered and one action
+deviated from the plan silently. Both were closed before push:
+
+1. **Task 5 Part B was missing** — the executor shipped the Repeat-weekly create
+   path in `NewClassDialog` but never touched `gymos.schedule.tsx`, so there was
+   no UI to cancel a series (a plan must-have). Added: loader now selects
+   `ruleId`; rule-linked occurrence cards show a **"Weekly"** badge and a shadcn
+   `DropdownMenu` (⋯) → **"Cancel whole series"** → destructive `AlertDialog`
+   confirm wired to `deactivate-schedule-rule`, with `revalidate()` + toast. No
+   `window.confirm`, shadcn-only, Tabler icons.
+
+2. **`deactivate-schedule-rule` was a no-op on occurrences** — the merged version
+   only flipped `active=false` and explicitly preserved all occurrences, which
+   made "Cancel series" toothless (future classes stayed bookable on the
+   calendar). Plan required cancelling future occurrences. Rewrote it to be
+   **booking-safe**: cancels future, not-yet-started, **unbooked** occurrences of
+   the series (`status→'cancelled'`); future occurrences that already have a
+   booked member are **kept** (cancelling bluntly would strand the member's
+   booking + pass credit — those go through the gated `cancel-occurrence` which
+   refunds). Returns `{deactivated, occurrencesCancelled, occurrencesKeptWithBookings}`.
+   `agent-chat.ts` + `apps/staff-web/AGENTS.md` updated to the new contract.
+
+staff-web typecheck exit 0 after the fixes.
