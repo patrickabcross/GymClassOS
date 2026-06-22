@@ -228,9 +228,11 @@ export function TemplatesDialog({
     // guaranteed mounted to flush the send).
     sendToAgentChat({
       message:
-        "Auto-fill the WhatsApp template variables for the open conversation. " +
-        "Map each {{N}} slot to the right value from the member context and template body, " +
-        'then call the suggest-template-vars action with conversationId, templateName, and a vars map ({"1":"..."}). ' +
+        "Fill in this approved WhatsApp template's {{N}} variables for the open conversation. " +
+        "Each {{N}} is a blank inside a sentence — read the words immediately before and after it and choose wording so the FINISHED message reads as one natural, warm, conversational sentence: correct grammar, article, tense and number, lowercase unless it's a proper noun. " +
+        "Write what a friendly human coach would actually say, NOT a raw data label, product name, or category. " +
+        "For example, for '…we know {{2}} can feel daunting…' prefer 'trying a new class' over 'Drop-in Class'. Use the member's first name for a name slot. " +
+        'Then call the suggest-template-vars action with conversationId, templateName, and a vars map ({"1":"..."}). ' +
         "Do NOT send anything — the coach reviews and sends.",
       context: JSON.stringify({
         conversationId,
