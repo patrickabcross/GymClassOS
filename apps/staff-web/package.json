@@ -31,6 +31,7 @@
     "@anthropic-ai/sdk": "^0.97.0",
     "@gymos/queue": "workspace:*",
     "@libsql/client": "^0.15.0",
+    "@remotion/google-fonts": "4.0.481",
     "@remotion/player": "4.0.481",
     "@tabler/icons-react": "^3.40.0",
     "chrono-node": "^2.7.6",

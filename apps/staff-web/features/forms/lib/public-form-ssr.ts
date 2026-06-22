@@ -2,6 +2,7 @@ import { getMethod, getRequestURL, type H3Event } from "h3";
 import { eq } from "drizzle-orm";
 import { getDb, schema } from "../../../server/db/index.js";
 import type { FormField, FormSettings } from "../types.js";
+import { tenantBrand } from "../../../server/lib/tenant-brand.js";
 
 // In-memory cache
 const cache = new Map<string, { data: unknown; ts: number }>();
@@ -241,10 +242,15 @@ export async function renderPublicFormHtml(
     return { html: notFoundPage(), status: 404 };
   }
 
-  // Read URL-param theming (sanitized against CSS injection — RESEARCH Pitfall 5)
+  // Read URL-param theming (sanitized against CSS injection — RESEARCH Pitfall 5).
+  // When the param is absent, fall back to tenant brand defaults rather than #000000
+  // (sanitizeHexColor returns "#000000" sentinel for missing/invalid params —
+  //  we only call it when the param is actually present).
   const searchParams = new URLSearchParams(searchStr);
-  const accent = sanitizeHexColor(searchParams.get("accent"));
-  const radius = sanitizeIntPx(searchParams.get("radius"));
+  const accentParam = searchParams.get("accent");
+  const accent = accentParam ? sanitizeHexColor(accentParam) : tenantBrand.primary;
+  const radiusParam = searchParams.get("radius");
+  const radius = radiusParam !== null ? sanitizeIntPx(radiusParam) : tenantBrand.radius;
 
   return {
     html: renderFormPage(
@@ -314,14 +320,10 @@ function renderFormPage(
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>${escapeHtml(form.title)}</title>
 ${form.description ? `<meta name="description" content="${escapeHtml(form.description)}">` : ""}
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="${tenantBrand.googleFontsHref}" rel="stylesheet">
 <style>
-@font-face {
-  font-family: "Inter";
-  font-style: normal;
-  font-weight: 100 900;
-  font-display: swap;
-  src: url("/fonts/inter-variable.woff2") format("woff2-variations");
-}
   :root {
     --gym-accent: ${accent};
     --studio-accent: ${accent};
@@ -602,14 +604,10 @@ function notFoundPage() {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>Form not found</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="${tenantBrand.googleFontsHref}" rel="stylesheet">
 <style>
-@font-face {
-  font-family: "Inter";
-  font-style: normal;
-  font-weight: 100 900;
-  font-display: swap;
-  src: url("/fonts/inter-variable.woff2") format("woff2-variations");
-}
 ${CSS()}</style>
 </head>
 <body>
@@ -648,7 +646,7 @@ function CSS() {
   --ring:0 0% 60%;
 }
 
-html{font-family:"Inter",system-ui,-apple-system,sans-serif;font-feature-settings:"cv02","cv03","cv04","cv11"}
+html{font-family:${tenantBrand.fontFamily};font-feature-settings:"cv02","cv03","cv04","cv11"}
 body{background:hsl(var(--bg));color:hsl(var(--fg));min-height:100vh;-webkit-font-smoothing:antialiased}
 
 .page{min-height:100vh;padding:48px 16px 80px;position:relative}
@@ -692,7 +690,7 @@ select.fi option{background:hsl(var(--card));color:hsl(var(--fg))}
 .submit-btn{
   margin-top:16px;padding:10px 24px;
   font-size:0.875rem;font-weight:500;font-family:inherit;
-  background:var(--studio-accent,var(--gym-accent,#000));color:#fff; /* guard:allow-color — embed widget accent button; --studio-accent injected from URL param; #000/#fff are CSS var fallbacks only */
+  background:var(--studio-accent,var(--gym-accent,#000));color:${tenantBrand.primaryText}; /* guard:allow-color — embed widget dark text on tenant primary CTA; --studio-accent injected from URL param; #000 is CSS var fallback only */
   border:none;border-radius:var(--radius);cursor:pointer;
 }
 .submit-btn:hover{opacity:0.9}

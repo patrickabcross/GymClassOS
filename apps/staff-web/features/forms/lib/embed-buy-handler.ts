@@ -20,6 +20,7 @@ import { sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { getDb } from "../../../server/db/index.js";
 import { sanitizeHexColor, sanitizeIntPx } from "./public-form-ssr.js";
+import { tenantBrand } from "../../../server/lib/tenant-brand.js";
 import { normalizePhone } from "./normalize-phone.js";
 import {
   validateConnectedAccount,
@@ -52,7 +53,7 @@ export function CSS(): string {
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{--bg:0 0% 100%;--fg:220 10% 10%;--card:0 0% 98%;--card-fg:220 10% 10%;--muted:220 10% 95%;--muted-fg:220 5% 45%;--border:220 10% 88%;--input:220 10% 90%;--ring:220 10% 40%;--accent-color:var(--gym-accent,#000);--radius:var(--gym-radius,6px)}
 .dark{--bg:220 6% 4%;--fg:0 0% 90%;--card:220 5% 7%;--card-fg:0 0% 90%;--muted:220 4% 8%;--muted-fg:220 4% 55%;--border:220 4% 13%;--input:220 4% 13%;--ring:0 0% 60%}
-html{font-family:"Inter",system-ui,-apple-system,sans-serif;font-feature-settings:"cv02","cv03","cv04","cv11"}
+html{font-family:${tenantBrand.fontFamily};font-feature-settings:"cv02","cv03","cv04","cv11"}
 body{background:hsl(var(--bg));color:hsl(var(--fg));-webkit-font-smoothing:antialiased}
 .page{padding:40px 16px 64px;min-height:100vh}.container{max-width:480px;margin:0 auto}
 .header{margin-bottom:28px}.header h1{font-size:1.375rem;font-weight:600;letter-spacing:-0.01em}
@@ -62,7 +63,7 @@ body{background:hsl(var(--bg));color:hsl(var(--fg));-webkit-font-smoothing:antia
 .field-label{font-size:0.875rem;font-weight:500;color:hsl(var(--card-fg))}.req{color:#ef4444;margin-left:2px}
 .fi{width:100%;padding:8px 12px;font-size:0.875rem;font-family:inherit;background:hsl(var(--bg));border:1px solid hsl(var(--input));border-radius:var(--radius);color:hsl(var(--fg));outline:none}
 .fi:focus{border-color:var(--accent-color);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent-color) 20%,transparent)}
-.submit-btn{margin-top:8px;padding:10px 24px;font-size:0.9375rem;font-weight:500;font-family:inherit;background:var(--accent-color);color:#fff;border:none;border-radius:var(--radius);cursor:pointer;transition:opacity 0.15s}
+.submit-btn{margin-top:8px;padding:10px 24px;font-size:0.9375rem;font-weight:500;font-family:inherit;background:var(--accent-color);color:${tenantBrand.primaryText};/* guard:allow-color — embed widget dark text on tenant primary CTA; no CSS var available in injected iframe context */border:none;border-radius:var(--radius);cursor:pointer;transition:opacity 0.15s}
 .submit-btn:hover{opacity:0.85}.submit-btn:disabled{opacity:0.6;cursor:not-allowed}
 .error-banner{margin-bottom:16px;padding:10px 16px;background:#7f1d1d;color:#fca5a5;border-radius:var(--radius);font-size:0.875rem;border:1px solid #991b1b}
 @media(max-width:480px){.page{padding:24px 12px 48px}}
@@ -91,7 +92,7 @@ function renderBuyPage(opts: {
 <title>Buy ${esc(productName)}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link href="${tenantBrand.googleFontsHref}" rel="stylesheet">
 <style>
   :root {
     --gym-accent: ${accent};
@@ -181,8 +182,10 @@ export async function renderEmbedBuy(event: H3Event): Promise<Response> {
   const rawMode = searchParams.get("mode") ?? "payment";
   const mode: "payment" | "subscription" =
     rawMode === "subscription" ? "subscription" : "payment";
-  const accent = sanitizeHexColor(searchParams.get("accent"));
-  const radius = sanitizeIntPx(searchParams.get("radius"));
+  const accentParam = searchParams.get("accent");
+  const accent = accentParam ? sanitizeHexColor(accentParam) : tenantBrand.primary;
+  const radiusParam = searchParams.get("radius");
+  const radius = radiusParam !== null ? sanitizeIntPx(radiusParam) : tenantBrand.radius;
 
   if (!priceId) {
     return new Response(
@@ -223,8 +226,8 @@ export async function handleEmbedBuyPost(
   const name = (body?.name as string | undefined)?.trim() ?? "";
   const email = (body?.email as string | undefined)?.trim().toLowerCase() ?? "";
   const phone = (body?.phone as string | undefined)?.trim() ?? "";
-  const accent = sanitizeHexColor(null);
-  const radius = sanitizeIntPx(null);
+  const accent = tenantBrand.primary;
+  const radius = tenantBrand.radius;
 
   // Validate required fields
   if (!priceId || !email || !name) {

@@ -14,7 +14,14 @@
 // DO NOT import registerRoot or Composition (those are for render bundles).
 
 import { AbsoluteFill, Sequence, useCurrentFrame, interpolate } from "remotion";
+import { loadFont } from "@remotion/google-fonts/Poppins";
 import type { VideoSpec, VideoScene } from "../../server/lib/video-spec";
+
+// Load Poppins via @remotion/google-fonts — synchronous, module-level.
+// Remotion injects the font into the composition via a <style> tag on mount.
+const { fontFamily: poppinsFamily } = loadFont("normal", {
+  weights: ["400", "700"],
+});
 
 // ─── SceneView ────────────────────────────────────────────────────────────────
 
@@ -52,7 +59,7 @@ function SceneView({ scene, durationInFrames }: { scene: VideoScene; durationInF
             color: "#F8FAFC",
             fontSize: "72px",
             fontWeight: 700,
-            fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif",
+            fontFamily: poppinsFamily,
             textAlign: "center",
             lineHeight: 1.15,
             marginBottom: scene.subtitle ? "32px" : 0,
@@ -68,7 +75,7 @@ function SceneView({ scene, durationInFrames }: { scene: VideoScene; durationInF
               color: "#94A3B8",
               fontSize: "36px",
               fontWeight: 400,
-              fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif",
+              fontFamily: poppinsFamily,
               textAlign: "center",
               lineHeight: 1.4,
             }}
@@ -114,7 +121,7 @@ function SceneView({ scene, durationInFrames }: { scene: VideoScene; durationInF
             color: "#F8FAFC",
             fontSize: "64px",
             fontWeight: 700,
-            fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif",
+            fontFamily: poppinsFamily,
             textAlign: "center",
             lineHeight: 1.15,
             marginBottom: scene.subtitle ? "28px" : 0,
@@ -130,7 +137,7 @@ function SceneView({ scene, durationInFrames }: { scene: VideoScene; durationInF
               color: "#E2E8F0",
               fontSize: "32px",
               fontWeight: 400,
-              fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif",
+              fontFamily: poppinsFamily,
               textAlign: "center",
               lineHeight: 1.4,
               textShadow: "0 1px 8px rgba(0,0,0,0.6)",
@@ -168,7 +175,7 @@ export function GymPromo({ spec }: { spec: VideoSpec }) {
           style={{
             color: "#64748B",
             fontSize: "36px",
-            fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif",
+            fontFamily: poppinsFamily,
           }}
         >
           No scenes
