@@ -32,8 +32,12 @@ import {
   useSearchParams,
   useRevalidator,
 } from "react-router";
-import { useEffect } from "react";
-import { useChangeVersions } from "@agent-native/core/client";
+import { useEffect, useState } from "react";
+import {
+  useChangeVersions,
+  useActionMutation,
+} from "@agent-native/core/client";
+import { toast } from "sonner";
 import { eq, asc, sql } from "drizzle-orm";
 import {
   addMonths,
@@ -51,8 +55,10 @@ import {
 } from "date-fns";
 import {
   IconCalendarEvent,
+  IconCalendarOff,
   IconChevronLeft,
   IconChevronRight,
+  IconDots,
 } from "@tabler/icons-react";
 import { getDb, schema } from "../../server/db";
 import { Button } from "@/components/ui/button";
@@ -74,6 +80,22 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogFooter,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogAction,
+  AlertDialogCancel,
+} from "@/components/ui/alert-dialog";
 import { NewClassDialog } from "@/components/gymos/NewClassDialog";
 import { ManageTrainersDialog } from "@/components/gymos/ManageTrainersDialog";
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "react-router";
@@ -133,6 +155,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
       capacity: schema.classOccurrences.capacity,
       status: schema.classOccurrences.status,
       room: schema.classOccurrences.room,
+      ruleId: schema.classOccurrences.ruleId,
       className: schema.classDefinitions.name,
       category: schema.classDefinitions.category,
       durationMin: schema.classDefinitions.durationMin,
@@ -286,6 +309,42 @@ export default function GymosSchedule() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [actionVersion]);
+
+  // ─── Series cancel (recurring rule) ─────────────────────────────────────
+  const [seriesToCancel, setSeriesToCancel] = useState<{
+    ruleId: string;
+    className: string;
+  } | null>(null);
+  const cancelSeries = useActionMutation("deactivate-schedule-rule");
+
+  async function handleCancelSeries() {
+    const target = seriesToCancel;
+    if (!target) return;
+    setSeriesToCancel(null); // optimistic close
+    try {
+      const res = (await cancelSeries.mutateAsync({ id: target.ruleId })) as {
+        deactivated?: boolean;
+        occurrencesCancelled?: number;
+        error?: string;
+      };
+      if (res?.error) {
+        toast(
+          res.error === "RULE_ALREADY_INACTIVE"
+            ? "That series is already cancelled"
+            : "Could not cancel the series",
+        );
+      } else {
+        const n = res.occurrencesCancelled ?? 0;
+        toast(
+          `Series cancelled — ${n} upcoming ${n === 1 ? "class" : "classes"} removed`,
+        );
+      }
+    } catch {
+      toast("Could not cancel the series");
+    } finally {
+      revalidator.revalidate();
+    }
+  }
 
   // ─── URL-driven state ───────────────────────────────────────────────────
   const monthAnchor = parseMonthParam(searchParams.get("month"));
@@ -586,6 +645,14 @@ export default function GymosSchedule() {
                                 {o.category}
                               </Badge>
                             )}
+                            {o.ruleId && (
+                              <Badge
+                                variant="outline"
+                                className="h-4 gap-0.5 px-1.5 text-[9px] uppercase"
+                              >
+                                Weekly
+                              </Badge>
+                            )}
                             {o.room && (
                               <span className="text-[11px] text-muted-foreground">
                                 {o.room}
@@ -603,16 +670,52 @@ export default function GymosSchedule() {
                               </Badge>
                             )}
                             {!cancelled && (
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant={full ? "outline" : "default"}
-                                disabled={full}
-                                onClick={() => openBookDialog(o.id)}
-                                className="ml-auto h-6 px-2 text-[11px]"
-                              >
-                                {full ? "Full" : "Book"}
-                              </Button>
+                              <div className="ml-auto flex items-center gap-1">
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant={full ? "outline" : "default"}
+                                  disabled={full}
+                                  onClick={() => openBookDialog(o.id)}
+                                  className="h-6 px-2 text-[11px]"
+                                >
+                                  {full ? "Full" : "Book"}
+                                </Button>
+                                {o.ruleId && (
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-6 w-6"
+                                        aria-label="Series actions"
+                                      >
+                                        <IconDots size={14} aria-hidden />
+                                      </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                      <DropdownMenuItem
+                                        className="text-destructive focus:text-destructive"
+                                        onClick={() =>
+                                          setSeriesToCancel({
+                                            ruleId: o.ruleId!,
+                                            className:
+                                              o.className ?? "this class",
+                                          })
+                                        }
+                                      >
+                                        <IconCalendarOff
+                                          size={14}
+                                          className="mr-2"
+                                          aria-hidden
+                                        />
+                                        Cancel whole series
+                                      </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
+                                )}
+                              </div>
                             )}
                           </div>
                         </CardContent>
@@ -709,6 +812,37 @@ export default function GymosSchedule() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* ─── Cancel-whole-series confirmation ─────────────────────────── */}
+      <AlertDialog
+        open={!!seriesToCancel}
+        onOpenChange={(open) => {
+          if (!open) setSeriesToCancel(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel this weekly series?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This stops generating future{" "}
+              <span className="font-semibold">{seriesToCancel?.className}</span>{" "}
+              classes and cancels upcoming occurrences in the series that have
+              no bookings. Classes that already have a booked member are kept —
+              cancel those individually so credits are refunded. This can&apos;t
+              be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep series</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={handleCancelSeries}
+            >
+              Cancel series
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
