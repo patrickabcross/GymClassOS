@@ -24,6 +24,7 @@ import { getRequestURL, type H3Event } from "h3";
 import { and, eq, gte } from "drizzle-orm";
 import { getDb, schema } from "../../../server/db/index.js";
 import { sanitizeHexColor, sanitizeIntPx } from "./public-form-ssr.js";
+import { tenantBrand } from "../../../server/lib/tenant-brand.js";
 
 // ---------------------------------------------------------------------------
 // Schedule query
@@ -228,14 +229,10 @@ function renderPage(
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>Class Schedule</title>
 <meta name="description" content="Browse upcoming classes and enquire to book your spot.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="${tenantBrand.googleFontsHref}" rel="stylesheet">
 <style>
-@font-face {
-  font-family: "Inter";
-  font-style: normal;
-  font-weight: 100 900;
-  font-display: swap;
-  src: url("/fonts/inter-variable.woff2") format("woff2-variations");
-}
   :root {
     --gym-accent: ${accent};
     --studio-accent: ${accent};
@@ -410,7 +407,7 @@ function CSS() {
   --ring:0 0% 60%;
 }
 
-html{font-family:"Inter",system-ui,-apple-system,sans-serif;font-feature-settings:"cv02","cv03","cv04","cv11"}
+html{font-family:${tenantBrand.fontFamily};font-feature-settings:"cv02","cv03","cv04","cv11"}
 body{background:hsl(var(--bg));color:hsl(var(--fg));-webkit-font-smoothing:antialiased}
 
 .page{padding:24px 16px 48px}
@@ -440,7 +437,7 @@ body{background:hsl(var(--bg));color:hsl(var(--fg));-webkit-font-smoothing:antia
 .enquire-btn{
   display:inline-flex;align-items:center;
   padding:7px 18px;font-size:0.8125rem;font-weight:500;font-family:inherit;
-  background:var(--accent-color);color:#fff; /* guard:allow-color — embed widget white text on accent button; no CSS var available in injected iframe context */
+  background:var(--accent-color);color:${tenantBrand.primaryText}; /* guard:allow-color — embed widget dark text on tenant primary CTA; no CSS var available in injected iframe context */
   border:none;border-radius:var(--radius);cursor:pointer;
   transition:opacity 0.15s;
 }
@@ -469,7 +466,7 @@ body{background:hsl(var(--bg));color:hsl(var(--fg));-webkit-font-smoothing:antia
 .enq-actions{display:flex;gap:8px;margin-top:4px}
 .submit-btn{
   padding:8px 20px;font-size:0.8125rem;font-weight:500;font-family:inherit;
-  background:var(--accent-color);color:#fff; /* guard:allow-color — embed widget white text on accent button; no CSS var available in injected iframe context */
+  background:var(--accent-color);color:${tenantBrand.primaryText}; /* guard:allow-color — embed widget dark text on tenant primary CTA; no CSS var available in injected iframe context */
   border:none;border-radius:var(--radius);cursor:pointer;
 }
 .submit-btn:hover{opacity:0.85}
@@ -515,9 +512,14 @@ body{background:hsl(var(--bg));color:hsl(var(--fg));-webkit-font-smoothing:antia
 export async function renderScheduleWidget(event: H3Event): Promise<Response> {
   const reqUrl = getRequestURL(event);
 
-  // Read + sanitize URL-param theming (RESEARCH Pitfall 5 — prevents CSS injection)
-  const accent = sanitizeHexColor(reqUrl.searchParams.get("accent"));
-  const radius = sanitizeIntPx(reqUrl.searchParams.get("radius"));
+  // Read + sanitize URL-param theming (RESEARCH Pitfall 5 — prevents CSS injection).
+  // When the param is absent, fall back to tenant brand defaults rather than #000000
+  // (sanitizeHexColor returns "#000000" sentinel for missing/invalid params —
+  //  we only call it when the param is actually present).
+  const accentParam = reqUrl.searchParams.get("accent");
+  const accent = accentParam ? sanitizeHexColor(accentParam) : tenantBrand.primary;
+  const radiusParam = reqUrl.searchParams.get("radius");
+  const radius = radiusParam !== null ? sanitizeIntPx(radiusParam) : tenantBrand.radius;
 
   // Fetch upcoming classes from Neon
   const classes = await getUpcomingClasses();
