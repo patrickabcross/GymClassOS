@@ -2,7 +2,8 @@ import { getMethod, getRequestURL, type H3Event } from "h3";
 import { eq } from "drizzle-orm";
 import { getDb, schema } from "../../../server/db/index.js";
 import type { FormField, FormSettings } from "../types.js";
-import { tenantBrand } from "../../../server/lib/tenant-brand.js";
+import { getTenantBrand } from "../../../server/lib/tenant-brand-resolver.js";
+import type { TenantBrand } from "../../../server/lib/tenant-brand.js";
 
 // In-memory cache
 const cache = new Map<string, { data: unknown; ts: number }>();
@@ -233,13 +234,16 @@ function renderField(field: FormField): string {
 export async function renderPublicFormHtml(
   url: string,
 ): Promise<{ html: string; status: number }> {
+  // Resolve live tenant brand (30s cache; falls back to DEFAULT_TENANT_BRAND on error).
+  const tenantBrand = await getTenantBrand();
+
   const pathname = url.split("?")[0];
   const searchStr = url.includes("?") ? url.slice(url.indexOf("?")) : "";
   const slugOrId = decodeURIComponent(pathname.replace(/^\/(f|preview)\//, ""));
   const formData = slugOrId ? await getFormBySlugOrId(slugOrId) : null;
 
   if (!formData) {
-    return { html: notFoundPage(), status: 404 };
+    return { html: notFoundPage(tenantBrand), status: 404 };
   }
 
   // Read URL-param theming (sanitized against CSS injection — RESEARCH Pitfall 5).
@@ -263,6 +267,7 @@ export async function renderPublicFormHtml(
       },
       accent,
       radius,
+      tenantBrand,
     ),
     status: 200,
   };
@@ -305,6 +310,7 @@ function renderFormPage(
   },
   accent: string,
   radius: number,
+  brand: TenantBrand,
 ): string {
   const settings: FormSettings = form.settings || {};
   const fields: FormField[] = form.fields || [];
@@ -322,14 +328,14 @@ function renderFormPage(
 ${form.description ? `<meta name="description" content="${escapeHtml(form.description)}">` : ""}
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="${tenantBrand.googleFontsHref}" rel="stylesheet">
+<link href="${brand.googleFontsHref}" rel="stylesheet">
 <style>
   :root {
     --gym-accent: ${accent};
     --studio-accent: ${accent};
     --gym-radius: ${radius}px;
   }
-  ${CSS()}
+  ${CSS(brand)}
 </style>
 <script>
   try {
@@ -597,7 +603,7 @@ ${form.description ? `<meta name="description" content="${escapeHtml(form.descri
 // 404 page
 // ---------------------------------------------------------------------------
 
-function notFoundPage() {
+function notFoundPage(brand: TenantBrand) {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -606,9 +612,9 @@ function notFoundPage() {
 <title>Form not found</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="${tenantBrand.googleFontsHref}" rel="stylesheet">
+<link href="${brand.googleFontsHref}" rel="stylesheet">
 <style>
-${CSS()}</style>
+${CSS(brand)}</style>
 </head>
 <body>
 <div class="page">
@@ -626,7 +632,7 @@ ${CSS()}</style>
 // CSS
 // ---------------------------------------------------------------------------
 
-function CSS() {
+function CSS(brand: TenantBrand) {
   return `
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 
@@ -646,7 +652,7 @@ function CSS() {
   --ring:0 0% 60%;
 }
 
-html{font-family:${tenantBrand.fontFamily};font-feature-settings:"cv02","cv03","cv04","cv11"}
+html{font-family:${brand.fontFamily};font-feature-settings:"cv02","cv03","cv04","cv11"}
 body{background:hsl(var(--bg));color:hsl(var(--fg));min-height:100vh;-webkit-font-smoothing:antialiased}
 
 .page{min-height:100vh;padding:48px 16px 80px;position:relative}
@@ -690,7 +696,7 @@ select.fi option{background:hsl(var(--card));color:hsl(var(--fg))}
 .submit-btn{
   margin-top:16px;padding:10px 24px;
   font-size:0.875rem;font-weight:500;font-family:inherit;
-  background:var(--studio-accent,var(--gym-accent,#000));color:${tenantBrand.primaryText}; /* guard:allow-color — embed widget dark text on tenant primary CTA; --studio-accent injected from URL param; #000 is CSS var fallback only */
+  background:var(--studio-accent,var(--gym-accent,#000));color:${brand.primaryText}; /* guard:allow-color — embed widget dark text on tenant primary CTA; --studio-accent injected from URL param; #000 is CSS var fallback only */
   border:none;border-radius:var(--radius);cursor:pointer;
 }
 .submit-btn:hover{opacity:0.9}

@@ -20,7 +20,8 @@ import { sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { getDb } from "../../../server/db/index.js";
 import { sanitizeHexColor, sanitizeIntPx } from "./public-form-ssr.js";
-import { tenantBrand } from "../../../server/lib/tenant-brand.js";
+import { getTenantBrand } from "../../../server/lib/tenant-brand-resolver.js";
+import type { TenantBrand } from "../../../server/lib/tenant-brand.js";
 import { normalizePhone } from "./normalize-phone.js";
 import {
   validateConnectedAccount,
@@ -48,12 +49,12 @@ export function esc(value: unknown): string {
 // CSS (mirrors schedule-widget-ssr.ts dark theme)
 // ---------------------------------------------------------------------------
 
-export function CSS(): string {
+export function CSS(brand: TenantBrand): string {
   return `
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{--bg:0 0% 100%;--fg:220 10% 10%;--card:0 0% 98%;--card-fg:220 10% 10%;--muted:220 10% 95%;--muted-fg:220 5% 45%;--border:220 10% 88%;--input:220 10% 90%;--ring:220 10% 40%;--accent-color:var(--gym-accent,#000);--radius:var(--gym-radius,6px)}
 .dark{--bg:220 6% 4%;--fg:0 0% 90%;--card:220 5% 7%;--card-fg:0 0% 90%;--muted:220 4% 8%;--muted-fg:220 4% 55%;--border:220 4% 13%;--input:220 4% 13%;--ring:0 0% 60%}
-html{font-family:${tenantBrand.fontFamily};font-feature-settings:"cv02","cv03","cv04","cv11"}
+html{font-family:${brand.fontFamily};font-feature-settings:"cv02","cv03","cv04","cv11"}
 body{background:hsl(var(--bg));color:hsl(var(--fg));-webkit-font-smoothing:antialiased}
 .page{padding:40px 16px 64px;min-height:100vh}.container{max-width:480px;margin:0 auto}
 .header{margin-bottom:28px}.header h1{font-size:1.375rem;font-weight:600;letter-spacing:-0.01em}
@@ -63,7 +64,7 @@ body{background:hsl(var(--bg));color:hsl(var(--fg));-webkit-font-smoothing:antia
 .field-label{font-size:0.875rem;font-weight:500;color:hsl(var(--card-fg))}.req{color:#ef4444;margin-left:2px}
 .fi{width:100%;padding:8px 12px;font-size:0.875rem;font-family:inherit;background:hsl(var(--bg));border:1px solid hsl(var(--input));border-radius:var(--radius);color:hsl(var(--fg));outline:none}
 .fi:focus{border-color:var(--accent-color);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent-color) 20%,transparent)}
-.submit-btn{margin-top:8px;padding:10px 24px;font-size:0.9375rem;font-weight:500;font-family:inherit;background:var(--accent-color);color:${tenantBrand.primaryText};/* guard:allow-color — embed widget dark text on tenant primary CTA; no CSS var available in injected iframe context */border:none;border-radius:var(--radius);cursor:pointer;transition:opacity 0.15s}
+.submit-btn{margin-top:8px;padding:10px 24px;font-size:0.9375rem;font-weight:500;font-family:inherit;background:var(--accent-color);color:${brand.primaryText};/* guard:allow-color — embed widget dark text on tenant primary CTA; no CSS var available in injected iframe context */border:none;border-radius:var(--radius);cursor:pointer;transition:opacity 0.15s}
 .submit-btn:hover{opacity:0.85}.submit-btn:disabled{opacity:0.6;cursor:not-allowed}
 .error-banner{margin-bottom:16px;padding:10px 16px;background:#7f1d1d;color:#fca5a5;border-radius:var(--radius);font-size:0.875rem;border:1px solid #991b1b}
 @media(max-width:480px){.page{padding:24px 12px 48px}}
@@ -80,9 +81,10 @@ function renderBuyPage(opts: {
   mode: "payment" | "subscription";
   accent: string;
   radius: number;
+  brand: TenantBrand;
   error?: string;
 }): string {
-  const { priceId, productName, mode, accent, radius, error } = opts;
+  const { priceId, productName, mode, accent, radius, brand, error } = opts;
 
   return `<!DOCTYPE html>
 <html lang="en" class="dark">
@@ -92,13 +94,13 @@ function renderBuyPage(opts: {
 <title>Buy ${esc(productName)}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="${tenantBrand.googleFontsHref}" rel="stylesheet">
+<link href="${brand.googleFontsHref}" rel="stylesheet">
 <style>
   :root {
     --gym-accent: ${accent};
     --gym-radius: ${radius}px;
   }
-  ${CSS()}
+  ${CSS(brand)}
 </style>
 </head>
 <body>
@@ -174,6 +176,9 @@ export const HTML_HEADERS = {
 // ---------------------------------------------------------------------------
 
 export async function renderEmbedBuy(event: H3Event): Promise<Response> {
+  // Resolve live tenant brand (30s cache; falls back to DEFAULT_TENANT_BRAND on error).
+  const tenantBrand = await getTenantBrand();
+
   const reqUrl = getRequestURL(event);
   const searchParams = reqUrl.searchParams;
 
@@ -195,6 +200,7 @@ export async function renderEmbedBuy(event: H3Event): Promise<Response> {
         mode,
         accent,
         radius,
+        brand: tenantBrand,
         error: "Missing priceId parameter.",
       }),
       { status: 400, headers: HTML_HEADERS },
@@ -202,7 +208,7 @@ export async function renderEmbedBuy(event: H3Event): Promise<Response> {
   }
 
   return new Response(
-    renderBuyPage({ priceId, productName, mode, accent, radius }),
+    renderBuyPage({ priceId, productName, mode, accent, radius, brand: tenantBrand }),
     { status: 200, headers: HTML_HEADERS },
   );
 }
@@ -214,6 +220,9 @@ export async function renderEmbedBuy(event: H3Event): Promise<Response> {
 export async function handleEmbedBuyPost(
   event: H3Event,
 ): Promise<Response | void> {
+  // Resolve live tenant brand (30s cache; falls back to DEFAULT_TENANT_BRAND on error).
+  const tenantBrand = await getTenantBrand();
+
   const rawBody = await readBody(event);
   const body = rawBody as Record<string, unknown> | undefined;
 
@@ -239,6 +248,7 @@ export async function handleEmbedBuyPost(
         mode,
         accent,
         radius,
+        brand: tenantBrand,
         error: "Name and email are required.",
       }),
       { status: 400, headers: HTML_HEADERS },
@@ -258,6 +268,7 @@ export async function handleEmbedBuyPost(
         mode,
         accent,
         radius,
+        brand: tenantBrand,
         error:
           "Online payments are temporarily unavailable. Please contact us directly.",
       }),
@@ -385,6 +396,7 @@ export async function handleEmbedBuyPost(
         mode,
         accent,
         radius,
+        brand: tenantBrand,
         error:
           "We couldn't start your payment — please try again or contact us.",
       }),
@@ -401,6 +413,7 @@ export async function handleEmbedBuyPost(
         mode,
         accent,
         radius,
+        brand: tenantBrand,
         error:
           "We couldn't start your payment — please try again or contact us.",
       }),

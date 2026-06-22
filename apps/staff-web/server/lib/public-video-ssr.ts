@@ -32,7 +32,8 @@ import { eq } from "drizzle-orm";
 import { getDb, schema } from "../db/index.js";
 import { parseSpec, defaultSpec } from "./video-spec.js";
 import type { VideoSpec } from "./video-spec.js";
-import { tenantBrand } from "./tenant-brand.js";
+import { getTenantBrand } from "./tenant-brand-resolver.js";
+import type { TenantBrand } from "./tenant-brand.js";
 
 // ─── In-memory cache (60s TTL) ───────────────────────────────────────────────
 
@@ -126,7 +127,7 @@ function sanitizeImageUrl(raw: string | undefined): string | null {
 
 // ─── 404 page ────────────────────────────────────────────────────────────────
 
-function notFoundPage(): string {
+function notFoundPage(brand: TenantBrand): string {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -135,10 +136,10 @@ function notFoundPage(): string {
 <title>Page not found</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="${tenantBrand.googleFontsHref}" rel="stylesheet">
+<link href="${brand.googleFontsHref}" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-html{font-family:${tenantBrand.fontFamily}}
+html{font-family:${brand.fontFamily}}
 body{background:#fff;color:#111;min-height:100vh;-webkit-font-smoothing:antialiased;display:flex;align-items:center;justify-content:center;padding:32px 16px}
 .not-found{text-align:center}
 .not-found h1{font-size:1.5rem;font-weight:600;margin-bottom:8px}
@@ -156,7 +157,7 @@ body{background:#fff;color:#111;min-height:100vh;-webkit-font-smoothing:antialia
 
 // ─── Video page renderer ──────────────────────────────────────────────────────
 
-function renderVideoPage(comp: VideoComp): string {
+function renderVideoPage(comp: VideoComp, brand: TenantBrand): string {
   // Parse spec safely — fall back to defaultSpec() on any error
   let spec: VideoSpec;
   try {
@@ -175,7 +176,7 @@ function renderVideoPage(comp: VideoComp): string {
   const aspectClass = isSquare ? "poster-square" : "poster-landscape";
 
   // Description from title + first scene text
-  const description = `${comp.title} — Watch preview in the ${tenantBrand.displayName} app`;
+  const description = `${comp.title} — Watch preview in the ${brand.displayName} app`;
 
   const posterContent = imageUrl
     ? `<img class="poster-img" src="${escapeHtml(imageUrl)}" alt="${escapeHtml(posterText)}">`
@@ -190,10 +191,10 @@ function renderVideoPage(comp: VideoComp): string {
 <meta name="description" content="${escapeHtml(description)}">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="${tenantBrand.googleFontsHref}" rel="stylesheet">
+<link href="${brand.googleFontsHref}" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-html{font-family:${tenantBrand.fontFamily};font-feature-settings:"cv02","cv03","cv04","cv11"}
+html{font-family:${brand.fontFamily};font-feature-settings:"cv02","cv03","cv04","cv11"}
 body{background:#fff;color:#111;min-height:100vh;-webkit-font-smoothing:antialiased}
 .page{max-width:640px;margin:0 auto;padding:48px 24px 96px}
 h1.vid-title{font-size:1.75rem;font-weight:700;line-height:1.25;letter-spacing:-0.02em;margin-bottom:24px;color:#0f172a}
@@ -212,7 +213,7 @@ h1.vid-title{font-size:1.75rem;font-weight:700;line-height:1.25;letter-spacing:-
   <div class="poster ${aspectClass}">
     ${posterContent}
   </div>
-  <p class="watch">Watch — preview available in the ${escapeHtml(tenantBrand.displayName)} app</p>
+  <p class="watch">Watch — preview available in the ${escapeHtml(brand.displayName)} app</p>
 </div>
 </body>
 </html>`;
@@ -223,20 +224,23 @@ h1.vid-title{font-size:1.75rem;font-weight:700;line-height:1.25;letter-spacing:-
 export async function renderPublicVideoHtml(
   url: string,
 ): Promise<{ html: string; status: number }> {
+  // Resolve live tenant brand (30s cache; falls back to DEFAULT_TENANT_BRAND on error).
+  const tenantBrand = await getTenantBrand();
+
   // Strip the /v/ prefix + decode URI component to get the slug/id
   const pathname = url.split("?")[0];
   const slugOrId = decodeURIComponent(pathname.replace(/^\/v\//, ""));
 
   if (!slugOrId) {
-    return { html: notFoundPage(), status: 404 };
+    return { html: notFoundPage(tenantBrand), status: 404 };
   }
 
   const comp = await getPublishedCompositionBySlugOrId(slugOrId);
   if (!comp) {
-    return { html: notFoundPage(), status: 404 };
+    return { html: notFoundPage(tenantBrand), status: 404 };
   }
 
-  return { html: renderVideoPage(comp), status: 200 };
+  return { html: renderVideoPage(comp, tenantBrand), status: 200 };
 }
 
 // ─── H3 handler wrapper ───────────────────────────────────────────────────────

@@ -22,7 +22,8 @@ import { getMethod, getRequestURL, type H3Event } from "h3";
 import { eq } from "drizzle-orm";
 import { getDb, schema } from "../db/index.js";
 import { sanitizeContentHtml } from "./sanitize-html.js";
-import { tenantBrand } from "./tenant-brand.js";
+import { getTenantBrand } from "./tenant-brand-resolver.js";
+import type { TenantBrand } from "./tenant-brand.js";
 
 // ─── In-memory cache (60s TTL) ───────────────────────────────────────────────
 
@@ -94,7 +95,7 @@ function escapeHtml(value: unknown): string {
 
 // ─── 404 page ────────────────────────────────────────────────────────────────
 
-function notFoundPage(): string {
+function notFoundPage(brand: TenantBrand): string {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -103,10 +104,10 @@ function notFoundPage(): string {
 <title>Page not found</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="${tenantBrand.googleFontsHref}" rel="stylesheet">
+<link href="${brand.googleFontsHref}" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-html{font-family:${tenantBrand.fontFamily}}
+html{font-family:${brand.fontFamily}}
 body{background:#fff;color:#111;min-height:100vh;-webkit-font-smoothing:antialiased;display:flex;align-items:center;justify-content:center;padding:32px 16px}
 .not-found{text-align:center}
 .not-found h1{font-size:1.5rem;font-weight:600;margin-bottom:8px}
@@ -124,7 +125,7 @@ body{background:#fff;color:#111;min-height:100vh;-webkit-font-smoothing:antialia
 
 // ─── Content page renderer ────────────────────────────────────────────────────
 
-function renderContentPage(doc: ContentDoc): string {
+function renderContentPage(doc: ContentDoc, brand: TenantBrand): string {
   // Generate a plain-text excerpt for the meta description (strip tags, truncate)
   const plainBody = doc.body.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
   const description = plainBody.slice(0, 160);
@@ -140,10 +141,10 @@ function renderContentPage(doc: ContentDoc): string {
 ${description ? `<meta name="description" content="${escapeHtml(description)}">` : ""}
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="${tenantBrand.googleFontsHref}" rel="stylesheet">
+<link href="${brand.googleFontsHref}" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-html{font-family:${tenantBrand.fontFamily};font-feature-settings:"cv02","cv03","cv04","cv11"}
+html{font-family:${brand.fontFamily};font-feature-settings:"cv02","cv03","cv04","cv11"}
 body{background:#fff;color:#111;min-height:100vh;-webkit-font-smoothing:antialiased}
 .page{max-width:720px;margin:0 auto;padding:48px 24px 96px}
 h1.doc-title{font-size:2rem;font-weight:700;line-height:1.2;letter-spacing:-0.02em;margin-bottom:24px;color:#0f172a}
@@ -182,20 +183,23 @@ h1.doc-title{font-size:2rem;font-weight:700;line-height:1.2;letter-spacing:-0.02
 export async function renderPublicContentHtml(
   url: string,
 ): Promise<{ html: string; status: number }> {
+  // Resolve live tenant brand (30s cache; falls back to DEFAULT_TENANT_BRAND on error).
+  const tenantBrand = await getTenantBrand();
+
   // Strip the /c/ prefix + decode URI component to get the slug/id
   const pathname = url.split("?")[0];
   const slugOrId = decodeURIComponent(pathname.replace(/^\/c\//, ""));
 
   if (!slugOrId) {
-    return { html: notFoundPage(), status: 404 };
+    return { html: notFoundPage(tenantBrand), status: 404 };
   }
 
   const doc = await getPublishedDocBySlugOrId(slugOrId);
   if (!doc) {
-    return { html: notFoundPage(), status: 404 };
+    return { html: notFoundPage(tenantBrand), status: 404 };
   }
 
-  return { html: renderContentPage(doc), status: 200 };
+  return { html: renderContentPage(doc, tenantBrand), status: 200 };
 }
 
 // ─── H3 handler wrapper ───────────────────────────────────────────────────────

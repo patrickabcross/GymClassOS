@@ -1,15 +1,20 @@
 /**
- * PER-DEPLOY tenant brand (customer-facing surfaces).
+ * PER-DEPLOY tenant brand DEFAULTS (customer-facing surfaces).
  *
- * Sourced from doyouhustle.co.uk (HUSTLE gym, first RunStudio customer).
- * The next gym swaps these VALUES — one file. Automated brand fetch is
- * deferred to gym #2 (see SESSION-2026-06-22-brand-restyle-handoff.md).
+ * This module is the FALLBACK / DEFAULT only. Live values come from the
+ * "brand-styling" Studio Brain doc via tenant-brand-resolver.ts.
+ * Editing that Brain doc (via /gymos/brain → Brand & Styling card) re-themes
+ * all 5 public SSR surfaces within ~30s without a redeploy.
+ *
+ * Until the brand-styling doc is first edited, behavior is UNCHANGED —
+ * DEFAULT_TENANT_BRAND is seeded into the doc on first Brain init.
  *
  * Owner-facing /gymos chrome is a SEPARATE RunStudio-brand track —
  * do NOT use tenantBrand there.
  *
- * Pure module — no DB, no side-effects, no async, safe to import anywhere in
- * server/lib (Nitro bundling rule: helper files belong here, never server/plugins).
+ * Pure module — no DB, no side-effects, no async, safe to import anywhere
+ * including client bundles (Nitro bundling rule: helper files in server/lib,
+ * never server/plugins; this file must NEVER import DB modules).
  */
 
 export interface TenantBrand {
@@ -41,10 +46,15 @@ export interface TenantBrand {
 }
 
 /**
- * HUSTLE brand tokens — locked with user 2026-06-22.
- * To deploy for a new gym: swap these values and redeploy.
+ * HUSTLE brand defaults — locked with user 2026-06-22.
+ * These are the fallback values used when the brand-styling Brain doc is
+ * absent or malformed. The resolver (tenant-brand-resolver.ts) deep-merges
+ * the DB doc over these defaults per-field, so a partial doc is safe.
+ *
+ * To onboard a new gym: update the brand-styling Brain doc via /gymos/brain,
+ * or change these defaults and redeploy (one file).
  */
-export const tenantBrand: TenantBrand = {
+export const DEFAULT_TENANT_BRAND: TenantBrand = {
   displayName: "Hustle",
   fontFamily: '"Poppins", system-ui, -apple-system, sans-serif',
   googleFontsHref:
@@ -59,3 +69,10 @@ export const tenantBrand: TenantBrand = {
   logoUrl:
     "https://static1.squarespace.com/static/5df9f5e185a8b572c107b1bd/t/5e088d17e3302c0f49c11808/1577618712599/Hustle+Logo+black.png",
 };
+
+/**
+ * Back-compat alias — the 5 SSR renderers have been re-pointed to
+ * getTenantBrand() from tenant-brand-resolver.ts, but this alias ensures
+ * any stray import of `tenantBrand` still compiles and returns the defaults.
+ */
+export const tenantBrand: TenantBrand = DEFAULT_TENANT_BRAND;

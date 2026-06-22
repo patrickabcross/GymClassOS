@@ -14,6 +14,7 @@ import { eq } from "drizzle-orm";
 // Re-export pure helper so callers can do: import { buildCatalogBody } from "./brain-init.js"
 export { buildCatalogBody } from "./brain-init-helpers.js";
 import { buildCatalogBody } from "./brain-init-helpers.js";
+import { DEFAULT_TENANT_BRAND } from "../server/lib/tenant-brand.js";
 
 export default defineAction({
   description:
@@ -87,6 +88,21 @@ export default defineAction({
         docType: "ethos",
         title: "Studio Ethos",
         body: "",
+        createdAt: nowIso,
+        updatedAt: nowIso,
+      })
+      .onConflictDoNothing();
+
+    // Ensure brand-styling row exists seeded from DEFAULT_TENANT_BRAND.
+    // onConflictDoNothing preserves any edits the operator has already made.
+    // guard:allow-unscoped — studio-global single-tenant Brain
+    await db
+      .insert(schema.studioBrainDocs)
+      .values({
+        id: "brand-styling",
+        docType: "brand-styling",
+        title: "Brand & Styling",
+        body: JSON.stringify(DEFAULT_TENANT_BRAND),
         createdAt: nowIso,
         updatedAt: nowIso,
       })

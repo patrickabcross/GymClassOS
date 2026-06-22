@@ -24,7 +24,7 @@ import { getRequestURL, type H3Event } from "h3";
 import { and, eq, gte } from "drizzle-orm";
 import { getDb, schema } from "../../../server/db/index.js";
 import { sanitizeHexColor, sanitizeIntPx } from "./public-form-ssr.js";
-import { tenantBrand } from "../../../server/lib/tenant-brand.js";
+import { getTenantBrand } from "../../../server/lib/tenant-brand-resolver.js";
 
 // ---------------------------------------------------------------------------
 // Schedule query
@@ -219,6 +219,7 @@ function renderPage(
   classes: ClassRow[],
   accent: string,
   radius: number,
+  brand: import("../../../server/lib/tenant-brand.js").TenantBrand,
 ): string {
   const scheduleHtml = renderSchedule(classes);
 
@@ -231,14 +232,14 @@ function renderPage(
 <meta name="description" content="Browse upcoming classes and enquire to book your spot.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="${tenantBrand.googleFontsHref}" rel="stylesheet">
+<link href="${brand.googleFontsHref}" rel="stylesheet">
 <style>
   :root {
     --gym-accent: ${accent};
     --studio-accent: ${accent};
     --gym-radius: ${radius}px;
   }
-  ${CSS()}
+  ${CSS(brand)}
 </style>
 </head>
 <body>
@@ -386,7 +387,7 @@ function renderPage(
 // CSS
 // ---------------------------------------------------------------------------
 
-function CSS() {
+function CSS(brand: import("../../../server/lib/tenant-brand.js").TenantBrand) {
   return `
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 
@@ -407,7 +408,7 @@ function CSS() {
   --ring:0 0% 60%;
 }
 
-html{font-family:${tenantBrand.fontFamily};font-feature-settings:"cv02","cv03","cv04","cv11"}
+html{font-family:${brand.fontFamily};font-feature-settings:"cv02","cv03","cv04","cv11"}
 body{background:hsl(var(--bg));color:hsl(var(--fg));-webkit-font-smoothing:antialiased}
 
 .page{padding:24px 16px 48px}
@@ -437,7 +438,7 @@ body{background:hsl(var(--bg));color:hsl(var(--fg));-webkit-font-smoothing:antia
 .enquire-btn{
   display:inline-flex;align-items:center;
   padding:7px 18px;font-size:0.8125rem;font-weight:500;font-family:inherit;
-  background:var(--accent-color);color:${tenantBrand.primaryText}; /* guard:allow-color — embed widget dark text on tenant primary CTA; no CSS var available in injected iframe context */
+  background:var(--accent-color);color:${brand.primaryText}; /* guard:allow-color — embed widget dark text on tenant primary CTA; no CSS var available in injected iframe context */
   border:none;border-radius:var(--radius);cursor:pointer;
   transition:opacity 0.15s;
 }
@@ -466,7 +467,7 @@ body{background:hsl(var(--bg));color:hsl(var(--fg));-webkit-font-smoothing:antia
 .enq-actions{display:flex;gap:8px;margin-top:4px}
 .submit-btn{
   padding:8px 20px;font-size:0.8125rem;font-weight:500;font-family:inherit;
-  background:var(--accent-color);color:${tenantBrand.primaryText}; /* guard:allow-color — embed widget dark text on tenant primary CTA; no CSS var available in injected iframe context */
+  background:var(--accent-color);color:${brand.primaryText}; /* guard:allow-color — embed widget dark text on tenant primary CTA; no CSS var available in injected iframe context */
   border:none;border-radius:var(--radius);cursor:pointer;
 }
 .submit-btn:hover{opacity:0.85}
@@ -512,6 +513,9 @@ body{background:hsl(var(--bg));color:hsl(var(--fg));-webkit-font-smoothing:antia
 export async function renderScheduleWidget(event: H3Event): Promise<Response> {
   const reqUrl = getRequestURL(event);
 
+  // Resolve live tenant brand (30s cache; falls back to DEFAULT_TENANT_BRAND on error).
+  const tenantBrand = await getTenantBrand();
+
   // Read + sanitize URL-param theming (RESEARCH Pitfall 5 — prevents CSS injection).
   // When the param is absent, fall back to tenant brand defaults rather than #000000
   // (sanitizeHexColor returns "#000000" sentinel for missing/invalid params —
@@ -524,7 +528,7 @@ export async function renderScheduleWidget(event: H3Event): Promise<Response> {
   // Fetch upcoming classes from Neon
   const classes = await getUpcomingClasses();
 
-  const html = renderPage(classes, accent, radius);
+  const html = renderPage(classes, accent, radius, tenantBrand);
 
   return new Response(html, {
     status: 200,
