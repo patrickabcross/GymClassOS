@@ -151,16 +151,29 @@ export async function sendMessage(
       // use the real approved-template send (Meta policy). If the in-window
       // render comes back null/empty we fall back to the template send — we
       // never send empty text (MYÜTIK's text branch rejects it).
+      // Load the approved template row ONCE: componentsJson for the in-window
+      // body render, AND language for the out-of-window real-template send. The
+      // language code MUST match the language the template was approved under or
+      // Meta rejects with #132001 "Template name does not exist in the
+      // translation" — HUSTLE's templates are approved as "en", not "en_US", so
+      // we must use the synced per-template language, not a hardcoded default.
+      // guard:allow-unscoped — template list is studio-global, not per-user
+      const templateRows = await db
+        .select({
+          componentsJson: schema.whatsappTemplates.componentsJson,
+          language: schema.whatsappTemplates.language,
+        })
+        .from(schema.whatsappTemplates)
+        .where(eq(schema.whatsappTemplates.name, payload.name))
+        .limit(1);
+      const templateRow = templateRows[0];
+
       let renderedBody: string | null = null;
       if (inWindow) {
-        // guard:allow-unscoped — template list is studio-global, not per-user
-        const templateRows = await db
-          .select({ componentsJson: schema.whatsappTemplates.componentsJson })
-          .from(schema.whatsappTemplates)
-          .where(eq(schema.whatsappTemplates.name, payload.name))
-          .limit(1);
-        const componentsJson = templateRows[0]?.componentsJson;
-        renderedBody = renderApprovedTemplateBody(componentsJson, payload.vars);
+        renderedBody = renderApprovedTemplateBody(
+          templateRow?.componentsJson,
+          payload.vars,
+        );
       }
 
       if (renderedBody) {
@@ -193,7 +206,12 @@ export async function sendMessage(
           phoneNumberId,
           to,
           templateName: payload.name,
-          templateLanguage: payload.language ?? "en_US",
+          // Send the template's synced approved language (e.g. "en"); an
+          // explicit payload override wins. NO hardcoded locale default —
+          // MYÜTIK no longer defaults a missing language, and a synced approved
+          // template always carries one. If it is somehow absent we send no
+          // language and let MYÜTIK/Meta surface the error rather than guessing.
+          templateLanguage: payload.language ?? templateRow?.language,
           templateComponents,
         });
         externalId = result.wamid;

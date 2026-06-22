@@ -56,7 +56,7 @@ vi.mock("../lib/db.js", () => ({
     gymMembers: { id: {}, phoneE164: {} },
     conversations: { memberId: {}, channel: {}, id: {} },
     messages: { id: {} },
-    whatsappTemplates: { name: {}, componentsJson: {} },
+    whatsappTemplates: { name: {}, componentsJson: {}, language: {} },
   },
 }));
 
@@ -111,11 +111,13 @@ describe("sendMessage chokepoint (D-10)", () => {
     expect(sendViaMyutik).not.toHaveBeenCalled();
   });
 
-  it("sends the REAL template OUTSIDE window — window CLOSED (WA-06 + WA-08)", async () => {
+  it("sends the REAL template OUTSIDE window with the template's SYNCED language (WA-06 + WA-08)", async () => {
     hasOptIn.mockResolvedValueOnce(true);
     selectChain.limit
       .mockResolvedValueOnce([{ id: "mem_1", phoneE164: "+447700900000" }])
-      .mockResolvedValueOnce([{ id: "conv_1", lastInboundAt: null }]);
+      .mockResolvedValueOnce([{ id: "conv_1", lastInboundAt: null }])
+      // template row — approved as "en", NOT "en_US" (HUSTLE reality).
+      .mockResolvedValueOnce([{ componentsJson: null, language: "en" }]);
     isTemplateApproved.mockResolvedValueOnce(true);
     // Window CLOSED → real approved-template send (Meta policy).
     isInWindow.mockReturnValueOnce(false);
@@ -132,13 +134,14 @@ describe("sendMessage chokepoint (D-10)", () => {
       db: mockDb as any,
     });
     expect(result.externalId).toBe("wamid_sent_abc");
-    // MYÜTIK receives template fields with a single body component (ordered params)
+    // MYÜTIK receives template fields with the SYNCED language ("en") — never a
+    // hardcoded en_US (that mismatch is Meta error #132001).
     expect(sendViaMyutik).toHaveBeenCalledWith({
       apiKey: "myutik_test_key",
       phoneNumberId: "302631896256150",
       to: "+447700900000",
       templateName: "class_reminder",
-      templateLanguage: "en_US",
+      templateLanguage: "en",
       templateComponents: [
         { type: "body", parameters: [{ type: "text", text: "Yoga" }] },
       ],
@@ -206,7 +209,7 @@ describe("sendMessage chokepoint (D-10)", () => {
         { id: "conv_1", lastInboundAt: new Date().toISOString() },
       ])
       // template row present but renderApprovedTemplateBody returns null below
-      .mockResolvedValueOnce([{ componentsJson: "not-json" }]);
+      .mockResolvedValueOnce([{ componentsJson: "not-json", language: "en" }]);
     isTemplateApproved.mockResolvedValueOnce(true);
     isInWindow.mockReturnValueOnce(true);
     renderApprovedTemplateBody.mockReturnValueOnce(null);
@@ -229,7 +232,7 @@ describe("sendMessage chokepoint (D-10)", () => {
       phoneNumberId: "302631896256150",
       to: "+447700900000",
       templateName: "class_reminder",
-      templateLanguage: "en_US",
+      templateLanguage: "en",
       templateComponents: [
         { type: "body", parameters: [{ type: "text", text: "Yoga" }] },
       ],
