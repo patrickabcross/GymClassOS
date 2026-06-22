@@ -115,6 +115,8 @@ import { isEnvVarWriteAllowed } from "./env-var-writes.js";
 // mounted on the alternate router. See env-vars-fallback.ts for the
 // full rationale (mirrors the route in create-server.ts).
 import { writeEnvVarsAsAppSecrets } from "./env-vars-fallback.js";
+// GymClassOS fork: studio-global presence reader for env-status (see Task 2 below).
+import { appSecretExistsByKey } from "../secrets/storage.js";
 import { llmConnectionTrackingProperties } from "../shared/llm-connection.js";
 import { mountBrowserSessionRoutes } from "../browser-sessions/routes.js";
 
@@ -1701,17 +1703,26 @@ export function createCoreRoutesPlugin(
             () => canUseDeployCredentialFallbackForRequest(),
           );
 
-          return envKeys.map((cfg) => {
-            const isProviderKey = PROVIDER_ENV_VAR_KEYS.has(cfg.key);
-            return {
-              key: cfg.key,
-              label: cfg.label,
-              required: cfg.required ?? false,
-              configured:
-                !!process.env[cfg.key] && (!isProviderKey || canUseDeployEnv),
-              ...(cfg.helpText ? { helpText: cfg.helpText } : {}),
-            };
-          });
+          // GymClassOS fork: OR in app_secrets presence so keys saved via the
+          // settings page (not process.env) are reported as configured.
+          // Short-circuit: skip the DB call when env already has the value.
+          return await Promise.all(
+            envKeys.map(async (cfg) => {
+              const isProviderKey = PROVIDER_ENV_VAR_KEYS.has(cfg.key);
+              const inEnv = !!process.env[cfg.key];
+              const inAppSecrets = inEnv
+                ? false
+                : await appSecretExistsByKey(cfg.key);
+              const present = inEnv || inAppSecrets;
+              return {
+                key: cfg.key,
+                label: cfg.label,
+                required: cfg.required ?? false,
+                configured: present && (!isProviderKey || canUseDeployEnv),
+                ...(cfg.helpText ? { helpText: cfg.helpText } : {}),
+              };
+            }),
+          );
         }),
       );
 

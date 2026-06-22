@@ -348,6 +348,26 @@ export async function listAppSecretsForScope(
   });
 }
 
+/**
+ * Presence check: does an `app_secrets` row exist for this key, in ANY scope?
+ *
+ * Studio-global by design — one Neon DB per studio (single-tenant code,
+ * multi-tenant deploy), so a key saved by any staff login counts as
+ * configured for the whole studio. Mirrors the runtime `readAppSecretByKey`
+ * resolution used by senders/workers. Presence-only: never decrypts or
+ * returns the value, so it's safe to call from a status endpoint.
+ */
+export async function appSecretExistsByKey(key: string): Promise<boolean> {
+  if (!key) return false;
+  await ensureTable();
+  const client = getDbExec();
+  const { rows } = await client.execute({
+    sql: `SELECT 1 FROM app_secrets WHERE key = ? LIMIT 1`,
+    args: [key],
+  });
+  return rows.length > 0;
+}
+
 function parseAllowlist(raw: string | null): string[] | null {
   if (!raw) return null;
   try {
