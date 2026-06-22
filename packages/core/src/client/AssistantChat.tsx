@@ -3234,6 +3234,8 @@ export interface AssistantChatProps {
   onEffortChange?: (effort: ReasoningEffort) => void;
   /** Callback when user clicks "Fork Chat" in the message actions menu */
   onForkChat?: () => void | boolean | Promise<void | boolean>;
+  /** Show operator-only chrome — the composer model picker. Default: true. When false, the model selector is hidden (server falls back to the App Default Model) and the Act mode picker stays visible. Mirrors PromptComposer showModelSelector=false. */
+  showOperatorChrome?: boolean;
 }
 
 export const CHAT_STORAGE_PREFIX = "agent-chat:";
@@ -3320,6 +3322,7 @@ const AssistantChatInner = forwardRef<
     onModelChange,
     onEffortChange,
     onForkChat,
+    showOperatorChrome = true,
   },
   ref,
 ) {
@@ -4883,11 +4886,17 @@ const AssistantChatInner = forwardRef<
                 onExecModeChange={onExecModeChange}
                 planModeDisabled={planModeDisabled}
                 planModeDisabledReason={planModeDisabledReason}
-                selectedModel={selectedModel ?? defaultModel}
-                selectedEffort={selectedEffort}
-                availableModels={availableModels}
-                onModelChange={onModelChange}
-                onEffortChange={onEffortChange}
+                selectedModel={
+                  showOperatorChrome
+                    ? (selectedModel ?? defaultModel)
+                    : undefined
+                }
+                selectedEffort={showOperatorChrome ? selectedEffort : undefined}
+                availableModels={
+                  showOperatorChrome ? availableModels : undefined
+                }
+                onModelChange={showOperatorChrome ? onModelChange : undefined}
+                onEffortChange={showOperatorChrome ? onEffortChange : undefined}
                 draftScope={threadId || tabId}
                 interceptBuildRequestsForBuilder
                 extraActionButton={
