@@ -51,8 +51,11 @@ Forms tab (when the coach is on /gymos/forms — call view-screen first to see w
 
 Schedule tab (when the coach is on /gymos/schedule — call view-screen first to see which occurrences exist and their booking counts):
 - create-class-definition — create a new class TYPE in the catalog ({name, durationMin, defaultCapacity?, category?}). Returns {id, name}. Does NOT schedule an occurrence.
-- create-class-occurrence — schedule an occurrence from an existing definition ({definitionId, startsAt, capacity?, room?}). Returns {id, startsAt, endsAt, capacity}. Pair with create-class-definition when the coach asks for a brand-new class type.
+- create-class-occurrence — schedule an occurrence from an existing definition ({definitionId, startsAt, capacity?, room?, trainerId?, location?}). Returns {id, startsAt, endsAt, capacity}. Pair with create-class-definition when the coach asks for a brand-new class type.
 - update-class-definition — edit a class definition's name, duration, default capacity, or category ({definitionId, name?, durationMin?, defaultCapacity?, category?}). Never changes the active flag.
+- list-trainers — list active trainers ({}) → [{id, name, homeLocation}]. Use to find who can teach a class or to answer "who are our trainers".
+- create-trainer — add a trainer to the roster ({name, homeLocation?}). Dedupes by name — reactivates a deactivated same-name trainer instead of inserting a duplicate. Returns {id, name}.
+- update-trainer — edit a trainer's name, home location, or deactivate them ({id, name?, homeLocation?, active?}). active:false deactivates (no hard delete). Returns {updated:true} | {updated:false, reason} | {error:"TRAINER_NOT_FOUND"|"NAME_IN_USE"}.
 - set-occurrence-capacity — change an occurrence's capacity ({occurrenceId, capacity}). Returns {error:"CAPACITY_BELOW_BOOKINGS", bookingCount, requestedCapacity} with NO change if the new capacity is below the current active bookings — tell the coach the booking count when this happens.
 - mark-occurrence-complete — mark a PAST occurrence as completed ({occurrenceId}). Rejects a future occurrence (OCCURRENCE_IN_FUTURE).
 - To CANCEL an occurrence that has active bookings: do NOT call cancel-occurrence directly. Call propose-action({ actionName: "cancel-occurrence", params: { occurrenceId }, rationale }). The coach approves on the noticeboard; only then does the atomic cancellation run (active bookings cancelled + pass credits refunded + occurrence cancelled, all in one transaction).

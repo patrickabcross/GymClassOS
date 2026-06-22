@@ -26,6 +26,7 @@ export default defineAction({
   description:
     "Schedule a class occurrence from an existing class definition. " +
     "Resolves the definition for default capacity + duration; computes endsAt = startsAt + durationMin. " +
+    "Accepts optional trainerId (from list-trainers) and location (e.g. Norwich/Wymondham). " +
     "Returns { id, startsAt, endsAt, capacity }.",
   schema: z.object({
     definitionId: z.string().min(1),
@@ -37,6 +38,9 @@ export default defineAction({
     room: z.string().max(120).optional(),
     instructorUserId: z.string().optional(),
     notes: z.string().max(2000).optional(),
+    // LP3: optional trainer + location fields
+    trainerId: z.string().optional(),
+    location: z.string().max(120).optional(),
   }),
   http: { method: "POST" },
   run: async (input) => {
@@ -88,6 +92,9 @@ export default defineAction({
       room: input.room ?? null,
       notes: input.notes ?? null,
       status: "scheduled",
+      // LP3: optional trainer + location columns (v24/v25)
+      trainerId: input.trainerId ?? null,
+      location: input.location ?? null,
       createdAt: now,
     });
 
