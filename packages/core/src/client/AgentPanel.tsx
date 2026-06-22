@@ -379,6 +379,8 @@ export interface AgentPanelProps extends Omit<
   chatNotice?: React.ReactNode;
   /** Capability gate for source edits and CLI access. */
   codeAccess?: AgentPanelCodeAccess;
+  /** Show the settings gear in the mode switcher. Default: true. Set false to hide framework settings (e.g. white-labelled deploys gating operator-only access). */
+  showSettingsGear?: boolean;
 }
 
 function useClientOnly() {
@@ -490,6 +492,7 @@ function AgentPanelInner({
   browserTabId,
   chatNotice,
   codeAccess,
+  showSettingsGear = true,
 }: AgentPanelProps) {
   const mounted = useClientOnly();
   const keyPrefix = storageKey ? `:${storageKey}` : "";
@@ -534,7 +537,7 @@ function AgentPanelInner({
         saved === "chat" ||
         saved === "cli" ||
         saved === "resources" ||
-        saved === "settings"
+        (saved === "settings" && showSettingsGear)
       )
         return saved;
     } catch {}
@@ -574,6 +577,9 @@ function AgentPanelInner({
   // Open settings tab when requested (replaces the old popover open event)
   useEffect(() => {
     function handleOpenSettings(event: Event) {
+      // When the gear is hidden (non-operator deploy), block the back door
+      // so the custom event cannot force settings mode either.
+      if (!showSettingsGear) return;
       const section = (event as CustomEvent<{ section?: string }>).detail
         ?.section;
       setSettingsSection((prev) => ({
@@ -588,7 +594,7 @@ function AgentPanelInner({
         "agent-panel:open-settings",
         handleOpenSettings,
       );
-  }, [switchMode]);
+  }, [switchMode, showSettingsGear]);
 
   // CLI terminal tabs (ephemeral — not persisted to SQL)
   const [cliTabs, setCliTabs] = useState<string[]>(["cli-1"]);
@@ -791,27 +797,29 @@ function AgentPanelInner({
               Workspace files, agents, skills, and tasks
             </TooltipContent>
           </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                onClick={() => switchMode("settings")}
-                aria-label="Setup and configuration"
-                className={cn(
-                  "flex items-center justify-center rounded-md px-1.5 py-1",
-                  activeMode === "settings"
-                    ? "bg-accent text-foreground"
-                    : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
-                )}
-              >
-                <IconSettings size={14} />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent>Setup and configuration</TooltipContent>
-          </Tooltip>
+          {showSettingsGear && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => switchMode("settings")}
+                  aria-label="Setup and configuration"
+                  className={cn(
+                    "flex items-center justify-center rounded-md px-1.5 py-1",
+                    activeMode === "settings"
+                      ? "bg-accent text-foreground"
+                      : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
+                  )}
+                >
+                  <IconSettings size={14} />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>Setup and configuration</TooltipContent>
+            </Tooltip>
+          )}
         </div>
       </TooltipProvider>
     ),
-    [codeAccessEnabled, codeUnavailableDescription, showCliMode],
+    [codeAccessEnabled, codeUnavailableDescription, showCliMode, showSettingsGear],
   );
 
   const renderHeaderActions = useCallback(
@@ -1981,6 +1989,8 @@ export interface AgentSidebarProps {
   scope?: import("./use-chat-threads.js").ChatThreadScope | null;
   /** Stable browser tab id used for tab-scoped app-state context. */
   browserTabId?: string;
+  /** Show the settings gear in the agent-chat mode switcher. Default: true (upstream behavior). Set false to hide framework settings for white-labelled deploys. */
+  showSettingsGear?: boolean;
 }
 
 /**
@@ -1998,6 +2008,7 @@ export function AgentSidebar({
   animateMobile = false,
   scope,
   browserTabId,
+  showSettingsGear,
 }: AgentSidebarProps) {
   const initialWidth = defaultSidebarWidth ?? sidebarWidth ?? 380;
   const [open, setOpen] = useState(() =>
@@ -2360,6 +2371,7 @@ export function AgentSidebar({
           onToggleFullscreen={isMobile ? undefined : toggleFullscreen}
           scope={scope}
           browserTabId={browserTabId}
+          showSettingsGear={showSettingsGear}
         />
       </div>
       {showResizeHandle && isLeft && (
