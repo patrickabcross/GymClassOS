@@ -1,5 +1,11 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
-import { Link, useNavigate, useLocation, useSearchParams, useRouteLoaderData } from "react-router";
+import {
+  Link,
+  useNavigate,
+  useLocation,
+  useSearchParams,
+  useRouteLoaderData,
+} from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { CommandPalette } from "./CommandPalette";
@@ -126,16 +132,16 @@ export function AppLayout({ children }: AppLayoutProps) {
   const location = useLocation();
   const isMobile = useIsMobile();
   // Operator gating: compute before any early returns so hooks are never
-  // called conditionally. isOperator gates the settings gear in the gymos
-  // AgentSidebar — gym admins/coaches never see the framework infra settings.
+  // called conditionally. isOperator gates operator chrome (settings, Workspace,
+  // Feedback, model picker) in the gymos AgentSidebar — gym admins/coaches never
+  // see the framework infra chrome.
   const { session } = useSession();
   const rootData = useRouteLoaderData("root") as
     | { operatorEmails?: string[] }
     | undefined;
   const operatorEmails = rootData?.operatorEmails ?? [];
   const isOperator =
-    !!session?.email &&
-    operatorEmails.includes(session.email.toLowerCase());
+    !!session?.email && operatorEmails.includes(session.email.toLowerCase());
 
   if (BARE_ROUTES.has(location.pathname)) {
     return <>{children}</>;
@@ -167,7 +173,7 @@ export function AppLayout({ children }: AppLayoutProps) {
             "Which classes haven't been filled in the last week?",
             "Which customers should I reach out to?",
           ]}
-          showSettingsGear={isOperator}
+          showOperatorChrome={isOperator}
         >
           {children}
         </AgentSidebar>
