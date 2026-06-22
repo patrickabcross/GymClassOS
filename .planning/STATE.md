@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: — Content & Video Studio
 status: CV1-CV4 built + committed on master. Full staff-web `tsc` clean (0 errors), 115/115 unit tests pass. **NOT deployed** — production push held for explicit user go-ahead (autonomous run pre-approved build only). CV-RENDER remains gated.
-stopped_at: Completed quick-260622-mpv (Phase 2 — recurring classes engine)
+stopped_at: Phase 2 recurring classes DONE + deployed (Vercel + Fly v21); WhatsApp/Forms fixes shipped. NEXT: Phase 3 + tracking setup
 last_updated: "2026-06-22T15:54:48.508Z"
 last_activity: "2026-06-22 — Quick task 260622-e4a: revert SettingsPanel trim, gate operator gear, AGENT_NATIVE_SINGLE_TENANT flag, env-status fix"
 progress:
@@ -33,7 +33,7 @@ Milestone: v2.1 — Content & Video Studio (staff-web)
 Phase: CV4 — Publish pipeline (complete) — ALL 4 active phases built
 Plan: —
 Status: CV1-CV4 built + committed on master. Full staff-web `tsc` clean (0 errors), 115/115 unit tests pass. **NOT deployed** — production push held for explicit user go-ahead (autonomous run pre-approved build only). CV-RENDER remains gated.
-Last activity: 2026-06-22 — Quick task 260622-mpv: Phase 2 recurring classes engine (schedule rules + DST generator + nightly materialiser + actions + Repeat-weekly & series-cancel UI)
+Last activity: 2026-06-22 — Phase 2 recurring classes (quick 260622-mpv) DONE + DEPLOYED (Vercel + Fly v21, class-materialize cron live). Plus shipped+deployed: WhatsApp template-language fix (en, commit 32abd6cd), editable Forms submit button (14501fd1), conversational template auto-fill (6cfff666). OPEN: WhatsApp "text is required" window-divergence (waiting on MYÜTIK); 5 terminal failed message rows to re-enqueue later. NEXT: Phase 3 (populate HUSTLE timetable) + tracking setup.
 
 > **Open tails from prior milestones:** v2.0 live UAT (BD1–BD4 `*-HUMAN-UAT.md`) deferred-on-external-dependency. v1.2 Agentic Tab Editing live UAT pending (AE1–AE3 deployed). v1.0 Production + Mobile Demo (AE4) remain tracked.
 
@@ -164,7 +164,7 @@ Last activity: 2026-06-22 — Quick task 260622-mpv: Phase 2 recurring classes e
 ## Session Continuity
 
 Last session: 2026-06-22T15:54:48.499Z
-Stopped at: Completed quick-260622-mpv (Phase 2 — recurring classes engine)
+Stopped at: Phase 2 recurring classes DONE + deployed (Vercel + Fly v21); WhatsApp/Forms fixes shipped. NEXT: Phase 3 + tracking setup
 Resume file: None
 
 Prior session: 2026-06-20T10:22:33.153Z — Completed CV4-publish-pipeline CV4-01-PLAN.md

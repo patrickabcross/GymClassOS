@@ -1,6 +1,20 @@
-# WhatsApp Send/Receive — Handoff (updated 2026-06-15 EOD)
+# WhatsApp Send/Receive — Handoff (updated 2026-06-22)
 
 **Goal:** send AND receive WhatsApp messages in the GymClassOS `/gymos` inbox.
+
+---
+
+## 2026-06-22 — TEMPLATE-LANGUAGE FIX SHIPPED (Fly v21); "text is required" window-divergence OPEN (waiting on MYÜTIK)
+
+**TL;DR:** Template sends were failing with Meta `#132001`. Root cause: we sent `templateLanguage:"en_US"` but every approved HUSTLE template is approved as **`en`**. Fixed + deployed. A second, older failure (`400 "text is required"`) is the known window-divergence and is **waiting on a MYÜTIK-side change**.
+
+**Two distinct failures in `messages.error_code`:**
+1. **`#132001 "Template name does not exist in the translation"`** (today's blocker). The worker hardcoded `templateLanguage:"en_US"`, but all 4 approved templates (`form_response`, `bobby_harrison_beginner_friendly_nudge_v1`, `bobby_harrison_curiosity_checkin_v1`, `bobby_harrison_trial_reminder_v1`) are language **`en`** (confirmed in `whatsapp_templates.language`). **FIXED (commit `32abd6cd`, deployed Fly v21):** `services/worker/src/domain/sendMessage.ts` out-of-window template branch now reads the synced `whatsapp_templates.language` and sends it — precedence `payload.language ?? templateRow.language` (NO hardcoded locale; repeatable per client). Sending `en` is correct regardless of the MYÜTIK change below.
+2. **`400 "text is required for free-form messages"`** (OPEN). The window-driven contract biting: the worker decides text-vs-template from **our** `conversations.last_inbound_at` (fed by inbound webhooks); when that's stale (>24h) the worker sends a TEMPLATE but MYÜTIK sees the contact's window OPEN and demands `text`. Proven by a failed row whose `last_inbound_at` was 7 days old. **User is fixing the MYÜTIK side (removing its own `en_US` default + window handling).** Worker-side options if needed: A) send BOTH rendered text + template fields and let MYÜTIK pick (cleanest); B) catch the 400 and retry as rendered text; C) make MYÜTIK the window authority.
+
+**Deploy reality re-confirmed (the thing that bit us):** `git push` deploys **Vercel only**. The Fly worker was stuck on **v20 (Jun 15)** the whole time — the language fix + the Phase 2 recurrence materialiser only went live after a manual `fly deploy --config services/edge-webhooks/fly.toml --dockerfile Dockerfile --remote-only` (→ **v21**, all 3 machines healthy; `class-materialize` cron registered in `pgboss.schedule`).
+
+**Parked:** the **5 historical `failed` `messages` rows are terminal** (no auto-retry). Once MYÜTIK's side lands, re-enqueue the ones still worth sending.
 
 ---
 

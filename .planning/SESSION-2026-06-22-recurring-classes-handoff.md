@@ -1,6 +1,9 @@
-# Handoff — Recurring classes + staff/trainers (Phases 2-3 NEXT)
+# Handoff — Recurring classes + staff/trainers (Phase 2 DONE; Phase 3 NEXT)
 
-Date 2026-06-22. Read this first on resume, then build Phase 2 via GSD.
+Date 2026-06-22. Phase 1 + **Phase 2 are DONE and DEPLOYED**. Resume at **Phase 3 (populate HUSTLE's timetable)**.
+
+> **STATUS 2026-06-22 — Phase 2 DONE (quick `260622-mpv`, merge `b2fcb2d7` + gap-fix `958e2782`), DEPLOYED.**
+> Shipped: migrations **v27–v30** (`class_schedule_rules` + `class_occurrences.rule_id` + partial unique idx + active idx — confirmed applied in `gymos-demo`), DST-correct Europe/London generator (Intl-based, zero-dep; duplicated in `apps/staff-web/server/lib/recurrence-generator.ts` + `services/worker/src/domain/recurrence-generator.ts`; 5 TDD cases prove BST 17:00Z vs GMT 18:00Z), nightly **`class-materialize`** worker cron (registered in `pgboss.schedule`, `0 4 * * *` **UTC** — executor used UTC not Europe/London, harmless), three two-exposed actions (`create-schedule-rule` generates the first 8-week window inline; `update-schedule-rule`; `deactivate-schedule-rule` is **booking-safe** — cancels future *unbooked* series occurrences, keeps booked ones), and the **Repeat-weekly** toggle + **Cancel-whole-series** UI on the Schedule. `daysOfWeek` stored as JSON string `"[1,3]"`. Deployed: Vercel (staff-web) auto on push; **Fly worker manually deployed → v21** (git push does NOT deploy the worker). SUMMARY: `.planning/quick/260622-mpv-phase-2-recurring-classes-engine-schedul/260622-mpv-SUMMARY.md`.
 
 ## DONE + DEPLOYED today (master, live on Vercel)
 - **Class catalog** — 21 HUSTLE class types written directly to `gymos-demo` Neon `class_definitions` (active); 3 demo classes deactivated. Durations inferred from timetable, **capacities are placeholders** the owner should verify. (Direct SQL, not a migration.)
@@ -23,8 +26,8 @@ Add sessions → activity → recurrence (weekly / every-other-week / daily / mo
 - `create-class-occurrence.ts` takes optional `trainerId` + `location`.
 - UI: `NewClassDialog.tsx` has Trainer + Location selects (bsport order activity→location→teacher); `ManageTrainersDialog.tsx` opened from the Schedule header.
 
-## Phase 2 (NEXT) — recurrence engine
-Build via GSD. Spec:
+## Phase 2 (DONE — quick `260622-mpv`, deployed) — recurrence engine
+✅ Built + deployed (see STATUS banner at top). Spec as built:
 1. **Schema (additive, db.ts next version = v27+):**
    - `class_schedule_rules`: id, definition_id, days_of_week (JSON array or CSV of 0–6), time_of_day (TEXT "HH:MM" studio-local), location (TEXT Norwich/Wymondham), capacity (int), trainer_id (text nullable), starts_on (date), ends_on (date nullable — null = open-ended), active (bool default 1), generated_through (TEXT date cursor), created_at.
    - ADD COLUMN `rule_id` (text nullable) to `class_occurrences` (links occurrence → series; enables series cancel/edit + dedupe).
@@ -47,4 +50,4 @@ Turn the two timetable images (weeks of Mon 22/06 and Mon 29/06) into `class_sch
 - GSD flow: each phase = `/gsd:quick` → planner (opus) → executor (sonnet, worktree) → I ff/merge + re-run `cd apps/staff-web && pnpm typecheck` on master (executors have twice claimed clean when not — ALWAYS re-verify), commit PLAN, remove worktree, push. No packages/core touch = no changeset.
 
 ## NEXT STEP on resume
-Build **Phase 2** (recurrence) via `/gsd:quick`. Then Phase 3 (populate). Deploy = `git push origin master` (migrations auto-run).
+Phase 2 is DONE + deployed. Build **Phase 3** (populate HUSTLE's timetable from the two timetable images → `class_schedule_rules`, one rule per weekly slot; SUMMER GAMES = one-off occurrence, not a rule) — likely a seed script or via `create-schedule-rule`. Deploy: `git push origin master` deploys **staff-web/Vercel only**; if any `services/worker` change is involved, also run `fly deploy --config services/edge-webhooks/fly.toml --dockerfile Dockerfile --remote-only` (worker is NOT auto-deployed).
