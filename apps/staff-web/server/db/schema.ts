@@ -216,6 +216,48 @@ export const classOccurrences = table("class_occurrences", {
   // Added by migration v24 (location) and v25 (trainer_id). Nullable soft-refs.
   location: text("location"),
   trainerId: text("trainer_id"),
+  // MPV-SCHEMA: optional rule linkage. Added by migration v28.
+  // Null = manual single occurrence. Non-null = materialised by the recurring
+  // class engine; (rule_id, starts_at) is unique (partial index v29).
+  ruleId: text("rule_id"),
+  createdAt: text("created_at").notNull().default(now()),
+});
+
+// ---------------------------------------------------------------------------
+// MPV-SCHEMA: Recurring class schedule rules.
+//
+// DDL created by migration v27 (MPV Phase 2, apps/staff-web/server/plugins/db.ts).
+// This Drizzle export is the schema-layer reference; no new migration files needed.
+// Single-tenant: no studio_id. Reads carry // guard:allow-unscoped — single-tenant.
+//
+// days_of_week: JSON array of weekday numbers (0=Sun … 6=Sat), stored as TEXT.
+// time_of_day: "HH:MM" in Europe/London studio-local time — the nightly worker
+//   converts to UTC per-occurrence using DST-correct Intl computation.
+// generated_through: ISO date cursor advanced by the worker after each run.
+//   null = not yet generated (first run generates from starts_on).
+// ends_on: null = open-ended rolling window.
+// active: 1 = materialise on cron; 0 = deactivated (series closed).
+// ---------------------------------------------------------------------------
+export const classScheduleRules = table("class_schedule_rules", {
+  id: text("id").primaryKey(),
+  definitionId: text("definition_id").notNull(),
+  /** JSON array of weekday numbers (0=Sun … 6=Sat), e.g. "[1,3]" for Mon/Wed */
+  daysOfWeek: text("days_of_week").notNull(),
+  /** "HH:MM" in Europe/London studio-local time */
+  timeOfDay: text("time_of_day").notNull(),
+  /** "Norwich" | "Wymondham" | null */
+  location: text("location"),
+  capacity: integer("capacity").notNull().default(12),
+  /** Soft-ref to trainers.id — nullable */
+  trainerId: text("trainer_id"),
+  /** ISO date "YYYY-MM-DD" — series starts on or after this date */
+  startsOn: text("starts_on").notNull(),
+  /** ISO date "YYYY-MM-DD" — series ends before this date; null = open-ended */
+  endsOn: text("ends_on"),
+  /** 1 = active (materialise on cron), 0 = deactivated */
+  active: integer("active", { mode: "boolean" }).notNull().default(true),
+  /** ISO date cursor — last date generated through; null = not yet run */
+  generatedThrough: text("generated_through"),
   createdAt: text("created_at").notNull().default(now()),
 });
 

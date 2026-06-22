@@ -1,6 +1,6 @@
 "use client";
 
-// NewClassDialog — AES-04 / AES-05 UI (LP3 extended)
+// NewClassDialog — AES-04 / AES-05 UI (LP3 extended, MPV Phase 2 recurring)
 //
 // A "New Class" affordance for the Schedule header. Lets staff schedule a
 // class occurrence from the UI, either picking an existing class type or
@@ -10,9 +10,18 @@
 // Select (Norwich / Wymondham). Both optional. Order follows bsport style:
 // class type → new-type fields → date/time → capacity → room → location → trainer.
 //
+// MPV Phase 2 addition: "Repeat weekly" toggle.
+//   - When off (default): behaves as before — create-class-definition (if new
+//     type) then create-class-occurrence.
+//   - When on: shows a day-of-week picker. On submit, calls create-schedule-rule
+//     with daysOfWeek (selected days), timeOfDay (HH:MM from the time input),
+//     and startsOn (YYYY-MM-DD from the date input). If a new class type was
+//     also requested, create-class-definition is called first.
+//
 // ORCHESTRATION: two-step via defineActions:
 //   1. create-class-definition  (only when "+ New class type…" is chosen)
-//   2. create-class-occurrence  (always; now includes optional trainerId + location)
+//   2a. create-class-occurrence  (repeat=false)
+//   2b. create-schedule-rule    (repeat=true)
 //
 // OPTIMISTIC UI: close dialog immediately + toast, then run mutations +
 // revalidator.revalidate(). Nothing is optimistically rendered so rollback is
@@ -23,7 +32,7 @@
 // mapped to undefined on submit.
 
 import { useState } from "react";
-import { IconPlus } from "@tabler/icons-react";
+import { IconPlus, IconRepeat } from "@tabler/icons-react";
 import { useActionMutation } from "@agent-native/core/client";
 import { useRevalidator } from "react-router";
 import { toast } from "sonner";
@@ -46,6 +55,7 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -67,6 +77,17 @@ type Trainer = {
 
 const NEW_TYPE = "__new__";
 const NONE = "__none__";
+
+/** Weekday labels 0=Sun … 6=Sat */
+const WEEKDAYS: { label: string; short: string; value: number }[] = [
+  { label: "Sunday", short: "Su", value: 0 },
+  { label: "Monday", short: "Mo", value: 1 },
+  { label: "Tuesday", short: "Tu", value: 2 },
+  { label: "Wednesday", short: "We", value: 3 },
+  { label: "Thursday", short: "Th", value: 4 },
+  { label: "Friday", short: "Fr", value: 5 },
+  { label: "Saturday", short: "Sa", value: 6 },
+];
 
 type DefResult = { id?: string; name?: string; error?: string };
 
@@ -100,11 +121,18 @@ export function NewClassDialog({
   const [newCapacity, setNewCapacity] = useState<string>("12");
   const [newCategory, setNewCategory] = useState<string>("");
 
+  // MPV Phase 2: repeat weekly
+  const [repeat, setRepeat] = useState<boolean>(false);
+  const [selectedDays, setSelectedDays] = useState<number[]>([]);
+
   const createDef = useActionMutation("create-class-definition", {
     onError: (e) => toast(e.message ?? "Failed to create class type"),
   });
   const createOcc = useActionMutation("create-class-occurrence", {
     onError: (e) => toast(e.message ?? "Failed to schedule class"),
+  });
+  const createRule = useActionMutation("create-schedule-rule", {
+    onError: (e) => toast(e.message ?? "Failed to create recurring rule"),
   });
   const revalidator = useRevalidator();
 
@@ -121,6 +149,8 @@ export function NewClassDialog({
     setNewDuration("45");
     setNewCapacity("12");
     setNewCategory("");
+    setRepeat(false);
+    setSelectedDays([]);
   }
 
   function handleOpenChange(next: boolean) {
@@ -139,6 +169,12 @@ export function NewClassDialog({
     }
   }
 
+  function toggleDay(day: number) {
+    setSelectedDays((prev) =>
+      prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day],
+    );
+  }
+
   async function onCreate() {
     // ─── Validate before firing ──────────────────────────────────────────
     if (!datetime) {
@@ -153,11 +189,21 @@ export function NewClassDialog({
       toast("Name the new class type");
       return;
     }
+    if (repeat && selectedDays.length === 0) {
+      toast("Select at least one day of the week");
+      return;
+    }
 
-    // datetime-local has no tz → new Date() reads it in the browser's local
-    // (studio-operator) zone. That is the intended studio-local semantic; the
-    // resulting ISO is stored verbatim by create-class-occurrence.
+    // Extract date (YYYY-MM-DD) and time (HH:MM) from datetime-local input.
+    // Format is always "YYYY-MM-DDTHH:MM" — slice directly rather than using
+    // Date parsing so we stay in the browser's (studio) local time zone.
+    const datePart = datetime.slice(0, 10); // "YYYY-MM-DD"
+    const timePart = datetime.slice(11, 16); // "HH:MM"
+
+    // For one-off occurrences: build a full ISO timestamp
+    // (browser local tz → toISOString shifts to UTC)
     const startsAt = new Date(datetime).toISOString();
+
     const capacityNum = Number(capacity) || undefined;
     const roomVal = room.trim() || undefined;
     // Map NONE sentinels back to undefined so the action receives no key.
@@ -179,7 +225,7 @@ export function NewClassDialog({
     // ─── Optimistic close ────────────────────────────────────────────────
     setOpen(false);
     resetForm();
-    toast("Scheduling class…");
+    toast(repeat ? "Creating recurring schedule…" : "Scheduling class…");
 
     // ─── Orchestrate after close ─────────────────────────────────────────
     try {
@@ -198,28 +244,52 @@ export function NewClassDialog({
         definitionId = existingTypeId as string;
       }
 
-      const occResult = (await createOcc.mutateAsync({
-        definitionId,
-        startsAt,
-        capacity: capacityNum,
-        room: roomVal,
-        trainerId: trainerIdVal,
-        location: locationVal,
-      } as Record<string, unknown> as Parameters<
-        typeof createOcc.mutateAsync
-      >[0])) as { error?: string };
-      if (occResult?.error) {
-        throw new Error(occResult.error);
+      if (repeat) {
+        // ─── Recurring: create-schedule-rule ────────────────────────────
+        const ruleResult = (await createRule.mutateAsync({
+          definitionId,
+          daysOfWeek: selectedDays,
+          timeOfDay: timePart,
+          startsOn: datePart,
+          capacity: capacityNum,
+          location: locationVal,
+          trainerId: trainerIdVal,
+        } as Record<string, unknown> as Parameters<
+          typeof createRule.mutateAsync
+        >[0])) as { error?: string; occurrencesGenerated?: number };
+        if (ruleResult?.error) {
+          throw new Error(ruleResult.error);
+        }
+        const count = ruleResult?.occurrencesGenerated ?? 0;
+        revalidator.revalidate();
+        toast(
+          `Recurring schedule created — ${count} occurrence${count !== 1 ? "s" : ""} generated`,
+        );
+      } else {
+        // ─── One-off: create-class-occurrence ───────────────────────────
+        const occResult = (await createOcc.mutateAsync({
+          definitionId,
+          startsAt,
+          capacity: capacityNum,
+          room: roomVal,
+          trainerId: trainerIdVal,
+          location: locationVal,
+        } as Record<string, unknown> as Parameters<
+          typeof createOcc.mutateAsync
+        >[0])) as { error?: string };
+        if (occResult?.error) {
+          throw new Error(occResult.error);
+        }
+        revalidator.revalidate();
+        toast("Class scheduled");
       }
-
-      revalidator.revalidate();
-      toast("Class scheduled");
     } catch (err) {
       toast(err instanceof Error ? err.message : "Failed to schedule class");
     }
   }
 
-  const pending = createDef.isPending || createOcc.isPending;
+  const pending =
+    createDef.isPending || createOcc.isPending || createRule.isPending;
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -306,7 +376,9 @@ export function NewClassDialog({
 
           {/* Date & time */}
           <div className="space-y-2">
-            <Label htmlFor="datetime">Date & time</Label>
+            <Label htmlFor="datetime">
+              {repeat ? "Start date & time" : "Date & time"}
+            </Label>
             <Input
               id="datetime"
               type="datetime-local"
@@ -315,6 +387,54 @@ export function NewClassDialog({
               required
             />
           </div>
+
+          {/* MPV Phase 2: Repeat weekly toggle */}
+          <div className="flex items-center gap-3 rounded-md border border-border/50 px-3 py-2.5">
+            <IconRepeat size={16} className="shrink-0 text-muted-foreground" />
+            <Label
+              htmlFor="repeat"
+              className="flex-1 cursor-pointer text-sm font-normal"
+            >
+              Repeat weekly
+            </Label>
+            <Switch
+              id="repeat"
+              checked={repeat}
+              onCheckedChange={(checked) => {
+                setRepeat(checked);
+                if (!checked) setSelectedDays([]);
+              }}
+            />
+          </div>
+
+          {/* Day-of-week picker — shown only when repeat=true */}
+          {repeat && (
+            <div className="space-y-2">
+              <Label>Repeat on</Label>
+              <div className="flex gap-1.5">
+                {WEEKDAYS.map((day) => {
+                  const active = selectedDays.includes(day.value);
+                  return (
+                    <button
+                      key={day.value}
+                      type="button"
+                      aria-label={day.label}
+                      aria-pressed={active}
+                      onClick={() => toggleDay(day.value)}
+                      className={[
+                        "flex h-8 w-8 items-center justify-center rounded-full text-xs font-medium transition-colors",
+                        active
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-muted text-muted-foreground hover:bg-muted/80",
+                      ].join(" ")}
+                    >
+                      {day.short}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Capacity */}
           <div className="space-y-2">
@@ -328,16 +448,18 @@ export function NewClassDialog({
             />
           </div>
 
-          {/* Room */}
-          <div className="space-y-2">
-            <Label htmlFor="room">Room (optional)</Label>
-            <Input
-              id="room"
-              value={room}
-              onChange={(e) => setRoom(e.target.value)}
-              placeholder="e.g. Studio A"
-            />
-          </div>
+          {/* Room (one-off only — not applicable to recurring rules) */}
+          {!repeat && (
+            <div className="space-y-2">
+              <Label htmlFor="room">Room (optional)</Label>
+              <Input
+                id="room"
+                value={room}
+                onChange={(e) => setRoom(e.target.value)}
+                placeholder="e.g. Studio A"
+              />
+            </div>
+          )}
 
           {/* Location (LP3) */}
           <div className="space-y-2">
@@ -383,7 +505,7 @@ export function NewClassDialog({
             Cancel
           </Button>
           <Button type="button" onClick={onCreate} disabled={pending}>
-            Schedule class
+            {repeat ? "Create recurring schedule" : "Schedule class"}
           </Button>
         </DialogFooter>
       </DialogContent>

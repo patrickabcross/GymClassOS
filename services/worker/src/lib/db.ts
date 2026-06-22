@@ -314,6 +314,7 @@ export const studioBrainDocs = pgTable("studio_brain_docs", {
 export const classDefinitions = pgTable("class_definitions", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
+  durationMin: integer("duration_min").notNull().default(45),
   active: integer("active").notNull().default(1),
 });
 
@@ -328,6 +329,48 @@ export const bookings = pgTable("bookings", {
   status: text("status").notNull().default("booked"),
   bookedAt: text("booked_at").notNull().default(sql`now()`),
   attendedAt: text("attended_at"),
+});
+
+// MPV-SCHEMA: class_schedule_rules — recurring series definitions.
+// Mirrors apps/staff-web/server/db/schema.ts classScheduleRules (migration v27).
+// The materialiser worker reads active rules and inserts occurrences ON CONFLICT DO NOTHING.
+// KEEP THIS FILE IN SYNC with apps/staff-web/server/db/schema.ts classScheduleRules.
+export const classScheduleRules = pgTable("class_schedule_rules", {
+  id: text("id").primaryKey(),
+  definitionId: text("definition_id").notNull(),
+  /** JSON array string of weekday numbers, e.g. "[1,3]" for Mon/Wed */
+  daysOfWeek: text("days_of_week").notNull(),
+  /** "HH:MM" in Europe/London studio-local time */
+  timeOfDay: text("time_of_day").notNull(),
+  location: text("location"),
+  capacity: integer("capacity").notNull().default(12),
+  trainerId: text("trainer_id"),
+  startsOn: text("starts_on").notNull(),
+  endsOn: text("ends_on"),
+  active: integer("active").notNull().default(1),
+  generatedThrough: text("generated_through"),
+  createdAt: text("created_at").notNull().default(sql`now()`),
+});
+
+// MPV-SCHEMA: class_occurrences — extended with rule_id (migration v28).
+// Mirrors apps/staff-web/server/db/schema.ts classOccurrences (ruleId column).
+// The materialiser inserts into this table using ON CONFLICT (rule_id, starts_at) DO NOTHING
+// backed by the partial unique index (migration v29).
+// KEEP THIS FILE IN SYNC with apps/staff-web/server/db/schema.ts classOccurrences.
+export const classOccurrences = pgTable("class_occurrences", {
+  id: text("id").primaryKey(),
+  definitionId: text("definition_id").notNull(),
+  ruleId: text("rule_id"),
+  startsAt: text("starts_at").notNull(),
+  endsAt: text("ends_at").notNull(),
+  capacity: integer("capacity").notNull().default(12),
+  instructorUserId: text("instructor_user_id"),
+  room: text("room"),
+  location: text("location"),
+  trainerId: text("trainer_id"),
+  status: text("status").notNull().default("scheduled"),
+  notes: text("notes"),
+  createdAt: text("created_at").notNull().default(sql`now()`),
 });
 
 export const schema = {
@@ -348,6 +391,8 @@ export const schema = {
   reactivationAttempts,
   studioBrainDocs,
   classDefinitions,
+  classScheduleRules,
+  classOccurrences,
   bookings,
 };
 

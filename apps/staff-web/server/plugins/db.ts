@@ -300,6 +300,60 @@ export default runMigrations(
         ('trn_seed_23', 'Vicky Faiers',     NULL, 1, datetime('now'))
       ON CONFLICT DO NOTHING`,
     },
+    // -------------------------------------------------------------------------
+    // MPV-SCHEMA: Recurrence engine — class_schedule_rules + rule linkage.
+    //
+    // Version 27: class_schedule_rules — stores the intent of a recurring series.
+    //   days_of_week: JSON array of weekday numbers (0=Sun … 6=Sat).
+    //   time_of_day: "HH:MM" in studio-local Europe/London time.
+    //   generated_through: ISO date cursor — generator advances this after each run.
+    //   ends_on: null = open-ended rolling window.
+    //   active: 1 = materialise on cron; 0 = deactivated (no future materialisation).
+    //
+    // Version 28: rule_id column on class_occurrences (soft-ref to class_schedule_rules.id).
+    //   Nullable — manual single occurrences have NULL rule_id and are unaffected.
+    //
+    // Version 29: PARTIAL UNIQUE INDEX on class_occurrences (rule_id, starts_at)
+    //   WHERE rule_id IS NOT NULL. Enables idempotent ON CONFLICT DO NOTHING
+    //   insert by the nightly materialiser. Works in both Postgres and SQLite.
+    //
+    // Version 30: covering index on class_schedule_rules (active, starts_on) for
+    //   efficient active-rule scans by the nightly materialiser worker job.
+    //
+    // Additive only — NO DROP / RENAME / TRUNCATE (CLAUDE.md constraint).
+    // All four versions register here so they auto-apply on server boot.
+    // -------------------------------------------------------------------------
+    {
+      version: 27,
+      sql: `CREATE TABLE IF NOT EXISTS class_schedule_rules (
+        id                TEXT PRIMARY KEY,
+        definition_id     TEXT NOT NULL,
+        days_of_week      TEXT NOT NULL,   -- JSON array of weekday numbers (0=Sun..6=Sat)
+        time_of_day       TEXT NOT NULL,   -- "HH:MM" in Europe/London studio-local time
+        location          TEXT,            -- "Norwich" | "Wymondham" | null
+        capacity          INTEGER NOT NULL DEFAULT 12,
+        trainer_id        TEXT,            -- soft-ref to trainers.id
+        starts_on         TEXT NOT NULL,   -- ISO date "YYYY-MM-DD"
+        ends_on           TEXT,            -- ISO date; null = open-ended
+        active            INTEGER NOT NULL DEFAULT 1,
+        generated_through TEXT,            -- ISO date cursor; null = not yet generated
+        created_at        TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+    },
+    {
+      version: 28,
+      sql: `ALTER TABLE class_occurrences ADD COLUMN IF NOT EXISTS rule_id TEXT`,
+    },
+    {
+      version: 29,
+      sql: `CREATE UNIQUE INDEX IF NOT EXISTS idx_class_occurrences_rule_starts
+        ON class_occurrences (rule_id, starts_at)
+        WHERE rule_id IS NOT NULL`,
+    },
+    {
+      version: 30,
+      sql: `CREATE INDEX IF NOT EXISTS idx_schedule_rules_active ON class_schedule_rules (active, starts_on)`,
+    },
     // Version 15: AFTER INSERT trigger on token_usage (Postgres only).
     // Step A: CREATE OR REPLACE FUNCTION — idempotent, never drops.
     // Step B: CREATE TRIGGER — guarded by pg_trigger check so re-running this

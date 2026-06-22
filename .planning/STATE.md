@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: — Content & Video Studio
-status: deployed
-stopped_at: "2026-06-22 — Quick task 260622-lp3 complete: trainers roster Phase 1 — trainers table v22-26 + 23-name seed + list/create/update-trainer actions + location+trainer cols on class_occurrences + ManageTrainersDialog + NewClassDialog selects. typecheck exit 0."
-last_updated: "2026-06-22T00:00:00.000Z"
-last_activity: "2026-06-22 — Quick task 260622-lp3: trainers table (v22-v26 migrations, 23-name idempotent seed), list/create/update-trainer actions (two-exposure: agent-chat.ts + AGENTS.md), location+trainerId columns on class_occurrences, ManageTrainersDialog, NewClassDialog trainer+location selects"
+status: CV1-CV4 built + committed on master. Full staff-web `tsc` clean (0 errors), 115/115 unit tests pass. **NOT deployed** — production push held for explicit user go-ahead (autonomous run pre-approved build only). CV-RENDER remains gated.
+stopped_at: Completed quick-260622-mpv (Phase 2 — recurring classes engine)
+last_updated: "2026-06-22T15:54:48.508Z"
+last_activity: "2026-06-22 — Quick task 260622-e4a: revert SettingsPanel trim, gate operator gear, AGENT_NATIVE_SINGLE_TENANT flag, env-status fix"
 progress:
-  total_phases: 4
-  completed_phases: 4
-  total_plans: 4
-  completed_plans: 4
+  total_phases: 5
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
 ---
 
 # Project State
@@ -162,8 +162,8 @@ Last activity: 2026-06-22 — Quick task 260622-e4a: revert SettingsPanel trim, 
 
 ## Session Continuity
 
-Last session: 2026-06-22 — RunStudio rebrand + marketing homepages + video brief pipeline (ALL DEPLOYED). Full writeup: `.planning/SESSION-2026-06-22-marketing-rebrand-and-video-pipeline.md`
-Stopped at: shipped + verified live; open follow-ups in the session doc (dispatch operator setup, CTA targets, AI-video clips, pipeline stages 3-5).
+Last session: 2026-06-22T15:54:48.499Z
+Stopped at: Completed quick-260622-mpv (Phase 2 — recurring classes engine)
 Resume file: None
 
 Prior session: 2026-06-20T10:22:33.153Z — Completed CV4-publish-pipeline CV4-01-PLAN.md
