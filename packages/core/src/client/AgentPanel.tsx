@@ -379,8 +379,8 @@ export interface AgentPanelProps extends Omit<
   chatNotice?: React.ReactNode;
   /** Capability gate for source edits and CLI access. */
   codeAccess?: AgentPanelCodeAccess;
-  /** Show the settings gear in the mode switcher. Default: true. Set false to hide framework settings (e.g. white-labelled deploys gating operator-only access). */
-  showSettingsGear?: boolean;
+  /** Show operator-only chrome (settings gear, Workspace button, Feedback button, model picker) in the agent sidebar. Default: true (upstream behavior). Set false to hide framework/operator chrome for white-labelled deploys (e.g. gym staff). */
+  showOperatorChrome?: boolean;
 }
 
 function useClientOnly() {
@@ -492,7 +492,7 @@ function AgentPanelInner({
   browserTabId,
   chatNotice,
   codeAccess,
-  showSettingsGear = true,
+  showOperatorChrome = true,
 }: AgentPanelProps) {
   const mounted = useClientOnly();
   const keyPrefix = storageKey ? `:${storageKey}` : "";
@@ -536,8 +536,8 @@ function AgentPanelInner({
       if (
         saved === "chat" ||
         saved === "cli" ||
-        saved === "resources" ||
-        (saved === "settings" && showSettingsGear)
+        (saved === "resources" && showOperatorChrome) ||
+        (saved === "settings" && showOperatorChrome)
       )
         return saved;
     } catch {}
@@ -579,7 +579,7 @@ function AgentPanelInner({
     function handleOpenSettings(event: Event) {
       // When the gear is hidden (non-operator deploy), block the back door
       // so the custom event cannot force settings mode either.
-      if (!showSettingsGear) return;
+      if (!showOperatorChrome) return;
       const section = (event as CustomEvent<{ section?: string }>).detail
         ?.section;
       setSettingsSection((prev) => ({
@@ -594,7 +594,7 @@ function AgentPanelInner({
         "agent-panel:open-settings",
         handleOpenSettings,
       );
-  }, [switchMode, showSettingsGear]);
+  }, [switchMode, showOperatorChrome]);
 
   // CLI terminal tabs (ephemeral — not persisted to SQL)
   const [cliTabs, setCliTabs] = useState<string[]>(["cli-1"]);
@@ -776,28 +776,30 @@ function AgentPanelInner({
               </TooltipContent>
             </Tooltip>
           )}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                onClick={() => switchMode("resources")}
-                aria-label="Workspace files, agents, skills, and tasks"
-                className={cn(
-                  "flex items-center gap-1 rounded-md px-2 py-1 text-[12px] leading-none",
-                  activeMode === "resources"
-                    ? "bg-accent text-foreground"
-                    : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
-                )}
-                style={AGENT_PANEL_CONTROL_STYLE}
-              >
-                <IconLayoutGrid size={14} />
-                Workspace
-              </button>
-            </TooltipTrigger>
-            <TooltipContent>
-              Workspace files, agents, skills, and tasks
-            </TooltipContent>
-          </Tooltip>
-          {showSettingsGear && (
+          {showOperatorChrome && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => switchMode("resources")}
+                  aria-label="Workspace files, agents, skills, and tasks"
+                  className={cn(
+                    "flex items-center gap-1 rounded-md px-2 py-1 text-[12px] leading-none",
+                    activeMode === "resources"
+                      ? "bg-accent text-foreground"
+                      : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
+                  )}
+                  style={AGENT_PANEL_CONTROL_STYLE}
+                >
+                  <IconLayoutGrid size={14} />
+                  Workspace
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>
+                Workspace files, agents, skills, and tasks
+              </TooltipContent>
+            </Tooltip>
+          )}
+          {showOperatorChrome && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
@@ -819,7 +821,12 @@ function AgentPanelInner({
         </div>
       </TooltipProvider>
     ),
-    [codeAccessEnabled, codeUnavailableDescription, showCliMode, showSettingsGear],
+    [
+      codeAccessEnabled,
+      codeUnavailableDescription,
+      showCliMode,
+      showOperatorChrome,
+    ],
   );
 
   const renderHeaderActions = useCallback(
@@ -830,7 +837,9 @@ function AgentPanelInner({
             <SetupButton />
           </Suspense>
         )}
-        <FeedbackButton variant="icon" side="bottom" align="end" />
+        {showOperatorChrome && (
+          <FeedbackButton variant="icon" side="bottom" align="end" />
+        )}
         {onToggleFullscreen && (
           <IconTooltip
             content={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
@@ -861,7 +870,13 @@ function AgentPanelInner({
         )}
       </div>
     ),
-    [onCollapse, canUseCodeTools, onToggleFullscreen, isFullscreen],
+    [
+      onCollapse,
+      canUseCodeTools,
+      onToggleFullscreen,
+      isFullscreen,
+      showOperatorChrome,
+    ],
   );
 
   const [tabMenuOpen, setTabMenuOpen] = useState<string | null>(null);
@@ -1366,6 +1381,7 @@ function AgentPanelInner({
             storageKey={storageKey}
             scope={scope}
             browserTabId={browserTabId}
+            showOperatorChrome={showOperatorChrome}
           />
         )}
       </div>
@@ -1989,8 +2005,8 @@ export interface AgentSidebarProps {
   scope?: import("./use-chat-threads.js").ChatThreadScope | null;
   /** Stable browser tab id used for tab-scoped app-state context. */
   browserTabId?: string;
-  /** Show the settings gear in the agent-chat mode switcher. Default: true (upstream behavior). Set false to hide framework settings for white-labelled deploys. */
-  showSettingsGear?: boolean;
+  /** Show operator-only chrome (settings gear, Workspace button, Feedback button, model picker) in the agent sidebar. Default: true (upstream behavior). Set false to hide framework/operator chrome for white-labelled deploys (e.g. gym staff). */
+  showOperatorChrome?: boolean;
 }
 
 /**
@@ -2008,7 +2024,7 @@ export function AgentSidebar({
   animateMobile = false,
   scope,
   browserTabId,
-  showSettingsGear,
+  showOperatorChrome,
 }: AgentSidebarProps) {
   const initialWidth = defaultSidebarWidth ?? sidebarWidth ?? 380;
   const [open, setOpen] = useState(() =>
@@ -2371,7 +2387,7 @@ export function AgentSidebar({
           onToggleFullscreen={isMobile ? undefined : toggleFullscreen}
           scope={scope}
           browserTabId={browserTabId}
-          showSettingsGear={showSettingsGear}
+          showOperatorChrome={showOperatorChrome}
         />
       </div>
       {showResizeHandle && isLeft && (
