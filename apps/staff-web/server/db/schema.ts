@@ -212,6 +212,31 @@ export const classOccurrences = table("class_occurrences", {
     .notNull()
     .default("scheduled"),
   notes: text("notes"),
+  // LP3-SCHEMA: optional location (Norwich/Wymondham) and trainer assignment.
+  // Added by migration v24 (location) and v25 (trainer_id). Nullable soft-refs.
+  location: text("location"),
+  trainerId: text("trainer_id"),
+  createdAt: text("created_at").notNull().default(now()),
+});
+
+// ---------------------------------------------------------------------------
+// LP3-SCHEMA: Trainers roster — lightweight NOT-auth roster of gym instructors.
+//
+// DDL created by migration v22 (trainers table) + v23 (unique lower(name) index)
+// in apps/staff-web/server/plugins/db.ts. This Drizzle export is the schema-layer
+// reference; no new migration files needed. Single-tenant: no studio_id.
+// Reads carry // guard:allow-unscoped — single-tenant gym tables.
+//
+// active uses integer-boolean (mode:"boolean") to match studio_owner_config
+// digest_enabled / heartbeat_enabled pattern. Drizzle stores 0/1; SQL DDL is
+// INTEGER NOT NULL DEFAULT 1. The unique lower(name) index in v23 is the
+// dedupe target for list-trainers / create-trainer / the seed (v26).
+// ---------------------------------------------------------------------------
+export const trainers = table("trainers", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  homeLocation: text("home_location"),
+  active: integer("active", { mode: "boolean" }).notNull().default(true),
   createdAt: text("created_at").notNull().default(now()),
 });
 

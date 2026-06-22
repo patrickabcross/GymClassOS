@@ -233,6 +233,73 @@ export default runMigrations(
         updated_at TEXT NOT NULL DEFAULT (datetime('now'))
       )`,
     },
+    // -------------------------------------------------------------------------
+    // LP3-SCHEMA: Trainers roster + location dimension for class occurrences.
+    //
+    // Version 22: trainers table — lightweight NOT-auth roster (name, home_location,
+    //   active). Single-tenant: no studio_id. Additive only.
+    //
+    // Version 23: unique expression index on lower(name) — dedupe target for the
+    //   seed's ON CONFLICT DO NOTHING + create-trainer's reactivate-or-create path.
+    //
+    // Version 24: nullable location column on class_occurrences.
+    //
+    // Version 25: nullable trainer_id column on class_occurrences (soft-ref,
+    //   no FK — mirrors instructor_user_id TEXT style).
+    //
+    // Version 26: idempotent HUSTLE trainer seed — 23 rows. The unique
+    //   lower(name) index + ON CONFLICT DO NOTHING prevents re-deploy duplication.
+    // -------------------------------------------------------------------------
+    {
+      version: 22,
+      sql: `CREATE TABLE IF NOT EXISTS trainers (
+        id            TEXT PRIMARY KEY,
+        name          TEXT NOT NULL,
+        home_location TEXT,
+        active        INTEGER NOT NULL DEFAULT 1,
+        created_at    TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+    },
+    {
+      version: 23,
+      sql: `CREATE UNIQUE INDEX IF NOT EXISTS idx_trainers_name_lower ON trainers (lower(name))`,
+    },
+    {
+      version: 24,
+      sql: `ALTER TABLE class_occurrences ADD COLUMN IF NOT EXISTS location TEXT`,
+    },
+    {
+      version: 25,
+      sql: `ALTER TABLE class_occurrences ADD COLUMN IF NOT EXISTS trainer_id TEXT`,
+    },
+    {
+      version: 26,
+      sql: `INSERT INTO trainers (id, name, home_location, active, created_at) VALUES
+        ('trn_seed_01', 'Matty Wiseman',    NULL, 1, datetime('now')),
+        ('trn_seed_02', 'Eleanor Perlman',  NULL, 1, datetime('now')),
+        ('trn_seed_03', 'Primrose Rushen',  NULL, 1, datetime('now')),
+        ('trn_seed_04', 'Charly Willis',    NULL, 1, datetime('now')),
+        ('trn_seed_05', 'Jacob Golden',     NULL, 1, datetime('now')),
+        ('trn_seed_06', 'Ki Rodrigues',     NULL, 1, datetime('now')),
+        ('trn_seed_07', 'Lauren McDonald',  NULL, 1, datetime('now')),
+        ('trn_seed_08', 'Debbie Bagley',    NULL, 1, datetime('now')),
+        ('trn_seed_09', 'Fiona Brooks',     NULL, 1, datetime('now')),
+        ('trn_seed_10', 'Liey Bedingham',   NULL, 1, datetime('now')),
+        ('trn_seed_11', 'Shahan Toheed',    NULL, 1, datetime('now')),
+        ('trn_seed_12', 'Ben O''Connor',    NULL, 1, datetime('now')),
+        ('trn_seed_13', 'Owen Blunden',     NULL, 1, datetime('now')),
+        ('trn_seed_14', 'City Bedingham',   NULL, 1, datetime('now')),
+        ('trn_seed_15', 'Louise Bates',     NULL, 1, datetime('now')),
+        ('trn_seed_16', 'Anthony Trebble',  NULL, 1, datetime('now')),
+        ('trn_seed_17', 'Mike Stolworthy',  NULL, 1, datetime('now')),
+        ('trn_seed_18', 'Leanne Whitman',   NULL, 1, datetime('now')),
+        ('trn_seed_19', 'Bobby Harrison',   NULL, 1, datetime('now')),
+        ('trn_seed_20', 'Jess Bacon',       NULL, 1, datetime('now')),
+        ('trn_seed_21', 'Ricky Faiers',     NULL, 1, datetime('now')),
+        ('trn_seed_22', 'Jordan Eke',       NULL, 1, datetime('now')),
+        ('trn_seed_23', 'Vicky Faiers',     NULL, 1, datetime('now'))
+      ON CONFLICT DO NOTHING`,
+    },
     // Version 15: AFTER INSERT trigger on token_usage (Postgres only).
     // Step A: CREATE OR REPLACE FUNCTION — idempotent, never drops.
     // Step B: CREATE TRIGGER — guarded by pg_trigger check so re-running this
