@@ -1,31 +1,26 @@
 "use client";
 
-// NewClassDialog — AES-04 / AES-05 UI
+// NewClassDialog — AES-04 / AES-05 UI (LP3 extended)
 //
 // A "New Class" affordance for the Schedule header. Lets staff schedule a
 // class occurrence from the UI, either picking an existing class type or
 // defining a new one inline.
 //
-// ORCHESTRATION: This dialog is the two-step orchestrator. The write logic
-// lives in two atomic, agent-reusable defineActions:
+// LP3 additions: Trainer Select (from loader trainers roster) and Location
+// Select (Norwich / Wymondham). Both optional. Order follows bsport style:
+// class type → new-type fields → date/time → capacity → room → location → trainer.
+//
+// ORCHESTRATION: two-step via defineActions:
 //   1. create-class-definition  (only when "+ New class type…" is chosen)
-//   2. create-class-occurrence  (always)
-// Neither action accepts an inline newDefinition — keeping them atomic makes
-// each independently reusable as an agent tool in v1.2 Phase AE2.
+//   2. create-class-occurrence  (always; now includes optional trainerId + location)
 //
-// TIMEZONE: The <input type="datetime-local"> value has no timezone, so
-// `new Date(value)` interprets it in the browser's local zone — which is the
-// studio operator's local time, the intended studio-local semantic. The
-// resulting ISO string is stored verbatim by create-class-occurrence; the
-// calendar renders it back via `new Date(iso)`. (Production IANA-TZ alignment
-// is deferred to SCH-07.)
+// OPTIMISTIC UI: close dialog immediately + toast, then run mutations +
+// revalidator.revalidate(). Nothing is optimistically rendered so rollback is
+// automatic (the failed occurrence simply never appears).
 //
-// OPTIMISTIC UI: On submit we close the dialog immediately and toast
-// "Scheduling class…", then run the orchestration and `revalidator.revalidate()`
-// so the new occurrence appears on the calendar. We do NOT optimistically
-// insert into loader state — the close-then-revalidate middle-ground keeps the
-// UI snappy without a spinner-block; rollback is automatic (nothing was
-// optimistically rendered, so a failed schedule simply never appears).
+// SENTINEL VALUES: Radix Select cannot use empty string as value. We use
+// "__none__" as the "no selection" sentinel for location and trainer; it is
+// mapped to undefined on submit.
 
 import { useState } from "react";
 import { IconPlus } from "@tabler/icons-react";
@@ -64,7 +59,14 @@ type ClassType = {
   category: string | null;
 };
 
+type Trainer = {
+  id: string;
+  name: string;
+  homeLocation: string | null;
+};
+
 const NEW_TYPE = "__new__";
+const NONE = "__none__";
 
 type DefResult = { id?: string; name?: string; error?: string };
 
@@ -74,9 +76,11 @@ type DefResult = { id?: string; name?: string; error?: string };
 
 export function NewClassDialog({
   classTypes,
+  trainers,
   defaultDate,
 }: {
   classTypes: ClassType[];
+  trainers: Trainer[];
   defaultDate: string /* "yyyy-MM-dd" */;
 }) {
   const [open, setOpen] = useState(false);
@@ -86,6 +90,9 @@ export function NewClassDialog({
   const [datetime, setDatetime] = useState<string>(`${defaultDate}T18:00`);
   const [capacity, setCapacity] = useState<string>("12");
   const [room, setRoom] = useState<string>("");
+  // LP3: optional location + trainer
+  const [location, setLocation] = useState<string>(NONE);
+  const [trainerId, setTrainerId] = useState<string>(NONE);
 
   // New-type fields (only used when typeId === NEW_TYPE)
   const [newName, setNewName] = useState<string>("");
@@ -108,6 +115,8 @@ export function NewClassDialog({
     setDatetime(`${defaultDate}T18:00`);
     setCapacity("12");
     setRoom("");
+    setLocation(NONE);
+    setTrainerId(NONE);
     setNewName("");
     setNewDuration("45");
     setNewCapacity("12");
@@ -151,6 +160,10 @@ export function NewClassDialog({
     const startsAt = new Date(datetime).toISOString();
     const capacityNum = Number(capacity) || undefined;
     const roomVal = room.trim() || undefined;
+    // Map NONE sentinels back to undefined so the action receives no key.
+    const locationVal = location && location !== NONE ? location : undefined;
+    const trainerIdVal =
+      trainerId && trainerId !== NONE ? trainerId : undefined;
 
     // Capture new-type values before we close + reset.
     const newTypePayload = isNewType
@@ -190,6 +203,8 @@ export function NewClassDialog({
         startsAt,
         capacity: capacityNum,
         room: roomVal,
+        trainerId: trainerIdVal,
+        location: locationVal,
       } as Record<string, unknown> as Parameters<
         typeof createOcc.mutateAsync
       >[0])) as { error?: string };
@@ -322,6 +337,40 @@ export function NewClassDialog({
               onChange={(e) => setRoom(e.target.value)}
               placeholder="e.g. Studio A"
             />
+          </div>
+
+          {/* Location (LP3) */}
+          <div className="space-y-2">
+            <Label htmlFor="location">Location (optional)</Label>
+            <Select value={location} onValueChange={setLocation}>
+              <SelectTrigger id="location">
+                <SelectValue placeholder="— none —" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NONE}>— none —</SelectItem>
+                <SelectItem value="Norwich">Norwich</SelectItem>
+                <SelectItem value="Wymondham">Wymondham</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Trainer (LP3) */}
+          <div className="space-y-2">
+            <Label htmlFor="trainer">Trainer (optional)</Label>
+            <Select value={trainerId} onValueChange={setTrainerId}>
+              <SelectTrigger id="trainer">
+                <SelectValue placeholder="— none —" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NONE}>— none —</SelectItem>
+                {trainers.map((t) => (
+                  <SelectItem key={t.id} value={t.id}>
+                    {t.name}
+                    {t.homeLocation ? ` · ${t.homeLocation}` : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
 

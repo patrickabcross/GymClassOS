@@ -75,6 +75,7 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { NewClassDialog } from "@/components/gymos/NewClassDialog";
+import { ManageTrainersDialog } from "@/components/gymos/ManageTrainersDialog";
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "react-router";
 
 export function meta() {
@@ -176,6 +177,20 @@ export async function loader({ request }: LoaderFunctionArgs) {
     .where(eq(schema.classDefinitions.active, true))
     .orderBy(asc(schema.classDefinitions.name));
 
+  // Query E — active trainers for the "New Class" trainer picker (LP3).
+  // Mirrors Query D / classTypes pattern (cheap; ~tens of rows; unconditional).
+  //
+  // guard:allow-unscoped — single-tenant gym tables (no ownableColumns).
+  const trainers = await db
+    .select({
+      id: schema.trainers.id,
+      name: schema.trainers.name,
+      homeLocation: schema.trainers.homeLocation,
+    })
+    .from(schema.trainers)
+    .where(eq(schema.trainers.active, true))
+    .orderBy(asc(schema.trainers.name));
+
   // Query C — only fetch members + selected occurrence when dialog is open.
   let members: Array<{
     id: string;
@@ -195,7 +210,14 @@ export async function loader({ request }: LoaderFunctionArgs) {
     bookOccurrence = occurrences.find((o) => o.id === bookOccurrenceId) ?? null;
   }
 
-  return { occurrences, bookingCounts, members, bookOccurrence, classTypes };
+  return {
+    occurrences,
+    bookingCounts,
+    members,
+    bookOccurrence,
+    classTypes,
+    trainers,
+  };
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -344,8 +366,10 @@ export default function GymosSchedule() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <ManageTrainersDialog trainers={data.trainers} />
             <NewClassDialog
               classTypes={data.classTypes}
+              trainers={data.trainers}
               defaultDate={selectedKey}
             />
             <Badge variant="outline" className="h-5 text-[10px]">
