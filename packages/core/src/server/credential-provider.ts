@@ -73,6 +73,16 @@ export function readDeployCredentialEnv(key: string): string | undefined {
 }
 
 /**
+ * Opt-in single-tenant deploy flag. A RunStudio-style deploy serves exactly
+ * one studio from one Neon DB, so the deploy-env LLM key is the studio's key
+ * and is safe to use for every signed-in staff member. Off by default — other
+ * shared-DB multi-tenant deploys are unaffected.
+ */
+export function isSingleTenantDeploy(): boolean {
+  return process.env.AGENT_NATIVE_SINGLE_TENANT === "1";
+}
+
+/**
  * Deployment-level credentials are safe as a runtime fallback only in local /
  * single-tenant contexts. In hosted production with a shared database, every
  * signed-in user needs their own user/org/workspace credential so one deploy
@@ -80,7 +90,7 @@ export function readDeployCredentialEnv(key: string): string | undefined {
  */
 export function isDeployCredentialFallbackAllowed(): boolean {
   if (process.env.NODE_ENV !== "production") return true;
-  return isLocalDatabase();
+  return isLocalDatabase() || isSingleTenantDeploy();
 }
 
 export function canUseDeployCredentialFallbackForRequest(): boolean {

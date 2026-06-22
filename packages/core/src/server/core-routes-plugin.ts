@@ -1706,19 +1706,25 @@ export function createCoreRoutesPlugin(
           // GymClassOS fork: OR in app_secrets presence so keys saved via the
           // settings page (not process.env) are reported as configured.
           // Short-circuit: skip the DB call when env already has the value.
+          // app_secrets presence (the studio's own stored key) always counts
+          // unconditionally; only deploy-env presence needs the provider gate.
           return await Promise.all(
             envKeys.map(async (cfg) => {
               const isProviderKey = PROVIDER_ENV_VAR_KEYS.has(cfg.key);
               const inEnv = !!process.env[cfg.key];
+              // app_secrets presence is studio-global and always counts (the
+              // studio saved its own key). Only call the DB when env is absent
+              // (efficiency short-circuit).
               const inAppSecrets = inEnv
                 ? false
                 : await appSecretExistsByKey(cfg.key);
-              const present = inEnv || inAppSecrets;
+              const configured =
+                inAppSecrets || (inEnv && (!isProviderKey || canUseDeployEnv));
               return {
                 key: cfg.key,
                 label: cfg.label,
                 required: cfg.required ?? false,
-                configured: present && (!isProviderKey || canUseDeployEnv),
+                configured,
                 ...(cfg.helpText ? { helpText: cfg.helpText } : {}),
               };
             }),
