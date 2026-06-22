@@ -51,6 +51,7 @@ import {
   IconRefresh,
   IconLoader2,
   IconChevronLeft,
+  IconPencil,
 } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -395,6 +396,15 @@ export default function GymosFormBuilder() {
     setDragIdx(null);
   }
 
+  // Inline-edit the submit button label from the Edit preview. Merges into the
+  // full settings object (preserving the other settings) and debounce-saves,
+  // same path the Settings tab uses — so both stay in sync.
+  function updateSubmitText(text: string) {
+    const next = { ...localSettings, submitText: text };
+    setLocalSettings(next);
+    save({ settings: next });
+  }
+
   function handleTogglePublish() {
     const newStatus = currentStatus === "published" ? "draft" : "published";
     setPendingStatus(newStatus);
@@ -737,6 +747,29 @@ export default function GymosFormBuilder() {
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
+
+              {/* Submit button — editable inline. This is the real submit
+                  button shown on the published form (settings.submitText);
+                  type to rename it. Mirrors the Settings tab field. */}
+              <div className="mt-8 border-t border-border pt-6">
+                <div className="relative max-w-xs">
+                  <Input
+                    value={localSettings.submitText ?? ""}
+                    onChange={(e) => updateSubmitText(e.target.value)}
+                    placeholder="Send Enquiry"
+                    aria-label="Submit button label"
+                    title="Edit the submit button label"
+                    className="h-auto rounded-md border-transparent bg-primary py-2.5 pr-9 text-center text-sm font-medium text-primary-foreground shadow-sm placeholder:text-primary-foreground/60 hover:border-primary-foreground/20 focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  />
+                  <IconPencil
+                    className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-primary-foreground/70"
+                    aria-hidden
+                  />
+                </div>
+                <p className="mt-1.5 text-[11px] text-muted-foreground">
+                  Submit button — type to rename it.
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -1044,8 +1077,9 @@ function SettingsEditor({
       <div className="space-y-2">
         <Label className="text-xs">Submit button text</Label>
         <Input
-          value={settings.submitText || "Submit"}
+          value={settings.submitText ?? ""}
           onChange={(e) => update({ submitText: e.target.value })}
+          placeholder="Send Enquiry"
           className="h-8 text-sm"
         />
       </div>
