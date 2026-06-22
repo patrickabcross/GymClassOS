@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: — Content & Video Studio
 status: deployed
-stopped_at: "2026-06-22 — RunStudio rebrand + 4 localized marketing homepages (UK/US/FR/DE) + video brief pipeline (stages 1-2) all DEPLOYED to production (gym-class-os.vercel.app). v2.1 Content/Video Studio also went live in the same push window. See .planning/SESSION-2026-06-22-marketing-rebrand-and-video-pipeline.md"
+stopped_at: "2026-06-22 — Quick task 260622-f8j complete: showOperatorChrome gate wired end-to-end (AgentPanel/AssistantChat/AppLayout). Both typechecks exit 0."
 last_updated: "2026-06-22T00:00:00.000Z"
-last_activity: "2026-06-22 — RunStudio rebrand, marketing homepages (4 markets), Content tab hidden, video brief pipeline stages 1-2 (create-video-brief + dispatch-video-brief)"
+last_activity: "2026-06-22 — Quick task 260622-f8j: generalize operator chrome gate (showOperatorChrome renames showSettingsGear; also hides Workspace, FeedbackButton, model picker for non-operators)"
 progress:
   total_phases: 4
   completed_phases: 4
@@ -46,6 +46,7 @@ Last activity: 2026-06-22 — Quick task 260622-e4a: revert SettingsPanel trim, 
 | 260620-c8p | Settings API Keys page: resolve secret status studio-global (by key) so saved keys show as set for every staff login, not just the saver | 2026-06-20 | ba34c8b8 | [260620-c8p-settings-api-keys-page-resolve-secret-st](./quick/260620-c8p-settings-api-keys-page-resolve-secret-st/) |
 | 260622-d1v | Trim agent-chat Settings panel to Account+Integrations only; fix LLM env-status app_secrets false-negative | 2026-06-22 | 2ecf2387 | [260622-d1v-trim-agent-chat-settings-panel-to-accoun](./quick/260622-d1v-trim-agent-chat-settings-panel-to-accoun/) |
 | 260622-e4a | Revert SettingsPanel trim; gate agent-chat gear behind operator allowlist; AGENT_NATIVE_SINGLE_TENANT flag; env-status app_secrets fix | 2026-06-22 | 4d6fe256 | [260622-e4a-revert-settings-panel-trim-gate-sidebar-](./quick/260622-e4a-revert-settings-panel-trim-gate-sidebar-/) |
+| 260622-f8j | Generalize operator chrome gate: rename showSettingsGear -> showOperatorChrome; also hide Workspace button, FeedbackButton, and model picker for non-operators | 2026-06-22 | 88bc6766 | [260622-f8j-generalize-operator-chrome-gate-also-hid](./quick/260622-f8j-generalize-operator-chrome-gate-also-hid/) |
 
 ### v2.1 Phase Summary
 
