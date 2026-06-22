@@ -249,6 +249,9 @@ importers:
       '@libsql/client':
         specifier: ^0.15.0
         version: 0.15.15
+      '@remotion/google-fonts':
+        specifier: 4.0.481
+        version: 4.0.481(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
       '@remotion/player':
         specifier: 4.0.481
         version: 4.0.481(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
@@ -10780,6 +10783,9 @@ packages:
 
   '@remix-run/node-fetch-server@0.13.0':
     resolution: {integrity: sha512-1EsNo0ZpgXu/90AWoRZf/oE3RVTUS80tiTUpt+hv5pjtAkw7icN4WskDwz/KdAw5ARbJLMhZBrO1NqThmy/McA==}
+
+  '@remotion/google-fonts@4.0.481':
+    resolution: {integrity: sha512-vMEYKmhODZvdjdG4CsbZCO6o607Abx7oLXYVPYqHc9cdClz9Bt3kIco2wTJOxzumIhboXS3UzSE51z0TZZeusg==}
 
   '@remotion/paths@4.0.443':
     resolution: {integrity: sha512-HKJssEUKgG/0SrIJOfc1HCyUUgxLK0/ymcB+caejaAlZtL0GuKq0tYGiY0WBlQYcPqjkB8HaCrUH0qnrJnIZ+w==}
@@ -26611,6 +26617,13 @@ snapshots:
   '@remirror/core-constants@3.0.0': {}
 
   '@remix-run/node-fetch-server@0.13.0': {}
+
+  '@remotion/google-fonts@4.0.481(react-dom@19.2.6(react@19.2.6))(react@19.2.6)':
+    dependencies:
+      remotion: 4.0.481(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+    transitivePeerDependencies:
+      - react
+      - react-dom
 
   '@remotion/paths@4.0.443': {}
 
