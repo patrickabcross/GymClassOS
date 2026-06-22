@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: — Content & Video Studio
-status: phases_built
-stopped_at: CV1-CV4 all built + committed on master (tsc clean, 115/115 tests). Production deploy HELD for explicit user go-ahead.
-last_updated: "2026-06-20T11:25:00.000Z"
-last_activity: "2026-06-20 — CV1-CV4 executed (Content + Video Studio fully built, not yet deployed)"
+status: deployed
+stopped_at: "2026-06-22 — RunStudio rebrand + 4 localized marketing homepages (UK/US/FR/DE) + video brief pipeline (stages 1-2) all DEPLOYED to production (gym-class-os.vercel.app). v2.1 Content/Video Studio also went live in the same push window. See .planning/SESSION-2026-06-22-marketing-rebrand-and-video-pipeline.md"
+last_updated: "2026-06-22T00:00:00.000Z"
+last_activity: "2026-06-22 — RunStudio rebrand, marketing homepages (4 markets), Content tab hidden, video brief pipeline stages 1-2 (create-video-brief + dispatch-video-brief)"
 progress:
   total_phases: 4
   completed_phases: 4
@@ -148,16 +148,19 @@ Last activity: 2026-06-20 — CV1-CV4 executed autonomously (Content + Video Stu
 
 **Live deployment state (master):**
 
-- Staff-web: `https://gym-class-os.vercel.app` (Vercel, auto-deploys from `master`) — AE3 live as of commit `120d11c3`, deployed 2026-06-19
+- Staff-web: `https://gym-class-os.vercel.app` (Vercel, auto-deploys from `master`). As of 2026-06-22 (commit `082854ba`): **RunStudio rebrand live**; 4 localized marketing homepages live at `/ /uk /us /fr /de` (FR/DE native); Content tab hidden; video brief pipeline stages 1-2 live; v2.1 Content/Video Studio live. **Deploy = git push to master ONLY** (the `vercel` CLI fails — monorepo source > 10 MB upload cap; and NO root `.vercelignore` — it breaks the `packages/core` build).
+- Staff-web (history): AE3 live as of commit `120d11c3`, deployed 2026-06-19
 - Worker + edge-webhooks: Fly app `gymos-edge-webhooks`
 - Neon project: `gymos-demo` (id `billowing-sun-51091059`)
 - Demo data: 260 members / 423 class occurrences / 4,162 bookings / 200 active subs / 90 conversations / 453 messages
 
 ## Session Continuity
 
-Last session: 2026-06-20T10:22:33.153Z
-Stopped at: Completed CV4-publish-pipeline CV4-01-PLAN.md
+Last session: 2026-06-22 — RunStudio rebrand + marketing homepages + video brief pipeline (ALL DEPLOYED). Full writeup: `.planning/SESSION-2026-06-22-marketing-rebrand-and-video-pipeline.md`
+Stopped at: shipped + verified live; open follow-ups in the session doc (dispatch operator setup, CTA targets, AI-video clips, pipeline stages 3-5).
 Resume file: None
+
+Prior session: 2026-06-20T10:22:33.153Z — Completed CV4-publish-pipeline CV4-01-PLAN.md
 
 ### PICK UP HERE — plan CV1
 
