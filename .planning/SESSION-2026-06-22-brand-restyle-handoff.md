@@ -15,8 +15,16 @@ Quick tasks (all on master, see STATE.md "Quick Tasks Completed"):
 - `AGENT_NATIVE_SINGLE_TENANT=1` (optional Vercel env) — makes deploy-env LLM keys count too. NOT required (app_secrets path works without it); good hardening for a future client who only sets env.
 - Mechanism: core `showOperatorChrome` prop (default true, upstream-safe) on AgentSidebar→AgentPanel→AssistantChat; staff-web `AppLayout` computes `isOperator` (session email ∈ root-loader `operatorEmails`) and passes it on the /gymos mount only.
 
-**Verify post-deploy:** as operator → chat works, full chrome. As coach → no gear/Workspace/Feedback/model picker, just Chat + composer (with Act).
-If chat STILL says "not configured" after the build is live → trace `appSecretExistsByKey` against the live gymos-demo DB (project `billowing-sun-51091059`; ANTHROPIC_API_KEY confirmed present, scope `user`/`support@myutik.com`).
+**Verify post-deploy:** as coach → no gear/Workspace/Feedback/model picker. (Operator sees full chrome.)
+
+### ⚠️ BLOCKER STILL OPEN (do this FIRST, before brand restyle) — agent RUN can't resolve the key
+Detection is fixed (LLM section shows green "Connected via ANTHROPIC_API_KEY", g2k worked), BUT sending a chat message still errors **"No LLM provider is connected"** (`LLM_MISSING_CREDENTIALS_MESSAGE`, `agent/engine/credential-errors.ts`). The agent RUN uses a DIFFERENT resolver than detection:
+- `production-agent.ts` `getOwnerActiveApiKey(ownerEmail)` → `getOwnerApiKey` (line ~128) reads `app_secrets` ONLY under the running user's own scopes (user/ownerEmail, org/orgId, workspace/orgId, workspace/solo:ownerEmail). The key is stored under `user/support@myutik.com`; run is as `patrickalexanderross@outlook.com` → **MISS**. It is NOT resolved studio-global by key (my earlier "runtime resolves by-key" memory note was WRONG for this path).
+- Deploy-env fallback (`readDeployCredentialEnv("ANTHROPIC_API_KEY")`, lines ~1937/1955-1959) is BLOCKED by `shouldBlockDeployCredentialFallback()` = `!isDeployCredentialFallbackAllowed()` = true in prod unless `AGENT_NATIVE_SINGLE_TENANT=1`.
+
+**FIX (do both):**
+1. CONFIG (user): set `AGENT_NATIVE_SINGLE_TENANT=1` in Vercel. Only fully works if `ANTHROPIC_API_KEY` is ALSO in Vercel env (the in-app Settings save writes to `app_secrets`, NOT Vercel env — confirmed via DB: key is in `app_secrets`, scope `user`/`support@myutik.com`, project `billowing-sun-51091059`).
+2. CODE (robust, repeatable — implement first post-clear): add a **studio-global** `app_secrets`-by-key VALUE reader in core (sibling to `appSecretExistsByKey` presence reader in `secrets/storage.ts`, but returns the decrypted value; staff-web has `BETTER_AUTH_SECRET` so it can decrypt) and use it as a fallback in `getOwnerApiKey`/`getOwnerActiveApiKey` **gated by `isSingleTenantDeploy()`** (so multi-tenant strict scoping is preserved). Then an in-app-saved key powers the agent for any staff login with no Vercel-env step — the correct one-studio-per-deploy behaviour. Route via GSD. See [[feedback_repeatable_per_client]], [[project_gymos_operator_gating]].
 
 ---
 
