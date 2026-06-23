@@ -1,6 +1,9 @@
 import type Stripe from "stripe";
 import { sql } from "drizzle-orm";
-import { schema } from "../../lib/db.js";
+import { schema, getDb } from "../../lib/db.js";
+import { enqueueMetaCapiEvent } from "@gymos/queue";
+import { toMajorUnits, getMemberHashes, getOrUpsertAttribution } from "../metaLifecycle.js";
+import { resolveStageEvent } from "../../lib/stage-event-map.js";
 
 type TxClient = any; // Drizzle transaction client — keep loose for now
 
@@ -104,6 +107,37 @@ export async function checkoutSessionCompleted(
       )
       ON CONFLICT (id) DO NOTHING
     `);
+  }
+
+  // MC2 LIFE-02: Purchase CAPI event. Best-effort (D-17) — never roll back the
+  // reducer on a queue failure. Keyed on the checkout session id so a replay
+  // dedupes (singletonKey) and renewals (distinct sessions/invoices) each report.
+  if (memberId && fullSession.amount_total != null) {
+    try {
+      const db = getDb();
+      const currency = (fullSession.currency ?? "gbp").toLowerCase();
+      const attr = await getOrUpsertAttribution(db, memberId);
+      const { hashedEmail, hashedPhone } = await getMemberHashes(db, memberId);
+      await enqueueMetaCapiEvent({
+        eventId: `purchase:${fullSession.id}`,
+        memberId,
+        eventName: resolveStageEvent(null, "purchase"),
+        actionSource: "system_generated",
+        stageKey: "purchase",
+        eventTime: Math.floor(Date.now() / 1000),
+        value: toMajorUnits(fullSession.amount_total, currency),
+        currency,
+        hashedEmail,
+        hashedPhone,
+        fbc: attr.fbc,
+        fbp: attr.fbp,
+      });
+    } catch (err) {
+      console.error(
+        "[checkout-session-completed] Purchase CAPI enqueue failed — non-fatal (D-17):",
+        err,
+      );
+    }
   }
 }
 
