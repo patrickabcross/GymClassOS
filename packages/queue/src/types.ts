@@ -7,6 +7,8 @@ export const QUEUE_NAMES = {
   CLASS_REMINDER: "class-reminder",
   /** MPV Phase 2: nightly materialiser — fills class_occurrences from class_schedule_rules */
   CLASS_MATERIALIZE: "class-materialize",
+  /** MC1: Meta Conversions API event sender (worker resolves pixelId at execution time) */
+  META_CAPI_EVENT: "meta-capi-event",
 } as const;
 
 export const OutboundWhatsAppPayload = z.object({
@@ -68,7 +70,10 @@ export const StripeEventPayload = z.object({
   // P1c.1: present only for Connect-endpoint events (event.account). Platform
   // events leave it undefined. Threaded to every reducer's refetch as the
   // { stripeAccount } request option (RESEARCH §Connect webhooks).
-  stripeAccount: z.string().regex(/^acct_/).optional(),
+  stripeAccount: z
+    .string()
+    .regex(/^acct_/)
+    .optional(),
 });
 export type StripeEventPayload = z.infer<typeof StripeEventPayload>;
 
@@ -77,3 +82,37 @@ export const ClassReminderPayload = z.object({
   remindAt: z.string().datetime(),
 });
 export type ClassReminderPayload = z.infer<typeof ClassReminderPayload>;
+
+/**
+ * MC1: Meta Conversions API event payload.
+ *
+ * PII fields are PRE-HASHED (SHA-256 hex) by the submit handler before
+ * enqueue — raw PII must never enter the queue.
+ *
+ * fbc, fbp, clientIp, clientUserAgent are PLAIN — Meta requires them unhashed.
+ *
+ * eventTime is Unix SECONDS (not milliseconds).
+ *
+ * pixelId is intentionally NOT in the payload — the worker resolves it from
+ * studio_owner_config at execution time so queued jobs never carry a stale
+ * Pixel ID (per RESEARCH Open Question 1 recommendation).
+ */
+export const MetaCapiEventPayload = z.object({
+  eventId: z.string().min(1), // shared browser <-> server event_id (dedup key)
+  memberId: z.string().min(1), // attribution lookup + idempotency
+  eventName: z.string().min(1), // "Lead" for MC1 (resolved from stageEventMap)
+  actionSource: z.string().min(1), // "website" for form leads
+  eventTime: z.number().int(), // Unix SECONDS (NOT milliseconds)
+  eventSourceUrl: z.string().optional(),
+  // Pre-hashed PII (SHA-256 hex) — never raw PII in the queue
+  hashedEmail: z.string().optional(),
+  hashedPhone: z.string().optional(),
+  hashedFn: z.string().optional(),
+  hashedLn: z.string().optional(),
+  // Attribution + match signals — PLAIN, never hashed
+  fbc: z.string().optional(),
+  fbp: z.string().optional(),
+  clientIp: z.string().optional(),
+  clientUserAgent: z.string().optional(),
+});
+export type MetaCapiEventPayload = z.infer<typeof MetaCapiEventPayload>;
