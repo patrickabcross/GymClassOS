@@ -1,11 +1,11 @@
 ---
 gsd_state_version: 1.0
 milestone: v2.2
-milestone_name: — Meta Conversion Tracking
-status: Milestone v2.2 started. Requirements + roadmap written (3 phases MC1-MC3, 15 reqs). No implementation yet. NEXT: /gsd:plan-phase MC1.
-stopped_at: v2.2 planning artifacts written + committed. NEXT: plan Phase MC1 (Foundation + Lead event)
-last_updated: "2026-06-23T00:00:00.000Z"
-last_activity: "2026-06-23 — Milestone v2.2 (Meta Conversion Tracking) started; PROJECT.md + REQUIREMENTS.md + ROADMAP.md written; v2.1 requirements archived to milestones/"
+milestone_name: — Meta Conversion Tracking — IN PROGRESS
+status: Milestone v2.2 started; requirements + roadmap written (MC1-MC3, 15 reqs); no implementation yet.
+stopped_at: Phase MC1 context gathered
+last_updated: "2026-06-23T08:26:48.536Z"
+last_activity: "2026-06-23 — v2.2 planning artifacts written + committed; v2.1 requirements archived to milestones/v2.1-REQUIREMENTS.md. NEXT: /gsd:plan-phase MC1."
 progress:
   total_phases: 3
   completed_phases: 0
@@ -167,9 +167,9 @@ Last activity: 2026-06-22 — Phase 2 recurring classes (quick 260622-mpv) DONE 
 
 ## Session Continuity
 
-Last session: 2026-06-22T15:54:48.499Z
-Stopped at: Phase 2 recurring classes DONE + deployed (Vercel + Fly v21); WhatsApp/Forms fixes shipped. NEXT: Phase 3 + tracking setup
-Resume file: None
+Last session: 2026-06-23T08:26:48.524Z
+Stopped at: Phase MC1 context gathered
+Resume file: .planning/phases/MC1-foundation-lead-event/MC1-CONTEXT.md
 
 Prior session: 2026-06-20T10:22:33.153Z — Completed CV4-publish-pipeline CV4-01-PLAN.md
 
@@ -180,6 +180,7 @@ v2.2 roadmap is written (Meta Conversion Tracking). Three phases MC1-MC3 defined
 **Next step — plan Phase MC1 (Foundation + Lead event):** `/gsd:plan-phase MC1`
 
 MC1 hook points (confirmed by codebase map 2026-06-23):
+
 - Browser Pixel + fbc/fbp/fbclid capture → `apps/staff-web/features/forms/lib/public-form-ssr.ts` (the `/f/:slug` page) + `apps/staff-web/features/forms/lib/embed-snippet.ts` (`/embed.js` — parent→iframe bridge for fbclid + consent).
 - Extend submit payload + persist + enqueue → `apps/staff-web/features/forms/handlers/submissions.ts` (`submitLeadForm`).
 - New additive `meta_lead_attribution` table → `apps/staff-web/server/db/schema.ts` + a new `runMigrations` version (NOT auto-run — apply to gymos-demo Neon by hand per migration-drift gotcha).
