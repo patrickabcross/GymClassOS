@@ -114,5 +114,10 @@ export const MetaCapiEventPayload = z.object({
   fbp: z.string().optional(),
   clientIp: z.string().optional(),
   clientUserAgent: z.string().optional(),
+  // MC2: Purchase value/currency (LIFE-02). Optional — only Purchase populates them.
+  value: z.number().nonnegative().optional(), // MAJOR units, already divided by caller
+  currency: z.string().length(3).optional(), // ISO-4217 lowercase (e.g. "gbp")
+  // MC2: stage marker write-back key (handler stamps the matching *_sent_at column).
+  stageKey: z.enum(["lead", "contact", "purchase", "schedule"]).optional(),
 });
 export type MetaCapiEventPayload = z.infer<typeof MetaCapiEventPayload>;
