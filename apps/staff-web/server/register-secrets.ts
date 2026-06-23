@@ -165,6 +165,33 @@ registerRequiredSecret({
 // senders read from app_secrets, pair this in-app paste with
 // `fly secrets set MYUTIK_API_KEY=…` on the Fly services.
 
+// ─── Meta Conversions API ────────────────────────────────────────────────────
+//
+// META_CAPI_TOKEN is stored exclusively in app_secrets (NOT as an env var or
+// a studio_owner_config column). The Fly worker reads it at job execution time
+// via readAppSecretByKey("META_CAPI_TOKEN", db), decrypting with BETTER_AUTH_
+// SECRET (must be identical on Vercel + Fly — see D-03 + Pitfall 4 in the
+// MC1-RESEARCH.md). The token is never logged, never sent client-side.
+//
+// The "Meta Conversion Tracking" Settings card (MC1-05) shows this secret as
+// a masked "configured / replace" field (same pattern as the rotate-key UX
+// already on gymos.settings.integrations.tsx). Operator pastes via Settings.
+//
+// Registration here surfaces the slot in Settings → API Keys so it shows in
+// the required-secrets list even before the MC1-05 card ships.
+
+registerRequiredSecret({
+  key: "META_CAPI_TOKEN",
+  label: "Meta Conversions API Token",
+  description:
+    "Meta Conversions API access token — read at runtime by the Fly worker to POST server-side Lead (and future lifecycle) events to the studio's Meta Pixel via Graph API v23. Generate in Meta Events Manager → Data Sources → <pixel> → Settings → Conversions API → Generate access token. Never stored in plain text; never logged.",
+  docsUrl:
+    "https://developers.facebook.com/docs/marketing-api/conversions-api/get-started",
+  scope: "user",
+  kind: "api-key",
+  required: true,
+});
+
 registerRequiredSecret({
   key: "MYUTIK_API_KEY",
   label: "MYÜTIK API Key",
