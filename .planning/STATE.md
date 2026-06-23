@@ -4,7 +4,7 @@ milestone: v2.2
 milestone_name: — Meta Conversion Tracking — IN PROGRESS
 status: verifying
 stopped_at: Completed MC2-04-PLAN.md (Attendance chokepoint + LIFE-04 ops note)
-last_updated: "2026-06-23T22:49:51.021Z"
+last_updated: "2026-06-23T23:00:47.028Z"
 last_activity: 2026-06-23
 progress:
   total_phases: 3
@@ -30,8 +30,8 @@ Requirements: `.planning/REQUIREMENTS.md` (v2.1 requirements, 11 in-scope: CONT-
 ## Current Position
 
 Milestone: v2.2 — Meta Conversion Tracking
-Phase: MC2 (Deep-funnel lifecycle) — EXECUTING
-Plan: 4 of 4
+Phase: MC2
+Plan: Not started
 Status: Phase complete — ready for verification
 Last activity: 2026-06-23
 
