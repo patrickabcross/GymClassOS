@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v2.2
 milestone_name: — Meta Conversion Tracking — IN PROGRESS
-status: executing
-stopped_at: Completed MC1-03-worker-capi-sender-PLAN.md (plan close — all 5 MC1 plans complete; BETTER_AUTH_SECRET parity deferred to deploy-time)
-last_updated: "2026-06-23T12:00:00.000Z"
+status: planning
+stopped_at: Completed MC1-05-settings-card-PLAN.md
+last_updated: "2026-06-23T11:39:47.723Z"
 last_activity: 2026-06-23
 progress:
   total_phases: 3
@@ -30,8 +30,8 @@ Requirements: `.planning/REQUIREMENTS.md` (v2.1 requirements, 11 in-scope: CONT-
 ## Current Position
 
 Milestone: v2.2 — Meta Conversion Tracking
-Phase: MC1 (Foundation + Lead event) — COMPLETE (all 5 plans done; post-deploy parity check pending)
-Plan: 5 of 5
+Phase: MC1
+Plan: Not started
 Status: All MC1 plans complete — ready for deploy + MC2 planning
 Last activity: 2026-06-23
 

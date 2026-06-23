@@ -74,7 +74,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| MC1. Foundation + Lead event | 5/5 | Complete | 2026-06-23 |
+| MC1. Foundation + Lead event | 5/5 | Complete    | 2026-06-23 |
 | MC2. Deep-funnel lifecycle | 0/TBD | Not started | - |
 | MC3. Meta Lead Ads + CRM lifecycle | 0/TBD | Not started | - |
 
