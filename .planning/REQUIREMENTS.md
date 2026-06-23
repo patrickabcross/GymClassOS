@@ -35,7 +35,7 @@
 
 - [x] **LIFE-01**: When a lead first replies on WhatsApp (first inbound message on a `lead` conversation, in the worker), a `Contact` CAPI event fires once using the stored `fbc`/`fbp` (`action_source=system_generated`), idempotent via `event_id=memberId:contact`.
 - [x] **LIFE-02**: When a member's purchase is recorded (Stripe reducer — `checkout.session.completed` / `invoice.paid`), a `Purchase` CAPI event fires carrying `value` + `currency` (for LTV/ROAS), keyed on the Stripe transaction id so **renewals each report** while webhook replays deduplicate.
-- [ ] **LIFE-03**: When a booking's status flips to `attended`, a `Schedule` CAPI event fires once per (member, occurrence) using stored attribution.
+- [x] **LIFE-03**: When a booking's status flips to `attended`, a `Schedule` CAPI event fires once per (member, occurrence) using stored attribution.
 - [x] **LIFE-04**: The stage→event mapping is driven by the configurable `stageEventMap` (events can be renamed without code changes); the optimization target (Contact) is documented for ops.
 
 ### LEAD — Meta Lead Ads (Instant Forms) + CRM lifecycle
@@ -80,7 +80,7 @@
 | CAPI-06 | Phase MC1 | Complete |
 | LIFE-01 | Phase MC2 | Complete |
 | LIFE-02 | Phase MC2 | Complete |
-| LIFE-03 | Phase MC2 | Pending |
+| LIFE-03 | Phase MC2 | Complete |
 | LIFE-04 | Phase MC2 | Complete |
 | LEAD-01 | Phase MC3 | Pending |
 | LEAD-02 | Phase MC3 | Pending |
