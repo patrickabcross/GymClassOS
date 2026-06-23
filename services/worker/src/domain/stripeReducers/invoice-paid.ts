@@ -1,5 +1,8 @@
 import type Stripe from "stripe";
-import { schema } from "../../lib/db.js";
+import { schema, getDb } from "../../lib/db.js";
+import { enqueueMetaCapiEvent } from "@gymos/queue";
+import { toMajorUnits, getMemberHashes, getOrUpsertAttribution } from "../metaLifecycle.js";
+import { resolveStageEvent } from "../../lib/stage-event-map.js";
 
 /**
  * STR-04 (success path): invoice.paid.
@@ -44,10 +47,18 @@ export async function invoicePaid(
   const customerId =
     typeof full.customer === "string" ? full.customer : full.customer?.id;
 
+  // MC2 LIFE-02: memberId resolved from invoice metadata; falls back to
+  // subscription metadata for subscription renewals where the invoice
+  // itself may not carry memberId.
+  let resolvedMemberId: string | null =
+    (full.metadata?.memberId as string) ?? null;
+
   if (subId && customerId) {
     // Refetch subscription for current_period_end.
     // Pass {} as params (no expand needed) then opts for the stripeAccount header.
     const sub = await stripe.subscriptions.retrieve(subId, {}, opts);
+    // Fall back to subscription metadata when invoice metadata lacks memberId.
+    resolvedMemberId = resolvedMemberId ?? ((sub.metadata?.memberId as string) ?? null);
     await tx
       .insert(schema.stripeSubscriptions)
       .values({
@@ -93,5 +104,36 @@ export async function invoicePaid(
       .onConflictDoNothing({
         target: schema.payments.stripePaymentIntentId,
       });
+  }
+
+  // MC2 LIFE-02: Purchase CAPI event for the renewal. Best-effort (D-17).
+  // Keyed on the invoice id — each renewal invoice is unique so renewals each
+  // report; a replayed invoice.paid webhook reuses the id and dedupes.
+  if (resolvedMemberId && full.amount_paid != null) {
+    try {
+      const db = getDb();
+      const currency = (full.currency ?? "gbp").toLowerCase();
+      const attr = await getOrUpsertAttribution(db, resolvedMemberId);
+      const { hashedEmail, hashedPhone } = await getMemberHashes(db, resolvedMemberId);
+      await enqueueMetaCapiEvent({
+        eventId: `purchase:${full.id}`,
+        memberId: resolvedMemberId,
+        eventName: resolveStageEvent(null, "purchase"),
+        actionSource: "system_generated",
+        stageKey: "purchase",
+        eventTime: Math.floor(Date.now() / 1000),
+        value: toMajorUnits(full.amount_paid, currency),
+        currency,
+        hashedEmail,
+        hashedPhone,
+        fbc: attr.fbc,
+        fbp: attr.fbp,
+      });
+    } catch (err) {
+      console.error(
+        "[invoice-paid] Purchase CAPI enqueue failed — non-fatal (D-17):",
+        err,
+      );
+    }
   }
 }
