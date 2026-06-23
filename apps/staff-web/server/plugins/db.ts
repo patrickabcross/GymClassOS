@@ -365,6 +365,54 @@ export default runMigrations(
     // core tables runs first via the framework bootstrap.
     //
     // NEVER add DROP TRIGGER / DROP FUNCTION here — CLAUDE.md forbids it.
+    // -------------------------------------------------------------------------
+    // MC1-01: Meta Conversion Tracking — additive config + attribution.
+    //
+    // Version 31: additive columns on studio_owner_config singleton for Meta
+    //   Pixel ID, Test Event Code, and the per-stage event-name map (JSONB).
+    //   All three default to NULL — resolver applies defaults when null/missing.
+    //   meta_stage_event_map stores JSON: {"lead":"Lead","contact":"Contact",...}
+    //
+    // Version 32: meta_lead_attribution table — one row per member, keyed
+    //   uniquely on member_id. Persists fbc/fbp/fbclid at submit time and
+    //   per-stage sent markers for MC2 dedup. ON CONFLICT(member_id) DO UPDATE
+    //   used by MC1-04 worker after send (lead_sent_at / lead_status).
+    //
+    // Additive only — NO DROP / RENAME / TRUNCATE (CLAUDE.md constraint).
+    // Idempotent: IF NOT EXISTS / IF NOT EXISTS guards on both versions.
+    // Postgres types: JSONB, TIMESTAMPTZ, NOW() — NOT SQLite datetime('now').
+    // NOTE: migrations are NOT auto-applied to gymos-demo Neon by build —
+    //   apply v31+v32 to billowing-sun-51091059 after deploy (migration-drift
+    //   gotcha from project memory).
+    // -------------------------------------------------------------------------
+    {
+      version: 31,
+      sql: `ALTER TABLE studio_owner_config ADD COLUMN IF NOT EXISTS meta_pixel_id TEXT;
+ALTER TABLE studio_owner_config ADD COLUMN IF NOT EXISTS meta_test_event_code TEXT;
+ALTER TABLE studio_owner_config ADD COLUMN IF NOT EXISTS meta_stage_event_map JSONB`,
+    },
+    {
+      version: 32,
+      sql: `CREATE TABLE IF NOT EXISTS meta_lead_attribution (
+  id                TEXT PRIMARY KEY,
+  member_id         TEXT NOT NULL UNIQUE,
+  fbc               TEXT,
+  fbp               TEXT,
+  fbclid            TEXT,
+  initial_event_id  TEXT,
+  page_url          TEXT,
+  client_ip         TEXT,
+  client_user_agent TEXT,
+  lead_sent_at      TIMESTAMPTZ,
+  lead_status       TEXT,
+  contact_sent_at   TIMESTAMPTZ,
+  purchase_sent_at  TIMESTAMPTZ,
+  schedule_sent_at  TIMESTAMPTZ,
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_meta_lead_attribution_member ON meta_lead_attribution(member_id)`,
+    },
     {
       version: 15,
       // postgres path: plpgsql function + conditional trigger creation
