@@ -413,6 +413,19 @@ ALTER TABLE studio_owner_config ADD COLUMN IF NOT EXISTS meta_stage_event_map JS
 );
 CREATE INDEX IF NOT EXISTS idx_meta_lead_attribution_member ON meta_lead_attribution(member_id)`,
     },
+    // -------------------------------------------------------------------------
+    // MC1 gap-fix: add last_error column to meta_lead_attribution.
+    //
+    // Version 33: the worker (services/worker/src/queues/meta-capi-event.ts)
+    //   writes `last_error` in its UPDATE statements on every send outcome but
+    //   the column was absent from the v32 CREATE TABLE. Strictly additive,
+    //   idempotent via IF NOT EXISTS. Postgres TEXT — matches worker usage.
+    //   Apply to gymos-demo Neon after deploy (migration-drift gotcha).
+    // -------------------------------------------------------------------------
+    {
+      version: 33,
+      sql: `ALTER TABLE meta_lead_attribution ADD COLUMN IF NOT EXISTS last_error TEXT`,
+    },
     {
       version: 15,
       // postgres path: plpgsql function + conditional trigger creation

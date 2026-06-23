@@ -742,6 +742,9 @@ export const metaLeadAttribution = table("meta_lead_attribution", {
   clientUserAgent: text("client_user_agent"),
   leadSentAt: text("lead_sent_at"),
   leadStatus: text("lead_status"),
+  // MC1 gap-fix: error message from the last CAPI send attempt (written by worker,
+  // migration v33). Cleared to NULL on a successful send.
+  lastError: text("last_error"),
   contactSentAt: text("contact_sent_at"),
   purchaseSentAt: text("purchase_sent_at"),
   scheduleSentAt: text("schedule_sent_at"),
