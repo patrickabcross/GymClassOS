@@ -8,7 +8,7 @@ files_modified:
   - services/worker/src/queues/meta-capi-event.ts
   - services/worker/src/index.ts
   - services/worker/src/lib/stage-event-map.ts
-autonomous: true
+autonomous: false
 requirements: [CAPI-04]
 user_setup:
   - service: fly-worker
@@ -24,8 +24,9 @@ must_haves:
     - "Transient errors (5xx, network, is_transient) re-throw to retry; permanent errors (code 190 bad token, 4xx is_transient:false) return without retry; final attempt logs FATAL and returns (event isolated, D-18)"
     - "META_CAPI_TOKEN is decrypted via readAppSecretByKey, never logged"
     - "pixelId + stageEventMap + testEventCode resolved from studio_owner_config at execution time"
-    - "On send result the worker writes back lead_status + lead_sent_at on meta_lead_attribution"
+    - "On send result the worker writes back lead_status + lead_sent_at on meta_lead_attribution via raw parameterized SQL (worker never imports the staff-web Drizzle schema)"
     - "A boot-time decrypt self-test logs a clear warning if app_secrets cannot be read (D-04)"
+    - "Before deploy, BETTER_AUTH_SECRET parity between the Fly worker and Vercel staff-web is explicitly verified (D-03)"
   artifacts:
     - path: "services/worker/src/queues/meta-capi-event.ts"
       provides: "registerMetaCapiEventWorker + CAPI POST handler"
@@ -45,10 +46,10 @@ must_haves:
 ---
 
 <objective>
-Build the Fly worker CAPI sender: a `meta-capi-event` queue handler modeled on `outbound-whatsapp.ts` that decrypts `META_CAPI_TOKEN`, resolves pixelId/testEventCode/stageEventMap from `studio_owner_config`, builds the Graph v23 Lead payload (hashed PII + plain fbc/fbp + client IP/UA + `event_time` in seconds + top-level `test_event_code`), POSTs it, splits terminal vs retryable errors, and writes back send status to `meta_lead_attribution`. Plus a boot-time decrypt self-test (D-04).
+Build the Fly worker CAPI sender: a `meta-capi-event` queue handler modeled on `outbound-whatsapp.ts` that decrypts `META_CAPI_TOKEN`, resolves pixelId/testEventCode/stageEventMap from `studio_owner_config`, builds the Graph v23 Lead payload (hashed PII + plain fbc/fbp + client IP/UA + `event_time` in seconds + top-level `test_event_code`), POSTs it, splits terminal vs retryable errors, and writes back send status to `meta_lead_attribution` via raw parameterized SQL. Plus a boot-time decrypt self-test (D-04) and an explicit BETTER_AUTH_SECRET parity check (D-03).
 
 Purpose: This is the single chokepoint that talks to Meta (D-01). Durable retry on 5xx (CAPI-04); per-event isolation (D-18); token never logged or sent client-side (D-17).
-Output: `services/worker/src/queues/meta-capi-event.ts`, queue registration + boot self-test in `index.ts`, and a worker-side copy of the stageEventMap resolver.
+Output: `services/worker/src/queues/meta-capi-event.ts`, queue registration + boot self-test in `index.ts`, a worker-side copy of the stageEventMap resolver, and a gated D-03 parity verification.
 </objective>
 
 <execution_context>
@@ -75,6 +76,11 @@ services/worker/src/lib/appSecrets.ts — readAppSecretByKey(key, db) returns st
 services/worker/src/lib/env.ts — worker DB connection (DATABASE_URL_UNPOOLED).
 services/worker/src/queues/outbound-whatsapp.ts — the canonical register/handler/retry/final-attempt template to copy.
 services/worker/src/queues/telemetry-push.ts — the closest outbound-HTTP-to-external + unconfigured-skip analog.
+
+<!-- CRITICAL DB-access rule (RESEARCH Open Q3): the worker is a SEPARATE build and does NOT import
+     apps/staff-web/server/db/schema.ts. All meta_lead_attribution access is raw parameterized SQL via
+     the worker's own Drizzle handle: db.execute(sql`UPDATE meta_lead_attribution SET ... WHERE member_id = ${...}`).
+     Never import a Drizzle table export from apps/staff-web into the worker. -->
 </interfaces>
 </context>
 
@@ -132,7 +138,7 @@ services/worker/src/queues/telemetry-push.ts — the closest outbound-HTTP-to-ex
     - services/worker/src/queues/outbound-whatsapp.ts — READ IN FULL. Copy its exact structure: the `registerXWorker(boss)` export, the `boss.work(QUEUE_NAMES.X, { batchSize: 1, localConcurrency: 1, includeMetadata: true }, async (jobs) => {...})` shape, payload `.parse(job.data)`, the retryCount/retryLimit final-attempt branch, and the logger usage.
     - services/worker/src/queues/telemetry-push.ts — the outbound `fetch()` to an external HTTP API + the unconfigured-skip (return-cleanly) pattern.
     - services/worker/src/lib/appSecrets.ts — `readAppSecretByKey(key, db)` signature.
-    - services/worker/src/lib/env.ts + how outbound-whatsapp.ts obtains its DB handle — copy the same DB access.
+    - services/worker/src/lib/env.ts + services/worker/src/lib/db.ts + how outbound-whatsapp.ts obtains its DB handle (`getDb()` returning a Drizzle instance backed by `DATABASE_URL_UNPOOLED`) — copy the same DB access. The worker uses Drizzle's raw `db.execute(sql`...`)` tagged-template for parameterized SQL (see how `appSecrets.ts` queries `app_secrets`). The worker does NOT and MUST NOT import `apps/staff-web/server/db/schema.ts` — it is a separate build with no dependency on the staff-web app. ALL `meta_lead_attribution` access from the worker is raw parameterized SQL via `db.execute(sql`...`)`, NOT a Drizzle table export imported from staff-web (RESEARCH Open Q3).
     - .planning/phases/MC1-foundation-lead-event/MC1-RESEARCH.md § "Pattern 1", "Pattern 6", "Pattern 7", and "Code Examples → CAPI POST fetch".
   </read_first>
   <action>
@@ -140,7 +146,7 @@ services/worker/src/queues/telemetry-push.ts — the closest outbound-HTTP-to-ex
 
     1. `const data = MetaCapiEventPayload.parse(job.data);` (import from `@gymos/queue`).
 
-    2. Resolve config from `studio_owner_config` singleton via the worker's DB handle (same DB access pattern as outbound-whatsapp.ts). Read `meta_pixel_id`, `meta_test_event_code`, `meta_stage_event_map`. Use a raw SQL select or the Drizzle `studioOwnerConfig` export — match how outbound-whatsapp.ts reads config. If no singleton row OR `meta_pixel_id` is null/empty → **unconfigured-skip**: `log.warn({ eventId: data.eventId }, "[meta-capi-event] pixelId not configured — skipping")` and `return` (NO throw — per telemetry-push.ts unconfigured pattern).
+    2. Resolve config from `studio_owner_config` singleton via the worker's DB handle (same DB access pattern as outbound-whatsapp.ts). Read `meta_pixel_id`, `meta_test_event_code`, `meta_stage_event_map`. Use a raw SQL select (`db.execute(sql`SELECT meta_pixel_id, meta_test_event_code, meta_stage_event_map FROM studio_owner_config LIMIT 1`)`) — match how outbound-whatsapp.ts reads config. Add the `// guard:allow-unscoped — single-tenant meta config` marker above the raw read. If no singleton row OR `meta_pixel_id` is null/empty → **unconfigured-skip**: `log.warn({ eventId: data.eventId }, "[meta-capi-event] pixelId not configured — skipping")` and `return` (NO throw — per telemetry-push.ts unconfigured pattern).
 
     3. `const token = await readAppSecretByKey("META_CAPI_TOKEN", db);` If `!token` → unconfigured-skip (warn + return). NEVER log the token value — log only presence/absence.
 
@@ -192,12 +198,21 @@ services/worker/src/queues/telemetry-push.ts — the closest outbound-HTTP-to-ex
 
     7. Wrap network/fetch exceptions: a thrown fetch (ECONNREFUSED/ETIMEDOUT) propagates as retryable — same final-attempt guard applies (on final attempt write `lead_status='failed'` and return; otherwise let it throw to retry). Match outbound-whatsapp.ts's try/catch-and-final-attempt shape.
 
-    The `lead_status`/`lead_sent_at` write uses a single `UPDATE meta_lead_attribution SET lead_status=..., lead_sent_at=NOW(), updated_at=NOW() WHERE member_id = ${data.memberId}` — add the `// guard:allow-unscoped — single-tenant meta attribution` marker comment above any raw query on this single-tenant table.
+    REQUIRED write-back path (RESEARCH Open Q3 — DO NOT deviate): the worker accesses `meta_lead_attribution` ONLY via raw parameterized SQL on its own Drizzle handle. Do NOT import `apps/staff-web/server/db/schema.ts` (or any staff-web Drizzle export) into the worker — the worker is a separate build. The status write is a single parameterized statement:
+    ```typescript
+    // guard:allow-unscoped — worker post-send status write (single-tenant meta attribution)
+    await db.execute(sql`
+      UPDATE meta_lead_attribution
+      SET lead_status = ${status}, lead_sent_at = NOW(), last_error = ${lastError}, updated_at = NOW()
+      WHERE member_id = ${data.memberId}
+    `);
+    ```
+    (`status` is `'sent'`/`'failed'`; `lastError` is `null` on success or a short truncated `metaError?.message`/status string on failure. Keying on `member_id` is fine for MC1's one-attribution-row-per-member model; if a future event_id-keyed lookup is needed, key on `initial_event_id = ${data.eventId}` instead — both are parameterized, never string-concatenated.) Import `sql` from `drizzle-orm` as `appSecrets.ts` does. The `// guard:allow-unscoped — worker post-send status write` marker comment is REQUIRED above the statement.
 
     NEVER log `token`. Run prettier.
   </action>
   <verify>
-    <automated>grep -n "graph.facebook.com/v23.0" services/worker/src/queues/meta-capi-event.ts && grep -n "test_event_code" services/worker/src/queues/meta-capi-event.ts && grep -n "is_transient" services/worker/src/queues/meta-capi-event.ts && grep -n "readAppSecretByKey" services/worker/src/queues/meta-capi-event.ts && grep -n "lead_status" services/worker/src/queues/meta-capi-event.ts</automated>
+    <automated>grep -n "graph.facebook.com/v23.0" services/worker/src/queues/meta-capi-event.ts && grep -n "test_event_code" services/worker/src/queues/meta-capi-event.ts && grep -n "is_transient" services/worker/src/queues/meta-capi-event.ts && grep -n "readAppSecretByKey" services/worker/src/queues/meta-capi-event.ts && grep -n "UPDATE meta_lead_attribution" services/worker/src/queues/meta-capi-event.ts && grep -n "guard:allow-unscoped" services/worker/src/queues/meta-capi-event.ts</automated>
   </verify>
   <acceptance_criteria>
     - File exports `registerMetaCapiEventWorker`
@@ -208,11 +223,12 @@ services/worker/src/queues/telemetry-push.ts — the closest outbound-HTTP-to-ex
     - `fbc`, `fbp`, `client_ip_address`, `client_user_agent` are assigned from plain values (NOT passed through any hash function)
     - Permanent-error branch checks `metaError?.code === 190` and `is_transient === false`; returns without throwing
     - Retryable branch `throw`s except on final attempt (`retryCount >= retryLimit`) where it writes `lead_status='failed'` and returns
-    - On 2xx, an `UPDATE meta_lead_attribution SET lead_status='sent', lead_sent_at=NOW()` runs for `data.memberId`, with a `guard:allow-unscoped` marker comment
+    - On 2xx, an `UPDATE meta_lead_attribution SET lead_status='sent', lead_sent_at=NOW()` runs for `data.memberId` via `db.execute(sql`...`)` with parameterized values, preceded by a `// guard:allow-unscoped — worker post-send status write` marker comment
+    - The worker file does NOT import anything from `apps/staff-web` (grep: no `apps/staff-web` import path appears in the file); `meta_lead_attribution` is touched only by raw `db.execute(sql`...`)`
     - The unconfigured-skip path (`!token` or no pixelId) returns without throwing
     - No `token` value is interpolated into any `log.*` call (grep: no `log.*token` printing the value)
   </acceptance_criteria>
-  <done>Worker handler POSTs Graph v23 Lead with correct payload shape, splits terminal/retryable errors, writes send status, never logs the token.</done>
+  <done>Worker handler POSTs Graph v23 Lead with correct payload shape, splits terminal/retryable errors, writes send status via raw parameterized SQL (no staff-web Drizzle import), never logs the token.</done>
 </task>
 
 <task type="auto">
@@ -267,13 +283,34 @@ services/worker/src/queues/telemetry-push.ts — the closest outbound-HTTP-to-ex
   <done>meta-capi-event queue is created + registered on boot; a decrypt self-test surfaces BETTER_AUTH_SECRET drift loudly.</done>
 </task>
 
+<task type="checkpoint:human-verify" gate="blocking">
+  <name>Task 4: BETTER_AUTH_SECRET parity check (D-03) — gate deploy on it</name>
+  <what-built>
+    The worker decrypts `META_CAPI_TOKEN` from `app_secrets` using key material derived from `BETTER_AUTH_SECRET` (`sha256(SECRETS_ENCRYPTION_KEY || BETTER_AUTH_SECRET)`). staff-web encrypts the token with ITS `BETTER_AUTH_SECRET`. If the two values differ, every CAPI send silently skips (the decrypt returns null) — there is no automated way for staff-web to detect this drift. D-03 requires this be an explicit executor step, not just a SUMMARY note. The Task 3 boot self-test (D-04) is COMPLEMENTARY confirmation after deploy, NOT a substitute for this pre-deploy check.
+  </what-built>
+  <how-to-verify>
+    1. Read the worker app's secret list:
+       `fly secrets list -a <worker-app>` (the worker Fly app — `gymos-edge-webhooks` or the worker sibling; confirm the app name in the worker's `fly.toml`). Locate the `BETTER_AUTH_SECRET` digest/row.
+    2. Read the Vercel staff-web env var value: Vercel dashboard → gym-class-os project → Settings → Environment Variables → `BETTER_AUTH_SECRET` (Production). (`fly secrets list` shows only a digest, not the value, so compare the actual plaintext you set on each side — they must be byte-for-byte identical.)
+    3. Confirm they are the IDENTICAL value. If they differ (or `BETTER_AUTH_SECRET` is absent on the worker), set it on the worker to match staff-web:
+       `fly secrets set BETTER_AUTH_SECRET="<exact-staff-web-value>" -a <worker-app>` (this redeploys the worker).
+    4. After the worker redeploys, confirm the Task 3 boot self-test logged `"[worker] boot self-test: app_secrets decrypt OK"` (and NOT the "BOOT SELF-TEST: could not decrypt" error) in the worker logs:
+       `fly logs -a <worker-app>` — look for the self-test line at the most recent boot.
+    DO NOT proceed to ship MC1 (or rely on any CAPI send) until both (a) the two `BETTER_AUTH_SECRET` values are confirmed identical AND (b) the boot self-test logged "decrypt OK".
+  </how-to-verify>
+  <resume-signal>Type "approved" once BETTER_AUTH_SECRET is confirmed identical on the Fly worker and Vercel staff-web AND the worker boot self-test logged "decrypt OK"; otherwise describe the mismatch.</resume-signal>
+  <action>Operator-only verification (no code change). Run `fly secrets list -a <worker-app>` and read the Vercel staff-web `BETTER_AUTH_SECRET` (Production), confirm the two values are byte-for-byte identical, set the worker secret to match if they differ (`fly secrets set BETTER_AUTH_SECRET="<exact-staff-web-value>" -a <worker-app>`), then confirm the Task 3 boot self-test logged "app_secrets decrypt OK" via `fly logs -a <worker-app>`. Gate MC1 ship on both confirmations. See the how-to-verify steps above.</action>
+  <verify>Operator confirms (1) `BETTER_AUTH_SECRET` identical on the Fly worker and Vercel staff-web, and (2) worker boot log shows "[worker] boot self-test: app_secrets decrypt OK".</verify>
+  <done>BETTER_AUTH_SECRET parity confirmed AND the worker boot self-test logged "decrypt OK"; deploy is unblocked.</done>
+</task>
+
 </tasks>
 
 <verification>
-- `services/worker/src/queues/meta-capi-event.ts` exists with v23 endpoint, top-level test_event_code, error split, status write-back.
+- `services/worker/src/queues/meta-capi-event.ts` exists with v23 endpoint, top-level test_event_code, error split, status write-back via raw parameterized SQL (no staff-web Drizzle import).
 - Worker resolver + index registration + boot self-test present.
 - `npx tsc --noEmit` (or the worker's typecheck script) passes for services/worker.
-- D-03 checklist: SUMMARY must instruct verifying `BETTER_AUTH_SECRET` is identical on the Fly worker and Vercel staff-web (`fly secrets list` vs Vercel env), and that the boot self-test logged "decrypt OK" after deploy.
+- D-03 parity check (Task 4) completed: `BETTER_AUTH_SECRET` confirmed identical on the Fly worker and Vercel staff-web, and the boot self-test logged "decrypt OK".
 </verification>
 
 <success_criteria>
@@ -282,5 +319,5 @@ services/worker/src/queues/telemetry-push.ts — the closest outbound-HTTP-to-ex
 
 <output>
 After completion, create `.planning/phases/MC1-foundation-lead-event/MC1-03-SUMMARY.md`.
-Flag the D-03 BETTER_AUTH_SECRET parity check and the post-deploy boot-self-test log line as explicit verification steps.
+Record the D-03 BETTER_AUTH_SECRET parity check (Task 4) result and the post-deploy boot-self-test "decrypt OK" log line as the completed verification steps.
 </output>
