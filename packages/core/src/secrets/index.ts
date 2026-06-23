@@ -27,6 +27,7 @@ export {
   deleteAppSecret,
   getAppSecretMeta,
   listAppSecretsForScope,
+  appSecretExistsByKey,
   last4,
   type SecretRef,
   type WriteSecretArgs,
