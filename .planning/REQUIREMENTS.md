@@ -1,7 +1,7 @@
 # Milestone v2.2 Requirements — Meta Conversion Tracking
 
 **Defined:** 2026-06-23
-**Goal:** Report HUSTLE's form-lead conversions and full CRM lifecycle to the studio's own Meta Pixel via browser Pixel + Conversions API (deduplicated, consent-gated), then extend the same chokepoint to Meta Lead Ads.
+**Goal:** Report HUSTLE's form-lead conversions and full CRM lifecycle to the studio's own Meta Pixel via browser Pixel + Conversions API (deduplicated), then extend the same chokepoint to Meta Lead Ads.
 
 **Scope note:** Single-tenant per deploy — `pixelId`/`capiToken` are studio-global config the operator enters in Settings (no hardcoding to HUSTLE; repeatable per client). All Meta events originate from the backend off DB transitions (chokepoint rule); the Fly worker is the single sender. Strictly additive DB changes. Grounded against existing transitions — no new CRM/pipeline is built.
 
@@ -10,7 +10,7 @@
 - New additive `meta_lead_attribution` table (keyed by `member_id`) stores `fbc`/`fbp`/`initial_event_id` + per-stage fired markers — for offline attribution + idempotency.
 - Studio config: `pixelId` + `stageEventMap` + `testEventCode` stored studio-global; `META_CAPI_TOKEN` as an encrypted `app_secret`. Entered via a "Meta Conversion Tracking" card in `/gymos/settings/integrations`.
 - Event mapping (configurable, defaults): **Lead** (form submit, `action_source=website`) / **Contact** (first inbound reply on a lead conversation) / **Purchase** (Stripe reducer) / **Schedule** (booking→attended). Optimization target = **Contact**.
-- Consent: gated on the parent site's marketing-consent signal (distinct from the WhatsApp opt-in), bridged into the cross-origin iframe by `embed.js`.
+- Consent: **assumed** — Meta Pixel/ad-tracking consent is managed by the customer's own site consent bar and assumed correctly configured. We do NOT implement a consent gate or signal bridge. The only consent we control is the form's WhatsApp opt-in (which governs WhatsApp messaging, not Meta tracking). *(Caveat on record: a parent-site consent bar does not natively govern a cross-origin iframe, so this is a deliberate assumption that the customer's setup permits tracking.)*
 - Graph API pinned to **v23**.
 
 ---
@@ -20,8 +20,7 @@
 ### PIX — Browser Pixel + capture (in the public form iframe)
 
 - [ ] **PIX-01**: The public form page (`/f/:slug`) loads the studio's Meta Pixel (templated `pixelId` from studio config) and fires a browser `Lead` event on successful submit, sharing an `event_id` with the server event for deduplication.
-- [ ] **PIX-02**: `embed.js` reads `fbclid` + `_fbc`/`_fbp` cookies + the marketing-consent signal from the **parent page** and passes them into the cross-origin iframe (so ad-click attribution survives the iframe boundary, where `location.search` has no `fbclid` and third-party cookies may be partitioned).
-- [ ] **PIX-03**: Pixel load and every Meta send (browser event + CAPI enqueue) are gated on the parent site's **marketing-consent** signal — absent consent, nothing fires. Consent is distinct from the form's WhatsApp opt-in.
+- [ ] **PIX-02**: `embed.js` reads `fbclid` + `_fbc`/`_fbp` cookies from the **parent page** and passes them into the cross-origin iframe (so ad-click attribution survives the iframe boundary, where `location.search` has no `fbclid` and third-party cookies may be partitioned).
 
 ### CAPI — Server-side Conversions API infrastructure
 
@@ -63,6 +62,7 @@
 - **Multi-tenant / `studio_id` scoping** — single-tenant per deploy; `pixelId`/token are studio-global config entered per deploy.
 - **Editing `templates/` or `@agent-native/core` in place** — fork-boundary discipline; work lands in `apps/staff-web/features/*`, `services/worker/*`, `services/edge-webhooks/*`, `packages/queue/*`.
 - **Sending any PII to Meta unhashed** — only SHA-256-hashed `em`/`ph` leave the server; IP + UA are sent raw (Meta requires this); no PII in URL params.
+- **A Meta-consent gate / consent-signal bridge on our side** — Pixel/ad-tracking consent is the customer's responsibility, managed by their own site consent bar and assumed correct (we fire unconditionally). We control only the form's WhatsApp opt-in. Revisit only if a customer's setup requires us to honor an explicit consent signal.
 
 ---
 
@@ -72,7 +72,6 @@
 |-------------|-------|--------|
 | PIX-01 | Phase MC1 | Pending |
 | PIX-02 | Phase MC1 | Pending |
-| PIX-03 | Phase MC1 | Pending |
 | CAPI-01 | Phase MC1 | Pending |
 | CAPI-02 | Phase MC1 | Pending |
 | CAPI-03 | Phase MC1 | Pending |

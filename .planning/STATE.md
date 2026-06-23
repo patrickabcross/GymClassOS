@@ -2,7 +2,7 @@
 gsd_state_version: 1.0
 milestone: v2.2
 milestone_name: — Meta Conversion Tracking
-status: Milestone v2.2 started. Requirements + roadmap written (3 phases MC1-MC3, 16 reqs). No implementation yet. NEXT: /gsd:plan-phase MC1.
+status: Milestone v2.2 started. Requirements + roadmap written (3 phases MC1-MC3, 15 reqs). No implementation yet. NEXT: /gsd:plan-phase MC1.
 stopped_at: v2.2 planning artifacts written + committed. NEXT: plan Phase MC1 (Foundation + Lead event)
 last_updated: "2026-06-23T00:00:00.000Z"
 last_activity: "2026-06-23 — Milestone v2.2 (Meta Conversion Tracking) started; PROJECT.md + REQUIREMENTS.md + ROADMAP.md written; v2.1 requirements archived to milestones/"
@@ -32,7 +32,7 @@ Requirements: `.planning/REQUIREMENTS.md` (v2.1 requirements, 11 in-scope: CONT-
 Milestone: v2.2 — Meta Conversion Tracking
 Phase: MC1 — Foundation + Lead event (not started — plan next)
 Plan: —
-Status: Milestone v2.2 started; requirements + roadmap written (MC1-MC3, 16 reqs); no implementation yet.
+Status: Milestone v2.2 started; requirements + roadmap written (MC1-MC3, 15 reqs); no implementation yet.
 Last activity: 2026-06-23 — v2.2 planning artifacts written + committed; v2.1 requirements archived to milestones/v2.1-REQUIREMENTS.md. NEXT: /gsd:plan-phase MC1.
 
 Prior (v2.1):

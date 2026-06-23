@@ -6,14 +6,14 @@
 
 > **Started:** 2026-06-23 | **Branch:** `master`
 >
-> **Goal:** Report HUSTLE's lead conversions and full CRM lifecycle to the studio's own Meta Pixel via browser Pixel + Conversions API (deduplicated, consent-gated), then extend the same chokepoint to Meta Lead Ads. Grounded against DB transitions that already exist — no new CRM/pipeline is built.
+> **Goal:** Report HUSTLE's lead conversions and full CRM lifecycle to the studio's own Meta Pixel via browser Pixel + Conversions API (deduplicated), then extend the same chokepoint to Meta Lead Ads. Grounded against DB transitions that already exist — no new CRM/pipeline is built.
 >
 > **Phase prefix:** MC — avoids `.planning/phases/` directory collisions with existing D/P/R/AE/BD/CV phase directories.
 
 ### Key constraints baked into every phase
 
 - **Chokepoint rule:** all Meta events originate from the backend off DB transitions; the Fly worker is the single sender (pg-boss `meta-capi-event`). staff-web only enqueues — it never calls `graph.facebook.com` directly.
-- **Consent gating:** Meta Pixel + CAPI sends are gated on the parent site's marketing-consent signal (distinct from the WhatsApp opt-in). `embed.js` bridges the signal into the cross-origin iframe; absent consent → nothing fires.
+- **Consent (assumed, not gated by us):** Meta Pixel/ad-tracking consent is the customer's responsibility, managed by their own site consent bar and assumed correct — we fire unconditionally and do NOT build a consent gate or signal bridge. We control only the form's WhatsApp opt-in. (Caveat on record: a parent-site consent bar does not natively govern a cross-origin iframe.)
 - **Attribution persistence:** capture `fbc`/`fbclid` + `fbp` at submit time and persist on `meta_lead_attribution` — stage events fire later with no browser present. `embed.js` must pass click IDs across the iframe boundary (the iframe's own URL has no `fbclid`).
 - **Single-tenant per deploy:** `pixelId`/`capiToken` are studio-global config the operator enters in `/gymos/settings/integrations`; no hardcoding to HUSTLE.
 - **Idempotency:** browser+server `Lead` dedup via shared `event_id`; one-time stages use deterministic `event_id=memberId:stage`; `Purchase` keys on the Stripe transaction id so renewals report while webhook replays dedup.
@@ -22,22 +22,21 @@
 
 ## Phases
 
-- [ ] **Phase MC1: Foundation + Lead event** — consent-gated browser Pixel + server CAPI `Lead` (deduplicated), cross-iframe `fbclid` capture, studio config + Settings card, `meta_lead_attribution` table, `meta-capi-event` queue + worker sender with durable retry. Independently shippable + provable in Test Events.
+- [ ] **Phase MC1: Foundation + Lead event** — browser Pixel + server CAPI `Lead` (deduplicated), cross-iframe `fbclid` capture, studio config + Settings card, `meta_lead_attribution` table, `meta-capi-event` queue + worker sender with durable retry. Independently shippable + provable in Test Events.
 - [ ] **Phase MC2: Deep-funnel lifecycle** — Contact (first WhatsApp reply, worker), Purchase (Stripe reducer, `value`/`currency`, renewals report), Schedule (booking→attended); read stored attribution; idempotent.
 - [ ] **Phase MC3: Meta Lead Ads + CRM lifecycle** — ingest Instant Form leads via the Lead Retrieval webhook → `gym_members`; advance them in Meta's Leads Center via `lead_id` (Conversions API for CRM); follow-ups stay on the existing chokepoint.
 
 ## Phase Details
 
 ### Phase MC1: Foundation + Lead event
-**Goal**: With consent granted, a public-form submission fires a deduplicated `Lead` to the studio's own Meta Pixel (browser + server), with ad-click attribution captured across the iframe boundary and durable server-side retry — all configured by the operator in Settings, provable end-to-end in Meta's Test Events.
+**Goal**: A public-form submission fires a deduplicated `Lead` to the studio's own Meta Pixel (browser + server), with ad-click attribution captured across the iframe boundary and durable server-side retry — all configured by the operator in Settings, provable end-to-end in Meta's Test Events.
 **Depends on**: Nothing (first MC phase)
-**Requirements**: PIX-01, PIX-02, PIX-03, CAPI-01, CAPI-02, CAPI-03, CAPI-04, CAPI-05, CAPI-06
+**Requirements**: PIX-01, PIX-02, CAPI-01, CAPI-02, CAPI-03, CAPI-04, CAPI-05, CAPI-06
 **Success Criteria** (what must be TRUE):
-  1. With marketing consent granted, submitting a published form fires a browser `Lead` and a server `Lead` to the studio's Pixel that **deduplicate** in Events Manager Test Events (counted once, not twice — identical `event_id`)
+  1. Submitting a published form fires a browser `Lead` and a server `Lead` to the studio's Pixel that **deduplicate** in Events Manager Test Events (counted once, not twice — identical `event_id`)
   2. An `fbclid` from an ad click landing on the parent site is captured (synthesized into `fbc`) and appears in Event Match Quality, despite the form running in a cross-origin iframe whose own URL has no `fbclid`
-  3. With marketing consent absent, no Pixel loads and no CAPI event is sent
-  4. A simulated CAPI 5xx is retried (the event is not dropped); `META_CAPI_TOKEN` is read from `app_secrets`, never logged, never sent client-side
-  5. The operator can enter Pixel ID + Conversions API token + Test Event Code in the "Meta Conversion Tracking" card in `/gymos/settings/integrations`, and `fbc`/`fbp`/`event_id` are persisted on `meta_lead_attribution` for the submitted lead
+  3. A simulated CAPI 5xx is retried (the event is not dropped); `META_CAPI_TOKEN` is read from `app_secrets`, never logged, never sent client-side
+  4. The operator can enter Pixel ID + Conversions API token + Test Event Code in the "Meta Conversion Tracking" card in `/gymos/settings/integrations`, and `fbc`/`fbp`/`event_id` are persisted on `meta_lead_attribution` for the submitted lead
 **Plans**: TBD (`/gsd:plan-phase MC1`)
 **UI hint**: yes (Settings card)
 
@@ -72,7 +71,7 @@
 | MC2. Deep-funnel lifecycle | 0/TBD | Not started | - |
 | MC3. Meta Lead Ads + CRM lifecycle | 0/TBD | Not started | - |
 
-**Coverage:** 16/16 v2.2 requirements mapped across MC1–MC3 (PIX-01..03, CAPI-01..06 → MC1; LIFE-01..04 → MC2; LEAD-01..03 → MC3).
+**Coverage:** 15/15 v2.2 requirements mapped across MC1–MC3 (PIX-01..02, CAPI-01..06 → MC1; LIFE-01..04 → MC2; LEAD-01..03 → MC3).
 
 ---
 
