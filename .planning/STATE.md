@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v2.2
 milestone_name: — Meta Conversion Tracking — IN PROGRESS
 status: executing
-stopped_at: Completed MC1-05-settings-card-PLAN.md
-last_updated: "2026-06-23T11:06:48.225Z"
+stopped_at: Completed MC1-03-worker-capi-sender-PLAN.md (plan close — all 5 MC1 plans complete; BETTER_AUTH_SECRET parity deferred to deploy-time)
+last_updated: "2026-06-23T12:00:00.000Z"
 last_activity: 2026-06-23
 progress:
   total_phases: 3
@@ -30,9 +30,9 @@ Requirements: `.planning/REQUIREMENTS.md` (v2.1 requirements, 11 in-scope: CONT-
 ## Current Position
 
 Milestone: v2.2 — Meta Conversion Tracking
-Phase: MC1 (Foundation + Lead event) — EXECUTING
+Phase: MC1 (Foundation + Lead event) — COMPLETE (all 5 plans done; post-deploy parity check pending)
 Plan: 5 of 5
-Status: Ready to execute
+Status: All MC1 plans complete — ready for deploy + MC2 planning
 Last activity: 2026-06-23
 
 Prior (v2.1):
@@ -95,10 +95,20 @@ Last activity: 2026-06-22 — Phase 2 recurring classes (quick 260622-mpv) DONE 
 | Phase CV4-publish-pipeline P01 | 834 | 3 tasks | 17 files |
 | Phase MC1 P01 | 336 | 3 tasks | 5 files |
 | Phase MC1 P02 | 6min | 2 tasks | 4 files |
+| Phase MC1 P03 | deferred-close | 3 tasks | 3 files |
 | Phase MC1 P04 | 241 | 3 tasks | 3 files |
 | Phase MC1 P05 | 30 | 3 tasks | 2 files |
 
 ## Accumulated Context
+
+### MC1-03 Decisions (2026-06-23)
+
+- **2026-06-23 MC1-03 — Worker NEVER imports apps/staff-web/server/db/schema.ts.** All `meta_lead_attribution` access from the worker is raw `db.execute(sql\`...\`)` with `// guard:allow-unscoped — worker post-send status write` marker. Separate build boundary — no cross-app Drizzle imports.
+- **2026-06-23 MC1-03 — event_time is NOT re-divided in the worker.** `data.eventTime` arrives already as Unix seconds from the submit handler. Dividing by 1000 again would produce a sub-second timestamp broken for Meta.
+- **2026-06-23 MC1-03 — test_event_code is a TOP-LEVEL key (sibling of the data array).** Per Meta Graph v23 spec, it must NOT be inside the event object. Setting it inside the event array silently fails Test Events validation.
+- **2026-06-23 MC1-03 — BETTER_AUTH_SECRET parity (D-03) deferred to deploy-time.** Boot self-test (D-04) is in place (probes WHATSAPP_ACCESS_TOKEN decrypt; null = prominent error log). Human parity check is a required post-deploy action before CAPI sends can be relied on.
+- **2026-06-23 MC1-03 — stageEventMap resolver must be duplicated per build boundary.** It is a pure function with no framework deps — safe to copy. The worker copy lives in services/worker/src/lib/stage-event-map.ts; keep in sync with the staff-web copy when DEFAULT_STAGE_EVENT_MAP changes.
+- **2026-06-23 — Phase MC1 complete (all 5 plans).** Next: deploy master → Vercel, complete BETTER_AUTH_SECRET parity check + migration drift check, verify in Meta Test Events, then plan MC2 via `/gsd:plan-phase MC2`.
 
 ### v2.1 Roadmap Decisions (2026-06-20)
 
