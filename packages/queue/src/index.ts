@@ -3,6 +3,7 @@ export {
   enqueueInboundWhatsApp,
   enqueueStripeEvent,
   enqueueClassReminder,
+  enqueueMetaCapiEvent,
 } from "./publish.js";
 export { getBoss, startBoss, _resetBossForTests } from "./boss.js";
 export {
@@ -13,4 +14,5 @@ export {
   InboundWhatsAppStatusPayload,
   StripeEventPayload,
   ClassReminderPayload,
+  MetaCapiEventPayload,
 } from "./types.js";

@@ -11,6 +11,6 @@
 // worker enforces opt-in + 24h-window + template-approved gates at the
 // single sendMessage() chokepoint (apps/worker/src/domain/sendMessage.ts).
 
-import { enqueueOutboundWhatsApp } from "@gymos/queue";
+import { enqueueOutboundWhatsApp, enqueueMetaCapiEvent } from "@gymos/queue";
 
-export { enqueueOutboundWhatsApp };
+export { enqueueOutboundWhatsApp, enqueueMetaCapiEvent };

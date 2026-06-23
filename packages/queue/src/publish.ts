@@ -5,6 +5,7 @@ import {
   InboundWhatsAppPayload,
   StripeEventPayload,
   ClassReminderPayload,
+  MetaCapiEventPayload,
 } from "./types.js";
 
 /**
@@ -79,4 +80,28 @@ export async function enqueueClassReminder(
   throw new Error(
     "enqueueClassReminder is stubbed — full impl ships in P2/NOTIF-01",
   );
+}
+
+/**
+ * MC1: Enqueue a Meta Conversions API event for the Fly worker to send.
+ *
+ * Singleton-keyed by eventId so a duplicate enqueue of the same shared
+ * browser↔server event_id collapses to one job (D-15 / CAPI-04).
+ *
+ * PII in args must already be SHA-256 hex-hashed by the caller —
+ * this function never receives or stores raw PII.
+ *
+ * expireInSeconds: 24h — comfortably within Meta's 48h dedup window.
+ */
+export async function enqueueMetaCapiEvent(
+  args: MetaCapiEventPayload,
+): Promise<string | null> {
+  const data = MetaCapiEventPayload.parse(args);
+  const boss = await startBoss();
+  return boss.send(QUEUE_NAMES.META_CAPI_EVENT, data, {
+    singletonKey: `${QUEUE_NAMES.META_CAPI_EVENT}:${data.eventId}`,
+    retryLimit: 5,
+    retryBackoff: true,
+    expireInSeconds: 60 * 60 * 24, // 24h — within Meta's 48h dedup window
+  });
 }
