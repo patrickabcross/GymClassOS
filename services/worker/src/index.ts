@@ -25,6 +25,9 @@ import { registerTelemetryPush } from "./queues/telemetry-push.js";
 import { registerDailyOwnerDigest } from "./queues/daily-owner-digest.js";
 import { registerHeartbeatReactivate } from "./queues/heartbeat-reactivate.js";
 import { registerMaterializeClassOccurrences } from "./queues/materialize-class-occurrences.js";
+import { registerMetaCapiEventWorker } from "./queues/meta-capi-event.js";
+import { readAppSecretByKey } from "./lib/appSecrets.js";
+import { getDb } from "./lib/db.js";
 
 async function main() {
   const env = getEnv();
@@ -48,6 +51,7 @@ async function main() {
     QUEUE_NAMES.STRIPE_EVENT,
     QUEUE_NAMES.CLASS_REMINDER,
     QUEUE_NAMES.CLASS_MATERIALIZE,
+    QUEUE_NAMES.META_CAPI_EVENT,
     "templates-sync",
     "telemetry-push",
     "daily-owner-digest",
@@ -99,7 +103,35 @@ async function main() {
   // Reads active class_schedule_rules and inserts occurrences for the next 8 weeks
   // using ON CONFLICT DO NOTHING (idempotent via partial unique index on rule_id+starts_at).
   await registerMaterializeClassOccurrences(boss);
-  log.info("[worker] class-materialize (recurring class occurrences) registered");
+  log.info(
+    "[worker] class-materialize (recurring class occurrences) registered",
+  );
+
+  // MC1: Meta Conversions API sender (D-01 — sole CAPI chokepoint).
+  // Decrypts META_CAPI_TOKEN via BETTER_AUTH_SECRET — see D-03 / Task 4 parity check.
+  await registerMetaCapiEventWorker(boss);
+  log.info("[worker] meta-capi-event queue registered");
+
+  // D-04 Boot-time decrypt self-test: confirm BETTER_AUTH_SECRET on this Fly worker
+  // can decrypt app_secrets. Uses WHATSAPP_ACCESS_TOKEN as a known-configured key.
+  // If it returns null, BETTER_AUTH_SECRET is absent or mismatched vs. Vercel staff-web
+  // (D-03), meaning META_CAPI_TOKEN would also silently skip on every CAPI send.
+  // WARNING: does NOT crash the process — other queues must still run.
+  try {
+    const db = getDb();
+    const probe = await readAppSecretByKey("WHATSAPP_ACCESS_TOKEN", db);
+    if (probe === null) {
+      log.error(
+        "[worker] BOOT SELF-TEST: could not decrypt a known app_secret. " +
+          "Verify BETTER_AUTH_SECRET on the Fly worker matches the Vercel staff-web value (D-03) — " +
+          "otherwise META_CAPI_TOKEN cannot be decrypted and every CAPI send will silently skip.",
+      );
+    } else {
+      log.info("[worker] boot self-test: app_secrets decrypt OK");
+    }
+  } catch (err) {
+    log.error({ err }, "[worker] BOOT SELF-TEST: app_secrets decrypt threw");
+  }
 
   // Tiny admin/healthz HTTP for Fly health checks (MEDIUM #10).
   // MUST listen on PORT 3002 — fly.toml [[services]] for the worker
