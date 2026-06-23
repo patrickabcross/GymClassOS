@@ -60,7 +60,7 @@ Plans:
 Plans:
 - [x] MC2-01-PLAN.md — Queue contract + handler extension (value/currency/stageKey + custom_data + per-stage marker write-back + shared metaLifecycle helper)
 - [x] MC2-02-PLAN.md — Contact (LIFE-01): first inbound WhatsApp reply fire point in the worker
-- [ ] MC2-03-PLAN.md — Purchase (LIFE-02): both Stripe reducers (checkout.session.completed + invoice.paid) with value/currency
+- [x] MC2-03-PLAN.md — Purchase (LIFE-02): both Stripe reducers (checkout.session.completed + invoice.paid) with value/currency
 - [ ] MC2-04-PLAN.md — Schedule (LIFE-03) + ops doc (LIFE-04): mark-booking-attended chokepoint action + Contact optimisation note
 **UI hint**: no
 
@@ -80,7 +80,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | MC1. Foundation + Lead event | 5/5 | Complete    | 2026-06-23 |
-| MC2. Deep-funnel lifecycle | 2/4 | In Progress|  |
+| MC2. Deep-funnel lifecycle | 3/4 | In Progress|  |
 | MC3. Meta Lead Ads + CRM lifecycle | 0/TBD | Not started | - |
 
 **Coverage:** 15/15 v2.2 requirements mapped across MC1–MC3 (PIX-01..02, CAPI-01..06 → MC1; LIFE-01..04 → MC2; LEAD-01..03 → MC3).
