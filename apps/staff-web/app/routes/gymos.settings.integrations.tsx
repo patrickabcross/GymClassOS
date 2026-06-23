@@ -1,4 +1,4 @@
-// RunStudio Settings — Stripe Connect integration + restricted-key fallback.
+// RunStudio Settings — Stripe Connect integration + Meta Conversion Tracking.
 //
 // P1c.1 rework (2026-06-12):
 //   Primary surface: "Connect Stripe" button → create-connect-account →
@@ -11,6 +11,13 @@
 //
 //   Restricted-key UI (P1b-08) preserved behind ?devKeyEntry=1
 //   (rollback insurance — do NOT delete until Connect is confirmed live).
+//
+// MC1-05 (2026-06-23):
+//   Added "Meta Conversion Tracking" card (CAPI-06):
+//   - Pixel ID + Test Event Code → studio_owner_config
+//   - Conversions API token → app_secrets (writeAppSecret, single stable row)
+//   - Status badge: config completeness + last-send health (D-09)
+//   - Send test event → enqueues synthetic Lead via worker (D-01)
 
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import {
@@ -30,12 +37,18 @@ import {
   IconCircleX,
   IconAlertTriangle,
   IconLoader2,
+  IconAd2,
 } from "@tabler/icons-react";
+import { useState } from "react";
 import { getDb } from "../../server/db";
 import { readConnectedAccount } from "../../server/lib/connected-account.js";
+import {
+  writeAppSecret,
+  appSecretExistsByKey,
+} from "@agent-native/core/secrets";
 
 export function meta() {
-  return [{ title: "RunStudio — Stripe Integration" }];
+  return [{ title: "RunStudio — Integrations" }];
 }
 
 // Stripe API version pin — matches stripe.ts + worker.
@@ -57,9 +70,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     try {
       // Inline the link creation here to avoid a round-trip through the action.
       // This keeps the UX instant (loader handles the redirect without a JS fetch).
-      const { getPlatformStripe } = await import(
-        "../../server/lib/stripe.js"
-      );
+      const { getPlatformStripe } = await import("../../server/lib/stripe.js");
       const BASE =
         process.env.STAFF_WEB_URL ?? "https://gym-class-os.vercel.app";
       const platform = await getPlatformStripe();
@@ -79,6 +90,14 @@ export async function loader({ request }: LoaderFunctionArgs) {
         keyPresent: false,
         updatedAt: null,
         lastUsedAt: null,
+        meta: {
+          pixelId: "",
+          testEventCode: "",
+          tokenConfigured: false,
+          configured: false,
+          lastSendStatus: "never" as "sent" | "failed" | "never",
+          lastSendAt: null as string | null,
+        },
       };
     }
   }
@@ -91,9 +110,8 @@ export async function loader({ request }: LoaderFunctionArgs) {
   if (stripeParam === "return" && connectedAccount) {
     try {
       const { getPlatformStripe } = await import("../../server/lib/stripe.js");
-      const { upsertConnectedAccountReadiness } = await import(
-        "../../server/lib/connected-account.js"
-      );
+      const { upsertConnectedAccountReadiness } =
+        await import("../../server/lib/connected-account.js");
       const platform = await getPlatformStripe();
       const acct = await platform.accounts.retrieve(connectedAccount.id);
       await upsertConnectedAccountReadiness(acct);
@@ -115,12 +133,49 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const keyRows = (keyResult as any)?.rows ?? (keyResult as any) ?? [];
   const current = keyRows?.[0] ?? null;
 
+  // ── MC1-05: Meta Conversion Tracking status ───────────────────────────────
+  // guard:allow-unscoped — studio-global config
+  const cfgRows = await (getDb() as any).execute(sql`
+    SELECT meta_pixel_id, meta_test_event_code FROM studio_owner_config LIMIT 1
+  `);
+  const cfg = ((cfgRows as any)?.rows ?? (cfgRows as any))?.[0] ?? {};
+
+  // Token presence by KEY — bypasses the scoping quirk (D-11). Any operator
+  // login sees the correct "configured" state.
+  const metaTokenConfigured = await appSecretExistsByKey("META_CAPI_TOKEN");
+
+  // Last-send health from attribution (most recent row with a status).
+  // guard:allow-unscoped — single-tenant meta attribution
+  const lastRows = await (getDb() as any).execute(sql`
+    SELECT lead_status, lead_sent_at FROM meta_lead_attribution
+    WHERE lead_status IS NOT NULL
+    ORDER BY lead_sent_at DESC NULLS LAST LIMIT 1
+  `);
+  const last = ((lastRows as any)?.rows ?? (lastRows as any))?.[0] ?? null;
+
+  const meta = {
+    pixelId: (cfg.meta_pixel_id ?? "") as string,
+    testEventCode: (cfg.meta_test_event_code ?? "") as string,
+    tokenConfigured: metaTokenConfigured,
+    configured: !!(
+      cfg.meta_pixel_id &&
+      metaTokenConfigured &&
+      cfg.meta_test_event_code
+    ),
+    lastSendStatus: (last?.lead_status ?? "never") as
+      | "sent"
+      | "failed"
+      | "never",
+    lastSendAt: (last?.lead_sent_at ?? null) as string | null,
+  };
+
   return {
     connectedAccount,
     refreshError: null as string | null,
     keyPresent: Boolean(current),
     updatedAt: current?.updated_at ?? null,
     lastUsedAt: current?.last_used_at ?? null,
+    meta,
   };
 }
 
@@ -186,9 +241,8 @@ export async function action({ request }: ActionFunctionArgs) {
   // ── Connect: re-generate onboarding link for existing account ────────────
   if (intent === "continue-onboarding") {
     try {
-      const { readConnectedAccount: readAcct } = await import(
-        "../../server/lib/connected-account.js"
-      );
+      const { readConnectedAccount: readAcct } =
+        await import("../../server/lib/connected-account.js");
       const { getPlatformStripe } = await import("../../server/lib/stripe.js");
 
       const acct = await readAcct();
@@ -285,6 +339,87 @@ export async function action({ request }: ActionFunctionArgs) {
     return { ok: true, message: "Key rotated successfully.", intent };
   }
 
+  // ── MC1-05: Save Meta config (Pixel ID + Test Event Code + optional token) ─
+  if (intent === "save-meta-config") {
+    const pixelId = String(fd.get("pixelId") ?? "")
+      .trim()
+      .replace(/[^0-9]/g, "");
+    const testEventCode = String(fd.get("testEventCode") ?? "").trim();
+    const token = String(fd.get("token") ?? "").trim();
+
+    // guard:allow-unscoped — studio-global config (singleton row)
+    await (getDb() as any).execute(sql`
+      INSERT INTO studio_owner_config (id, meta_pixel_id, meta_test_event_code, updated_at)
+      VALUES ('singleton', ${pixelId || null}, ${testEventCode || null}, NOW())
+      ON CONFLICT (id) DO UPDATE SET
+        meta_pixel_id = ${pixelId || null},
+        meta_test_event_code = ${testEventCode || null},
+        updated_at = NOW()
+    `);
+
+    // Token only written if a non-empty value was provided (masked field —
+    // empty means "keep existing"). Uses the fixed scope/scopeId so re-saves
+    // UPSERT one stable row — no competing duplicates (D-11 / D-02).
+    if (token) {
+      await writeAppSecret({
+        key: "META_CAPI_TOKEN",
+        value: token,
+        scope: "workspace",
+        scopeId: "global",
+        description: "Meta Conversions API access token",
+      });
+    }
+
+    return { ok: true, intent };
+  }
+
+  // ── MC1-05: Rotate Meta token only ────────────────────────────────────────
+  if (intent === "rotate-meta-token") {
+    const token = String(fd.get("token") ?? "").trim();
+    if (!token) return { ok: false, error: "Paste a token first.", intent };
+
+    // Same fixed scope/scopeId as save-meta-config → UPSERT hits the same row (D-11).
+    await writeAppSecret({
+      key: "META_CAPI_TOKEN",
+      value: token,
+      scope: "workspace",
+      scopeId: "global",
+      description: "Meta Conversions API access token",
+    });
+
+    return { ok: true, intent };
+  }
+
+  // ── MC1-05: Send test event (ENQUEUE — D-01: no direct Meta API call) ─────
+  if (intent === "send-meta-test-event") {
+    // guard:allow-unscoped — studio-global config
+    const rows = await (getDb() as any).execute(sql`
+      SELECT meta_pixel_id FROM studio_owner_config LIMIT 1
+    `);
+    const c = ((rows as any)?.rows ?? (rows as any))?.[0] ?? {};
+
+    // Resolve a real member id for the worker's attribution write-back.
+    // guard:allow-unscoped — single-tenant; resolve most-recent gym member
+    const mRows = await (getDb() as any).execute(sql`
+      SELECT id FROM gym_members ORDER BY created_at DESC LIMIT 1
+    `);
+    const memberId = ((mRows as any)?.rows ?? (mRows as any))?.[0]?.id ?? "";
+
+    const { enqueueMetaTestLead } =
+      await import("../../server/lib/meta-capi-test-send.js");
+    const result = await enqueueMetaTestLead({
+      pixelId: c.meta_pixel_id ?? "",
+      memberId,
+    });
+
+    return {
+      ok: result.ok,
+      intent,
+      eventId: result.eventId,
+      error: result.error,
+    };
+  }
+
   return { ok: false, error: "Unknown intent.", intent };
 }
 
@@ -297,12 +432,37 @@ export default function StripeIntegrations() {
   const devKeyEntry = searchParams.get("devKeyEntry") === "1";
 
   // Separate fetcher for the key rotation form (dev fallback)
-  const keyFetcher = useFetcher<{ ok: boolean; message?: string; error?: string; intent?: string }>();
-  const connectFetcher = useFetcher<{ ok: boolean; error?: string; intent?: string }>();
+  const keyFetcher = useFetcher<{
+    ok: boolean;
+    message?: string;
+    error?: string;
+    intent?: string;
+  }>();
+  const connectFetcher = useFetcher<{
+    ok: boolean;
+    error?: string;
+    intent?: string;
+  }>();
+  const metaConfigFetcher = useFetcher<{
+    ok: boolean;
+    error?: string;
+    intent?: string;
+  }>();
+  const metaTestFetcher = useFetcher<{
+    ok: boolean;
+    eventId?: string;
+    error?: string;
+    intent?: string;
+  }>();
+
+  // Masked token reveal state (mirrors rotate-key UX for Meta token)
+  const [showTokenField, setShowTokenField] = useState(false);
 
   const submitting = nav.state === "submitting" || nav.state === "loading";
   const connectSubmitting = connectFetcher.state !== "idle";
   const keySubmitting = keyFetcher.state !== "idle";
+  const metaConfigSubmitting = metaConfigFetcher.state !== "idle";
+  const metaTestSubmitting = metaTestFetcher.state !== "idle";
 
   const connectedAccount = data.connectedAccount;
   const isConnected = Boolean(connectedAccount);
@@ -312,16 +472,45 @@ export default function StripeIntegrations() {
     connectedAccount!.payoutsEnabled;
   const isPending =
     isConnected &&
-    (!connectedAccount!.chargesEnabled || connectedAccount!.payoutsEnabled === false);
+    (!connectedAccount!.chargesEnabled ||
+      connectedAccount!.payoutsEnabled === false);
+
+  const meta = data.meta;
+
+  // Status badge config for Meta card
+  const metaBadge = (() => {
+    if (meta.configured) {
+      if (meta.lastSendStatus === "sent")
+        return { label: "Active", variant: "success" as const };
+      if (meta.lastSendStatus === "failed")
+        return { label: "Last send failed", variant: "error" as const };
+      return {
+        label: "Configured — no sends yet",
+        variant: "neutral" as const,
+      };
+    }
+    return { label: "Not configured", variant: "outline" as const };
+  })();
+
+  const badgeClasses = {
+    success:
+      "inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20",
+    error:
+      "inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-red-500/10 text-red-700 dark:text-red-300 border border-red-500/20",
+    neutral:
+      "inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-muted text-muted-foreground border border-border/50",
+    outline:
+      "inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-transparent text-muted-foreground border border-border/60",
+  };
 
   return (
     <div className="h-full w-full overflow-y-auto bg-background text-foreground">
       <div className="max-w-2xl mx-auto p-6 space-y-6">
         <div>
-          <h1 className="text-sm font-semibold mb-1">Stripe Integration</h1>
+          <h1 className="text-sm font-semibold mb-1">Integrations</h1>
           <p className="text-[12px] text-muted-foreground">
-            Connect your studio&apos;s Stripe account so RunStudio can process
-            class pass purchases and memberships on your behalf.
+            Connect your studio&apos;s Stripe account and Meta Pixel to process
+            payments and track conversions.
           </p>
         </div>
 
@@ -338,7 +527,7 @@ export default function StripeIntegrations() {
           </div>
         )}
 
-        {/* Connect section */}
+        {/* ── Stripe Connect card ─────────────────────────────────────────── */}
         <div className="rounded-lg border border-border/50 p-4 bg-card/30 space-y-4">
           <div className="flex items-center gap-2">
             <IconBrandStripe size={16} className="text-[#635BFF]" />
@@ -452,7 +641,8 @@ export default function StripeIntegrations() {
               )}
 
               <p className="text-[11px] text-muted-foreground">
-                Account id: <code className="text-[10px]">{connectedAccount!.id}</code>
+                Account id:{" "}
+                <code className="text-[10px]">{connectedAccount!.id}</code>
               </p>
             </div>
           )}
@@ -470,6 +660,215 @@ export default function StripeIntegrations() {
               </p>
             </div>
           )}
+        </div>
+
+        {/* ── Meta Conversion Tracking card (MC1-05) ──────────────────────── */}
+        <div className="rounded-lg border border-border/50 p-4 bg-card/30 space-y-4">
+          {/* Header: icon + title + status badge */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <IconAd2 size={16} className="text-[#1877F2]" />
+            <span className="text-sm font-semibold">
+              Meta Conversion Tracking
+            </span>
+            <span className={badgeClasses[metaBadge.variant]}>
+              {metaBadge.label}
+            </span>
+            {meta.lastSendAt && (
+              <span className="text-[11px] text-muted-foreground ml-auto">
+                Last send:{" "}
+                {new Date(meta.lastSendAt).toLocaleString("en-GB", {
+                  dateStyle: "short",
+                  timeStyle: "short",
+                })}
+              </span>
+            )}
+          </div>
+
+          <p className="text-[12px] text-muted-foreground">
+            Send conversion events to Meta via the Conversions API (CAPI). The
+            Fly worker sends all events — staff-web never calls Meta directly.
+          </p>
+
+          {/* Config form: Pixel ID + Test Event Code + masked token */}
+          <metaConfigFetcher.Form method="post" className="space-y-4">
+            <input type="hidden" name="_intent" value="save-meta-config" />
+
+            <div className="space-y-1">
+              <label
+                className="block text-[12px] font-medium"
+                htmlFor="pixelId"
+              >
+                Pixel ID
+              </label>
+              <input
+                id="pixelId"
+                name="pixelId"
+                type="text"
+                inputMode="numeric"
+                defaultValue={meta.pixelId}
+                placeholder="e.g. 1234567890"
+                autoComplete="off"
+                className="w-full border border-border/50 rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-ring"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label
+                className="block text-[12px] font-medium"
+                htmlFor="testEventCode"
+              >
+                Test Event Code
+              </label>
+              <input
+                id="testEventCode"
+                name="testEventCode"
+                type="text"
+                defaultValue={meta.testEventCode}
+                placeholder="TEST12345"
+                autoComplete="off"
+                className="w-full border border-border/50 rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-ring"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                From Meta Events Manager → Test Events tab.
+              </p>
+            </div>
+
+            {/* Masked token field (D-11: never pre-filled) */}
+            <div className="space-y-1">
+              <label className="block text-[12px] font-medium">
+                Conversions API token
+              </label>
+              {meta.tokenConfigured && !showTokenField ? (
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2 text-[12px]">
+                    <IconPointFilled
+                      size={10}
+                      className="text-emerald-500"
+                      aria-hidden
+                    />
+                    <span className="font-medium">Configured</span>
+                    <span className="text-muted-foreground">
+                      — token is stored and encrypted
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowTokenField(true)}
+                    className="text-[11px] text-primary underline underline-offset-2"
+                  >
+                    Replace token
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  <input
+                    name="token"
+                    type="password"
+                    placeholder="EAAxxxxxxx…"
+                    autoComplete="off"
+                    spellCheck={false}
+                    className="w-full border border-border/50 rounded-md px-3 py-2 text-sm bg-background font-mono focus:outline-none focus:ring-1 focus:ring-ring"
+                  />
+                  {meta.tokenConfigured && (
+                    <button
+                      type="button"
+                      onClick={() => setShowTokenField(false)}
+                      className="text-[11px] text-muted-foreground underline underline-offset-2"
+                    >
+                      Cancel
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <button
+              type="submit"
+              disabled={metaConfigSubmitting}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-foreground text-background text-sm font-semibold disabled:opacity-50"
+            >
+              {metaConfigSubmitting ? (
+                <>
+                  <IconLoader2 size={14} className="animate-spin" />
+                  Saving…
+                </>
+              ) : (
+                "Save"
+              )}
+            </button>
+
+            {metaConfigFetcher.data?.ok === true &&
+              metaConfigFetcher.data.intent === "save-meta-config" && (
+                <div className="rounded-md bg-emerald-500/10 border border-emerald-500/20 px-3 py-2 text-[12px] text-emerald-700 dark:text-emerald-300">
+                  Configuration saved.
+                </div>
+              )}
+            {metaConfigFetcher.data?.ok === false &&
+              metaConfigFetcher.data.intent === "save-meta-config" && (
+                <div className="rounded-md bg-destructive/10 border border-destructive/20 px-3 py-2 text-[12px] text-destructive">
+                  {metaConfigFetcher.data.error}
+                </div>
+              )}
+          </metaConfigFetcher.Form>
+
+          {/* Send test event (D-01: ENQUEUES — worker is sole CAPI sender) */}
+          <div className="border-t border-border/30 pt-4 space-y-2">
+            <div className="flex items-center gap-3 flex-wrap">
+              <metaTestFetcher.Form method="post">
+                <input
+                  type="hidden"
+                  name="_intent"
+                  value="send-meta-test-event"
+                />
+                <button
+                  type="submit"
+                  disabled={metaTestSubmitting || !meta.configured}
+                  title={
+                    !meta.configured
+                      ? "Enter Pixel ID, token, and Test Event Code first"
+                      : undefined
+                  }
+                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md border border-border/60 text-[12px] font-medium text-foreground bg-background hover:bg-muted/40 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {metaTestSubmitting ? (
+                    <>
+                      <IconLoader2 size={12} className="animate-spin" />
+                      Queuing…
+                    </>
+                  ) : (
+                    <>
+                      <IconAd2 size={12} />
+                      Send test event
+                    </>
+                  )}
+                </button>
+              </metaTestFetcher.Form>
+
+              {!meta.configured && (
+                <span className="text-[11px] text-muted-foreground">
+                  Enter Pixel ID, token, and Test Event Code first
+                </span>
+              )}
+            </div>
+
+            {/* Optimistic confirmation — shown after the fetch settles */}
+            {metaTestFetcher.data?.ok === true && (
+              <div className="rounded-md bg-emerald-500/10 border border-emerald-500/20 px-3 py-2 text-[12px] text-emerald-700 dark:text-emerald-300">
+                Test event queued — check Meta Events Manager → Test Events in
+                ~30s.
+                {metaTestFetcher.data.eventId && (
+                  <span className="block text-[11px] text-emerald-600/80 dark:text-emerald-400/70 mt-0.5 font-mono">
+                    event_id: {metaTestFetcher.data.eventId}
+                  </span>
+                )}
+              </div>
+            )}
+            {metaTestFetcher.data?.ok === false && (
+              <div className="rounded-md bg-destructive/10 border border-destructive/20 px-3 py-2 text-[12px] text-destructive">
+                {metaTestFetcher.data.error ?? "Test send failed."}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Dev fallback: restricted-key rotation (P1b-08) — hidden behind ?devKeyEntry=1 */}
@@ -541,15 +940,16 @@ export default function StripeIntegrations() {
                 {keyFetcher.data.message}
               </div>
             )}
-            {keyFetcher.data?.ok === false && keyFetcher.data.intent === "rotate-key" && (
-              <div className="rounded-md bg-destructive/10 border border-destructive/20 px-4 py-3 text-sm text-destructive">
-                {keyFetcher.data.error}
-              </div>
-            )}
+            {keyFetcher.data?.ok === false &&
+              keyFetcher.data.intent === "rotate-key" && (
+                <div className="rounded-md bg-destructive/10 border border-destructive/20 px-4 py-3 text-sm text-destructive">
+                  {keyFetcher.data.error}
+                </div>
+              )}
 
             <div className="text-[11px] text-muted-foreground">
-              Dev fallback only — append <code>?devKeyEntry=1</code> to show this
-              section. The restricted-key model is deprecated in favour of
+              Dev fallback only — append <code>?devKeyEntry=1</code> to show
+              this section. The restricted-key model is deprecated in favour of
               Stripe Connect (P1c.1). Delete this section post-cutover.
             </div>
           </div>
