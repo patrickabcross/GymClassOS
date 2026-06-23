@@ -24,8 +24,8 @@
 
 ### CAPI — Server-side Conversions API infrastructure
 
-- [ ] **CAPI-01**: Studio Meta config storage — `pixelId` + `testEventCode` stored studio-global; `stageEventMap` resolved server-side with sensible defaults (Lead/Contact/Purchase/Schedule); `META_CAPI_TOKEN` stored as an encrypted `app_secret`.
-- [ ] **CAPI-02**: Additive `meta_lead_attribution` table (keyed by `member_id`) persists `fbc`/`fbp`/`initial_event_id` at submit time plus per-stage fired markers, for later offline attribution and idempotency.
+- [x] **CAPI-01**: Studio Meta config storage — `pixelId` + `testEventCode` stored studio-global; `stageEventMap` resolved server-side with sensible defaults (Lead/Contact/Purchase/Schedule); `META_CAPI_TOKEN` stored as an encrypted `app_secret`.
+- [x] **CAPI-02**: Additive `meta_lead_attribution` table (keyed by `member_id`) persists `fbc`/`fbp`/`initial_event_id` at submit time plus per-stage fired markers, for later offline attribution and idempotency.
 - [ ] **CAPI-03**: `/api/submit/:id` is extended to accept and persist `fbc`/`fbp`/`event_id`/`pageUrl` from the iframe, and enqueues a `meta-capi-event` job — it does not call Meta directly.
 - [ ] **CAPI-04**: A pg-boss `meta-capi-event` queue + Fly worker sender POSTs to the Meta Conversions API (Graph v23) with SHA-256-hashed email/phone + `fbc`/`fbp` + client IP/UA, retrying on 5xx/network failures (events are never dropped); a failing send for one tenant/event is isolated and does not break others.
 - [ ] **CAPI-05**: The browser `Lead` and server `Lead` events share an identical `event_id` so Meta deduplicates them (counted once) — verified in Events Manager Test Events.
@@ -72,8 +72,8 @@
 |-------------|-------|--------|
 | PIX-01 | Phase MC1 | Pending |
 | PIX-02 | Phase MC1 | Pending |
-| CAPI-01 | Phase MC1 | Pending |
-| CAPI-02 | Phase MC1 | Pending |
+| CAPI-01 | Phase MC1 | Complete |
+| CAPI-02 | Phase MC1 | Complete |
 | CAPI-03 | Phase MC1 | Pending |
 | CAPI-04 | Phase MC1 | Pending |
 | CAPI-05 | Phase MC1 | Pending |

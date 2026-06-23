@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v2.2
 milestone_name: — Meta Conversion Tracking — IN PROGRESS
-status: Milestone v2.2 started; requirements + roadmap written (MC1-MC3, 15 reqs); no implementation yet.
-stopped_at: Phase MC1 context gathered
-last_updated: "2026-06-23T08:26:48.536Z"
-last_activity: "2026-06-23 — v2.2 planning artifacts written + committed; v2.1 requirements archived to milestones/v2.1-REQUIREMENTS.md. NEXT: /gsd:plan-phase MC1."
+status: executing
+stopped_at: Completed MC1-01-data-config-foundation-PLAN.md
+last_updated: "2026-06-23T10:30:29.890Z"
+last_activity: 2026-06-23
 progress:
   total_phases: 3
   completed_phases: 0
@@ -30,10 +30,10 @@ Requirements: `.planning/REQUIREMENTS.md` (v2.1 requirements, 11 in-scope: CONT-
 ## Current Position
 
 Milestone: v2.2 — Meta Conversion Tracking
-Phase: MC1 — Foundation + Lead event (not started — plan next)
-Plan: —
-Status: Milestone v2.2 started; requirements + roadmap written (MC1-MC3, 15 reqs); no implementation yet.
-Last activity: 2026-06-23 — v2.2 planning artifacts written + committed; v2.1 requirements archived to milestones/v2.1-REQUIREMENTS.md. NEXT: /gsd:plan-phase MC1.
+Phase: MC1 (Foundation + Lead event) — EXECUTING
+Plan: 2 of 5
+Status: Ready to execute
+Last activity: 2026-06-23
 
 Prior (v2.1):
 Status: CV1-CV4 built + committed on master. Full staff-web `tsc` clean (0 errors), 115/115 unit tests pass. **NOT deployed** — production push held for explicit user go-ahead (autonomous run pre-approved build only). CV-RENDER remains gated.
@@ -93,6 +93,7 @@ Last activity: 2026-06-22 — Phase 2 recurring classes (quick 260622-mpv) DONE 
 | Phase CV2-content-tab P01 | 667 | 3 tasks | 14 files |
 | Phase CV3-video-tab P01 | 810 | 3 tasks | 17 files |
 | Phase CV4-publish-pipeline P01 | 834 | 3 tasks | 17 files |
+| Phase MC1 P01 | 336 | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -167,9 +168,9 @@ Last activity: 2026-06-22 — Phase 2 recurring classes (quick 260622-mpv) DONE 
 
 ## Session Continuity
 
-Last session: 2026-06-23T08:26:48.524Z
-Stopped at: Phase MC1 context gathered
-Resume file: .planning/phases/MC1-foundation-lead-event/MC1-CONTEXT.md
+Last session: 2026-06-23T10:30:29.882Z
+Stopped at: Completed MC1-01-data-config-foundation-PLAN.md
+Resume file: None
 
 Prior session: 2026-06-20T10:22:33.153Z — Completed CV4-publish-pipeline CV4-01-PLAN.md
 
