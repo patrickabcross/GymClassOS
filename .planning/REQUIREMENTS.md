@@ -19,16 +19,16 @@
 
 ### PIX — Browser Pixel + capture (in the public form iframe)
 
-- [ ] **PIX-01**: The public form page (`/f/:slug`) loads the studio's Meta Pixel (templated `pixelId` from studio config) and fires a browser `Lead` event on successful submit, sharing an `event_id` with the server event for deduplication.
-- [ ] **PIX-02**: `embed.js` reads `fbclid` + `_fbc`/`_fbp` cookies from the **parent page** and passes them into the cross-origin iframe (so ad-click attribution survives the iframe boundary, where `location.search` has no `fbclid` and third-party cookies may be partitioned).
+- [x] **PIX-01**: The public form page (`/f/:slug`) loads the studio's Meta Pixel (templated `pixelId` from studio config) and fires a browser `Lead` event on successful submit, sharing an `event_id` with the server event for deduplication.
+- [x] **PIX-02**: `embed.js` reads `fbclid` + `_fbc`/`_fbp` cookies from the **parent page** and passes them into the cross-origin iframe (so ad-click attribution survives the iframe boundary, where `location.search` has no `fbclid` and third-party cookies may be partitioned).
 
 ### CAPI — Server-side Conversions API infrastructure
 
 - [x] **CAPI-01**: Studio Meta config storage — `pixelId` + `testEventCode` stored studio-global; `stageEventMap` resolved server-side with sensible defaults (Lead/Contact/Purchase/Schedule); `META_CAPI_TOKEN` stored as an encrypted `app_secret`.
 - [x] **CAPI-02**: Additive `meta_lead_attribution` table (keyed by `member_id`) persists `fbc`/`fbp`/`initial_event_id` at submit time plus per-stage fired markers, for later offline attribution and idempotency.
-- [ ] **CAPI-03**: `/api/submit/:id` is extended to accept and persist `fbc`/`fbp`/`event_id`/`pageUrl` from the iframe, and enqueues a `meta-capi-event` job — it does not call Meta directly.
+- [x] **CAPI-03**: `/api/submit/:id` is extended to accept and persist `fbc`/`fbp`/`event_id`/`pageUrl` from the iframe, and enqueues a `meta-capi-event` job — it does not call Meta directly.
 - [x] **CAPI-04**: A pg-boss `meta-capi-event` queue + Fly worker sender POSTs to the Meta Conversions API (Graph v23) with SHA-256-hashed email/phone + `fbc`/`fbp` + client IP/UA, retrying on 5xx/network failures (events are never dropped); a failing send for one tenant/event is isolated and does not break others.
-- [ ] **CAPI-05**: The browser `Lead` and server `Lead` events share an identical `event_id` so Meta deduplicates them (counted once) — verified in Events Manager Test Events.
+- [x] **CAPI-05**: The browser `Lead` and server `Lead` events share an identical `event_id` so Meta deduplicates them (counted once) — verified in Events Manager Test Events.
 - [ ] **CAPI-06**: A dedicated **"Meta Conversion Tracking"** card in `/gymos/settings/integrations` (alongside Stripe Connect) lets the operator enter their Pixel ID (plain field → studio config via `defineAction`), Conversions API token (masked → `app_secrets`), and Test Event Code (plain field), with a status indicator + "Send test event" affordance. Single entry point for the token (no duplicate `app_secrets` row).
 
 ### LIFE — Deep-funnel lifecycle events (website leads)
@@ -70,13 +70,13 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| PIX-01 | Phase MC1 | Pending |
-| PIX-02 | Phase MC1 | Pending |
+| PIX-01 | Phase MC1 | Complete |
+| PIX-02 | Phase MC1 | Complete |
 | CAPI-01 | Phase MC1 | Complete |
 | CAPI-02 | Phase MC1 | Complete |
-| CAPI-03 | Phase MC1 | Pending |
+| CAPI-03 | Phase MC1 | Complete |
 | CAPI-04 | Phase MC1 | Complete |
-| CAPI-05 | Phase MC1 | Pending |
+| CAPI-05 | Phase MC1 | Complete |
 | CAPI-06 | Phase MC1 | Pending |
 | LIFE-01 | Phase MC2 | Pending |
 | LIFE-02 | Phase MC2 | Pending |
