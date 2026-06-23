@@ -146,6 +146,15 @@ export async function registerMetaCapiEventWorker(boss: PgBoss) {
         ],
       };
 
+      // MC2 (LIFE-02): Purchase carries custom_data.value + custom_data.currency.
+      // Meta REQUIRES both for revenue optimisation. Contact/Schedule omit custom_data.
+      if (data.value != null && data.currency) {
+        (capiBody.data as any[])[0].custom_data = {
+          value: data.value, // already MAJOR units (caller divided)
+          currency: data.currency, // ISO-4217 lowercase
+        };
+      }
+
       // test_event_code is a TOP-LEVEL key (sibling of `data`), NOT inside the event object.
       if (metaTestEventCode) {
         capiBody.test_event_code = metaTestEventCode;
@@ -227,6 +236,23 @@ export async function registerMetaCapiEventWorker(boss: PgBoss) {
               updated_at = NOW()
           WHERE member_id = ${data.memberId}
         `);
+        // MC2: stamp the per-stage marker column so the fire point's idempotency
+        // gate (contact/schedule) flips only on a confirmed successful send.
+        if (data.stageKey && data.stageKey !== "lead") {
+          const markerCol = {
+            contact: "contact_sent_at",
+            purchase: "purchase_sent_at",
+            schedule: "schedule_sent_at",
+          }[data.stageKey];
+          if (markerCol) {
+            // guard:allow-unscoped — worker post-send status write (single-tenant meta attribution)
+            await db.execute(sql`
+              UPDATE meta_lead_attribution
+              SET ${sql.raw(markerCol)} = NOW(), updated_at = NOW()
+              WHERE member_id = ${data.memberId}
+            `);
+          }
+        }
         return;
       }
 
