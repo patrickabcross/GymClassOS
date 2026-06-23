@@ -61,6 +61,26 @@ function buildParams(accent, radius) {
   return p;
 }
 
+function readCookie(name) {
+  var m = document.cookie.match("(?:^|; )" + name + "=([^;]*)");
+  return m ? decodeURIComponent(m[1]) : "";
+}
+
+function buildAttributionParams() {
+  var fbclid = new URLSearchParams(location.search).get("fbclid") || "";
+  var fbc = readCookie("_fbc");
+  var fbp = readCookie("_fbp");
+  // D-13: synthesize fbc when fbclid present but no _fbc cookie. Timestamp in MILLISECONDS.
+  if (fbclid && !fbc) {
+    fbc = "fb.1." + Date.now() + "." + fbclid;
+  }
+  var p = "";
+  if (fbc) p += "&fbc=" + encodeURIComponent(fbc);
+  if (fbp) p += "&fbp=" + encodeURIComponent(fbp);
+  if (fbclid) p += "&fbclid=" + encodeURIComponent(fbclid);
+  return p;
+}
+
 function makeIframe(src) {
   var iframe = document.createElement("iframe");
   iframe.src = src;
@@ -82,7 +102,13 @@ function injectEmbeds() {
     if (!slug) continue;
     var accent = el.getAttribute("data-accent") || "";
     var radius = el.getAttribute("data-radius") || "";
-    var src = BASE + "/f/" + encodeURIComponent(slug) + "?embed=1" + buildParams(accent, radius);
+    var src =
+      BASE +
+      "/f/" +
+      encodeURIComponent(slug) +
+      "?embed=1" +
+      buildParams(accent, radius) +
+      buildAttributionParams();
     el.appendChild(makeIframe(src));
   }
 
