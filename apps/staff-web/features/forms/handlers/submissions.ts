@@ -8,6 +8,7 @@ import {
 } from "h3";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
+import { createHash } from "node:crypto";
 
 import { readBody, verifyCaptcha } from "@agent-native/core/server";
 import { getDb, schema } from "../../../server/db/index.js";
@@ -16,6 +17,14 @@ import { normalizePhone } from "../lib/normalize-phone.js";
 import { checkRateLimit } from "../lib/rate-limit.js";
 import { enqueueOutboundWhatsApp } from "../../../app/lib/queue-client.js";
 import { parseTemplateBody, buildLeadAckVars } from "../lib/lead-ack.js";
+
+// ---------------------------------------------------------------------------
+// SHA-256 PII hash helper (RESEARCH Pattern 2 — normalize first, then hash).
+// Pre-hashing before enqueue ensures raw PII never enters the queue payload.
+// ---------------------------------------------------------------------------
+function hashForCapi(normalized: string): string {
+  return createHash("sha256").update(normalized).digest("hex");
+}
 
 // ---------------------------------------------------------------------------
 // Field value size limits by type (copied verbatim from upstream)
@@ -439,7 +448,103 @@ export const submitLeadForm = defineEventHandler(async (event: H3Event) => {
   });
 
   // -------------------------------------------------------------------
-  // 14. Auto-reply: enqueue an approved WhatsApp template ack to a fresh lead.
+  // 14. Meta CAPI attribution: persist meta_lead_attribution + ALWAYS enqueue
+  //     meta-capi-event Lead (D-14 LOCKED — fires even on organic with no event_id).
+  // -------------------------------------------------------------------
+  {
+    // Read attribution fields from the client POST body (set by Task 2 in public-form-ssr.ts)
+    const metaFbc =
+      typeof body.fbc === "string" ? body.fbc.slice(0, 200) : null;
+    const metaFbp =
+      typeof body.fbp === "string" ? body.fbp.slice(0, 100) : null;
+    const metaFbclid =
+      typeof body.fbclid === "string" ? body.fbclid.slice(0, 200) : null;
+    const metaEventId =
+      typeof body.event_id === "string" ? body.event_id.slice(0, 100) : null;
+    const metaPageUrl =
+      typeof body.page_url === "string" ? body.page_url.slice(0, 500) : null;
+    const userAgent = getRequestHeader(event, "user-agent") ?? null;
+
+    // D-14: ALWAYS have an event_id. Browser-supplied may be absent (race,
+    // old cached embed.js, or direct API submit). Mint a server-side fallback
+    // so the server Lead still fires; browser<->server dedup is impossible in
+    // that case but the server Lead MUST NOT be skipped (D-14, LOCKED).
+    const effectiveEventId = metaEventId ?? nanoid();
+
+    // Normalize then hash PII (RESEARCH Pattern 2). Never pass raw PII into queue.
+    // Email: toLowerCase + trim. Phone: digits-only (strip +). fn/ln: lowercase + alpha-only / trim.
+    const hashedEmail = email
+      ? hashForCapi(email.toLowerCase().trim())
+      : undefined;
+    const hashedPhone = phoneE164
+      ? hashForCapi(phoneE164.replace(/\D/g, ""))
+      : undefined;
+    const hashedFn = firstName
+      ? hashForCapi(firstName.toLowerCase().replace(/[^a-z]/g, ""))
+      : undefined;
+    const hashedLn = lastName
+      ? hashForCapi(lastName.toLowerCase().trim())
+      : undefined;
+
+    // Upsert attribution keyed to resolvedMemberId (post dual-unique-key reconcile).
+    // ON CONFLICT (member_id) DO UPDATE: re-submit refreshes ip/ua; COALESCE
+    // preserves first-touch fbc/fbp/fbclid/initial_event_id (RESEARCH Pattern 10).
+    // guard:allow-unscoped — single-tenant meta attribution
+    try {
+      await db2.execute(sql`
+        INSERT INTO meta_lead_attribution
+          (id, member_id, fbc, fbp, fbclid, initial_event_id, page_url, client_ip, client_user_agent, created_at, updated_at)
+        VALUES
+          (${nanoid()}, ${resolvedMemberId}, ${metaFbc}, ${metaFbp}, ${metaFbclid},
+           ${effectiveEventId}, ${metaPageUrl}, ${ip}, ${userAgent}, NOW(), NOW())
+        ON CONFLICT (member_id) DO UPDATE SET
+          fbc = COALESCE(EXCLUDED.fbc, meta_lead_attribution.fbc),
+          fbp = COALESCE(EXCLUDED.fbp, meta_lead_attribution.fbp),
+          fbclid = COALESCE(EXCLUDED.fbclid, meta_lead_attribution.fbclid),
+          initial_event_id = COALESCE(EXCLUDED.initial_event_id, meta_lead_attribution.initial_event_id),
+          page_url = COALESCE(EXCLUDED.page_url, meta_lead_attribution.page_url),
+          client_ip = EXCLUDED.client_ip,
+          client_user_agent = EXCLUDED.client_user_agent,
+          updated_at = NOW()
+      `);
+    } catch (attrErr) {
+      // Attribution persist failure must NOT block lead capture.
+      console.error(
+        "[submitLeadForm] meta_lead_attribution upsert failed:",
+        attrErr,
+      );
+    }
+
+    // ALWAYS enqueue the Lead — UNCONDITIONALLY (D-14, LOCKED).
+    // Do NOT gate on if (metaEventId). effectiveEventId is always present.
+    // eventTime = Unix SECONDS (NOT milliseconds) — MetaCapiEventPayload contract.
+    try {
+      const { enqueueMetaCapiEvent } =
+        await import("../../../app/lib/queue-client.js");
+      await enqueueMetaCapiEvent({
+        eventId: effectiveEventId, // D-14: always present (browser id or server nanoid)
+        memberId: resolvedMemberId,
+        eventName: "Lead",
+        actionSource: "website",
+        eventTime: Math.floor(Date.now() / 1000), // Unix SECONDS
+        eventSourceUrl: metaPageUrl ?? undefined,
+        hashedEmail,
+        hashedPhone,
+        hashedFn,
+        hashedLn,
+        fbc: metaFbc ?? undefined,
+        fbp: metaFbp ?? undefined,
+        clientIp: ip ?? undefined,
+        clientUserAgent: userAgent ?? undefined,
+      });
+    } catch (err) {
+      // Enqueue failure MUST NOT fail the submission — mirror lead-ack resilience.
+      console.error("[submitLeadForm] CAPI enqueue failed:", err);
+    }
+  }
+
+  // -------------------------------------------------------------------
+  // 15. Auto-reply: enqueue an approved WhatsApp template ack to a fresh lead.
   //
   // Compliance: a fresh form lead has NEVER messaged the studio, so the
   // 24h window is CLOSED → the outbound MUST be an approved TEMPLATE
