@@ -654,6 +654,13 @@ export const studioOwnerConfig = table("studio_owner_config", {
     .notNull()
     .default(true),
   heartbeatBatchSize: integer("heartbeat_batch_size").notNull().default(50),
+  // MC1-01: Meta Conversion Tracking config (migration v31).
+  // meta_stage_event_map is JSONB in Postgres — stored as TEXT here; read/write
+  // as JSON string. Resolver in server/lib/stage-event-map.ts applies defaults
+  // when null. meta_pixel_id and meta_test_event_code are plain text.
+  metaPixelId: text("meta_pixel_id"),
+  metaTestEventCode: text("meta_test_event_code"),
+  metaStageEventMap: text("meta_stage_event_map"), // JSONB column; JSON string
   createdAt: text("created_at").notNull().default(now()),
   updatedAt: text("updated_at").notNull().default(now()),
 });
@@ -704,6 +711,40 @@ export const videoCompositions = table("video_compositions", {
   spec: text("spec").notNull().default("{}"),
   status: text("status").notNull().default("draft"),
   slug: text("slug"),
+  createdAt: text("created_at").notNull().default(now()),
+  updatedAt: text("updated_at").notNull().default(now()),
+});
+
+// ---------------------------------------------------------------------------
+// MC1-01: Meta lead attribution — one row per member (UNIQUE on member_id).
+//
+// DDL created by migration v32 (MC1-01, apps/staff-web/server/plugins/db.ts).
+// Stores fbc/fbp/fbclid captured at form submit time + per-stage sent markers
+// for downstream MC2 lifecycle event dedup.
+//
+// Timestamps stored as TEXT (ISO string) — consistent with this file's
+// pattern; the TIMESTAMPTZ DDL in migration v32 stores/returns ISO strings via
+// the Neon HTTP driver. mc1-04 worker writes lead_sent_at / lead_status after
+// each CAPI POST.
+//
+// Single-tenant: no ownableColumns, no studio_id. Queries carry
+// // guard:allow-unscoped — single-tenant meta attribution
+// ---------------------------------------------------------------------------
+export const metaLeadAttribution = table("meta_lead_attribution", {
+  id: text("id").primaryKey(),
+  memberId: text("member_id").notNull().unique(),
+  fbc: text("fbc"),
+  fbp: text("fbp"),
+  fbclid: text("fbclid"),
+  initialEventId: text("initial_event_id"),
+  pageUrl: text("page_url"),
+  clientIp: text("client_ip"),
+  clientUserAgent: text("client_user_agent"),
+  leadSentAt: text("lead_sent_at"),
+  leadStatus: text("lead_status"),
+  contactSentAt: text("contact_sent_at"),
+  purchaseSentAt: text("purchase_sent_at"),
+  scheduleSentAt: text("schedule_sent_at"),
   createdAt: text("created_at").notNull().default(now()),
   updatedAt: text("updated_at").notNull().default(now()),
 });
