@@ -1,13 +1,13 @@
 ---
 gsd_state_version: 1.0
-milestone: v2.1
-milestone_name: — Content & Video Studio
-status: CV1-CV4 built + committed on master. Full staff-web `tsc` clean (0 errors), 115/115 unit tests pass. **NOT deployed** — production push held for explicit user go-ahead (autonomous run pre-approved build only). CV-RENDER remains gated.
-stopped_at: Phase 2 recurring classes DONE + deployed (Vercel + Fly v21); WhatsApp/Forms fixes shipped. NEXT: Phase 3 + tracking setup
-last_updated: "2026-06-22T15:54:48.508Z"
-last_activity: "2026-06-22 — Quick task 260622-e4a: revert SettingsPanel trim, gate operator gear, AGENT_NATIVE_SINGLE_TENANT flag, env-status fix"
+milestone: v2.2
+milestone_name: — Meta Conversion Tracking
+status: Milestone v2.2 started. Requirements + roadmap written (3 phases MC1-MC3, 16 reqs). No implementation yet. NEXT: /gsd:plan-phase MC1.
+stopped_at: v2.2 planning artifacts written + committed. NEXT: plan Phase MC1 (Foundation + Lead event)
+last_updated: "2026-06-23T00:00:00.000Z"
+last_activity: "2026-06-23 — Milestone v2.2 (Meta Conversion Tracking) started; PROJECT.md + REQUIREMENTS.md + ROADMAP.md written; v2.1 requirements archived to milestones/"
 progress:
-  total_phases: 5
+  total_phases: 3
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -29,9 +29,13 @@ Requirements: `.planning/REQUIREMENTS.md` (v2.1 requirements, 11 in-scope: CONT-
 
 ## Current Position
 
-Milestone: v2.1 — Content & Video Studio (staff-web)
-Phase: CV4 — Publish pipeline (complete) — ALL 4 active phases built
+Milestone: v2.2 — Meta Conversion Tracking
+Phase: MC1 — Foundation + Lead event (not started — plan next)
 Plan: —
+Status: Milestone v2.2 started; requirements + roadmap written (MC1-MC3, 16 reqs); no implementation yet.
+Last activity: 2026-06-23 — v2.2 planning artifacts written + committed; v2.1 requirements archived to milestones/v2.1-REQUIREMENTS.md. NEXT: /gsd:plan-phase MC1.
+
+Prior (v2.1):
 Status: CV1-CV4 built + committed on master. Full staff-web `tsc` clean (0 errors), 115/115 unit tests pass. **NOT deployed** — production push held for explicit user go-ahead (autonomous run pre-approved build only). CV-RENDER remains gated.
 Last activity: 2026-06-22 — Phase 2 recurring classes (quick 260622-mpv) DONE + DEPLOYED (Vercel + Fly v21, class-materialize cron live). Plus shipped+deployed: WhatsApp template-language fix (en, commit 32abd6cd), editable Forms submit button (14501fd1), conversational template auto-fill (6cfff666). OPEN: WhatsApp "text is required" window-divergence (waiting on MYÜTIK); 5 terminal failed message rows to re-enqueue later. NEXT: Phase 3 (populate HUSTLE timetable) + tracking setup.
 
@@ -169,9 +173,24 @@ Resume file: None
 
 Prior session: 2026-06-20T10:22:33.153Z — Completed CV4-publish-pipeline CV4-01-PLAN.md
 
-### PICK UP HERE — plan CV1
+### PICK UP HERE — plan MC1
 
-v2.1 roadmap is written. The four active phases are defined with success criteria and requirement mappings.
+v2.2 roadmap is written (Meta Conversion Tracking). Three phases MC1-MC3 defined with success criteria + requirement mappings (16 reqs). No implementation yet.
+
+**Next step — plan Phase MC1 (Foundation + Lead event):** `/gsd:plan-phase MC1`
+
+MC1 hook points (confirmed by codebase map 2026-06-23):
+- Browser Pixel + fbc/fbp/fbclid capture → `apps/staff-web/features/forms/lib/public-form-ssr.ts` (the `/f/:slug` page) + `apps/staff-web/features/forms/lib/embed-snippet.ts` (`/embed.js` — parent→iframe bridge for fbclid + consent).
+- Extend submit payload + persist + enqueue → `apps/staff-web/features/forms/handlers/submissions.ts` (`submitLeadForm`).
+- New additive `meta_lead_attribution` table → `apps/staff-web/server/db/schema.ts` + a new `runMigrations` version (NOT auto-run — apply to gymos-demo Neon by hand per migration-drift gotcha).
+- Studio config (pixelId/stageEventMap/testEventCode) → `studio_brain_docs` pattern (mirror `tenant-brand-resolver.ts`); `META_CAPI_TOKEN` → `registerRequiredSecret` in `apps/staff-web/server/register-secrets.ts`, read via `apps/staff-web/server/lib/app-secrets.ts`.
+- Settings card → `/gymos/settings/integrations` (next to Stripe Connect).
+- `meta-capi-event` queue → `packages/queue/src/{types,publish}.ts` + register in `services/worker/src/index.ts`; worker sender modeled on `services/worker/src/queues/telemetry-push.ts` (env-gated, throw-to-retry) + `sendViaMyutik.ts` (status-carrying errors). Worker needs `BETTER_AUTH_SECRET` Fly secret to decrypt the CAPI token.
+- MC2 hooks (later): `services/worker/src/domain/conversations.ts` + `queues/inbound-whatsapp.ts` (Contact); `services/worker/src/domain/stripeReducers/` checkout-session-completed + invoice.paid (Purchase, value/currency); `bookings.status='attended'` write (Schedule).
+
+---
+
+### Prior pickup (v2.1 — reference only)
 
 **Next step — plan Phase CV1:** `/gsd:plan-phase CV1`
 

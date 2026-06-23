@@ -2,6 +2,80 @@
 
 ---
 
+## v2.2 — Meta Conversion Tracking — IN PROGRESS
+
+> **Started:** 2026-06-23 | **Branch:** `master`
+>
+> **Goal:** Report HUSTLE's lead conversions and full CRM lifecycle to the studio's own Meta Pixel via browser Pixel + Conversions API (deduplicated, consent-gated), then extend the same chokepoint to Meta Lead Ads. Grounded against DB transitions that already exist — no new CRM/pipeline is built.
+>
+> **Phase prefix:** MC — avoids `.planning/phases/` directory collisions with existing D/P/R/AE/BD/CV phase directories.
+
+### Key constraints baked into every phase
+
+- **Chokepoint rule:** all Meta events originate from the backend off DB transitions; the Fly worker is the single sender (pg-boss `meta-capi-event`). staff-web only enqueues — it never calls `graph.facebook.com` directly.
+- **Consent gating:** Meta Pixel + CAPI sends are gated on the parent site's marketing-consent signal (distinct from the WhatsApp opt-in). `embed.js` bridges the signal into the cross-origin iframe; absent consent → nothing fires.
+- **Attribution persistence:** capture `fbc`/`fbclid` + `fbp` at submit time and persist on `meta_lead_attribution` — stage events fire later with no browser present. `embed.js` must pass click IDs across the iframe boundary (the iframe's own URL has no `fbclid`).
+- **Single-tenant per deploy:** `pixelId`/`capiToken` are studio-global config the operator enters in `/gymos/settings/integrations`; no hardcoding to HUSTLE.
+- **Idempotency:** browser+server `Lead` dedup via shared `event_id`; one-time stages use deterministic `event_id=memberId:stage`; `Purchase` keys on the Stripe transaction id so renewals report while webhook replays dedup.
+- **Additive-only DB changes:** `meta_lead_attribution` added as an additive `runMigrations` version against `gymos-demo` Neon. No DROP/RENAME/TRUNCATE. No `drizzle-kit push`.
+- **Fork-boundary discipline + no local dev server:** work lands in `apps/staff-web/features/*`, `services/worker/*`, `services/edge-webhooks/*`, `packages/queue/*`; verify via deploy + Meta Events Manager Test Events. Graph API pinned to **v23**. Only SHA-256-hashed PII leaves the server.
+
+## Phases
+
+- [ ] **Phase MC1: Foundation + Lead event** — consent-gated browser Pixel + server CAPI `Lead` (deduplicated), cross-iframe `fbclid` capture, studio config + Settings card, `meta_lead_attribution` table, `meta-capi-event` queue + worker sender with durable retry. Independently shippable + provable in Test Events.
+- [ ] **Phase MC2: Deep-funnel lifecycle** — Contact (first WhatsApp reply, worker), Purchase (Stripe reducer, `value`/`currency`, renewals report), Schedule (booking→attended); read stored attribution; idempotent.
+- [ ] **Phase MC3: Meta Lead Ads + CRM lifecycle** — ingest Instant Form leads via the Lead Retrieval webhook → `gym_members`; advance them in Meta's Leads Center via `lead_id` (Conversions API for CRM); follow-ups stay on the existing chokepoint.
+
+## Phase Details
+
+### Phase MC1: Foundation + Lead event
+**Goal**: With consent granted, a public-form submission fires a deduplicated `Lead` to the studio's own Meta Pixel (browser + server), with ad-click attribution captured across the iframe boundary and durable server-side retry — all configured by the operator in Settings, provable end-to-end in Meta's Test Events.
+**Depends on**: Nothing (first MC phase)
+**Requirements**: PIX-01, PIX-02, PIX-03, CAPI-01, CAPI-02, CAPI-03, CAPI-04, CAPI-05, CAPI-06
+**Success Criteria** (what must be TRUE):
+  1. With marketing consent granted, submitting a published form fires a browser `Lead` and a server `Lead` to the studio's Pixel that **deduplicate** in Events Manager Test Events (counted once, not twice — identical `event_id`)
+  2. An `fbclid` from an ad click landing on the parent site is captured (synthesized into `fbc`) and appears in Event Match Quality, despite the form running in a cross-origin iframe whose own URL has no `fbclid`
+  3. With marketing consent absent, no Pixel loads and no CAPI event is sent
+  4. A simulated CAPI 5xx is retried (the event is not dropped); `META_CAPI_TOKEN` is read from `app_secrets`, never logged, never sent client-side
+  5. The operator can enter Pixel ID + Conversions API token + Test Event Code in the "Meta Conversion Tracking" card in `/gymos/settings/integrations`, and `fbc`/`fbp`/`event_id` are persisted on `meta_lead_attribution` for the submitted lead
+**Plans**: TBD (`/gsd:plan-phase MC1`)
+**UI hint**: yes (Settings card)
+
+### Phase MC2: Deep-funnel lifecycle
+**Goal**: A lead's progression after the form — replied, bought, attended — is reported to Meta as Contact/Purchase/Schedule, firing off the DB transitions that already exist in the worker and using the attribution stored at submit time, so campaigns optimise for deep-funnel quality and LTV.
+**Depends on**: Phase MC1 (attribution table + `meta-capi-event` queue + worker sender + config in place)
+**Requirements**: LIFE-01, LIFE-02, LIFE-03, LIFE-04
+**Success Criteria** (what must be TRUE):
+  1. A lead replying on WhatsApp for the first time produces a single `Contact` event in Test Events with matching `fbc`/`fbp` (`action_source=system_generated`), idempotent on repeat inbound
+  2. A membership/pack purchase produces a `Purchase` event carrying the correct `value` + `currency`; a renewal produces a second `Purchase` (not deduped away); a replayed Stripe webhook does not double-count
+  3. A booking marked `attended` produces exactly one `Schedule` event per (member, occurrence)
+  4. Renaming an event in `stageEventMap` changes the reported `event_name` with no code change
+**Plans**: TBD (`/gsd:plan-phase MC2`)
+**UI hint**: no
+
+### Phase MC3: Meta Lead Ads + CRM lifecycle
+**Goal**: Leads captured inside Facebook/Instagram (Instant Forms) land in the studio DB and advance through the same lifecycle reported back to Meta's Leads Center via `lead_id`, so in-platform leads get the same deep-funnel optimisation as website-form leads.
+**Depends on**: Phase MC2 (lifecycle event senders + attribution model in place)
+**Requirements**: LEAD-01, LEAD-02, LEAD-03
+**Success Criteria** (what must be TRUE):
+  1. Submitting a Meta Instant Form (Lead Ad) results in a `gym_member` + `lead` conversation in the studio DB with the Meta `lead_id` stored, deduped against existing members via the dual-unique-key reconcile
+  2. Advancing that lead (reply / purchase / attend) reports the corresponding event back to Meta keyed on `lead_id`, visible against the Lead Ad in Meta's Leads Center / CRM
+  3. Any WhatsApp follow-up to a Lead-Ad lead routes through the existing opt-in / 24h-window / approved-template chokepoint (no bypass)
+**Plans**: TBD (`/gsd:plan-phase MC3`)
+**UI hint**: no
+
+## Progress (v2.2 — Meta Conversion Tracking)
+
+| Phase | Plans Complete | Status | Completed |
+|-------|----------------|--------|-----------|
+| MC1. Foundation + Lead event | 0/TBD | Not started | - |
+| MC2. Deep-funnel lifecycle | 0/TBD | Not started | - |
+| MC3. Meta Lead Ads + CRM lifecycle | 0/TBD | Not started | - |
+
+**Coverage:** 16/16 v2.2 requirements mapped across MC1–MC3 (PIX-01..03, CAPI-01..06 → MC1; LIFE-01..04 → MC2; LEAD-01..03 → MC3).
+
+---
+
 ## v2.1 — Content & Video Studio (staff-web) — IN PROGRESS
 
 > **Started:** 2026-06-20 | **Branch:** `master`

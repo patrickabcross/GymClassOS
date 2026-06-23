@@ -10,7 +10,27 @@ GymClassOS is a boutique fitness studio management platform — staff back-offic
 
 Coaches and studio managers run their entire day from one inbox-and-schedule surface (WhatsApp conversations + class bookings + member context). Members book, pay, and log activity / nutrition from a native iOS/Android app (forked from agent-native's `packages/mobile-app`) that includes an in-app coaching agent — without staff cobbling together WhatsApp, calendar, calorie-tracking, and CRM tools.
 
-## Current Milestone: v2.1 — Content & Video Studio (staff-web)
+## Current Milestone: v2.2 — Meta Conversion Tracking
+
+**Started 2026-06-23.** Reports HUSTLE's lead conversions and full CRM lifecycle to the studio's **own Meta Pixel** via browser Pixel + Conversions API (deduplicated, consent-gated), then extends the same chokepoint to Meta Lead Ads. This is the "tracking setup" queued as next in STATE.md after the recurring-classes work. Grounded against DB transitions that already exist — **no new CRM/pipeline is built**.
+
+**Goal:** Every lead the studio captures (website form or Meta Instant Form) and every step it takes — replied, bought, attended — is reported to Meta so the studio's ad campaigns optimise for deep-funnel quality and LTV, not raw form-fills.
+
+**Target features (REQ-IDs in REQUIREMENTS.md):**
+- **PIX** — browser Meta Pixel in the public form iframe (`/f/:slug`); `embed.js` bridges `fbclid`/`_fbc`/`_fbp` + the marketing-consent signal from the parent page into the cross-origin iframe; all sends consent-gated.
+- **CAPI** — server Conversions API spine: studio config (`pixelId`/`stageEventMap`/`testEventCode`) + encrypted `META_CAPI_TOKEN`, a **"Meta Conversion Tracking" card in `/gymos/settings/integrations`** for operator self-serve entry, additive `meta_lead_attribution` table, a pg-boss `meta-capi-event` queue fired by the **Fly worker** (staff-web only enqueues), SHA-256 PII hashing, browser↔server dedup via shared `event_id`, durable retry. Graph **v23**.
+- **LIFE** — deep-funnel lifecycle events off existing transitions: **Contact** (first WhatsApp reply, worker), **Purchase** (Stripe reducer, carries `value`/`currency`, renewals report), **Schedule** (booking→attended); read stored attribution; deterministic idempotency.
+- **LEAD** — Meta **Lead Ads** (Instant Form) ingestion via the Lead Retrieval webhook → `gym_members`; lifecycle reported back keyed on `lead_id` (Conversions API for CRM) so in-platform leads progress in Meta's Leads Center; WhatsApp follow-ups stay on the existing chokepoint.
+
+**Key context / constraints carried in:**
+- **Single-tenant per deploy** — `pixelId`/`capiToken` are studio-global config entered per client in Settings; no hardcoding to HUSTLE (repeatable-per-client).
+- **Chokepoint rule** — all Meta events originate from the backend off DB writes; the Fly worker is the single sender (it owns 3 of the 4 transitions and can decrypt `app_secrets` with `BETTER_AUTH_SECRET`).
+- **Consent** — Meta tracking gated on the site's marketing-consent bar signal, *not* the WhatsApp opt-in (distinct legal purposes); HUSTLE's site has a consent bar + the form has a WhatsApp opt-in.
+- **Attribution correctness** — capture `fbc`/`fbclid` + `fbp` at submit time and persist them, because stage events fire later with no browser; `embed.js` must pass them across the iframe boundary or attribution silently fails.
+- Strictly additive DB changes; fork-boundary discipline; no local dev server (verify via deploy + Test Events).
+- Phase prefix **`MC`** to avoid `.planning/phases/` collisions with existing D/P/R/AE/BD/CV dirs.
+
+## Previous Milestone: v2.1 — Content & Video Studio (staff-web)
 
 **Started 2026-06-20.** Adds two new staff tabs to `apps/staff-web` by adapting agent-native templates: a **Content** tab (from `templates/content` — Tiptap editor; reuse the non-collab pattern already built for `apps/hq` in BD3) and a **Video** tab (from `templates/videos` — in-browser Remotion editor via `@remotion/player`). Purpose: HUSTLE staff create **marketing & social** content/videos AND **member-facing** content/videos.
 
@@ -33,7 +53,7 @@ Coaches and studio managers run their entire day from one inbox-and-schedule sur
 - HUSTLE (gym #1, live at `gym-class-os.vercel.app`) is the only customer; this milestone enriches HUSTLE, not multi-tenant/HQ work.
 - Phase prefix **`CV`** to avoid `.planning/phases/` collisions with existing BD/AE/R/D/P dirs.
 
-## Previous Milestone: v2.0 — Self-Serve Platform + Two-Tier Brain/Dispatcher — ✅ SHIPPED 2026-06-19 (code)
+## Earlier Milestone: v2.0 — Self-Serve Platform + Two-Tier Brain/Dispatcher — ✅ SHIPPED 2026-06-19 (code)
 
 > **Started & code-complete 2026-06-19** (BD1–BD4, 19 plans, 40/40 requirements). Archived → [`milestones/v2.0-ROADMAP.md`](milestones/v2.0-ROADMAP.md) · [`milestones/v2.0-REQUIREMENTS.md`](milestones/v2.0-REQUIREMENTS.md) · [`MILESTONES.md`](MILESTONES.md). Introduced an entirely new product layer (the operator HQ) plus a new tier of capability (gym-owner brain/dispatcher + member activation) and self-serve provisioning of fully independent per-customer systems.
 >
@@ -191,6 +211,9 @@ Coaches and studio managers run their entire day from one inbox-and-schedule sur
 | Demo this week + production v1 by 2026-07-15 (two milestones) | Customer demo pressure forces a vertical slice now; production hardens what the demo taught us | — Locked 2026-05-17 |
 | Don't extract a generic "vertical framework" yet | Premature abstraction risk; let two verticals exist before deciding what's truly reusable | — Locked |
 | Vision doc (PLATFORM-VISION.md) is reference, NOT architecture-of-record | New scope doc had several conflicts with current constraints (Next.js+Prisma misidentification of agent-native, Hetzner self-host, native mobile, Twilio multi-channel, tenant_id+RLS). Reconciled item-by-item 2026-05-17. | — Locked |
+| **Meta conversion tracking fires from the Fly worker (pg-boss `meta-capi-event`), not staff-web** | 3 of 4 lifecycle transitions already live in the worker; worker can hold the encrypted CAPI token; pg-boss gives durable retry (events must not drop). staff-web only enqueues — matches "staff-web never calls external APIs directly". | — Locked 2026-06-23 |
+| **Meta tracking gated on the site's marketing-consent signal, NOT the WhatsApp opt-in** | Distinct legal purposes (UK GDPR/PECR): the WhatsApp opt-in covers messaging; the cookie/marketing consent bar covers ad-tracking + PII sharing with Meta. `embed.js` bridges the consent signal into the cross-origin iframe. | — Locked 2026-06-23 |
+| **Lifecycle events fire off existing DB transitions — no CRM/pipeline built** | A "lead" is already a `gym_members` row + `conversations(status='lead')`; replied/bought/attended map to inbound writes, Stripe reducers, and `bookings.status='attended'`. Building a separate pipeline would be redundant. | — Locked 2026-06-23 |
 
 ## Evolution
 
@@ -210,7 +233,9 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-20 — Milestone v2.1 (Content & Video Studio for staff-web) started. Adds `/gymos/content` (Tiptap, non-collab — reuse apps/hq BD3 pattern) + `/gymos/video` (Remotion `@remotion/player` editor) tabs to apps/staff-web, for marketing/social + member-facing content. Publish pipeline → member mobile API + public SSR pages (no member web portal). Server-side MP4 render (`@remotion/renderer` on Fly) flagged + deferred (infra/cost gate). Phase prefix `CV`. Requirements → roadmap next.*
+*Last updated: 2026-06-23 — Milestone v2.2 (Meta Conversion Tracking) started. Reports form-lead + Meta Lead-Ad conversions and the full CRM lifecycle (Lead/Contact/Purchase/Schedule) to the studio's own Meta Pixel via browser Pixel + Conversions API (deduplicated, consent-gated). Fires from the Fly worker (pg-boss `meta-capi-event`); staff-web only enqueues. Operator enters Pixel ID + CAPI token + Test Event Code in a "Meta Conversion Tracking" card in /gymos/settings/integrations. Additive `meta_lead_attribution` table. Graph v23. Three phases: MC1 Foundation+Lead, MC2 Deep funnel, MC3 Lead Ads. Requirements → roadmap → /gsd:plan-phase MC1. Phase prefix `MC`.*
+
+*Earlier: 2026-06-20 — Milestone v2.1 (Content & Video Studio for staff-web) started. Adds `/gymos/content` (Tiptap, non-collab — reuse apps/hq BD3 pattern) + `/gymos/video` (Remotion `@remotion/player` editor) tabs to apps/staff-web, for marketing/social + member-facing content. Publish pipeline → member mobile API + public SSR pages (no member web portal). Server-side MP4 render (`@remotion/renderer` on Fly) flagged + deferred (infra/cost gate). Phase prefix `CV`. Requirements → roadmap next.*
 
 *Earlier: 2026-06-19 — v2.0 Phase BD4 (Studio Brain + Dispatcher) COMPLETE (code) — **final v2.0 phase**: studio-tier mirror of BD3. **GOB** — lightweight `studio_brain_docs` (brand-voice + ethos docs, class-catalog auto-seeded from `class_definitions` on init), `/gymos/brain` owner view+edit (shadcn Accordion + Tabler + `defineAction`/`useChangeVersions`), all three additive tables (`studio_brain_docs`, `studio_owner_config`, `reactivation_attempts`) as `runMigrations` v16-19. **GOD** — daily owner-digest job (06:00 studio-tz, numeric `buildTelemetrySnapshot` metrics, owner-by-phone) + daily heartbeat (09:00 studio-tz, `hash(STUDIO_ID)%60` stagger, pg-boss `schedule(..., {tz})`) detecting 30-day-dormant members and reactivating them as a NEW producer into the existing `outbound-whatsapp` chokepoint (`sendMessage.ts` + gates verified untouched). 3/90-day suppression ceiling + synchronous opt-out enforced day-one (checked before enqueue); brand-voice personalization + generic fallback; live sends mock-first/deferred per D-15. 138/138 worker tests green; `tsc` clean. GOB-01..03 + GOD-01..05 code-verified. Deferred on external deps (BD4-HUMAN-UAT.md): live `/gymos/brain` browser session, owner digest + heartbeat reactivation on a running Fly worker with Meta-approved `owner_daily_digest`/`member_reactivation` templates. **v2.0 milestone code-complete (BD1-BD4).** Next: live UAT + Meta template submissions; consider `/gsd:complete-milestone`.*
 

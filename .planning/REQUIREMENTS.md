@@ -1,68 +1,68 @@
-# Milestone v2.1 Requirements — Content & Video Studio (staff-web)
+# Milestone v2.2 Requirements — Meta Conversion Tracking
 
-**Defined:** 2026-06-20
-**Goal:** HUSTLE staff author rich content documents and video compositions inside `apps/staff-web`, with the right-rail agent assisting, and publish them so they reach members (mobile app + public marketing pages) — no new member web portal.
+**Defined:** 2026-06-23
+**Goal:** Report HUSTLE's form-lead conversions and full CRM lifecycle to the studio's own Meta Pixel via browser Pixel + Conversions API (deduplicated, consent-gated), then extend the same chokepoint to Meta Lead Ads.
 
-**Scope note:** Adapt agent-native `templates/content` and `templates/videos` into staff-web tabs, following the established copy-into-`features/` + four-area (UI · actions · agent/instructions · application_state) pattern. Reuse the non-collab Content surface already built in `apps/hq` (BD3 HQD). Single-tenant code preserved; strictly additive DB changes.
+**Scope note:** Single-tenant per deploy — `pixelId`/`capiToken` are studio-global config the operator enters in Settings (no hardcoding to HUSTLE; repeatable per client). All Meta events originate from the backend off DB transitions (chokepoint rule); the Fly worker is the single sender. Strictly additive DB changes. Grounded against existing transitions — no new CRM/pipeline is built.
+
+**Architecture (locked in conversation 2026-06-23):**
+- CAPI fires from the Fly worker via a new pg-boss `meta-capi-event` queue; staff-web only enqueues (never calls Meta directly).
+- New additive `meta_lead_attribution` table (keyed by `member_id`) stores `fbc`/`fbp`/`initial_event_id` + per-stage fired markers — for offline attribution + idempotency.
+- Studio config: `pixelId` + `stageEventMap` + `testEventCode` stored studio-global; `META_CAPI_TOKEN` as an encrypted `app_secret`. Entered via a "Meta Conversion Tracking" card in `/gymos/settings/integrations`.
+- Event mapping (configurable, defaults): **Lead** (form submit, `action_source=website`) / **Contact** (first inbound reply on a lead conversation) / **Purchase** (Stripe reducer) / **Schedule** (booking→attended). Optimization target = **Contact**.
+- Consent: gated on the parent site's marketing-consent signal (distinct from the WhatsApp opt-in), bridged into the cross-origin iframe by `embed.js`.
+- Graph API pinned to **v23**.
 
 ---
 
-## v2.1 Requirements
+## v2.2 Requirements
 
-### CONT — Content tab (Tiptap docs)
+### PIX — Browser Pixel + capture (in the public form iframe)
 
-- [x] **CONT-01**: Staff can open a `/gymos/content` tab and see a list of the studio's content documents (title, status draft/published, updated time). *(CV2-01: gymos.content.tsx SSR loader + list UI)*
-- [x] **CONT-02**: Staff can create a new content document and edit it in a rich-text (Tiptap) editor — headings, lists, links, images — single-studio, **no real-time collaboration / Yjs**. *(CV2-01: gymos.content_.$id.tsx non-collab StarterKit+Image+Link, auto-save on blur)*
-- [x] **CONT-03**: Staff can rename, duplicate, and delete a content document (delete is reversible-safe / soft where practical; confirm via shadcn AlertDialog). *(CV2-01: DropdownMenu + Rename Dialog + Duplicate + Delete AlertDialog)*
-- [x] **CONT-04**: The right-rail agent can create and edit content documents (draft marketing copy, rewrite, summarise) via `defineAction` tools that are two-exposed (registry + `agent-chat.ts` + `apps/staff-web/AGENTS.md`). *(CV2-01: 7 content actions + Content tab section + AGENTS.md table)*
-- [x] **CONT-05**: Content edits and the agent's writes stay in sync live in the UI (`useChangeVersions` / polling), matching the existing staff-web pattern. *(CV2-01: useChangeVersions on list + agent live re-pull on editor)*
+- [ ] **PIX-01**: The public form page (`/f/:slug`) loads the studio's Meta Pixel (templated `pixelId` from studio config) and fires a browser `Lead` event on successful submit, sharing an `event_id` with the server event for deduplication.
+- [ ] **PIX-02**: `embed.js` reads `fbclid` + `_fbc`/`_fbp` cookies + the marketing-consent signal from the **parent page** and passes them into the cross-origin iframe (so ad-click attribution survives the iframe boundary, where `location.search` has no `fbclid` and third-party cookies may be partitioned).
+- [ ] **PIX-03**: Pixel load and every Meta send (browser event + CAPI enqueue) are gated on the parent site's **marketing-consent** signal — absent consent, nothing fires. Consent is distinct from the form's WhatsApp opt-in.
 
-### VID — Video tab (Remotion editor)
+### CAPI — Server-side Conversions API infrastructure
 
-- [x] **VID-01**: Staff can open a `/gymos/video` tab and see a list of the studio's video compositions (title, updated time, thumbnail/preview where available).
-- [x] **VID-02**: Staff can create and edit a video composition in an in-browser Remotion editor with live preview via `@remotion/player` (text, images/brand assets, transitions) — **no server-side render required for authoring/preview**.
-- [x] **VID-03**: Staff can rename, duplicate, and delete a video composition (confirm destructive actions via AlertDialog).
-- [x] **VID-04**: The right-rail agent can assist authoring/editing compositions (e.g. draft a promo from a class/offer, adjust copy/scenes) via two-exposed `defineAction` tools.
+- [ ] **CAPI-01**: Studio Meta config storage — `pixelId` + `testEventCode` stored studio-global; `stageEventMap` resolved server-side with sensible defaults (Lead/Contact/Purchase/Schedule); `META_CAPI_TOKEN` stored as an encrypted `app_secret`.
+- [ ] **CAPI-02**: Additive `meta_lead_attribution` table (keyed by `member_id`) persists `fbc`/`fbp`/`initial_event_id` at submit time plus per-stage fired markers, for later offline attribution and idempotency.
+- [ ] **CAPI-03**: `/api/submit/:id` is extended to accept and persist `fbc`/`fbp`/`event_id`/`pageUrl` from the iframe, and enqueues a `meta-capi-event` job — it does not call Meta directly.
+- [ ] **CAPI-04**: A pg-boss `meta-capi-event` queue + Fly worker sender POSTs to the Meta Conversions API (Graph v23) with SHA-256-hashed email/phone + `fbc`/`fbp` + client IP/UA, retrying on 5xx/network failures (events are never dropped); a failing send for one tenant/event is isolated and does not break others.
+- [ ] **CAPI-05**: The browser `Lead` and server `Lead` events share an identical `event_id` so Meta deduplicates them (counted once) — verified in Events Manager Test Events.
+- [ ] **CAPI-06**: A dedicated **"Meta Conversion Tracking"** card in `/gymos/settings/integrations` (alongside Stripe Connect) lets the operator enter their Pixel ID (plain field → studio config via `defineAction`), Conversions API token (masked → `app_secrets`), and Test Event Code (plain field), with a status indicator + "Send test event" affordance. Single entry point for the token (no duplicate `app_secrets` row).
 
-### PUB — Publish pipeline (member-facing + public)
+### LIFE — Deep-funnel lifecycle events (website leads)
 
-- [x] **PUB-01**: Staff can move a content document between `draft` and `published` states; only `published` items are exposed beyond staff.
-- [x] **PUB-02**: Published content is exposed to the member mobile app via a `/api/m/*` endpoint (read-only, demo-member gated like the other member APIs) — **no new member web portal**.
-- [x] **PUB-03**: Published content is rendered on a public SSR marketing page (e.g. `/c/:slug`) so it is crawlable/shareable, reusing the existing public-path + SSR pattern (mirrors `/f`, `/embed`).
-- [x] **PUB-04**: A published video composition is surfaced to members/public via the same publish model — as an embedded `@remotion/player` (web) and/or a poster + link — pending the RENDER decision below for true MP4 playback/social export.
+- [ ] **LIFE-01**: When a lead first replies on WhatsApp (first inbound message on a `lead` conversation, in the worker), a `Contact` CAPI event fires once using the stored `fbc`/`fbp` (`action_source=system_generated`), idempotent via `event_id=memberId:contact`.
+- [ ] **LIFE-02**: When a member's purchase is recorded (Stripe reducer — `checkout.session.completed` / `invoice.paid`), a `Purchase` CAPI event fires carrying `value` + `currency` (for LTV/ROAS), keyed on the Stripe transaction id so **renewals each report** while webhook replays deduplicate.
+- [ ] **LIFE-03**: When a booking's status flips to `attended`, a `Schedule` CAPI event fires once per (member, occurrence) using stored attribution.
+- [ ] **LIFE-04**: The stage→event mapping is driven by the configurable `stageEventMap` (events can be renamed without code changes); the optimization target (Contact) is documented for ops.
 
-### Cross-cutting (each tab must satisfy)
+### LEAD — Meta Lead Ads (Instant Forms) + CRM lifecycle
 
-- [x] **NAV-01**: Content and Video appear as tabs in `GymosTopNav.tsx`, navigable by the agent via the `navigate` action, with `application_state` exposing the current tab/selection (context-awareness).
-- [x] **DEP-01**: New dependencies (Tiptap minus collaboration; Remotion + `@remotion/player`) added to `apps/staff-web/package.json`; the Vercel/Nitro build succeeds (helper/test files in `server/lib`, not `server/plugins`).
-- [x] **MIG-01**: New tables (`content_documents`, `video_compositions`, plus any join/asset tables) added as **additive-only** `runMigrations` versions in the studio Neon; no rename/drop; verified against the live `gymos-demo` DB.
+- [ ] **LEAD-01**: Meta Lead Ads (Instant Form) submissions are received via the Lead Retrieval webhook (edge-webhooks), signature-verified, and ingested as `gym_members` + `lead` conversations using the same dual-unique-key reconcile as website-form leads, capturing the Meta `lead_id`.
+- [ ] **LEAD-02**: Ingested Lead-Ad leads advance through the same lifecycle (Contact/Purchase/Schedule) reported back to Meta keyed on `lead_id` (Conversions API for CRM / lead lifecycle) so in-platform leads progress in Meta's Leads Center.
+- [ ] **LEAD-03**: Any WhatsApp follow-up to a Lead-Ad lead routes through the existing opt-in / 24h-window / approved-template worker chokepoint (no bypass).
 
 ---
 
 ## Future Requirements (deferred)
 
-### RENDER — Server-side video export (GATED — infra + cost decision)
-
-> **Default: deferred.** Authoring/preview ships first. True MP4 export (for social posting and in-app/native member video playback) requires `@remotion/renderer` (headless Chromium) running on a **new Fly render worker** — meaningful new infra and recurring compute cost. Requires explicit go-ahead before building.
-
-- [ ] **RENDER-01**: Staff can export a composition to an MP4 via a server-side render job (Fly render worker, pg-boss queued).
-- [ ] **RENDER-02**: Rendered MP4s are stored (object storage) and surfaced to members (mobile app) + downloadable for social posting.
-
-### Other deferred
-
-- [ ] **CONT-FUT-01**: Content templates/snippets library (reusable blocks for class descriptions, offers, newsletters).
-- [ ] **VID-FUT-01**: Brand kit / design-system reuse across compositions (the templates' `design-systems` surface) beyond a minimal default.
-- [ ] **PUB-FUT-01**: Scheduling/auto-publish and direct social-channel posting integrations.
+- [ ] **CAPI-FUT-01**: Expose `stageEventMap` editing in the Settings card ("Advanced" reveal) so the operator can rename Meta events from the UI.
+- [ ] **STRIPE-FUT-01**: Stripe sales-side conversion tracking beyond membership Purchase (e-commerce product/catalog events, refunds as negative conversions).
+- [ ] **EMQ-FUT-01**: Event Match Quality enrichment — send additional hashed identifiers (first/last name, city) to raise match rates.
 
 ---
 
 ## Out of Scope
 
-- **Real-time collaborative editing (Yjs/Tiptap collaboration, live cursors)** — single-studio staff use; the collaboration extensions are stripped from the Content fork. Re-add only if multi-editor concurrency becomes a real need.
-- **A new member-facing *web* portal** — locked project constraint; members are on the Expo mobile app. Member-facing = publish pipeline (member API + public SSR marketing pages), not a member web UI.
-- **AWS Lambda render path (`@remotion/lambda`)** — if RENDER is approved, prefer a Fly render worker to stay inside the existing Fly footprint (matches the pg-boss/worker model); revisit Lambda only at scale.
-- **Multi-tenant / studio_id scoping** — single-tenant code preserved; one Neon per studio.
-- **Editing `templates/` or `@agent-native/core` in place** — fork-boundary discipline; adaptation lives in `apps/staff-web/features/*` + wrappers.
+- **Stripe sales-side e-commerce conversion events beyond membership Purchase** — deferred (STRIPE-FUT-01); membership/pack Purchase is the only sales conversion in v2.2.
+- **Meta Offline Conversions / Offline Events API upload** — we report deep-funnel events via CAPI `system_generated` from DB transitions instead (real-time, attribution-linked), which supersedes batch offline upload.
+- **Building a CRM pipeline / lead-stage model** — not needed; lifecycle events fire off transitions that already exist (`conversations`, Stripe reducers, `bookings.status`).
+- **Multi-tenant / `studio_id` scoping** — single-tenant per deploy; `pixelId`/token are studio-global config entered per deploy.
+- **Editing `templates/` or `@agent-native/core` in place** — fork-boundary discipline; work lands in `apps/staff-web/features/*`, `services/worker/*`, `services/edge-webhooks/*`, `packages/queue/*`.
+- **Sending any PII to Meta unhashed** — only SHA-256-hashed `em`/`ph` leave the server; IP + UA are sent raw (Meta requires this); no PII in URL params.
 
 ---
 
@@ -70,21 +70,19 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DEP-01 | Phase CV1 | Complete |
-| MIG-01 | Phase CV1 | Complete |
-| NAV-01 | Phase CV1 | Complete |
-| CONT-01 | Phase CV2 | Complete (CV2-01) |
-| CONT-02 | Phase CV2 | Complete (CV2-01) |
-| CONT-03 | Phase CV2 | Complete (CV2-01) |
-| CONT-04 | Phase CV2 | Complete (CV2-01) |
-| CONT-05 | Phase CV2 | Complete (CV2-01) |
-| VID-01 | Phase CV3 | Complete |
-| VID-02 | Phase CV3 | Complete |
-| VID-03 | Phase CV3 | Complete |
-| VID-04 | Phase CV3 | Complete |
-| PUB-01 | Phase CV4 | Complete |
-| PUB-02 | Phase CV4 | Complete |
-| PUB-03 | Phase CV4 | Complete |
-| PUB-04 | Phase CV4 | Complete |
-| RENDER-01 | Phase CV-RENDER (GATED) | Gated — awaiting go-ahead |
-| RENDER-02 | Phase CV-RENDER (GATED) | Gated — awaiting go-ahead |
+| PIX-01 | Phase MC1 | Pending |
+| PIX-02 | Phase MC1 | Pending |
+| PIX-03 | Phase MC1 | Pending |
+| CAPI-01 | Phase MC1 | Pending |
+| CAPI-02 | Phase MC1 | Pending |
+| CAPI-03 | Phase MC1 | Pending |
+| CAPI-04 | Phase MC1 | Pending |
+| CAPI-05 | Phase MC1 | Pending |
+| CAPI-06 | Phase MC1 | Pending |
+| LIFE-01 | Phase MC2 | Pending |
+| LIFE-02 | Phase MC2 | Pending |
+| LIFE-03 | Phase MC2 | Pending |
+| LIFE-04 | Phase MC2 | Pending |
+| LEAD-01 | Phase MC3 | Pending |
+| LEAD-02 | Phase MC3 | Pending |
+| LEAD-03 | Phase MC3 | Pending |
