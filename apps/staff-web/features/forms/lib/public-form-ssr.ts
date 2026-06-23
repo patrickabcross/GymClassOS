@@ -1,5 +1,5 @@
 import { getMethod, getRequestURL, type H3Event } from "h3";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { getDb, schema } from "../../../server/db/index.js";
 import type { FormField, FormSettings } from "../types.js";
 import { getTenantBrand } from "../../../server/lib/tenant-brand-resolver.js";
@@ -252,9 +252,32 @@ export async function renderPublicFormHtml(
   //  we only call it when the param is actually present).
   const searchParams = new URLSearchParams(searchStr);
   const accentParam = searchParams.get("accent");
-  const accent = accentParam ? sanitizeHexColor(accentParam) : tenantBrand.primary;
+  const accent = accentParam
+    ? sanitizeHexColor(accentParam)
+    : tenantBrand.primary;
   const radiusParam = searchParams.get("radius");
-  const radius = radiusParam !== null ? sanitizeIntPx(radiusParam) : tenantBrand.radius;
+  const radius =
+    radiusParam !== null ? sanitizeIntPx(radiusParam) : tenantBrand.radius;
+
+  // Resolve studio Meta Pixel ID server-side (single-tenant config).
+  // guard:allow-unscoped — single-tenant meta config; studio_owner_config has one row.
+  let pixelId: string | undefined;
+  try {
+    const db2 = getDb() as unknown as {
+      execute: (q: unknown) => Promise<{ rows: unknown[] }>;
+    };
+    const { rows } = await db2.execute(
+      sql`SELECT meta_pixel_id FROM studio_owner_config LIMIT 1`,
+    );
+    const row = rows[0] as { meta_pixel_id?: string | null } | undefined;
+    const raw = row?.meta_pixel_id ?? "";
+    // Sanitize to digits-only before threading into the inline script.
+    const digits = String(raw).replace(/[^0-9]/g, "");
+    if (digits) pixelId = digits;
+  } catch {
+    // Missing config or DB error → no Pixel; form still submits and server CAPI fires.
+    pixelId = undefined;
+  }
 
   return {
     html: renderFormPage(
@@ -268,6 +291,7 @@ export async function renderPublicFormHtml(
       accent,
       radius,
       tenantBrand,
+      pixelId,
     ),
     status: 200,
   };
@@ -311,11 +335,26 @@ function renderFormPage(
   accent: string,
   radius: number,
   brand: TenantBrand,
+  pixelId?: string,
 ): string {
   const settings: FormSettings = form.settings || {};
   const fields: FormField[] = form.fields || [];
   const turnstileSiteKey = process.env.VITE_TURNSTILE_SITE_KEY || "";
   const submitPath = `/api/submit/`;
+
+  // Pixel base code — only emitted when a pixelId is resolved (PIX-01).
+  // pixelId is already digits-only (sanitized in renderPublicFormHtml).
+  const pixelSnippet = pixelId
+    ? `<script>
+!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;
+n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;
+t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,
+document,'script','https://connect.facebook.net/en_US/fbevents.js');
+fbq('init', '${pixelId}');
+fbq('track', 'PageView');
+</script>`
+    : "";
 
   const fieldsHtml = fields.map(renderField).join("\n");
 
@@ -329,6 +368,7 @@ ${form.description ? `<meta name="description" content="${escapeHtml(form.descri
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="${brand.googleFontsHref}" rel="stylesheet">
+${pixelSnippet}
 <style>
   :root {
     --gym-accent: ${accent};
@@ -555,6 +595,9 @@ ${form.description ? `<meta name="description" content="${escapeHtml(form.descri
   // Submit
   var PAGE_LOAD_T = Date.now();
   var submitting = false;
+  // Read attribution params threaded in by embed.js (PIX-02) — these are query
+  // params on the iframe URL set from the parent page's fbclid/_fbc/_fbp cookies.
+  var qp = new URLSearchParams(location.search);
   document.getElementById("mainForm").onsubmit = function(e) {
     e.preventDefault();
     if (submitting) return;
@@ -567,10 +610,25 @@ ${form.description ? `<meta name="description" content="${escapeHtml(form.descri
     btn.disabled = true;
     var hp = (document.getElementById("_hp") || {}).value || "";
 
+    // CAPI-05: generate ONE event_id BEFORE the fetch so browser Pixel and
+    // server CAPI share the identical string for Meta dedup. Pitfall 2: must
+    // exist before the fbq call AND before the fetch body is assembled.
+    var EVENT_ID = "mc1_" + Math.random().toString(36).slice(2, 9) + "_" + Date.now().toString(36);
+
     fetch(${JSON.stringify(submitPath)} + FORM_ID, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ data: data, captchaToken: captchaToken, _hp: hp, _t: PAGE_LOAD_T }),
+      body: JSON.stringify({
+        data: data,
+        captchaToken: captchaToken,
+        _hp: hp,
+        _t: PAGE_LOAD_T,
+        event_id: EVENT_ID,
+        fbc: qp.get("fbc") || undefined,
+        fbp: qp.get("fbp") || undefined,
+        fbclid: qp.get("fbclid") || undefined,
+        page_url: document.referrer || location.href,
+      }),
     })
     .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
     .then(function(res) {
@@ -584,6 +642,11 @@ ${form.description ? `<meta name="description" content="${escapeHtml(form.descri
           // Gym-specific postMessage — replaces upstream "agent-native-feedback-submitted"
           window.parent.postMessage({ type: "lead:submitted", formId: FORM_ID, responseId: res.data.id }, "*");
         } catch (_) {}
+      }
+      // PIX-01 / CAPI-05: fire browser Lead AFTER success with the SAME EVENT_ID
+      // so Meta deduplicates browser + server events. eventID is camelCase (4th fbq arg).
+      if (typeof fbq !== "undefined") {
+        fbq("track", "Lead", {}, { eventID: EVENT_ID });
       }
     })
     .catch(function(err) {
