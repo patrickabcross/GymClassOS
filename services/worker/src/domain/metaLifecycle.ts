@@ -16,6 +16,8 @@
 import { createHash } from "node:crypto";
 import { sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
+import { enqueueMetaCapiEvent } from "@gymos/queue";
+import { resolveStageEvent } from "../lib/stage-event-map.js";
 
 // ---------------------------------------------------------------------------
 // 1. Zero-decimal currency set (LIFE-02, D-08)
@@ -166,4 +168,71 @@ export async function getOrUpsertAttribution(
     clientIp: (row.client_ip as string | null) ?? undefined,
     clientUserAgent: (row.client_user_agent as string | null) ?? undefined,
   };
+}
+
+// ---------------------------------------------------------------------------
+// 4. Contact CAPI fire-on-first-reply (LIFE-01, MC2-02)
+//
+// Enqueues a Contact CAPI event the first time a lead replies on WhatsApp.
+// Gated on contact_sent_at IS NULL so repeat inbounds are no-ops.
+// The contact_sent_at marker is stamped by the worker CAPI handler on SUCCESS
+// (Plan 01 stageKey write-back) — not here. This preserves retry-until-success
+// semantics: if the enqueue or send fails, the marker stays NULL and the next
+// inbound will retry.
+//
+// Race note: rapid double-inbound before the first send completes could enqueue
+// twice, but the pg-boss singletonKey (meta-capi-event:memberId:contact) in the
+// CAPI handler collapses duplicates — acceptable and documented.
+// ---------------------------------------------------------------------------
+
+/**
+ * Fire a Contact CAPI event on the first inbound WhatsApp reply from a lead.
+ * Best-effort — callers MUST wrap in try/catch (D-17: enqueue failure must
+ * never abort inbound message processing).
+ *
+ * @param db                  - Worker Drizzle DB instance (from getDb())
+ * @param memberId            - The gym_members.id of the replying member
+ * @param stageEventMapConfig - Optional studio override map; null uses default "Contact"
+ */
+export async function fireContactCapiIfFirstReply(
+  db: any,
+  memberId: string,
+  stageEventMapConfig?: string | Record<string, string> | null,
+): Promise<void> {
+  // 1. Ensure attribution row exists (D-04/D-05) and read fbc/fbp.
+  const attr = await getOrUpsertAttribution(db, memberId);
+
+  // 2. Durable idempotency gate: contact_sent_at must be NULL.
+  //    guard:allow-unscoped — single-tenant meta attribution
+  const rows = await db.execute(sql`
+    SELECT contact_sent_at FROM meta_lead_attribution WHERE member_id = ${memberId} LIMIT 1
+  `);
+  const rowList = (rows as any)?.rows ?? (rows as any) ?? [];
+  const row = Array.isArray(rowList) ? rowList[0] : undefined;
+  if (row?.contact_sent_at != null) return; // already sent — idempotent no-op
+
+  // 3. Hashed PII for matching.
+  const { hashedEmail, hashedPhone } = await getMemberHashes(db, memberId);
+
+  // 4. Resolve event name via the shared resolver (LIFE-04).
+  const eventName = resolveStageEvent(stageEventMapConfig ?? null, "contact");
+
+  // 5. Enqueue. event_id = memberId:contact (verbatim LIFE-01). action_source literal.
+  await enqueueMetaCapiEvent({
+    eventId: `${memberId}:contact`,
+    memberId,
+    eventName,
+    actionSource: "system_generated",
+    stageKey: "contact",
+    eventTime: Math.floor(Date.now() / 1000),
+    hashedEmail,
+    hashedPhone,
+    fbc: attr.fbc,
+    fbp: attr.fbp,
+    clientIp: attr.clientIp,
+    clientUserAgent: attr.clientUserAgent,
+  });
+  // NOTE: contact_sent_at is stamped by the worker CAPI handler on SUCCESS
+  // (Plan 01 stageKey write-back). If the enqueue or send fails, the marker
+  // stays NULL and the next inbound retries — correct retry-until-success.
 }

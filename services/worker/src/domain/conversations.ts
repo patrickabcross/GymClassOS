@@ -75,7 +75,7 @@ export async function upsertConversationAndMessage(
   db: ReturnType<typeof getDb>,
   msg: InboundMessage,
   rawPayload: string,
-): Promise<{ processed: boolean; reason?: string }> {
+): Promise<{ processed: boolean; reason?: string; memberId?: string }> {
   const externalId = msg.id;
   const fromE164 = `+${msg.from}`;
   const messageType = (msg.type ?? "text") as string;
@@ -232,7 +232,7 @@ export async function upsertConversationAndMessage(
     })
     .onConflictDoNothing({ target: schema.whatsappOptIn.memberId });
 
-  return { processed: true };
+  return { processed: true, memberId: member.id };
 }
 
 /**
