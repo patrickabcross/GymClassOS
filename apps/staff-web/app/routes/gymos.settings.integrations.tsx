@@ -42,10 +42,8 @@ import {
 import { useState } from "react";
 import { getDb } from "../../server/db";
 import { readConnectedAccount } from "../../server/lib/connected-account.js";
-import {
-  writeAppSecret,
-  appSecretExistsByKey,
-} from "@agent-native/core/secrets";
+import { writeAppSecret } from "@agent-native/core";
+import { readAppSecretByKey } from "../../server/lib/app-secrets.js";
 
 export function meta() {
   return [{ title: "RunStudio — Integrations" }];
@@ -140,9 +138,11 @@ export async function loader({ request }: LoaderFunctionArgs) {
   `);
   const cfg = ((cfgRows as any)?.rows ?? (cfgRows as any))?.[0] ?? {};
 
-  // Token presence by KEY — bypasses the scoping quirk (D-11). Any operator
-  // login sees the correct "configured" state.
-  const metaTokenConfigured = await appSecretExistsByKey("META_CAPI_TOKEN");
+  // Token presence by KEY (fallback path B — D-11 scoping fix). Resolves by key
+  // alone so any operator login sees the correct "configured" state, not just
+  // the session that originally saved the key. Boolean only — value not returned.
+  const metaTokenConfigured =
+    (await readAppSecretByKey("META_CAPI_TOKEN")) !== null;
 
   // Last-send health from attribution (most recent row with a status).
   // guard:allow-unscoped — single-tenant meta attribution
