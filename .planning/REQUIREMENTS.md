@@ -29,7 +29,7 @@
 - [x] **CAPI-03**: `/api/submit/:id` is extended to accept and persist `fbc`/`fbp`/`event_id`/`pageUrl` from the iframe, and enqueues a `meta-capi-event` job — it does not call Meta directly.
 - [x] **CAPI-04**: A pg-boss `meta-capi-event` queue + Fly worker sender POSTs to the Meta Conversions API (Graph v23) with SHA-256-hashed email/phone + `fbc`/`fbp` + client IP/UA, retrying on 5xx/network failures (events are never dropped); a failing send for one tenant/event is isolated and does not break others.
 - [x] **CAPI-05**: The browser `Lead` and server `Lead` events share an identical `event_id` so Meta deduplicates them (counted once) — verified in Events Manager Test Events.
-- [ ] **CAPI-06**: A dedicated **"Meta Conversion Tracking"** card in `/gymos/settings/integrations` (alongside Stripe Connect) lets the operator enter their Pixel ID (plain field → studio config via `defineAction`), Conversions API token (masked → `app_secrets`), and Test Event Code (plain field), with a status indicator + "Send test event" affordance. Single entry point for the token (no duplicate `app_secrets` row).
+- [x] **CAPI-06**: A dedicated **"Meta Conversion Tracking"** card in `/gymos/settings/integrations` (alongside Stripe Connect) lets the operator enter their Pixel ID (plain field → studio config via `defineAction`), Conversions API token (masked → `app_secrets`), and Test Event Code (plain field), with a status indicator + "Send test event" affordance. Single entry point for the token (no duplicate `app_secrets` row).
 
 ### LIFE — Deep-funnel lifecycle events (website leads)
 
@@ -77,7 +77,7 @@
 | CAPI-03 | Phase MC1 | Complete |
 | CAPI-04 | Phase MC1 | Complete |
 | CAPI-05 | Phase MC1 | Complete |
-| CAPI-06 | Phase MC1 | Pending |
+| CAPI-06 | Phase MC1 | Complete |
 | LIFE-01 | Phase MC2 | Pending |
 | LIFE-02 | Phase MC2 | Pending |
 | LIFE-03 | Phase MC2 | Pending |

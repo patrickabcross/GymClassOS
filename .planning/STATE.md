@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v2.2
 milestone_name: — Meta Conversion Tracking — IN PROGRESS
 status: executing
-stopped_at: Completed MC1-04-attribution-submit-wiring-PLAN.md
-last_updated: "2026-06-23T10:54:30.724Z"
+stopped_at: Completed MC1-05-settings-card-PLAN.md
+last_updated: "2026-06-23T11:06:48.225Z"
 last_activity: 2026-06-23
 progress:
   total_phases: 3
@@ -31,7 +31,7 @@ Requirements: `.planning/REQUIREMENTS.md` (v2.1 requirements, 11 in-scope: CONT-
 
 Milestone: v2.2 — Meta Conversion Tracking
 Phase: MC1 (Foundation + Lead event) — EXECUTING
-Plan: 4 of 5
+Plan: 5 of 5
 Status: Ready to execute
 Last activity: 2026-06-23
 
@@ -96,6 +96,7 @@ Last activity: 2026-06-22 — Phase 2 recurring classes (quick 260622-mpv) DONE 
 | Phase MC1 P01 | 336 | 3 tasks | 5 files |
 | Phase MC1 P02 | 6min | 2 tasks | 4 files |
 | Phase MC1 P04 | 241 | 3 tasks | 3 files |
+| Phase MC1 P05 | 30 | 3 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -170,8 +171,8 @@ Last activity: 2026-06-22 — Phase 2 recurring classes (quick 260622-mpv) DONE 
 
 ## Session Continuity
 
-Last session: 2026-06-23T10:54:30.716Z
-Stopped at: Completed MC1-04-attribution-submit-wiring-PLAN.md
+Last session: 2026-06-23T11:06:48.218Z
+Stopped at: Completed MC1-05-settings-card-PLAN.md
 Resume file: None
 
 Prior session: 2026-06-20T10:22:33.153Z — Completed CV4-publish-pipeline CV4-01-PLAN.md

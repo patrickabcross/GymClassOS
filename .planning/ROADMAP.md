@@ -44,7 +44,7 @@ Plans:
 - [x] MC1-02-PLAN.md (wave 1) — Queue contract: META_CAPI_EVENT queue name + MetaCapiEventPayload Zod schema + enqueueMetaCapiEvent() (singletonKey on event_id) + staff-web re-export [CAPI-04]
 - [ ] MC1-03-PLAN.md (wave 2, after 01+02) — Worker CAPI sender: meta-capi-event.ts (Graph v23 POST, hashed PII, plain fbc/fbp, top-level test_event_code, event_time seconds), terminal-vs-retryable split, status write-back; queue registration + boot decrypt self-test (D-04) [CAPI-04]
 - [x] MC1-04-PLAN.md (wave 2, after 01+02) — Attribution capture + submit wiring: embed.js parent fbclid/_fbc/_fbp threading + fbc synthesis (D-13); browser Pixel Lead with shared event_id (D-15); submissions.ts hash PII + persist meta_lead_attribution + always-enqueue (D-14) [PIX-01, PIX-02, CAPI-03, CAPI-05]
-- [ ] MC1-05-PLAN.md (wave 2, after 01+02) — Settings card: "Meta Conversion Tracking" card (Pixel ID + Test Event Code + masked token via writeAppSecret to app_secrets, by-key presence D-11) + config/last-send status (D-09) + real "Send test event" CAPI Lead (D-10) [CAPI-01, CAPI-06]
+- [x] MC1-05-PLAN.md (wave 2, after 01+02) — Settings card: "Meta Conversion Tracking" card (Pixel ID + Test Event Code + masked token via writeAppSecret to app_secrets, by-key presence D-11) + config/last-send status (D-09) + real "Send test event" CAPI Lead (D-10) [CAPI-01, CAPI-06]
 **UI hint**: yes (Settings card)
 
 ### Phase MC2: Deep-funnel lifecycle
@@ -74,7 +74,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| MC1. Foundation + Lead event | 3/5 | In Progress|  |
+| MC1. Foundation + Lead event | 4/5 | In Progress|  |
 | MC2. Deep-funnel lifecycle | 0/TBD | Not started | - |
 | MC3. Meta Lead Ads + CRM lifecycle | 0/TBD | Not started | - |
 
