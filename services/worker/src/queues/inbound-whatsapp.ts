@@ -11,6 +11,7 @@ import {
   applyOrdinalStatusUpdate,
   type MessageStatus,
 } from "../domain/messageStatus.js";
+import { fireContactCapiIfFirstReply } from "../domain/metaLifecycle.js";
 
 /**
  * Register the pg-boss subscriber for the `inbound-whatsapp` queue.
@@ -108,7 +109,7 @@ export async function registerInboundWhatsAppWorker(boss: PgBoss) {
       const rawPayload =
         row?.payloadRaw ?? JSON.stringify({ synthetic: true, ...data });
 
-      let result: { processed: boolean; reason?: string };
+      let result: { processed: boolean; reason?: string; memberId?: string };
 
       if (data.direction === "out") {
         // Outbound mirror path (MYÜTIK mirrors agent replies back to us).
@@ -160,6 +161,20 @@ export async function registerInboundWhatsAppWorker(boss: PgBoss) {
         },
         "[inbound-whatsapp] message materialised",
       );
+
+      // MC2 LIFE-01: Contact on first inbound reply. Only the inbound branch,
+      // only when a NEW message was materialised (result.processed === true).
+      // Best-effort (D-17): a CAPI enqueue failure must never abort inbound handling.
+      if (data.direction !== "out" && result.processed && result.memberId) {
+        try {
+          await fireContactCapiIfFirstReply(db, result.memberId);
+        } catch (err) {
+          log.warn(
+            { err, externalId: data.externalId },
+            "[inbound-whatsapp] Contact CAPI enqueue failed — non-fatal (D-17)",
+          );
+        }
+      }
 
       // Mark processed (best-effort if row is null — receiver may not have
       // written webhook_events for synthetic-replay paths)
