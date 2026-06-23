@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v2.2
 milestone_name: — Meta Conversion Tracking — IN PROGRESS
 status: executing
-stopped_at: Completed MC2-01-PLAN.md (CAPI Foundation Extension)
-last_updated: "2026-06-23T22:33:27.066Z"
+stopped_at: Completed MC2-02-PLAN.md (Contact CAPI on first WhatsApp reply)
+last_updated: "2026-06-23T22:39:30.163Z"
 last_activity: 2026-06-23
 progress:
   total_phases: 3
@@ -31,7 +31,7 @@ Requirements: `.planning/REQUIREMENTS.md` (v2.1 requirements, 11 in-scope: CONT-
 
 Milestone: v2.2 — Meta Conversion Tracking
 Phase: MC2 (Deep-funnel lifecycle) — EXECUTING
-Plan: 2 of 4
+Plan: 3 of 4
 Status: Ready to execute
 Last activity: 2026-06-23
 
@@ -99,6 +99,7 @@ Last activity: 2026-06-22 — Phase 2 recurring classes (quick 260622-mpv) DONE 
 | Phase MC1 P04 | 241 | 3 tasks | 3 files |
 | Phase MC1 P05 | 30 | 3 tasks | 2 files |
 | Phase MC2 P01 | 249 | 3 tasks | 5 files |
+| Phase MC2-deep-funnel-lifecycle P02 | 140 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -182,8 +183,8 @@ Last activity: 2026-06-22 — Phase 2 recurring classes (quick 260622-mpv) DONE 
 
 ## Session Continuity
 
-Last session: 2026-06-23T22:33:27.057Z
-Stopped at: Completed MC2-01-PLAN.md (CAPI Foundation Extension)
+Last session: 2026-06-23T22:39:30.153Z
+Stopped at: Completed MC2-02-PLAN.md (Contact CAPI on first WhatsApp reply)
 Resume file: None
 
 Prior session: 2026-06-20T10:22:33.153Z — Completed CV4-publish-pipeline CV4-01-PLAN.md
