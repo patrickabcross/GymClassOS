@@ -37,7 +37,7 @@ Last activity: 2026-06-24
 
 Prior (v2.1):
 Status: CV1-CV4 built + committed on master. Full staff-web `tsc` clean (0 errors), 115/115 unit tests pass. **NOT deployed** — production push held for explicit user go-ahead (autonomous run pre-approved build only). CV-RENDER remains gated.
-Last activity: 2026-06-22 — Phase 2 recurring classes (quick 260622-mpv) DONE + DEPLOYED (Vercel + Fly v21, class-materialize cron live). Plus shipped+deployed: WhatsApp template-language fix (en, commit 32abd6cd), editable Forms submit button (14501fd1), conversational template auto-fill (6cfff666). OPEN: WhatsApp "text is required" window-divergence (waiting on MYÜTIK); 5 terminal failed message rows to re-enqueue later. NEXT: Phase 3 (populate HUSTLE timetable) + tracking setup.
+Last activity: 2026-06-24 — Completed quick task 260624-icd (cross-origin embed headers fix). Earlier: Phase 2 recurring classes (quick 260622-mpv) DONE + DEPLOYED (Vercel + Fly v21, class-materialize cron live). Plus shipped+deployed: WhatsApp template-language fix (en, commit 32abd6cd), editable Forms submit button (14501fd1), conversational template auto-fill (6cfff666). OPEN: WhatsApp "text is required" window-divergence (waiting on MYÜTIK); 5 terminal failed message rows to re-enqueue later. NEXT: Phase 3 (populate HUSTLE timetable) + tracking setup.
 
 > **Open tails from prior milestones:** v2.0 live UAT (BD1–BD4 `*-HUMAN-UAT.md`) deferred-on-external-dependency. v1.2 Agentic Tab Editing live UAT pending (AE1–AE3 deployed). v1.0 Production + Mobile Demo (AE4) remain tracked.
 
@@ -55,6 +55,7 @@ Last activity: 2026-06-22 — Phase 2 recurring classes (quick 260622-mpv) DONE 
 | 260622-ifj | HUSTLE tenant brand restyle — tenant-brand.ts config (Poppins, #FAD02C, #121212) + 5 customer-facing SSR surfaces + Remotion GymPromo; "RunStudio" -> "Hustle" in /v pages | 2026-06-22 | 08c7beba | [260622-ifj-customer-facing-hustle-brand-restyle-ten](./quick/260622-ifj-customer-facing-hustle-brand-restyle-ten/) |
 | 260622-lp3 | Trainers roster Phase 1 — trainers table (v22-v26, 23-name seed), list/create/update-trainer actions, location+trainer columns on class_occurrences, ManageTrainersDialog + NewClassDialog trainer/location selects | 2026-06-22 | 652b5a40 | [260622-lp3-recurring-staff-phase-1-trainers-roster-](./quick/260622-lp3-recurring-staff-phase-1-trainers-roster-/) |
 | 260622-mpv | Phase 2 recurring classes engine — class_schedule_rules (v27-v30) + DST-correct Europe/London generator + nightly materialiser worker (class-materialize cron) + create/update/deactivate-schedule-rule actions + Repeat-weekly UI + booking-safe series-cancel UI | 2026-06-22 | 958e2782 | [260622-mpv-phase-2-recurring-classes-engine-schedul](./quick/260622-mpv-phase-2-recurring-classes-engine-schedul/) |
+| 260624-icd | Fix cross-origin embed headers — CORP cross-origin on /embed.js + drop X-Frame-Options:DENY on public form + schedule-widget SSR so embeds load/iframe on third-party sites (e.g. doyouhustle.co.uk); CORS untouched (already ACAO:*) | 2026-06-24 | 8c5ce184 | [260624-icd-fix-cross-origin-embed-headers-corp-on-e](./quick/260624-icd-fix-cross-origin-embed-headers-corp-on-e/) |
 
 ### v2.1 Phase Summary
 
