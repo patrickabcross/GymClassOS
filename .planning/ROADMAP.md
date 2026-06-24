@@ -72,7 +72,12 @@ Plans:
   1. Submitting a Meta Instant Form (Lead Ad) results in a `gym_member` + `lead` conversation in the studio DB with the Meta `lead_id` stored, deduped against existing members via the dual-unique-key reconcile
   2. Advancing that lead (reply / purchase / attend) reports the corresponding event back to Meta keyed on `lead_id`, visible against the Lead Ad in Meta's Leads Center / CRM
   3. Any WhatsApp follow-up to a Lead-Ad lead routes through the existing opt-in / 24h-window / approved-template chokepoint (no bypass)
-**Plans**: TBD (`/gsd:plan-phase MC3`)
+**Plans**: 3 plans (2 waves)
+
+Plans:
+- [ ] MC3-01-PLAN.md (wave 1) — Foundation: queue contract (QUEUE_NAMES.META_LEAD + MetaLeadPayload + enqueueMetaLead + leadId? on MetaCapiEventPayload) + additive v34 (meta_lead_id) + meta_lead_ads/meta_lead enum values + user_data.lead_id injection in CAPI handler + leadId passthrough across all four lifecycle fire points (Contact/Purchase x2/Schedule) [LEAD-02]
+- [ ] MC3-02-PLAN.md (wave 2, after 01) — Ingest path: edge-webhooks Leadgen route (raw-body verify + idempotency on leadgen_id + enqueue) + worker meta-lead handler (Graph v23 GET /{leadgen_id} + retry) + ingest module (dual-unique-key reconcile, lead conversation, meta_lead_id store, opt-in source='meta_lead_ads', NO Lead enqueue per D-03) [LEAD-01, LEAD-03]
+- [ ] MC3-03-PLAN.md (wave 1) — Lead Ads connection: Page Access Token field on the existing Meta Conversion Tracking Settings card (masked, by-key presence, META_PAGE_ACCESS_TOKEN) + operator ops note (leadgen subscription + permissions, D-09 manual setup) [LEAD-01]
 **UI hint**: no
 
 ## Progress (v2.2 — Meta Conversion Tracking)
@@ -81,7 +86,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | MC1. Foundation + Lead event | 5/5 | Complete    | 2026-06-23 |
 | MC2. Deep-funnel lifecycle | 4/4 | Complete    | 2026-06-23 |
-| MC3. Meta Lead Ads + CRM lifecycle | 0/TBD | Not started | - |
+| MC3. Meta Lead Ads + CRM lifecycle | 0/3 | Not started | - |
 
 **Coverage:** 15/15 v2.2 requirements mapped across MC1–MC3 (PIX-01..02, CAPI-01..06 → MC1; LIFE-01..04 → MC2; LEAD-01..03 → MC3).
 
