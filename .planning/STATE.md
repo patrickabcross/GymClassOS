@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v2.2
 milestone_name: — Meta Conversion Tracking — IN PROGRESS
-status: verifying
-stopped_at: Completed MC3-02-PLAN.md
-last_updated: "2026-06-24T11:12:02.062Z"
+status: deployed
+stopped_at: v2.2 (MC1+MC2+MC3) complete + DEPLOYED (staff-web live after build-fix 126ef375); Meta activation parked
+last_updated: "2026-06-24T13:30:00.000Z"
 last_activity: 2026-06-24
 progress:
   total_phases: 3
@@ -30,10 +30,16 @@ Requirements: `.planning/REQUIREMENTS.md` (v2.1 requirements, 11 in-scope: CONT-
 ## Current Position
 
 Milestone: v2.2 — Meta Conversion Tracking
-Phase: MC3
-Plan: Not started
-Status: Phase complete — ready for verification
+Phase: MC3 (last phase) — COMPLETE + verified
+Plan: —
+Status: **v2.2 fully built, verified, and DEPLOYED.** All 3 phases done (15/15 reqs: PIX/CAPI→MC1, LIFE→MC2, LEAD→MC3). Migrations v31–v34 applied to Neon `billowing-sun-51091059` by hand. staff-web (Vercel) + worker/edge (Fly) both live. NOTE: the v2.2 staff-web Vercel build failed silently at first (writeAppSecret MISSING_EXPORT) and only went live after build-fix `126ef375` — see [[project_gymos_deploy]].
 Last activity: 2026-06-24
+
+**OPEN ITEMS / next-session pickup:**
+- **Meta activation parked (user-gated, not done):** (1) `fly secrets set BETTER_AUTH_SECRET=<Vercel value> --config services/edge-webhooks/fly.toml` so the worker can decrypt app_secrets — WITHOUT this every Meta CAPI send + Lead-Ad retrieval silently skips; (2) operator enters Pixel ID + CAPI token + Test Event Code + Page Access Token in `/gymos/settings/integrations`; (3) subscribe the Page's `leadgen` webhook field in Meta to `https://gymos-edge-webhooks.fly.dev/webhooks/meta-lead` (verify token = WHATSAPP_VERIFY_TOKEN). See [[project_gymos_deploy]].
+- **Delete stray Vercel project `agent-native-mail-probe`** (vanilla agent-native pg-crash comparison probe, ~31d old, abandoned) — user to delete in Vercel dashboard.
+- **Embed cross-origin fix (quick 260624-icd) SHIPPED + verified live** — embed.js CORP=cross-origin, /f/{slug} XFO removed; embeds now work on third-party sites (doyouhustle.co.uk). Hard-refresh the Squarespace page to clear its cached empty state.
+- "Next stage" to be defined by user after /clear.
 
 Prior (v2.1):
 Status: CV1-CV4 built + committed on master. Full staff-web `tsc` clean (0 errors), 115/115 unit tests pass. **NOT deployed** — production push held for explicit user go-ahead (autonomous run pre-approved build only). CV-RENDER remains gated.
