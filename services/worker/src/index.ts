@@ -26,6 +26,7 @@ import { registerDailyOwnerDigest } from "./queues/daily-owner-digest.js";
 import { registerHeartbeatReactivate } from "./queues/heartbeat-reactivate.js";
 import { registerMaterializeClassOccurrences } from "./queues/materialize-class-occurrences.js";
 import { registerMetaCapiEventWorker } from "./queues/meta-capi-event.js";
+import { registerMetaLeadWorker } from "./queues/meta-lead.js";
 import { readAppSecretByKey } from "./lib/appSecrets.js";
 import { getDb } from "./lib/db.js";
 
@@ -52,6 +53,7 @@ async function main() {
     QUEUE_NAMES.CLASS_REMINDER,
     QUEUE_NAMES.CLASS_MATERIALIZE,
     QUEUE_NAMES.META_CAPI_EVENT,
+    QUEUE_NAMES.META_LEAD,
     "templates-sync",
     "telemetry-push",
     "daily-owner-digest",
@@ -111,6 +113,13 @@ async function main() {
   // Decrypts META_CAPI_TOKEN via BETTER_AUTH_SECRET — see D-03 / Task 4 parity check.
   await registerMetaCapiEventWorker(boss);
   log.info("[worker] meta-capi-event queue registered");
+
+  // MC3: Meta Lead Ads retrieval + ingest (LEAD-01).
+  // Retrieves field_data via Graph GET /{leadgen_id}, reconciles a member via
+  // dual-unique-key, stores meta_lead_id, writes opt-in source='meta_lead_ads'.
+  // Requires META_PAGE_ACCESS_TOKEN in app_secrets (D-08).
+  await registerMetaLeadWorker(boss);
+  log.info("[worker] meta-lead queue registered");
 
   // D-04 Boot-time decrypt self-test: confirm BETTER_AUTH_SECRET on this Fly worker
   // can decrypt app_secrets. Uses WHATSAPP_ACCESS_TOKEN as a known-configured key.
