@@ -426,6 +426,18 @@ CREATE INDEX IF NOT EXISTS idx_meta_lead_attribution_member ON meta_lead_attribu
       version: 33,
       sql: `ALTER TABLE meta_lead_attribution ADD COLUMN IF NOT EXISTS last_error TEXT`,
     },
+    // -------------------------------------------------------------------------
+    // MC3 (D-13): store the Meta lead_id on the attribution row so lifecycle
+    // events (Contact/Purchase/Schedule) report back to Meta's Leads Center
+    // keyed on lead_id (LEAD-02). Strictly additive. whatsapp_opt_in.source
+    // and webhook_events.provider are plain TEXT (no CHECK constraint), so the
+    // two new enum values need only the Drizzle schema edit — no SQL here.
+    // Apply to gymos-demo Neon by hand after deploy (migration-drift gotcha).
+    // -------------------------------------------------------------------------
+    {
+      version: 34,
+      sql: `ALTER TABLE meta_lead_attribution ADD COLUMN IF NOT EXISTS meta_lead_id TEXT`,
+    },
     {
       version: 15,
       // postgres path: plpgsql function + conditional trigger creation

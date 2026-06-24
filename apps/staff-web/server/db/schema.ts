@@ -386,7 +386,7 @@ export const agentSessions = table("agent_sessions", {
 // column). The legacy text PK `id` stays for backwards-compat / existing rows.
 export const webhookEvents = table("webhook_events", {
   id: text("id").primaryKey(), // e.g. "stripe:evt_..." or "whatsapp:wamid..."
-  provider: text("provider", { enum: ["stripe", "whatsapp"] }).notNull(),
+  provider: text("provider", { enum: ["stripe", "whatsapp", "meta_lead"] }).notNull(),
   eventType: text("event_type").notNull(),
   externalId: text("external_id"), // P1b — backfilled from id, then UNIQUE(provider, external_id) via migration 0001
   payloadRaw: text("payload_raw").notNull(),
@@ -413,7 +413,7 @@ export const whatsappOptIn = table("whatsapp_opt_in", {
   evidenceMessageId: text("evidence_message_id"), // FK messages.id (inbound that triggered opt-in)
   evidencePayload: text("evidence_payload"), // JSON of the inbound msg
   source: text("source", {
-    enum: ["inbound_reply", "manual_admin", "import", "form_submission"],
+    enum: ["inbound_reply", "manual_admin", "import", "form_submission", "meta_lead_ads"],
   }).notNull(),
   optedOutAt: text("opted_out_at"), // WA-09/WA-10: nullable — set when member opts out
 });
@@ -745,6 +745,10 @@ export const metaLeadAttribution = table("meta_lead_attribution", {
   // MC1 gap-fix: error message from the last CAPI send attempt (written by worker,
   // migration v33). Cleared to NULL on a successful send.
   lastError: text("last_error"),
+  // MC3 (D-13/LEAD-02): Meta lead_id for in-platform Lead Ad leads. Stored at ingest
+  // (MC3-02), read by the lifecycle fire points and passed as user_data.lead_id.
+  // Added via migration v34 (additive only — IF NOT EXISTS).
+  metaLeadId: text("meta_lead_id"),
   contactSentAt: text("contact_sent_at"),
   purchaseSentAt: text("purchase_sent_at"),
   scheduleSentAt: text("schedule_sent_at"),
