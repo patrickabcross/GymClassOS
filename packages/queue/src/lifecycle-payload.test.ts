@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { MetaCapiEventPayload } from "./types.js";
+import { MetaCapiEventPayload, MetaLeadPayload } from "./types.js";
 
 // MC2-01 Task 1: lifecycle payload extension tests
 // These tests verify the three new optional fields added to MetaCapiEventPayload.
@@ -81,5 +81,61 @@ describe("MetaCapiEventPayload — MC2 lifecycle extension", () => {
       stageKey: "purchase",
     });
     expect(result.success).toBe(true);
+  });
+});
+
+// MC3-01 Task 1: MetaCapiEventPayload.leadId + MetaLeadPayload tests
+describe("MetaCapiEventPayload — MC3 leadId extension", () => {
+  it("parses a payload with leadId (Lead-Ad CAPI enrichment)", () => {
+    const result = MetaCapiEventPayload.safeParse({
+      ...BASE_PAYLOAD,
+      leadId: "55459717045641545",
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.leadId).toBe("55459717045641545");
+    }
+  });
+
+  it("parses a payload WITHOUT leadId (backward-compatible — non-Lead-Ad members unchanged)", () => {
+    const result = MetaCapiEventPayload.safeParse(BASE_PAYLOAD);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.leadId).toBeUndefined();
+    }
+  });
+});
+
+describe("MetaLeadPayload — MC3 retrieval job queue contract", () => {
+  it("parses a complete payload", () => {
+    const result = MetaLeadPayload.safeParse({
+      leadgenId: "551",
+      formId: "1",
+      pageId: "2",
+      adId: "0",
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.leadgenId).toBe("551");
+      expect(result.data.formId).toBe("1");
+      expect(result.data.pageId).toBe("2");
+      expect(result.data.adId).toBe("0");
+    }
+  });
+
+  it("fails when leadgenId is missing (required)", () => {
+    const result = MetaLeadPayload.safeParse({});
+    expect(result.success).toBe(false);
+  });
+
+  it("succeeds with leadgenId only — formId/pageId/adId default to empty string", () => {
+    const result = MetaLeadPayload.safeParse({ leadgenId: "551" });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.leadgenId).toBe("551");
+      expect(result.data.formId).toBe("");
+      expect(result.data.pageId).toBe("");
+      expect(result.data.adId).toBe("");
+    }
   });
 });

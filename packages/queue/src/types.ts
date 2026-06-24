@@ -9,6 +9,8 @@ export const QUEUE_NAMES = {
   CLASS_MATERIALIZE: "class-materialize",
   /** MC1: Meta Conversions API event sender (worker resolves pixelId at execution time) */
   META_CAPI_EVENT: "meta-capi-event",
+  /** MC3: Meta Lead Ads retrieval job — worker GET /{leadgen_id} + ingest */
+  META_LEAD: "meta-lead",
 } as const;
 
 export const OutboundWhatsAppPayload = z.object({
@@ -119,5 +121,26 @@ export const MetaCapiEventPayload = z.object({
   currency: z.string().length(3).optional(), // ISO-4217 lowercase (e.g. "gbp")
   // MC2: stage marker write-back key (handler stamps the matching *_sent_at column).
   stageKey: z.enum(["lead", "contact", "purchase", "schedule"]).optional(),
+  // MC3 (LEAD-02): Meta lead_id for in-platform Lead Ad leads. PLAIN string (NOT hashed),
+  // placed in user_data.lead_id by the worker. Stored as meta_lead_attribution.meta_lead_id.
+  leadId: z.string().optional(),
 });
 export type MetaCapiEventPayload = z.infer<typeof MetaCapiEventPayload>;
+
+/**
+ * MC3: Meta Lead Ads retrieval job payload.
+ *
+ * The Leadgen webhook delivers only identifiers — not field data.
+ * The worker uses leadgenId to call GET /{leadgen_id} with the Page
+ * access token to retrieve field_data, then ingests the member.
+ *
+ * Note: leadgen_id is a 15-16 digit integer in the webhook JSON — always
+ * stringify before enqueue to avoid JS precision loss (Pitfall 1).
+ */
+export const MetaLeadPayload = z.object({
+  leadgenId: z.string().min(1), // STRING — 15-16 digit int, stringified at the edge before precision loss
+  formId: z.string().default(""),
+  pageId: z.string().default(""),
+  adId: z.string().default(""),
+});
+export type MetaLeadPayload = z.infer<typeof MetaLeadPayload>;

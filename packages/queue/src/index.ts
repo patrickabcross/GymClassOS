@@ -4,6 +4,7 @@ export {
   enqueueStripeEvent,
   enqueueClassReminder,
   enqueueMetaCapiEvent,
+  enqueueMetaLead,
 } from "./publish.js";
 export { getBoss, startBoss, _resetBossForTests } from "./boss.js";
 export {
@@ -15,4 +16,5 @@ export {
   StripeEventPayload,
   ClassReminderPayload,
   MetaCapiEventPayload,
+  MetaLeadPayload,
 } from "./types.js";

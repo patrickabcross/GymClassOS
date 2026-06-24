@@ -6,6 +6,7 @@ import {
   StripeEventPayload,
   ClassReminderPayload,
   MetaCapiEventPayload,
+  MetaLeadPayload,
 } from "./types.js";
 
 /**
@@ -103,5 +104,23 @@ export async function enqueueMetaCapiEvent(
     retryLimit: 5,
     retryBackoff: true,
     expireInSeconds: 60 * 60 * 24, // 24h — within Meta's 48h dedup window
+  });
+}
+
+/**
+ * MC3: Enqueue a Meta Lead Ads retrieval job. The worker GETs
+ * /{leadgen_id} for field_data then ingests the member.
+ * No singletonKey — duplicate enqueues are already prevented by
+ * insertWebhookEvent ON CONFLICT (provider, external_id) at the edge.
+ */
+export async function enqueueMetaLead(
+  args: MetaLeadPayload,
+): Promise<string | null> {
+  const data = MetaLeadPayload.parse(args);
+  const boss = await startBoss();
+  return boss.send(QUEUE_NAMES.META_LEAD, data, {
+    retryLimit: 5,
+    retryBackoff: true,
+    expireInSeconds: 60 * 60, // 1h — lead retrieval should resolve fast
   });
 }
