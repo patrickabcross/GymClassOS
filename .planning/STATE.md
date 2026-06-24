@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v2.2
 milestone_name: — Meta Conversion Tracking — IN PROGRESS
 status: verifying
-stopped_at: Completed MC2-04-PLAN.md (Attendance chokepoint + LIFE-04 ops note)
-last_updated: "2026-06-23T23:00:47.028Z"
+stopped_at: Phase MC3 context gathered
+last_updated: "2026-06-24T09:44:37.042Z"
 last_activity: 2026-06-23
 progress:
   total_phases: 3
@@ -185,9 +185,9 @@ Last activity: 2026-06-22 — Phase 2 recurring classes (quick 260622-mpv) DONE 
 
 ## Session Continuity
 
-Last session: 2026-06-23T22:49:51.013Z
-Stopped at: Completed MC2-04-PLAN.md (Attendance chokepoint + LIFE-04 ops note)
-Resume file: None
+Last session: 2026-06-24T09:44:37.010Z
+Stopped at: Phase MC3 context gathered
+Resume file: .planning/phases/MC3-meta-lead-ads-crm-lifecycle/MC3-CONTEXT.md
 
 Prior session: 2026-06-20T10:22:33.153Z — Completed CV4-publish-pipeline CV4-01-PLAN.md
 
