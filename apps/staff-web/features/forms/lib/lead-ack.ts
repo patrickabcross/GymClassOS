@@ -137,19 +137,31 @@ export async function buildLeadAckVars(input: {
     const catalogStr = catalogLines.join("\n");
 
     const prompt =
-      `You are filling the variables of a WhatsApp message a boutique fitness studio is ` +
-      `auto-sending to a NEW lead who just submitted a web form. Template body (with {{N}} placeholders):\n` +
-      `${bodyText}\n\nThe lead's form submission:\n${formContext}\n\nOur class catalog:\n${catalogStr}\n\n` +
-      `Return ONLY a strict JSON object mapping each placeholder number (as a string key) to its value, ` +
-      `e.g. {"1":"${firstName}","2":"our Boxing classes"}. Rules: slot "1" MUST be the lead's first name (${firstName}); ` +
-      `other slots are inferred from the form context + the single best-matching class from our catalog, ` +
-      `phrased naturally (e.g. "our HYROX sessions", never an id). Keep each value short (≤ ~50 chars), ` +
-      `warm, matching the template's tone. NO emojis, NO newlines, NO markdown.`;
+      `You are filling the {{N}} variables of a WhatsApp message a boutique fitness ` +
+      `studio is auto-sending to a NEW lead who just submitted a web form. The studio ` +
+      `wants the lead to reply, so the message should feel personal and end on an open ` +
+      `question.\n\n` +
+      `Template body (fill each {{N}} so the FINAL assembled message reads naturally):\n` +
+      `${bodyText}\n\n` +
+      `The lead's form submission:\n${formContext}\n\n` +
+      `Our class catalog (for context only — name the class the lead actually enquired ` +
+      `about, do not invent one):\n${catalogStr}\n\n` +
+      `Read the template body and decide what each {{N}} should contain so the whole ` +
+      `message flows as one warm, natural sentence personalized from the lead's answers. ` +
+      `If a slot sits just before an invitation to reply (e.g. "Feel free to reply here"), ` +
+      `make that slot reference what the lead told us (the class they asked about plus any ` +
+      `level / experience / goal they gave) and END it with ONE warm, open qualifying ` +
+      `question — e.g. "HYROX, and you mentioned you're just starting out. What's got you ` +
+      `interested in HYROX?". Ask only ONE question; keep it friendly, not salesy.\n\n` +
+      `Return ONLY a strict JSON object mapping each placeholder number (as a STRING key) ` +
+      `to its value, e.g. {"1":"${firstName}","2":"HYROX, and you said you're a beginner. ` +
+      `What's got you interested in HYROX?"}. Rules: slot "1" MUST be the lead's first ` +
+      `name (${firstName}). NO emojis, NO newlines, NO markdown. Each value is plain text.`;
 
     const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
     const msg = await client.messages.create({
       model: "claude-sonnet-4-6",
-      max_tokens: 300,
+      max_tokens: 400,
       messages: [{ role: "user", content: [{ type: "text", text: prompt }] }],
     });
 
@@ -180,7 +192,7 @@ export async function buildLeadAckVars(input: {
       if (typeof raw !== "string" || raw.trim() === "") {
         throw new Error(`Missing or empty slot ${key}`);
       }
-      result[key] = raw.trim().slice(0, 60);
+      result[key] = raw.trim().slice(0, 200);
     }
 
     // Safety: always force slot "1" = firstName regardless of model output.
