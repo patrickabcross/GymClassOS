@@ -139,6 +139,7 @@ export async function getOrUpsertAttribution(
   fbp?: string;
   clientIp?: string;
   clientUserAgent?: string;
+  metaLeadId?: string;
 }> {
   // Ensure a row exists — INSERT ... ON CONFLICT (member_id) DO NOTHING
   // guard:allow-unscoped — single-tenant meta attribution
@@ -151,7 +152,7 @@ export async function getOrUpsertAttribution(
   // Read back the stored attribution signals
   // guard:allow-unscoped — single-tenant meta attribution
   const rows = await db.execute(sql`
-    SELECT fbc, fbp, client_ip, client_user_agent
+    SELECT fbc, fbp, client_ip, client_user_agent, meta_lead_id
     FROM meta_lead_attribution
     WHERE member_id = ${memberId}
     LIMIT 1
@@ -167,6 +168,7 @@ export async function getOrUpsertAttribution(
     fbp: (row.fbp as string | null) ?? undefined,
     clientIp: (row.client_ip as string | null) ?? undefined,
     clientUserAgent: (row.client_user_agent as string | null) ?? undefined,
+    metaLeadId: (row.meta_lead_id as string | null) ?? undefined,
   };
 }
 
@@ -231,6 +233,7 @@ export async function fireContactCapiIfFirstReply(
     fbp: attr.fbp,
     clientIp: attr.clientIp,
     clientUserAgent: attr.clientUserAgent,
+    leadId: attr.metaLeadId, // MC3 (LEAD-02): undefined for non-Lead-Ad members (additive)
   });
   // NOTE: contact_sent_at is stamped by the worker CAPI handler on SUCCESS
   // (Plan 01 stageKey write-back). If the enqueue or send fails, the marker

@@ -130,6 +130,8 @@ export async function registerMetaCapiEventWorker(boss: PgBoss) {
       if (data.clientIp) userData.client_ip_address = data.clientIp; // PLAIN
       if (data.clientUserAgent)
         userData.client_user_agent = data.clientUserAgent; // PLAIN
+      // MC3 (LEAD-02): in-platform Lead Ad lead_id — PLAIN string, NOT hashed (confirmed RESEARCH D-14).
+      if (data.leadId) userData.lead_id = data.leadId;
 
       const capiBody: Record<string, unknown> = {
         data: [

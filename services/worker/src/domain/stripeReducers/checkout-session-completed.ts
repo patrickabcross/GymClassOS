@@ -131,6 +131,7 @@ export async function checkoutSessionCompleted(
         hashedPhone,
         fbc: attr.fbc,
         fbp: attr.fbp,
+        leadId: attr.metaLeadId, // MC3 (LEAD-02): undefined for non-Lead-Ad members (additive)
       });
     } catch (err) {
       console.error(

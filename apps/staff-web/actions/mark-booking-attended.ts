@@ -91,9 +91,9 @@ export default defineAction({
         ON CONFLICT (member_id) DO NOTHING
       `);
 
-      // Read fbc/fbp from attribution row
+      // Read fbc/fbp/meta_lead_id from attribution row
       const attrRows = await db.execute(sql`
-        SELECT fbc, fbp FROM meta_lead_attribution WHERE member_id = ${booking.memberId} LIMIT 1
+        SELECT fbc, fbp, meta_lead_id FROM meta_lead_attribution WHERE member_id = ${booking.memberId} LIMIT 1
       `); // guard:allow-unscoped — single-tenant meta attribution
       const attr =
         ((attrRows as { rows?: unknown[] })?.rows ??
@@ -135,6 +135,7 @@ export default defineAction({
         hashedPhone,
         fbc: attrTyped.fbc ?? undefined,
         fbp: attrTyped.fbp ?? undefined,
+        leadId: (attrTyped.meta_lead_id as string | null) ?? undefined, // MC3 (LEAD-02)
       });
     } catch (err) {
       console.error(
