@@ -40,7 +40,7 @@
 
 ### LEAD — Meta Lead Ads (Instant Forms) + CRM lifecycle
 
-- [ ] **LEAD-01**: Meta Lead Ads (Instant Form) submissions are received via the Lead Retrieval webhook (edge-webhooks), signature-verified, and ingested as `gym_members` + `lead` conversations using the same dual-unique-key reconcile as website-form leads, capturing the Meta `lead_id`.
+- [x] **LEAD-01**: Meta Lead Ads (Instant Form) submissions are received via the Lead Retrieval webhook (edge-webhooks), signature-verified, and ingested as `gym_members` + `lead` conversations using the same dual-unique-key reconcile as website-form leads, capturing the Meta `lead_id`.
 - [x] **LEAD-02**: Ingested Lead-Ad leads advance through the same lifecycle (Contact/Purchase/Schedule) reported back to Meta keyed on `lead_id` (Conversions API for CRM / lead lifecycle) so in-platform leads progress in Meta's Leads Center.
 - [ ] **LEAD-03**: Any WhatsApp follow-up to a Lead-Ad lead routes through the existing opt-in / 24h-window / approved-template worker chokepoint (no bypass).
 
@@ -82,6 +82,6 @@
 | LIFE-02 | Phase MC2 | Complete |
 | LIFE-03 | Phase MC2 | Complete |
 | LIFE-04 | Phase MC2 | Complete |
-| LEAD-01 | Phase MC3 | Pending |
+| LEAD-01 | Phase MC3 | Complete |
 | LEAD-02 | Phase MC3 | Complete |
 | LEAD-03 | Phase MC3 | Pending |
