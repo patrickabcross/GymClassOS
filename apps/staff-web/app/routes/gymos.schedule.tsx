@@ -59,11 +59,25 @@ import {
   IconChevronLeft,
   IconChevronRight,
   IconDots,
+  IconShare2,
+  IconCopy,
+  IconCheck,
 } from "@tabler/icons-react";
 import { getDb, schema } from "../../server/db";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/components/ui/tooltip";
 import {
   Dialog,
   DialogContent,
@@ -413,6 +427,35 @@ export default function GymosSchedule() {
       0,
     );
 
+  // ─── Share / embed schedule ─────────────────────────────────────────────
+  // Origin is only known client-side (logged-in CSR page). Default to the prod
+  // origin so the snippet is correct if read before hydration.
+  const [origin, setOrigin] = useState("https://gym-class-os.vercel.app");
+  const [embedCopied, setEmbedCopied] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
+  useEffect(() => {
+    setOrigin(window.location.origin);
+  }, []);
+
+  // /embed/schedule (public SSR page) + /embed.js (host bridge for
+  // [data-gymos-schedule]) already exist — this only surfaces the snippet.
+  const embedSnippet = `<div data-gymos-schedule></div>\n<script src="${origin}/embed.js" async></script>`;
+  const scheduleLink = `${origin}/embed/schedule`;
+
+  function copyEmbed() {
+    navigator.clipboard.writeText(embedSnippet);
+    setEmbedCopied(true);
+    setTimeout(() => setEmbedCopied(false), 2000);
+    toast.success("Embed code copied");
+  }
+
+  function copyScheduleLink() {
+    navigator.clipboard.writeText(scheduleLink);
+    setLinkCopied(true);
+    setTimeout(() => setLinkCopied(false), 2000);
+    toast.success("Link copied to clipboard");
+  }
+
   return (
     <div className="flex h-full w-full flex-col overflow-hidden bg-background text-foreground">
       {/* ─── Header ───────────────────────────────────────────────────── */}
@@ -431,6 +474,79 @@ export default function GymosSchedule() {
               trainers={data.trainers}
               defaultDate={selectedKey}
             />
+            <Popover>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      aria-label="Share or embed schedule"
+                    >
+                      <IconShare2 className="h-4 w-4" />
+                    </Button>
+                  </PopoverTrigger>
+                </TooltipTrigger>
+                <TooltipContent>
+                  Share or embed the class schedule
+                </TooltipContent>
+              </Tooltip>
+              <PopoverContent align="end" className="w-96 space-y-4">
+                {/* Public link */}
+                <div className="space-y-1.5">
+                  <p className="text-xs font-medium">Public link</p>
+                  <div className="flex gap-1.5">
+                    <Input
+                      readOnly
+                      value={scheduleLink}
+                      onFocus={(e) => e.currentTarget.select()}
+                      className="h-8 text-xs font-mono"
+                    />
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8 shrink-0"
+                      onClick={copyScheduleLink}
+                      aria-label="Copy public link"
+                    >
+                      {linkCopied ? (
+                        <IconCheck className="h-4 w-4" />
+                      ) : (
+                        <IconCopy className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Embed snippet */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-medium">Embed on your website</p>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 gap-1 px-1.5 text-[11px]"
+                      onClick={copyEmbed}
+                    >
+                      {embedCopied ? (
+                        <IconCheck className="h-3.5 w-3.5" />
+                      ) : (
+                        <IconCopy className="h-3.5 w-3.5" />
+                      )}
+                      {embedCopied ? "Copied" : "Copy"}
+                    </Button>
+                  </div>
+                  <pre className="rounded-md bg-muted p-2.5 text-[11px] leading-relaxed font-mono whitespace-pre-wrap break-all">
+                    {embedSnippet}
+                  </pre>
+                  <p className="text-[11px] text-muted-foreground">
+                    Paste this on your website where you want the class
+                    timetable to appear. It auto-resizes to fit.
+                  </p>
+                </div>
+              </PopoverContent>
+            </Popover>
             <Badge variant="outline" className="h-5 text-[10px]">
               {totalThisMonth} this month
             </Badge>
