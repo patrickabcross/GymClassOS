@@ -1,6 +1,6 @@
 import { getDb, schema } from "./db.js";
 
-export type WebhookProvider = "stripe" | "whatsapp";
+export type WebhookProvider = "stripe" | "whatsapp" | "meta_lead";
 
 export type InsertWebhookEventArgs = {
   provider: WebhookProvider;

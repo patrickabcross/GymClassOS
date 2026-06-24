@@ -25,7 +25,7 @@ neonConfig.webSocketConstructor = ws;
 
 export const webhookEvents = pgTable("webhook_events", {
   id: text("id").primaryKey(),
-  provider: text("provider", { enum: ["stripe", "whatsapp"] }).notNull(),
+  provider: text("provider", { enum: ["stripe", "whatsapp", "meta_lead"] }).notNull(),
   eventType: text("event_type").notNull(),
   externalId: text("external_id"),
   payloadRaw: text("payload_raw").notNull(),

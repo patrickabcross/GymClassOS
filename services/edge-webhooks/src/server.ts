@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { whatsappRoutes } from "./routes/whatsapp.js";
 import { stripeRoutes } from "./routes/stripe.js";
+import { metaLeadRoutes } from "./routes/meta-lead.js";
 import { getEnv } from "./lib/env.js";
 
 export function buildApp() {
@@ -25,6 +26,7 @@ export function buildApp() {
 
   app.route("/webhooks", whatsappRoutes);
   app.route("/webhooks", stripeRoutes);
+  app.route("/webhooks", metaLeadRoutes);
 
   return app;
 }
