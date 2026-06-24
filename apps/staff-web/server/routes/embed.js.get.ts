@@ -37,6 +37,9 @@ export default defineEventHandler((event) => {
     "Cache-Control",
     "public, max-age=300, s-maxage=300, stale-while-revalidate=86400",
   );
+  // CORP cross-origin lets the <script src> load from third-party sites (e.g. doyouhustle.co.uk);
+  // framework middleware defaults to same-site which blocks it.
+  setResponseHeader(event, "Cross-Origin-Resource-Policy", "cross-origin");
 
   return js;
 });
