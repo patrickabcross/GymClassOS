@@ -18,6 +18,13 @@
 //   - Conversions API token → app_secrets (writeAppSecret, single stable row)
 //   - Status badge: config completeness + last-send health (D-09)
 //   - Send test event → enqueues synthetic Lead via worker (D-01)
+//
+// MC3-03 (2026-06-24):
+//   Extended Meta Conversion Tracking card (LEAD-01):
+//   - Page Access Token (Lead Ads) → app_secrets under META_PAGE_ACCESS_TOKEN
+//   - By-key presence detection (D-11 pattern, same as CAPI token)
+//   - Lead Ads connection status hint on card badge
+//   - Ops note: MC3-LEAD-ADS-OPS-NOTE.md documents the manual Page subscription step (D-09)
 
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import {
@@ -95,6 +102,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
           configured: false,
           lastSendStatus: "never" as "sent" | "failed" | "never",
           lastSendAt: null as string | null,
+          hasPageToken: false,
         },
       };
     }
@@ -144,6 +152,11 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const metaTokenConfigured =
     (await readAppSecretByKey("META_CAPI_TOKEN")) !== null;
 
+  // MC3-03: Page Access Token presence by key (same D-11 pattern).
+  // Boolean only — actual token value never returned to the client.
+  const hasPageToken =
+    (await readAppSecretByKey("META_PAGE_ACCESS_TOKEN")) !== null;
+
   // Last-send health from attribution (most recent row with a status).
   // guard:allow-unscoped — single-tenant meta attribution
   const lastRows = await (getDb() as any).execute(sql`
@@ -167,6 +180,8 @@ export async function loader({ request }: LoaderFunctionArgs) {
       | "failed"
       | "never",
     lastSendAt: (last?.lead_sent_at ?? null) as string | null,
+    // MC3-03: Page Access Token presence (Lead Ads, D-11 pattern)
+    hasPageToken,
   };
 
   return {
@@ -339,13 +354,15 @@ export async function action({ request }: ActionFunctionArgs) {
     return { ok: true, message: "Key rotated successfully.", intent };
   }
 
-  // ── MC1-05: Save Meta config (Pixel ID + Test Event Code + optional token) ─
+  // ── MC1-05: Save Meta config (Pixel ID + Test Event Code + optional tokens) ─
   if (intent === "save-meta-config") {
     const pixelId = String(fd.get("pixelId") ?? "")
       .trim()
       .replace(/[^0-9]/g, "");
     const testEventCode = String(fd.get("testEventCode") ?? "").trim();
     const token = String(fd.get("token") ?? "").trim();
+    // MC3-03: Page Access Token for Lead Ads (D-08)
+    const pageToken = String(fd.get("pageToken") ?? "").trim();
 
     // guard:allow-unscoped — studio-global config (singleton row)
     await (getDb() as any).execute(sql`
@@ -357,7 +374,7 @@ export async function action({ request }: ActionFunctionArgs) {
         updated_at = NOW()
     `);
 
-    // Token only written if a non-empty value was provided (masked field —
+    // CAPI token: only written if a non-empty value was provided (masked field —
     // empty means "keep existing"). Uses the fixed scope/scopeId so re-saves
     // UPSERT one stable row — no competing duplicates (D-11 / D-02).
     if (token) {
@@ -367,6 +384,19 @@ export async function action({ request }: ActionFunctionArgs) {
         scope: "workspace",
         scopeId: "global",
         description: "Meta Conversions API access token",
+      });
+    }
+
+    // MC3-03: Page Access Token — same masked/conditional pattern (D-08 / D-11).
+    // Empty submission means "keep existing"; only written when a value is provided.
+    if (pageToken) {
+      await writeAppSecret({
+        key: "META_PAGE_ACCESS_TOKEN",
+        value: pageToken,
+        scope: "workspace",
+        scopeId: "global",
+        description:
+          "Meta Page Access Token for Lead Ads retrieval (leads_retrieval permission)",
       });
     }
 
@@ -457,6 +487,8 @@ export default function StripeIntegrations() {
 
   // Masked token reveal state (mirrors rotate-key UX for Meta token)
   const [showTokenField, setShowTokenField] = useState(false);
+  // MC3-03: Masked reveal state for Page Access Token (Lead Ads)
+  const [showPageTokenField, setShowPageTokenField] = useState(false);
 
   const submitting = nav.state === "submitting" || nav.state === "loading";
   const connectSubmitting = connectFetcher.state !== "idle";
@@ -689,6 +721,22 @@ export default function StripeIntegrations() {
             Fly worker sends all events — staff-web never calls Meta directly.
           </p>
 
+          {/* MC3-03: Lead Ads connection status hint (D-09 — minimal, one line) */}
+          <p className="text-[12px] text-muted-foreground">
+            <span className="font-medium">Lead Ads:</span>{" "}
+            {meta.hasPageToken ? (
+              <span className="text-emerald-600 dark:text-emerald-400">
+                connected
+              </span>
+            ) : (
+              <span>
+                not connected — enter a Page Access Token below and follow the{" "}
+                <span className="italic">ops note</span> (D-09) to subscribe to
+                the leadgen webhook
+              </span>
+            )}
+          </p>
+
           {/* Config form: Pixel ID + Test Event Code + masked token */}
           <metaConfigFetcher.Form method="post" className="space-y-4">
             <input type="hidden" name="_intent" value="save-meta-config" />
@@ -780,6 +828,60 @@ export default function StripeIntegrations() {
                   )}
                 </div>
               )}
+            </div>
+
+            {/* MC3-03: Page Access Token (Lead Ads) — masked, same D-11 pattern as CAPI token */}
+            <div className="space-y-1">
+              <label className="block text-[12px] font-medium">
+                Page Access Token (Lead Ads)
+              </label>
+              {meta.hasPageToken && !showPageTokenField ? (
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2 text-[12px]">
+                    <IconPointFilled
+                      size={10}
+                      className="text-emerald-500"
+                      aria-hidden
+                    />
+                    <span className="font-medium">Configured</span>
+                    <span className="text-muted-foreground">
+                      — token is stored and encrypted
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowPageTokenField(true)}
+                    className="text-[11px] text-primary underline underline-offset-2"
+                  >
+                    Replace token
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  <input
+                    name="pageToken"
+                    type="password"
+                    placeholder="EAAxxxxxxx…"
+                    autoComplete="off"
+                    spellCheck={false}
+                    className="w-full border border-border/50 rounded-md px-3 py-2 text-sm bg-background font-mono focus:outline-none focus:ring-1 focus:ring-ring"
+                  />
+                  {meta.hasPageToken && (
+                    <button
+                      type="button"
+                      onClick={() => setShowPageTokenField(false)}
+                      className="text-[11px] text-muted-foreground underline underline-offset-2"
+                    >
+                      Cancel
+                    </button>
+                  )}
+                </div>
+              )}
+              <p className="text-[11px] text-muted-foreground">
+                Required for Meta Lead Ads. Obtain from Business Manager →
+                System Users (non-expiring) or your Page access token. The user
+                must have Leads Access on the Page.
+              </p>
             </div>
 
             <button
