@@ -20,7 +20,7 @@
  * guard:allow-unscoped — gym domain tables (class_occurrences, class_definitions)
  * are single-tenant; this is an anonymous public SSR route with no owner-scoped data.
  */
-import { getRequestURL, type H3Event } from "h3";
+import { getRequestURL, removeResponseHeader, type H3Event } from "h3";
 import { and, eq, gte } from "drizzle-orm";
 import { getDb, schema } from "../../../server/db/index.js";
 import { sanitizeHexColor, sanitizeIntPx } from "./public-form-ssr.js";
@@ -529,6 +529,10 @@ export async function renderScheduleWidget(event: H3Event): Promise<Response> {
   const classes = await getUpcomingClasses();
 
   const html = renderPage(classes, accent, radius, tenantBrand);
+
+  // Drop the framework middleware's X-Frame-Options: DENY so the widget iframes
+  // cross-origin; CSP frame-ancestors * (set below) already permits it.
+  removeResponseHeader(event, "X-Frame-Options");
 
   return new Response(html, {
     status: 200,

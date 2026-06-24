@@ -1,4 +1,4 @@
-import { getMethod, getRequestURL, type H3Event } from "h3";
+import { getMethod, getRequestURL, removeResponseHeader, type H3Event } from "h3";
 import { eq, sql } from "drizzle-orm";
 import { getDb, schema } from "../../../server/db/index.js";
 import type { FormField, FormSettings } from "../types.js";
@@ -314,6 +314,9 @@ export async function renderPublicForm(event: H3Event) {
     headers["Cache-Control"] =
       "public, s-maxage=60, stale-while-revalidate=300";
   }
+  // Drop the framework middleware's X-Frame-Options: DENY so the form iframes
+  // cross-origin; CSP frame-ancestors * (set above) already permits it.
+  removeResponseHeader(event, "X-Frame-Options");
   return new Response(getMethod(event) === "HEAD" ? null : html, {
     status,
     headers,
