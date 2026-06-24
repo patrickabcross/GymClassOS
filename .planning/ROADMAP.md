@@ -86,7 +86,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | MC1. Foundation + Lead event | 5/5 | Complete    | 2026-06-23 |
 | MC2. Deep-funnel lifecycle | 4/4 | Complete    | 2026-06-23 |
-| MC3. Meta Lead Ads + CRM lifecycle | 3/3 | Complete   | 2026-06-24 |
+| MC3. Meta Lead Ads + CRM lifecycle | 3/3 | Complete    | 2026-06-24 |
 
 **Coverage:** 15/15 v2.2 requirements mapped across MC1–MC3 (PIX-01..02, CAPI-01..06 → MC1; LIFE-01..04 → MC2; LEAD-01..03 → MC3).
 
