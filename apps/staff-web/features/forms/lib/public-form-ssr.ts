@@ -1,4 +1,9 @@
-import { getMethod, getRequestURL, removeResponseHeader, type H3Event } from "h3";
+import {
+  getMethod,
+  getRequestURL,
+  removeResponseHeader,
+  type H3Event,
+} from "h3";
 import { eq, sql } from "drizzle-orm";
 import { getDb, schema } from "../../../server/db/index.js";
 import type { FormField, FormSettings } from "../types.js";
@@ -224,7 +229,7 @@ function renderField(field: FormField): string {
 
   return `<div class="field${widthClass}" data-field-id="${id}"${cond}>
     <label class="field-label">${escapeHtml(field.label)}${field.required ? '<span class="req">*</span>' : ""}</label>
-    ${desc}${input}</div>`;
+    ${desc}${input}<div class="field-error" id="err-${id}" role="alert" aria-live="polite"></div></div>`;
 }
 
 // ---------------------------------------------------------------------------
@@ -476,6 +481,60 @@ ${pixelSnippet}
     toastTimer = setTimeout(function() { toastEl.style.display = "none"; }, 4000);
   }
 
+  // Inline per-field validation UX
+  function clearFieldError(fieldId) {
+    var fieldEl = document.querySelector('[data-field-id="' + fieldId + '"]');
+    if (fieldEl) {
+      fieldEl.classList.remove("invalid");
+      fieldEl.querySelectorAll("input, textarea, select").forEach(function(ctrl) {
+        ctrl.removeAttribute("aria-invalid");
+        ctrl.classList.remove("invalid");
+      });
+    }
+    var errEl = document.getElementById("err-" + fieldId);
+    if (errEl) {
+      errEl.classList.remove("show");
+      errEl.textContent = "";
+    }
+  }
+
+  function showFieldErrors(errors) {
+    // Clear stale errors from a prior submit first
+    FIELDS.forEach(function(f) { clearFieldError(f.id); });
+    var firstEl = null;
+    errors.forEach(function(err) {
+      var fieldEl = document.querySelector('[data-field-id="' + err.fieldId + '"]');
+      if (fieldEl) {
+        fieldEl.classList.add("invalid");
+        fieldEl.querySelectorAll("input, textarea, select").forEach(function(ctrl) {
+          ctrl.setAttribute("aria-invalid", "true");
+          ctrl.classList.add("invalid");
+        });
+        if (!firstEl) firstEl = fieldEl;
+      }
+      var errEl = document.getElementById("err-" + err.fieldId);
+      if (errEl) {
+        errEl.textContent = err.message;
+        errEl.classList.add("show");
+      }
+    });
+    if (firstEl) {
+      try { firstEl.scrollIntoView({ behavior: "smooth", block: "center" }); } catch (_) {}
+      var focusable = firstEl.querySelector("input, textarea, select");
+      if (focusable) { try { focusable.focus(); } catch (_) {} }
+    }
+    // Grow the embed iframe to fit the newly shown errors
+    sendResize();
+  }
+
+  // Clear a field's error as soon as the user edits it
+  function onFieldEdit(e) {
+    var owner = e.target && e.target.closest ? e.target.closest(".field") : null;
+    if (!owner) return;
+    var fid = owner.dataset.fieldId;
+    if (fid) clearFieldError(fid);
+  }
+
   // Rating stars
   document.querySelectorAll(".rating-group").forEach(function(group) {
     var name = group.dataset.name;
@@ -526,6 +585,8 @@ ${pixelSnippet}
 
   document.getElementById("mainForm").addEventListener("input", updateVisibility);
   document.getElementById("mainForm").addEventListener("change", updateVisibility);
+  document.getElementById("mainForm").addEventListener("input", onFieldEdit);
+  document.getElementById("mainForm").addEventListener("change", onFieldEdit);
   updateVisibility();
 
   // Collect form data
@@ -553,8 +614,9 @@ ${pixelSnippet}
     return data;
   }
 
-  // Validation
+  // Validation — collects ALL failing visible fields as [{fieldId, message}, ...].
   function validate(data) {
+    var errors = [];
     for (var i = 0; i < FIELDS.length; i++) {
       var f = FIELDS[i];
       var el = document.querySelector('[data-field-id="' + f.id + '"]');
@@ -562,20 +624,21 @@ ${pixelSnippet}
       if (f.required) {
         var val = data[f.id];
         if (val === undefined || val === null || val === "" || (Array.isArray(val) && val.length === 0)) {
-          return f.label + " is required";
+          errors.push({ fieldId: f.id, message: f.label + " is required" });
+          continue;
         }
       }
       if (f.validation) {
         var v = data[f.id];
         if (f.validation.min != null && Number(v) < f.validation.min)
-          return (f.validation.message || f.label + " must be at least " + f.validation.min);
-        if (f.validation.max != null && Number(v) > f.validation.max)
-          return (f.validation.message || f.label + " must be at most " + f.validation.max);
-        if (f.validation.pattern && typeof v === "string" && !new RegExp(f.validation.pattern).test(v))
-          return (f.validation.message || f.label + " is invalid");
+          errors.push({ fieldId: f.id, message: f.validation.message || f.label + " must be at least " + f.validation.min });
+        else if (f.validation.max != null && Number(v) > f.validation.max)
+          errors.push({ fieldId: f.id, message: f.validation.message || f.label + " must be at most " + f.validation.max });
+        else if (f.validation.pattern && typeof v === "string" && !new RegExp(f.validation.pattern).test(v))
+          errors.push({ fieldId: f.id, message: f.validation.message || f.label + " is invalid" });
       }
     }
-    return null;
+    return errors;
   }
 
   // Turnstile
@@ -605,8 +668,8 @@ ${pixelSnippet}
     e.preventDefault();
     if (submitting) return;
     var data = collectData();
-    var err = validate(data);
-    if (err) { showToast(err); return; }
+    var errs = validate(data);
+    if (errs.length) { showFieldErrors(errs); return; }
     submitting = true;
     var btn = document.getElementById("submitBtn");
     btn.textContent = "Submitting...";
@@ -736,6 +799,11 @@ body{background:hsl(var(--bg));color:hsl(var(--fg));min-height:100vh;-webkit-fon
 .field-label{font-size:0.875rem;font-weight:500;color:hsl(var(--card-fg))}
 .field-desc{font-size:0.75rem;color:hsl(var(--muted-fg))}
 .req{color:#ef4444;margin-left:2px} /* guard:allow-color — embed widget functional required-field red; no studio token equivalent */
+
+.field-error{display:none;font-size:0.75rem;color:#ef4444;margin-top:2px} /* guard:allow-color — embed widget functional inline validation red; mirrors .req; no studio token equivalent */
+.field-error.show{display:block}
+.fi.invalid,.fi[aria-invalid="true"]{border-color:#ef4444} /* guard:allow-color — embed widget functional invalid-field border red; no studio token equivalent */
+.field.invalid .field-label{color:#ef4444} /* guard:allow-color — embed widget functional invalid-field label red; no studio token equivalent */
 
 .fi{width:100%;padding:8px 12px;font-size:0.875rem;font-family:inherit;background:transparent;border:1px solid hsl(var(--input));border-radius:var(--radius);color:hsl(var(--fg));outline:none}
 .fi:focus{border-color:hsl(var(--ring));box-shadow:0 0 0 2px hsl(var(--ring)/0.15)}
