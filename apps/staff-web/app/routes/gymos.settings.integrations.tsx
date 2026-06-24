@@ -49,7 +49,12 @@ import {
 import { useState } from "react";
 import { getDb } from "../../server/db";
 import { readConnectedAccount } from "../../server/lib/connected-account.js";
-import { writeAppSecret } from "@agent-native/core";
+// Import from the /secrets subpath, NOT the bare "@agent-native/core" package:
+// the bare entry resolves to index.browser.ts in the SSR/client bundle, which
+// does not export writeAppSecret (server-only) → [MISSING_EXPORT] build failure.
+// The ./secrets subpath has no browser condition and is only referenced inside
+// action() (server), so it tree-shakes out of the client bundle.
+import { writeAppSecret } from "@agent-native/core/secrets";
 import { readAppSecretByKey } from "../../server/lib/app-secrets.js";
 
 export function meta() {
