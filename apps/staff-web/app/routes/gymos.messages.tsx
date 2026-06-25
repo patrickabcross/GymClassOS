@@ -46,14 +46,16 @@ import {
   Link,
 } from "react-router";
 import { useState, useMemo } from "react";
-import { eq, ne, desc, sql, inArray } from "drizzle-orm";
+import { eq, desc, sql, inArray } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import {
   IconPointFilled,
   IconMessage,
-  IconUsers,
-  IconInbox,
   IconUser,
+  IconForms,
+  IconUpload,
+  IconBrandWhatsapp,
+  IconBrandMeta,
 } from "@tabler/icons-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { getDb, schema } from "../../server/db";
@@ -82,14 +84,11 @@ export function meta() {
 export async function loader({ request }: LoaderFunctionArgs) {
   const url = new URL(request.url);
   const selectedId = url.searchParams.get("conversation");
-  // P1c-04 leads filter: ?filter=leads shows status='lead' conversations;
-  // default (no param or any other value) shows non-lead statuses so the inbox
-  // stays focused and leads don't clutter the working inbox.
-  const filter = url.searchParams.get("filter");
-  const isLeadsView = filter === "leads";
+  // INBX-MERGE-02: unified list — all conversations regardless of status.
+  // The ?filter=leads param is dead / ignored; kept for URL backwards-compat.
   const db = getDb();
 
-  // List of conversations + the member each one is with
+  // List of ALL conversations + the member each one is with
   // guard:allow-unscoped — coach inbox shows all conversations in the studio
   const conversationsRows = await db
     .select({
@@ -109,11 +108,6 @@ export async function loader({ request }: LoaderFunctionArgs) {
     .leftJoin(
       schema.gymMembers,
       eq(schema.conversations.memberId, schema.gymMembers.id),
-    )
-    .where(
-      isLeadsView
-        ? eq(schema.conversations.status, "lead")
-        : ne(schema.conversations.status, "lead"),
     )
     .orderBy(desc(schema.conversations.updatedAt));
 
@@ -216,6 +210,83 @@ export async function loader({ request }: LoaderFunctionArgs) {
   }
   const optInByMemberId: Record<string, boolean> = {};
   for (const id of memberIds) optInByMemberId[id] = optInSet.has(id);
+
+  // ─── Lead source fan-out (INBX-MERGE-01) ─────────────────────────────────
+  //
+  // Build a per-conversation sourceMap for lead conversations (status='lead').
+  // Two lookups — (a) opt-in source enum, (b) form title from form_submissions.
+  // Form title overrides the bare "Form" label so staff see "Form: Hyrox Enquiry".
+  // Non-lead conversations always get null — no badge for existing members.
+
+  const sourceMap: Record<string, { type: string; label: string }> = {};
+
+  // (a) Source TYPE from whatsapp_opt_in.source, joined via member_id.
+  // guard:allow-unscoped — coach inbox shows all conversations in the studio
+  const leadConvIds = conversationsRows
+    .filter((c) => c.status === "lead")
+    .map((c) => c.id);
+
+  if (leadConvIds.length > 0) {
+    // Map the opt-in source enum to a human-readable label.
+    const SOURCE_LABELS: Record<string, string> = {
+      form_submission: "Form",
+      import: "Imported",
+      inbound_reply: "WhatsApp",
+      meta_lead_ads: "Meta ad",
+      manual_admin: "Added manually",
+    };
+
+    // Join whatsapp_opt_in → conversations via member_id to get source per conv.
+    // guard:allow-unscoped — coach inbox shows all conversations in the studio
+    const optInSourceRows = await (db as any).execute(sql`
+      SELECT c.id AS conversation_id, o.source
+      FROM conversations c
+      JOIN whatsapp_opt_in o ON o.member_id = c.member_id
+      WHERE c.id IN (${sql.join(
+        leadConvIds.map((id) => sql`${id}`),
+        sql`, `,
+      )})
+    `);
+    const optInSourceList =
+      (optInSourceRows as any)?.rows ?? (optInSourceRows as any as any[]) ?? [];
+    for (const r of optInSourceList) {
+      const label = SOURCE_LABELS[r.source as string] ?? r.source;
+      sourceMap[r.conversation_id as string] = {
+        type: r.source as string,
+        label,
+      };
+    }
+
+    // (b) FORM NAME — latest form_submission per lead conversation joined to forms.title.
+    // Overrides the bare "Form" label from (a) with "Form: {title}".
+    // guard:allow-unscoped — coach inbox shows all conversations in the studio
+    const formRows = await (db as any).execute(sql`
+      SELECT DISTINCT ON (fs.conversation_id) fs.conversation_id, f.title
+      FROM form_submissions fs
+      JOIN forms f ON f.id = fs.form_id
+      WHERE fs.conversation_id IN (${sql.join(
+        leadConvIds.map((id) => sql`${id}`),
+        sql`, `,
+      )})
+      ORDER BY fs.conversation_id, fs.submitted_at DESC
+    `);
+    const formList =
+      (formRows as any)?.rows ?? (formRows as any as any[]) ?? [];
+    for (const r of formList) {
+      const title = r.title as string | null;
+      sourceMap[r.conversation_id as string] = {
+        type: "form_submission",
+        label: title ? `Form: ${title}` : "Form",
+      };
+    }
+  }
+
+  // Attach leadSource to each conversation row.
+  const conversations = conversationsRows.map((c) => ({
+    ...c,
+    leadSource:
+      c.status === "lead" ? (sourceMap[c.id] ?? null) : (null as null),
+  }));
 
   // ─── Templates fan-out (P1b.1-05 / WA-08) ─────────────────────────────
   //
@@ -363,7 +434,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
   }
 
   return {
-    conversations: conversationsRows,
+    conversations,
     selectedConversation,
     selectedMessages,
     selectedMember,
@@ -372,7 +443,6 @@ export async function loader({ request }: LoaderFunctionArgs) {
     windowStateByConvId: windowMap,
     optInByMemberId,
     templates,
-    isLeadsView,
   };
 }
 
@@ -840,11 +910,26 @@ function MemberContextCards({
 
 // ─── Route ───────────────────────────────────────────────────────────────────
 
+// INBX-MERGE-01: map lead source type → Tabler icon component
+function sourceIcon(type: string) {
+  switch (type) {
+    case "form_submission":
+      return IconForms;
+    case "import":
+      return IconUpload;
+    case "inbound_reply":
+      return IconBrandWhatsapp;
+    case "meta_lead_ads":
+      return IconBrandMeta;
+    default:
+      return IconUser;
+  }
+}
+
 export default function GymosMessages() {
   const data = useLoaderData<typeof loader>();
   const [params] = useSearchParams();
   const selectedId = params.get("conversation");
-  const { isLeadsView } = data;
   const [reply, setReply] = useState("");
   const revalidator = useRevalidator();
 
@@ -881,58 +966,23 @@ export default function GymosMessages() {
         )}
       >
         <header className="px-4 py-3 border-b border-border/50">
+          {/* INBX-MERGE-02: unified header — no Messages/Leads tabs; Import always available */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5">
-              <h1 className="text-sm font-semibold">
-                {isLeadsView ? "Leads" : "Messages"}
-              </h1>
+              <h1 className="text-sm font-semibold">Inbox</h1>
               <Badge variant="outline" className="text-[10px] h-5">
                 {data.conversations.length}
               </Badge>
             </div>
-            {isLeadsView && (
-              <ImportLeadsDialog onImported={() => revalidator.revalidate()} />
-            )}
-          </div>
-          {/* P1c-04: Messages / Leads filter chips — minimal, progressive disclosure.
-              Default shows non-lead conversations; Leads chip shows status='lead'. */}
-          <div className="flex items-center gap-1 mt-2">
-            <Link
-              to="/gymos/messages"
-              preventScrollReset
-              className={cn(
-                "inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] transition",
-                !isLeadsView
-                  ? "bg-accent text-foreground font-semibold"
-                  : "text-muted-foreground hover:bg-accent/40 hover:text-foreground",
-              )}
-            >
-              <IconInbox size={10} aria-hidden />
-              Messages
-            </Link>
-            <Link
-              to="/gymos/messages?filter=leads"
-              preventScrollReset
-              className={cn(
-                "inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] transition",
-                isLeadsView
-                  ? "bg-accent text-foreground font-semibold"
-                  : "text-muted-foreground hover:bg-accent/40 hover:text-foreground",
-              )}
-            >
-              <IconUsers size={10} aria-hidden />
-              Leads
-            </Link>
+            <ImportLeadsDialog onImported={() => revalidator.revalidate()} />
           </div>
         </header>
         {/* R3-SC2: "Conversations" section label — gym-domain vocabulary per NAME-02 / D-02 */}
-        {!isLeadsView && (
-          <div className="px-4 py-2 border-b border-border/30 bg-muted/20">
-            <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-              Conversations
-            </span>
-          </div>
-        )}
+        <div className="px-4 py-2 border-b border-border/30 bg-muted/20">
+          <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+            Conversations
+          </span>
+        </div>
         <div className="flex-1 overflow-y-auto">
           {data.conversations.map((c) => {
             const isSelected = c.id === selectedId;
@@ -944,7 +994,7 @@ export default function GymosMessages() {
             return (
               <Link
                 key={c.id}
-                to={`/gymos/messages?conversation=${c.id}${data.isLeadsView ? "&filter=leads" : ""}`}
+                to={`/gymos/messages?conversation=${c.id}`}
                 preventScrollReset
                 className={cn(
                   "block px-4 py-3 border-b border-border/30 hover:bg-accent/40 transition",
@@ -994,6 +1044,22 @@ export default function GymosMessages() {
                     </span>
                   )}
                 </span>
+                {/* INBX-MERGE-01: lead source badge — subtle, secondary, only for leads */}
+                {c.leadSource &&
+                  (() => {
+                    const SrcIcon = sourceIcon(c.leadSource.type);
+                    return (
+                      <Badge
+                        variant="secondary"
+                        className="mt-1 text-[10px] h-4 px-1.5 font-normal gap-1 text-muted-foreground"
+                      >
+                        <SrcIcon size={10} aria-hidden />
+                        <span className="max-w-[140px] truncate">
+                          {c.leadSource.label}
+                        </span>
+                      </Badge>
+                    );
+                  })()}
               </Link>
             );
           })}
@@ -1051,7 +1117,7 @@ export default function GymosMessages() {
                 {/* ← Messages back nav — mobile only (md:hidden). URL-state-driven:
                     drops ?conversation= param, returning the list to full-width. */}
                 <Link
-                  to={`/gymos/messages${isLeadsView ? "?filter=leads" : ""}`}
+                  to="/gymos/messages"
                   preventScrollReset
                   className="md:hidden shrink-0 inline-flex items-center gap-1 text-[12px] text-muted-foreground hover:text-foreground transition"
                   aria-label="Back to messages list"
