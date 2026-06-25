@@ -4,8 +4,8 @@ milestone: v2.2
 milestone_name: — Meta Conversion Tracking — IN PROGRESS
 status: deployed
 stopped_at: v2.2 (MC1+MC2+MC3) complete + DEPLOYED (staff-web live after build-fix 126ef375); Meta activation parked
-last_updated: "2026-06-25T00:00:00.000Z"
-last_activity: 2026-06-25
+last_updated: "2026-06-26T00:00:00.000Z"
+last_activity: 2026-06-26
 progress:
   total_phases: 3
   completed_phases: 0
@@ -33,13 +33,14 @@ Milestone: v2.2 — Meta Conversion Tracking
 Phase: MC3 (last phase) — COMPLETE + verified
 Plan: —
 Status: **v2.2 fully built, verified, and DEPLOYED.** All 3 phases done (15/15 reqs: PIX/CAPI→MC1, LIFE→MC2, LEAD→MC3). Migrations v31–v34 applied to Neon `billowing-sun-51091059` by hand. staff-web (Vercel) + worker/edge (Fly) both live. NOTE: the v2.2 staff-web Vercel build failed silently at first (writeAppSecret MISSING_EXPORT) and only went live after build-fix `126ef375` — see [[project_gymos_deploy]].
-Last activity: 2026-06-25 (big rollout session; final master `9e46fd42`, all pushed):
+Last activity: 2026-06-26 (continuation of the big rollout session; final master `1da86ab3`, all pushed):
 1. **Schedule filters** (quick 260625-d06): location/class-type/trainer on the staff calendar (shadcn Popover) + public embed (native selects); loader Query A widened w/ trainer leftJoin. SHIPPED.
 2. **Studio-global sites config** (quick 260625-gsg): `resolveSites` + `sites` JSONB col (v35) + Settings→Integrations→Locations card; replaces the hardcoded Norwich/Wymondham picker. SHIPPED; HUSTLE sites seeded as DATA on Neon (singleton row).
 3. **Tenancy stash-pop resolved** (701ba1f1): `isDeployCredentialFallbackAllowed`/`isEnvVarWriteAllowed` now default single-tenant-per-deploy (allow), `AGENT_NATIVE_MULTI_TENANT=true` opt-in restores the upstream gate. Direction shift → shared/sharded subdomains (≤10 gyms, shared DB) supersedes "single-tenant code, multi-tenant deploy". See [[project_gymos_tenancy_direction]].
 4. **SCHEDULE 500 OUTAGE fixed** (quick 260625-mvn): `trainers.active` + `class_schedule_rules.active` were `bigint` not `boolean` → Drizzle `eq(active,true)` 500'd the whole loader (broken since lp3 06-22, unnoticed). Prod HOTFIXED on Neon (ALTER to boolean) + durable guarded v36 migration / `0008_active_boolean_fix.sql`. **Brain page scroll fixed** (was missing the `overflow-y-auto` wrapper). See [[project_gymos_active_boolean_gotcha]].
 5. **iOS build prep** (commits c2257a52/41753cfa/24726608): `app.json` → name Hustle, slug hustle, bundle `uk.co.doyouhustle.app`, upstream owner/projectId stripped for `eas init`; expo-doctor pre-flight (removed invalid `newArchEnabled`, 15/19); `packages/mobile-app/IOS-EAS-RUNBOOK.md`. Repo fully prepped; build gated on Apple Dev account.
 6. **Wearable health SPEC** written (`.planning/specs/HEALTH-WEARABLES-SPEC.md`): Apple Watch/HealthKit first, Garmin fast-follow — but **Garmin paused new API approvals** → Apple-only build. See [[project_gymos_apple_health]].
+7. **Inbox: merged Messages+Leads** (quick 260625-x34): the Messages/Leads tabs (a `?filter=leads` partition on `conversations.status`) are GONE — `/gymos/messages` is now one unified "Inbox" list of all conversations. Each lead carries a source badge: `Form: {form title}` (derived live from `form_submissions → forms.title`), `Imported`, `WhatsApp`, `Meta ad`, `Added manually`. NO schema change (derives from existing tables: `whatsapp_opt_in.source` + form link). Loader SQL validated against prod Neon before push (no 500 risk — lesson from #4). DEPLOYED. **Known gap:** leads with no source data (e.g. the "Diag Test" rows — no opt-in, no form submission) show no badge → look like members; offered a generic "Lead" fallback badge as a follow-up (user not yet answered).
 
 **OPEN ITEMS / next-session pickup:**
 - **Meta activation parked (user-gated, not done):** (1) `fly secrets set BETTER_AUTH_SECRET=<Vercel value> --config services/edge-webhooks/fly.toml` so the worker can decrypt app_secrets — WITHOUT this every Meta CAPI send + Lead-Ad retrieval silently skips; (2) operator enters Pixel ID + CAPI token + Test Event Code + Page Access Token in `/gymos/settings/integrations`; (3) subscribe the Page's `leadgen` webhook field in Meta to `https://gymos-edge-webhooks.fly.dev/webhooks/meta-lead` (verify token = WHATSAPP_VERIFY_TOKEN). See [[project_gymos_deploy]].
