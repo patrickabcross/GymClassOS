@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Agent Native",
+    "name": "Hustle",
     "slug": "agent-native-mobile",
     "version": "0.1.0",
     "orientation": "portrait",
@@ -9,14 +9,14 @@
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "ios": {
-      "bundleIdentifier": "com.agentnative.mobile",
+      "bundleIdentifier": "uk.co.doyouhustle.app",
       "supportsTablet": true,
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
-      "package": "com.agentnative.mobile",
+      "package": "uk.co.doyouhustle.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#111111"
