@@ -481,13 +481,13 @@ BEGIN
   -- Postgres-only guard: skip entirely on SQLite (no information_schema rows)
   IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'information_schema') THEN
 
-    -- Fix trainers.active if it is still INTEGER (atttypid 23) and not BOOLEAN (atttypid 16)
+    -- Fix trainers.active if it is still an integer type (int2/int4/int8) and not BOOLEAN (atttypid 16)
     IF EXISTS (
       SELECT 1 FROM pg_attribute a
       JOIN pg_class c ON c.oid = a.attrelid
       WHERE c.relname = 'trainers'
         AND a.attname = 'active'
-        AND a.atttypid = 23   -- int4 = INTEGER
+        AND a.atttypid IN (20, 21, 23)   -- bigint/int2/int4 — any integer family (prod was bigint), excludes boolean (16)
         AND a.attnum > 0
         AND NOT a.attisdropped
     ) THEN
@@ -498,13 +498,13 @@ BEGIN
       $sql$;
     END IF;
 
-    -- Fix class_schedule_rules.active if it is still INTEGER
+    -- Fix class_schedule_rules.active if it is still an integer type (int2/int4/int8)
     IF EXISTS (
       SELECT 1 FROM pg_attribute a
       JOIN pg_class c ON c.oid = a.attrelid
       WHERE c.relname = 'class_schedule_rules'
         AND a.attname = 'active'
-        AND a.atttypid = 23   -- int4 = INTEGER
+        AND a.atttypid IN (20, 21, 23)   -- bigint/int2/int4 — any integer family (prod was bigint), excludes boolean (16)
         AND a.attnum > 0
         AND NOT a.attisdropped
     ) THEN
