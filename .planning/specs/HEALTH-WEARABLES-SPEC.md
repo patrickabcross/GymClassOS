@@ -15,7 +15,7 @@ partnership approval.
   2. **Coaches** see member sleep / recovery / training load in the staff app (member profile) to program training and spot overtraining / disengagement.
   3. **Calorie counter** uses active-energy burn to adjust daily calorie/macro targets.
   4. **Outreach triggers** — poor sleep / low recovery / inactivity streak flags a coach WhatsApp check-in via the existing proposal → worker pipeline.
-- **Providers:** **Apple Watch / Apple Health first**, **Garmin fast-follow**.
+- **Providers:** **Apple Watch / Apple Health** is the active build. **Garmin is ON HOLD (2026-06-25): Garmin has temporarily paused review/approval of new Health API requests** — we reached out and can't get partner access right now. Garmin stays designed-in below (the normalized store means it slots in later for free) but is **not buildable until Garmin reopens approvals** (or we route via an aggregator — see §7).
 - **Data scope:** everything each platform exposes (sleep stages, HR, HRV, resting HR, steps, active energy, workouts, stress, body battery/readiness, SpO2, respiration, VO2max).
 - **Out of scope (v1):** Android (Google Health Connect) — note as fast-follow #2; Fitbit/Whoop/Oura — later if demand.
 
@@ -56,8 +56,8 @@ Key reuse: **Garmin's push model is the existing integration-webhook queue patte
 - **Sync:** `HKObserverQuery` + HealthKit **background delivery** so data syncs without the app open; on change, batch-POST deltas to `POST /api/m/health/ingest`.
 - **Member surface:** a "Health" tab in `packages/mobile-app` — connect prompt → sleep last night (stages), recovery (HRV/resting HR trend), today's activity.
 
-### Phase H2 — Garmin Health API (server-side) — *fast-follow, START APPLICATION NOW*
-**Long pole = approval.** The Garmin Health API needs a **partnership application** (vetted: use case, retention, security); access begins at an **Evaluation Tier (~15 test users)** before production. **Submit this application at the start of H1** — it gates H2 and is outside our control.
+### Phase H2 — Garmin Health API (server-side) — *ON HOLD (Garmin approvals paused 2026-06-25)*
+**Blocked, not cancelled.** The Garmin Health API needs a vetted **partnership application** (Evaluation Tier ~15 test users → production). We applied; **Garmin has temporarily paused approving new API requests**, so this phase cannot start until they reopen. The design below stays valid — because everything normalizes into the shared `health_*` tables, dropping Garmin in later is additive (OAuth + webhook reducer) and lights up all consumers for Garmin users with no consumer-side changes. **Re-check Garmin's status periodically; or evaluate the aggregator fallback (§7) if Garmin is needed sooner.**
 - **Auth:** Garmin OAuth — member authorizes from the member app (deep link out / web view), tokens stored in `health_connections`.
 - **Ingest:** register callback URLs per summary type. Garmin **POSTs the full payload** to `apps/edge-webhooks` (`/webhooks/garmin/<type>`); verify signature, enqueue to pg-boss, return 200. Worker normalizes into the unified tables. **Idempotent** (dedupe on Garmin summary id + member) — same care as Stripe.
 - Summary types: dailies, sleep, epochs, activities, stress, HRV, body composition, pulse-ox, respiration, user metrics (VO2max).
@@ -106,12 +106,14 @@ All additive migrations (new tables only, never rename/drop). Tokens encrypted a
 - **Storage volume** — `health_samples` high-res series can balloon; default to summaries, add samples only where a chart needs them.
 - **Library choice** for HealthKit (kingstinct vs agencyenterprise) — decide at plan time.
 
-## 8. Suggested sequencing
+## 8. Suggested sequencing (Garmin paused → Apple-only build)
 
-1. **Now:** submit the Garmin Health API partnership application (long pole). Decide HealthKit library.
-2. **H1 (after the EAS dev-client build exists):** HealthKit read + ingest + member Health tab.
-3. **H3a:** coach view + calorie TDEE adjustment (provider-agnostic, works off Apple data alone).
-4. **H2 (when Garmin approved):** Garmin OAuth + webhook ingest into the same tables — all consumers light up for Garmin users for free.
-5. **H3b:** outreach triggers.
+1. **Server foundation (NOT device-gated, buildable now):** `health_*` tables (additive migration) + `POST /api/m/health/ingest` + per-member health consent model. Testable without an iPhone.
+2. **H1 native (after the EAS dev-client build + a physical iPhone exist):** HealthKit read + background delivery + member Health tab. Decide HealthKit library (kingstinct vs agencyenterprise) at plan time.
+3. **H3a:** coach view + calorie TDEE adjustment — provider-agnostic, works off Apple data alone.
+4. **H3b:** outreach triggers.
+5. **H2 (deferred until Garmin reopens approvals):** Garmin OAuth + webhook reducer into the same tables — consumers light up for Garmin users with no further work. Re-check Garmin status periodically.
+
+**Critical path = the iOS dev-client build** (gated on the Apple Dev + Expo accounts in `IOS-EAS-RUNBOOK.md`) **+ a physical iPhone to test on.** Step 1 can proceed in parallel before the device is ready.
 
 > Build path: when approved to implement, run `/gsd:new-milestone` (or `/gsd:plan-phase` per phase) — this is milestone-sized, not a quick task.
