@@ -1066,7 +1066,7 @@ export default function StripeIntegrations() {
                     name="sites"
                     rows={4}
                     defaultValue={data.sites.join("\n")}
-                    placeholder={"e.g.\nNorwich\nWymondham"}
+                    placeholder={"e.g.\nMain Studio\nCity Branch"}
                     className="w-full border border-border/50 rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-ring resize-none"
                   />
                   <p className="text-[11px] text-muted-foreground">
