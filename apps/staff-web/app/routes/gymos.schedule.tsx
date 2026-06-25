@@ -24,6 +24,11 @@
 // Action: unchanged from the previous flat-list version — insert booking row
 // (demo-grade, no atomic capacity check). Production atomicity ships in
 // BKG-03/BKG-04.
+//
+// SCH-FILTER (260625-d06): Three independent, AND-composed filter controls
+// (Location / Class type / Trainer) in a progressive-disclosure Popover.
+// Filtering is client-side over already-loaded occurrences — instant, no
+// loader refetch.
 
 import {
   useLoaderData,
@@ -59,9 +64,11 @@ import {
   IconChevronLeft,
   IconChevronRight,
   IconDots,
+  IconFilter,
   IconShare2,
   IconCopy,
   IconCheck,
+  IconX,
 } from "@tabler/icons-react";
 import { getDb, schema } from "../../server/db";
 import { Button } from "@/components/ui/button";
@@ -157,10 +164,16 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const bookOccurrenceId = url.searchParams.get("book");
   const db = getDb();
 
-  // Query A — list occurrences joined to definitions, ordered by start time.
+  // Query A — list occurrences joined to definitions + trainers, ordered by
+  // start time.
   //
   // guard:allow-unscoped — single-tenant gym tables (no ownableColumns) per
-  // P1b.1-RESEARCH.md §6 "no unscoped queries" exemption.
+  // P1b.1-RESEARCH.md §6 "no unscoped queries" exemption. The trainers join
+  // is to another single-tenant table; guard comment covers both joins.
+  //
+  // SCH-FILTER: widened to include location, trainerId, and trainer name via
+  // a left join to schema.trainers. The Occurrence type alias below picks up
+  // the new fields automatically.
   const occurrences = await db
     .select({
       id: schema.classOccurrences.id,
@@ -173,11 +186,19 @@ export async function loader({ request }: LoaderFunctionArgs) {
       className: schema.classDefinitions.name,
       category: schema.classDefinitions.category,
       durationMin: schema.classDefinitions.durationMin,
+      // SCH-FILTER additions
+      location: schema.classOccurrences.location,
+      trainerId: schema.classOccurrences.trainerId,
+      trainerName: schema.trainers.name,
     })
     .from(schema.classOccurrences)
     .leftJoin(
       schema.classDefinitions,
       eq(schema.classOccurrences.definitionId, schema.classDefinitions.id),
+    )
+    .leftJoin(
+      schema.trainers,
+      eq(schema.classOccurrences.trainerId, schema.trainers.id),
     )
     .orderBy(asc(schema.classOccurrences.startsAt));
 
@@ -365,13 +386,62 @@ export default function GymosSchedule() {
   const selectedDate = parseDateParam(searchParams.get("date"));
   const monthLabel = format(monthAnchor, "MMMM yyyy");
 
+  // ─── SCH-FILTER: filter state (client-side, no URL persistence) ─────────
+  const [locationFilter, setLocationFilter] = useState<string>("all");
+  const [classTypeFilter, setClassTypeFilter] = useState<string>("all");
+  const [trainerFilter, setTrainerFilter] = useState<string>("all");
+
+  // Derived: distinct, sorted, non-null location set from loaded occurrences.
+  const locationOptions = Array.from(
+    new Set(
+      data.occurrences.map((o) => o.location).filter((l): l is string => !!l),
+    ),
+  ).sort();
+
+  // Reset all three filters to "all"
+  function clearFilters() {
+    setLocationFilter("all");
+    setClassTypeFilter("all");
+    setTrainerFilter("all");
+  }
+
+  // True when any filter deviates from the default "show all" sentinel.
+  const hasActiveFilters =
+    locationFilter !== "all" ||
+    classTypeFilter !== "all" ||
+    trainerFilter !== "all";
+  const activeFilterCount = [
+    locationFilter !== "all",
+    classTypeFilter !== "all",
+    trainerFilter !== "all",
+  ].filter(Boolean).length;
+
+  // Compute filteredOccurrences: AND-compose all three filters.
+  // This is instant (client-side over already-loaded data). No loader refetch.
+  const filteredOccurrences = data.occurrences.filter((o) => {
+    if (locationFilter !== "all" && o.location !== locationFilter) return false;
+    if (classTypeFilter !== "all" && o.className !== classTypeFilter)
+      return false;
+    if (trainerFilter !== "all" && o.trainerId !== trainerFilter) return false;
+    return true;
+  });
+
   // ─── Derived calendar data ──────────────────────────────────────────────
-  const byDay = groupByDay(data.occurrences);
+  // byDay is computed from filteredOccurrences so day-cell counts + detail pane
+  // both narrow when filters are active.
+  const byDay = groupByDay(filteredOccurrences);
   const gridDays = monthGridDays(monthAnchor);
   const selectedKey = format(selectedDate, "yyyy-MM-dd");
   const selectedOccurrences = (byDay.get(selectedKey) ?? [])
     .slice()
     .sort((a, b) => a.startsAt.localeCompare(b.startsAt));
+
+  const totalThisMonth = gridDays
+    .filter((d) => isSameMonth(d, monthAnchor))
+    .reduce(
+      (sum, d) => sum + (byDay.get(format(d, "yyyy-MM-dd"))?.length ?? 0),
+      0,
+    );
 
   // ─── Nav helpers — preserve other params; only swap calendar params ─────
   function navigateTo(updates: Record<string, string | null>) {
@@ -420,13 +490,6 @@ export default function GymosSchedule() {
     return r.toString();
   })()}`;
 
-  const totalThisMonth = gridDays
-    .filter((d) => isSameMonth(d, monthAnchor))
-    .reduce(
-      (sum, d) => sum + (byDay.get(format(d, "yyyy-MM-dd"))?.length ?? 0),
-      0,
-    );
-
   // ─── Share / embed schedule ─────────────────────────────────────────────
   // Origin is only known client-side (logged-in CSR page). Default to the prod
   // origin so the snippet is correct if read before hydration.
@@ -474,6 +537,131 @@ export default function GymosSchedule() {
               trainers={data.trainers}
               defaultDate={selectedKey}
             />
+
+            {/* ─── SCH-FILTER: Filter Popover ─────────────────────────── */}
+            <Popover>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="relative h-7 gap-1.5 text-[12px]"
+                      aria-label="Filter classes"
+                    >
+                      <IconFilter size={13} aria-hidden />
+                      Filter
+                      {activeFilterCount > 0 && (
+                        <span className="ml-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-foreground px-1 text-[9px] font-semibold tabular-nums text-background">
+                          {activeFilterCount}
+                        </span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                </TooltipTrigger>
+                <TooltipContent>
+                  Filter by location, class type, or trainer
+                </TooltipContent>
+              </Tooltip>
+              <PopoverContent align="end" className="w-72 space-y-4 p-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-semibold">Filter classes</p>
+                  {hasActiveFilters && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 gap-1 px-1.5 text-[11px] text-muted-foreground"
+                      onClick={clearFilters}
+                    >
+                      <IconX size={11} aria-hidden />
+                      Clear
+                    </Button>
+                  )}
+                </div>
+
+                {/* Location filter */}
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-medium text-muted-foreground">
+                    Location
+                  </label>
+                  <Select
+                    value={locationFilter}
+                    onValueChange={setLocationFilter}
+                  >
+                    <SelectTrigger className="h-8 text-[12px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All locations</SelectItem>
+                      {locationOptions.map((loc) => (
+                        <SelectItem key={loc} value={loc}>
+                          {loc}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Class type filter */}
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-medium text-muted-foreground">
+                    Class type
+                  </label>
+                  <Select
+                    value={classTypeFilter}
+                    onValueChange={setClassTypeFilter}
+                  >
+                    <SelectTrigger className="h-8 text-[12px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All class types</SelectItem>
+                      {data.classTypes.map((ct) => (
+                        <SelectItem key={ct.id} value={ct.name}>
+                          {ct.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Trainer filter */}
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-medium text-muted-foreground">
+                    Trainer
+                  </label>
+                  <Select
+                    value={trainerFilter}
+                    onValueChange={setTrainerFilter}
+                  >
+                    <SelectTrigger className="h-8 text-[12px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All trainers</SelectItem>
+                      {data.trainers.map((t) => (
+                        <SelectItem key={t.id} value={t.id}>
+                          {t.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {hasActiveFilters && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full text-[12px] text-muted-foreground"
+                    onClick={clearFilters}
+                  >
+                    Clear all filters
+                  </Button>
+                )}
+              </PopoverContent>
+            </Popover>
+
+            {/* ─── Share / embed Popover ──────────────────────────────── */}
             <Popover>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -547,6 +735,7 @@ export default function GymosSchedule() {
                 </div>
               </PopoverContent>
             </Popover>
+
             <Badge variant="outline" className="h-5 text-[10px]">
               {totalThisMonth} this month
             </Badge>
@@ -698,18 +887,40 @@ export default function GymosSchedule() {
 
           <div className="flex-1 overflow-auto p-2">
             {selectedOccurrences.length === 0 ? (
+              // ─── SCH-FILTER: branch empty-state copy on filter activity ──
               <div className="flex h-full flex-col items-center justify-center gap-2 px-4 py-8 text-center">
                 <IconCalendarEvent
                   size={28}
                   className="text-muted-foreground"
                   aria-hidden
                 />
-                <div className="text-[13px] text-muted-foreground">
-                  No classes scheduled
-                </div>
-                <div className="text-[11px] text-muted-foreground">
-                  Pick another day from the calendar
-                </div>
+                {hasActiveFilters ? (
+                  <>
+                    <div className="text-[13px] text-muted-foreground">
+                      No classes match your filters
+                    </div>
+                    <div className="text-[11px] text-muted-foreground">
+                      Try adjusting the filters or pick another day
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mt-1 h-7 text-[11px]"
+                      onClick={clearFilters}
+                    >
+                      Clear filters
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <div className="text-[13px] text-muted-foreground">
+                      No classes scheduled
+                    </div>
+                    <div className="text-[11px] text-muted-foreground">
+                      Pick another day from the calendar
+                    </div>
+                  </>
+                )}
               </div>
             ) : (
               <ul className="flex flex-col gap-2">
@@ -769,9 +980,19 @@ export default function GymosSchedule() {
                                 Weekly
                               </Badge>
                             )}
+                            {o.location && (
+                              <span className="text-[11px] text-muted-foreground">
+                                {o.location}
+                              </span>
+                            )}
+                            {o.trainerName && (
+                              <span className="text-[11px] text-muted-foreground">
+                                · {o.trainerName}
+                              </span>
+                            )}
                             {o.room && (
                               <span className="text-[11px] text-muted-foreground">
-                                {o.room}
+                                · {o.room}
                               </span>
                             )}
                             <span className="text-[11px] text-muted-foreground">
