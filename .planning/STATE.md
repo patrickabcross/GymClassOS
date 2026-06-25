@@ -4,8 +4,8 @@ milestone: v2.2
 milestone_name: — Meta Conversion Tracking — IN PROGRESS
 status: deployed
 stopped_at: v2.2 (MC1+MC2+MC3) complete + DEPLOYED (staff-web live after build-fix 126ef375); Meta activation parked
-last_updated: "2026-06-24T13:30:00.000Z"
-last_activity: 2026-06-24
+last_updated: "2026-06-25T00:00:00.000Z"
+last_activity: 2026-06-25
 progress:
   total_phases: 3
   completed_phases: 0
@@ -65,6 +65,7 @@ Last activity: 2026-06-24 — Completed quick task 260624-vzw (schedule embed on
 | 260624-klo | Inline per-field validation on public/embed lead form — replace fixed-bottom toast (which covered the CTA in short iframes) with inline `.field-error` under each field + red border/aria-invalid + scroll-to/focus first invalid; toast now only for network/submit failures. Single-file SSR change. DEPLOYED (push 97129e85). | 2026-06-24 | dc7d893d | [260624-klo-improve-validation-error-ux-on-the-publi](./quick/260624-klo-improve-validation-error-ux-on-the-publi/) |
 | 260624-vzw | Schedule embed onboarding UI — Share/embed Popover on the staff schedule header (mirrors forms embed): copies `<div data-gymos-schedule></div>`+/embed.js snippet AND the /embed/schedule public link, with copied-state + toast. Backend (/embed/schedule SSR + /embed.js data-gymos-schedule) already existed; this surfaces it to the operator. Single-file (gymos.schedule.tsx), shadcn Popover + Tabler. Live-UI verify pending. | 2026-06-24 | 09704d30 | [260624-vzw-add-share-embed-schedule-affordance-to-s](./quick/260624-vzw-add-share-embed-schedule-affordance-to-s/) |
 | 260624-p2x | Lead-ack auto-reply: middle WhatsApp template var ({{2}}) now a personalized qualifying question (class + lead's stated level + ONE open question) instead of a bare class name; prompt rewritten + per-slot cap 60→200, max_tokens 300→400, model unchanged. Needs a 2-slot approved template ("Hey {{1}}, thanks for your interest in {{2}} Feel free to reply here.") + LEAD_ACK_TEMPLATE_NAME pointed at it. Single-file (lead-ack.ts); 6/6 tests pass. | 2026-06-24 | 6dcd05a2 | [260624-p2x-rework-lead-ack-whatsapp-auto-reply-midd](./quick/260624-p2x-rework-lead-ack-whatsapp-auto-reply-midd/) |
+| 260625-d06 | Schedule filters — three AND-composed filters (location, class type, trainer) on both the staff calendar (shadcn Popover + Select, client-side over loaded data) and the public embed timetable (native `<select>`, data-* attributes, inline applyFilters() JS). Loader Query A widened with leftJoin(trainers). No schema migration. | 2026-06-25 | 511a4b39 | [260625-d06-add-location-class-type-trainer-filters-](./quick/260625-d06-add-location-class-type-trainer-filters-/) |
 
 ### v2.1 Phase Summary
 
