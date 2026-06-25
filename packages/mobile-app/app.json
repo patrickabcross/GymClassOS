@@ -7,7 +7,6 @@
     "icon": "./assets/icon.png",
     "scheme": "agentnative",
     "userInterfaceStyle": "dark",
-    "newArchEnabled": true,
     "ios": {
       "bundleIdentifier": "uk.co.doyouhustle.app",
       "supportsTablet": true,

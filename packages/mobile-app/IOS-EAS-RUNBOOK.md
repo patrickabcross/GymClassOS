@@ -78,10 +78,34 @@ Until then, use `--profile preview`, which strips the push entitlement.
 | `expo.name` = `"Hustle"`                                | ✅ already set                 | committed                                           |
 | `expo.ios.bundleIdentifier` = `"uk.co.doyouhustle.app"` | ✅ already set                 | committed (must match the registered Apple App ID)  |
 | `expo.android.package` = `"uk.co.doyouhustle.app"`      | ✅ already set                 | committed                                           |
-| `expo.owner`                                            | ⬜ still `steve8708`           | **`eas init`** overwrites with the new Expo account |
-| `expo.extra.eas.projectId`                              | ⬜ still upstream `b359544d-…` | **`eas init`** overwrites with the new project id   |
-| `expo.slug`                                             | left as `agent-native-mobile`  | `eas init` keeps or prompts; fine to leave          |
+| `expo.slug` = `"hustle"`                                | ✅ already set                 | committed                                           |
+| `expo.owner`                                            | ⬜ removed (was `steve8708`)   | **`eas init`** writes the new Expo account          |
+| `expo.extra.eas.projectId`                              | ⬜ removed (was upstream)      | **`eas init`** writes the new project id            |
 
-> Do **not** hand-edit `owner` / `projectId` before running `eas init` — leaving
-> them lets the current Expo Go demo association keep working until the real
-> account exists, and `eas init` replaces them cleanly.
+> `owner` and `extra.eas.projectId` were stripped (commit 41753cfa) so `eas init`
+> creates a clean project under your account instead of failing on the upstream
+> `steve8708` project's access.
+
+## expo-doctor pre-flight (2026-06-25)
+
+Ran `npx expo-doctor` so a real first-build failure can be told apart from
+expected noise. 14/19 passed; the 5 failures:
+
+- **FIXED** — `app.json` `newArchEnabled` removed. SDK 55 enables the New
+  Architecture by default and dropped `newArchEnabled` from the config schema,
+  so the flag was an invalid (and redundant) field. New Arch stays ON.
+- **EXPECTED / INTENTIONAL** — the `metro.config.js` override is the deliberate
+  Windows-watcher `blockList` + `CI=1` fix (commit 3d6b9a1f). expo-doctor flags
+  any metro override, but it only affects local dev, **not** the EAS cloud build.
+  Leave it.
+- **WATCH (pnpm-monorepo hoisting/catalog artifacts — NOT fixed pre-emptively;
+  only touch if the first `eas build` actually fails):**
+  - duplicate native module dependencies (hoisting);
+  - `@expo/metro-runtime` resolves to `5.0.5` vs expo-router's expected `^55.0.10`;
+  - minor/patch SDK drift — `expo` + `expo-*` slightly behind `~55.0.27`, while
+    `react` / `react-native` are slightly **ahead** because the workspace catalog
+    pins them. **Do NOT downgrade react/react-native to satisfy expo-doctor** — it
+    would break monorepo consistency.
+  - If the build fails on bundling or a native-module version, run
+    `npx expo install --check` and review each suggested change against the
+    workspace catalog before applying.
