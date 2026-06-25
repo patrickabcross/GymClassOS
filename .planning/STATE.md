@@ -240,3 +240,4 @@ CV1 is the foundational phase: Tiptap (no collab) + `@remotion/player` deps inst
 **CV2 + CV3 can be planned in parallel after CV1 completes** (no dependency between them). CV4 depends on both.
 
 **RENDER go-ahead note:** If server-side MP4 render is approved at any point, run `/gsd:plan-phase CV-RENDER`. The gated phase is fully specified in ROADMAP.md (RENDER-01/RENDER-02) but blocked on explicit infra/cost decision.
+| 2026-06-25 | fast | Stage Hustle iOS identity (bundle uk.co.doyouhustle.app) + EAS build runbook | ✅ |
