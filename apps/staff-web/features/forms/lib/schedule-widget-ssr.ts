@@ -17,8 +17,14 @@
  *
  * Dependencies: zero new runtime deps. Imports only from staff-web internals.
  *
- * guard:allow-unscoped — gym domain tables (class_occurrences, class_definitions)
- * are single-tenant; this is an anonymous public SSR route with no owner-scoped data.
+ * guard:allow-unscoped — gym domain tables (class_occurrences, class_definitions,
+ * trainers) are single-tenant; this is an anonymous public SSR route with no
+ * owner-scoped data.
+ *
+ * SCH-FILTER (260625-d06): widened query to include location + trainerName via
+ * left-join to trainers. Added three native <select> filter controls above the
+ * schedule (SSR, no React), client-side AND filtering via inline JS, and a
+ * "no classes match" empty state for the filtered-out case.
  */
 import { getRequestURL, removeResponseHeader, type H3Event } from "h3";
 import { and, eq, gte } from "drizzle-orm";
@@ -39,6 +45,9 @@ type ClassRow = {
   className: string;
   category: string | null;
   durationMin: number;
+  // SCH-FILTER additions
+  location: string | null;
+  trainerName: string | null;
 };
 
 async function getUpcomingClasses(): Promise<ClassRow[]> {
@@ -46,6 +55,7 @@ async function getUpcomingClasses(): Promise<ClassRow[]> {
   const now = new Date().toISOString();
 
   // guard:allow-unscoped — gym tables are single-tenant; anonymous public endpoint.
+  // SCH-FILTER: left-joined trainers to get trainerName; added location to select.
   const rows = await db
     .select({
       occurrenceId: schema.classOccurrences.id,
@@ -56,11 +66,18 @@ async function getUpcomingClasses(): Promise<ClassRow[]> {
       className: schema.classDefinitions.name,
       category: schema.classDefinitions.category,
       durationMin: schema.classDefinitions.durationMin,
+      // SCH-FILTER additions
+      location: schema.classOccurrences.location,
+      trainerName: schema.trainers.name,
     })
     .from(schema.classOccurrences)
     .innerJoin(
       schema.classDefinitions,
       eq(schema.classOccurrences.definitionId, schema.classDefinitions.id),
+    )
+    .leftJoin(
+      schema.trainers,
+      eq(schema.classOccurrences.trainerId, schema.trainers.id),
     )
     .where(
       and(
@@ -136,8 +153,14 @@ function renderClassCard(cls: ClassRow): string {
   const durationLabel = `${cls.durationMin} min`;
   const occId = escapeHtml(cls.occurrenceId);
 
+  // SCH-FILTER: data-* attributes for client-side show/hide filtering.
+  // Use empty string for null values so JS can match on "".
+  const dataLocation = escapeHtml(cls.location ?? "");
+  const dataClassName = escapeHtml(cls.className);
+  const dataTrainer = escapeHtml(cls.trainerName ?? "");
+
   return `
-<div class="class-card" id="card-${occId}">
+<div class="class-card" id="card-${occId}" data-location="${dataLocation}" data-classname="${dataClassName}" data-trainer="${dataTrainer}">
   <div class="class-info">
     <div class="class-time">${escapeHtml(timeStr)}</div>
     <div class="class-details">
@@ -145,6 +168,8 @@ function renderClassCard(cls: ClassRow): string {
       ${cls.category ? `<span class="class-cat">${escapeHtml(cls.category)}</span>` : ""}
       <span class="class-dur">${escapeHtml(durationLabel)}</span>
       ${cls.room ? `<span class="class-room">${escapeHtml(cls.room)}</span>` : ""}
+      ${cls.location ? `<span class="class-loc">${escapeHtml(cls.location)}</span>` : ""}
+      ${cls.trainerName ? `<span class="class-trainer">${escapeHtml(cls.trainerName)}</span>` : ""}
     </div>
   </div>
   <button
@@ -212,6 +237,61 @@ function renderSchedule(classes: ClassRow[]): string {
 }
 
 // ---------------------------------------------------------------------------
+// SCH-FILTER: derive server-side option lists for the filter selects
+// ---------------------------------------------------------------------------
+
+function deriveFilterOptions(classes: ClassRow[]): {
+  locations: string[];
+  classNames: string[];
+  trainerNames: string[];
+} {
+  const locations = Array.from(
+    new Set(classes.map((c) => c.location).filter((l): l is string => !!l)),
+  ).sort();
+  const classNames = Array.from(
+    new Set(classes.map((c) => c.className)),
+  ).sort();
+  const trainerNames = Array.from(
+    new Set(classes.map((c) => c.trainerName).filter((t): t is string => !!t)),
+  ).sort();
+  return { locations, classNames, trainerNames };
+}
+
+function renderFilterBar(classes: ClassRow[]): string {
+  if (classes.length === 0) return "";
+  const { locations, classNames, trainerNames } = deriveFilterOptions(classes);
+
+  const locationOptions = locations
+    .map((l) => `<option value="${escapeHtml(l)}">${escapeHtml(l)}</option>`)
+    .join("");
+  const classNameOptions = classNames
+    .map((n) => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`)
+    .join("");
+  const trainerOptions = trainerNames
+    .map((t) => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`)
+    .join("");
+
+  return `
+<div class="filter-bar" role="search" aria-label="Filter classes">
+  <select id="filter-location" class="filter-select" aria-label="Filter by location" onchange="applyFilters()">
+    <option value="">All locations</option>
+    ${locationOptions}
+  </select>
+  <select id="filter-classname" class="filter-select" aria-label="Filter by class type" onchange="applyFilters()">
+    <option value="">All class types</option>
+    ${classNameOptions}
+  </select>
+  <select id="filter-trainer" class="filter-select" aria-label="Filter by trainer" onchange="applyFilters()">
+    <option value="">All trainers</option>
+    ${trainerOptions}
+  </select>
+</div>
+<div class="filter-empty" id="filter-empty" style="display:none">
+  <p>No classes match your filters.</p>
+</div>`;
+}
+
+// ---------------------------------------------------------------------------
 // Full page HTML
 // ---------------------------------------------------------------------------
 
@@ -221,6 +301,7 @@ function renderPage(
   radius: number,
   brand: import("../../../server/lib/tenant-brand.js").TenantBrand,
 ): string {
+  const filterBarHtml = renderFilterBar(classes);
   const scheduleHtml = renderSchedule(classes);
 
   return `<!DOCTYPE html>
@@ -245,6 +326,7 @@ function renderPage(
 <body>
 <div class="page">
   <div class="container">
+    ${filterBarHtml}
     ${scheduleHtml}
   </div>
 </div>
@@ -285,6 +367,53 @@ function renderPage(
     toastEl.style.display = "block";
     toastTimer = setTimeout(function() { toastEl.style.display = "none"; }, 4000);
   }
+
+  // ─── SCH-FILTER: client-side AND filtering ────────────────────────────
+  //
+  // Reads the three <select> values and shows/hides each .class-card based on
+  // data-location / data-classname / data-trainer. Empty filter value = match-all.
+  // After hiding cards, also hides any .day-group with zero visible cards.
+  // Shows the #filter-empty message only when ALL cards are hidden.
+  // Calls sendResize() so the parent iframe re-fits its height.
+  window.applyFilters = function() {
+    var locationVal = (document.getElementById("filter-location") || {}).value || "";
+    var classNameVal = (document.getElementById("filter-classname") || {}).value || "";
+    var trainerVal = (document.getElementById("filter-trainer") || {}).value || "";
+
+    var allCards = document.querySelectorAll(".class-card");
+    var visibleCount = 0;
+
+    allCards.forEach(function(card) {
+      var loc = card.getAttribute("data-location") || "";
+      var cn = card.getAttribute("data-classname") || "";
+      var tr = card.getAttribute("data-trainer") || "";
+
+      var show =
+        (!locationVal || loc === locationVal) &&
+        (!classNameVal || cn === classNameVal) &&
+        (!trainerVal || tr === trainerVal);
+
+      card.style.display = show ? "" : "none";
+      if (show) visibleCount++;
+    });
+
+    // Hide day-group headings when they have no visible cards underneath
+    document.querySelectorAll(".day-group").forEach(function(group) {
+      var hasVisible = false;
+      group.querySelectorAll(".class-card").forEach(function(c) {
+        if (c.style.display !== "none") hasVisible = true;
+      });
+      group.style.display = hasVisible ? "" : "none";
+    });
+
+    // Toggle the filter-empty notice
+    var emptyEl = document.getElementById("filter-empty");
+    if (emptyEl) {
+      emptyEl.style.display = visibleCount === 0 ? "block" : "none";
+    }
+
+    sendResize();
+  };
 
   // Toggle enquiry form for a slot
   window.toggleEnquiry = function(occId, className, timeStr) {
@@ -414,6 +543,27 @@ body{background:hsl(var(--bg));color:hsl(var(--fg));-webkit-font-smoothing:antia
 .page{padding:24px 16px 48px}
 .container{max-width:720px;margin:0 auto}
 
+/* SCH-FILTER: filter bar */
+.filter-bar{
+  display:flex;flex-wrap:wrap;gap:8px;
+  margin-bottom:20px;
+}
+.filter-select{
+  flex:1 1 140px;
+  padding:7px 10px;font-size:0.8125rem;font-family:inherit;
+  background:hsl(var(--card));
+  border:1px solid hsl(var(--border));border-radius:var(--radius);
+  color:hsl(var(--fg));outline:none;cursor:pointer;
+  appearance:auto;
+}
+.filter-select:focus{border-color:var(--accent-color)}
+
+/* SCH-FILTER: filter-empty notice (distinct from .empty-state) */
+.filter-empty{
+  text-align:center;padding:32px 16px;
+  color:hsl(var(--muted-fg));font-size:0.9375rem;
+}
+
 .day-group{margin-bottom:32px}
 .day-header{font-size:0.9375rem;font-weight:600;letter-spacing:-0.01em;margin-bottom:12px;color:hsl(var(--fg))}
 
@@ -431,6 +581,11 @@ body{background:hsl(var(--bg));color:hsl(var(--fg));-webkit-font-smoothing:antia
 .class-details{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
 .class-name{font-size:0.9375rem;font-weight:500;color:hsl(var(--card-fg))}
 .class-cat,.class-dur,.class-room{
+  font-size:0.75rem;color:hsl(var(--muted-fg));
+  background:hsl(var(--muted));border-radius:4px;padding:1px 7px;
+}
+/* SCH-FILTER: location + trainer chips (same style as other chips) */
+.class-loc,.class-trainer{
   font-size:0.75rem;color:hsl(var(--muted-fg));
   background:hsl(var(--muted));border-radius:4px;padding:1px 7px;
 }
@@ -502,6 +657,8 @@ body{background:hsl(var(--bg));color:hsl(var(--fg));-webkit-font-smoothing:antia
 @media(max-width:540px){
   .class-info{flex-direction:column;gap:6px}
   .class-time{min-width:unset}
+  .filter-bar{flex-direction:column}
+  .filter-select{flex:none;width:100%}
 }
 `;
 }
@@ -521,11 +678,14 @@ export async function renderScheduleWidget(event: H3Event): Promise<Response> {
   // (sanitizeHexColor returns "#000000" sentinel for missing/invalid params —
   //  we only call it when the param is actually present).
   const accentParam = reqUrl.searchParams.get("accent");
-  const accent = accentParam ? sanitizeHexColor(accentParam) : tenantBrand.primary;
+  const accent = accentParam
+    ? sanitizeHexColor(accentParam)
+    : tenantBrand.primary;
   const radiusParam = reqUrl.searchParams.get("radius");
-  const radius = radiusParam !== null ? sanitizeIntPx(radiusParam) : tenantBrand.radius;
+  const radius =
+    radiusParam !== null ? sanitizeIntPx(radiusParam) : tenantBrand.radius;
 
-  // Fetch upcoming classes from Neon
+  // Fetch upcoming classes from Neon (includes location + trainerName)
   const classes = await getUpcomingClasses();
 
   const html = renderPage(classes, accent, radius, tenantBrand);
