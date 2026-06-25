@@ -45,6 +45,7 @@ import {
   IconAlertTriangle,
   IconLoader2,
   IconAd2,
+  IconMapPin,
 } from "@tabler/icons-react";
 import { useState } from "react";
 import { getDb } from "../../server/db";
@@ -109,6 +110,8 @@ export async function loader({ request }: LoaderFunctionArgs) {
           lastSendAt: null as string | null,
           hasPageToken: false,
         },
+        // GSG-01: degrade gracefully on error path — empty sites
+        sites: [] as string[],
       };
     }
   }
@@ -189,6 +192,15 @@ export async function loader({ request }: LoaderFunctionArgs) {
     hasPageToken,
   };
 
+  // ── GSG-01: Studio-global site/location names ────────────────────────────
+  // guard:allow-unscoped — studio-global config (singleton row)
+  const { resolveSites } = await import("../../server/lib/sites.js");
+  const siteRows = await (getDb() as any).execute(
+    sql`SELECT sites FROM studio_owner_config LIMIT 1`,
+  );
+  const siteCfg = ((siteRows as any)?.rows ?? (siteRows as any))?.[0] ?? {};
+  const sites = resolveSites(siteCfg.sites);
+
   return {
     connectedAccount,
     refreshError: null as string | null,
@@ -196,6 +208,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     updatedAt: current?.updated_at ?? null,
     lastUsedAt: current?.last_used_at ?? null,
     meta,
+    sites,
   };
 }
 
@@ -455,6 +468,25 @@ export async function action({ request }: ActionFunctionArgs) {
     };
   }
 
+  // ── GSG-01: Save studio-global site/location names ───────────────────────
+  if (intent === "save-sites-config") {
+    const { resolveSites } = await import("../../server/lib/sites.js");
+    // Newline-or-comma separated textarea → normalized JSON string array.
+    const raw = String(fd.get("sites") ?? "");
+    const list = resolveSites(
+      JSON.stringify(raw.split(/[\n,]/).map((s) => s.trim())),
+    );
+    // guard:allow-unscoped — studio-global config (singleton row)
+    await (getDb() as any).execute(sql`
+      INSERT INTO studio_owner_config (id, sites, updated_at)
+      VALUES ('singleton', ${JSON.stringify(list)}, NOW())
+      ON CONFLICT (id) DO UPDATE SET
+        sites = ${JSON.stringify(list)},
+        updated_at = NOW()
+    `);
+    return { ok: true, intent };
+  }
+
   return { ok: false, error: "Unknown intent.", intent };
 }
 
@@ -489,17 +521,26 @@ export default function StripeIntegrations() {
     error?: string;
     intent?: string;
   }>();
+  // GSG-01: Locations card fetcher
+  const sitesFetcher = useFetcher<{
+    ok: boolean;
+    error?: string;
+    intent?: string;
+  }>();
 
   // Masked token reveal state (mirrors rotate-key UX for Meta token)
   const [showTokenField, setShowTokenField] = useState(false);
   // MC3-03: Masked reveal state for Page Access Token (Lead Ads)
   const [showPageTokenField, setShowPageTokenField] = useState(false);
+  // GSG-01: edit-sites toggle (progressive disclosure — collapsed when sites exist)
+  const [showEditSites, setShowEditSites] = useState(data.sites.length === 0);
 
   const submitting = nav.state === "submitting" || nav.state === "loading";
   const connectSubmitting = connectFetcher.state !== "idle";
   const keySubmitting = keyFetcher.state !== "idle";
   const metaConfigSubmitting = metaConfigFetcher.state !== "idle";
   const metaTestSubmitting = metaTestFetcher.state !== "idle";
+  const sitesSubmitting = sitesFetcher.state !== "idle";
 
   const connectedAccount = data.connectedAccount;
   const isConnected = Boolean(connectedAccount);
@@ -976,6 +1017,103 @@ export default function StripeIntegrations() {
               </div>
             )}
           </div>
+        </div>
+
+        {/* ── GSG-01: Locations card ──────────────────────────────────────── */}
+        <div className="rounded-lg border border-border/50 p-4 bg-card/30 space-y-4">
+          <div className="flex items-center gap-2">
+            <IconMapPin size={16} className="text-muted-foreground" />
+            <span className="text-sm font-semibold">Locations</span>
+          </div>
+
+          <p className="text-[12px] text-muted-foreground">
+            Site names available when scheduling classes. Each name appears in
+            the location picker when creating or editing a class.
+          </p>
+
+          {/* Current sites list (progressive disclosure — edit collapsed when sites exist) */}
+          {data.sites.length > 0 && !showEditSites ? (
+            <div className="space-y-2">
+              <div className="flex flex-wrap gap-1.5">
+                {data.sites.map((s) => (
+                  <span
+                    key={s}
+                    className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-muted text-muted-foreground border border-border/50"
+                  >
+                    {s}
+                  </span>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowEditSites(true)}
+                className="text-[11px] text-muted-foreground underline underline-offset-2"
+              >
+                Edit locations
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {data.sites.length === 0 && (
+                <p className="text-[12px] text-muted-foreground">
+                  No locations yet — add your studio&apos;s sites below.
+                </p>
+              )}
+              <sitesFetcher.Form method="post" className="space-y-3">
+                <input type="hidden" name="_intent" value="save-sites-config" />
+                <div className="space-y-1">
+                  <textarea
+                    name="sites"
+                    rows={4}
+                    defaultValue={data.sites.join("\n")}
+                    placeholder={"e.g.\nNorwich\nWymondham"}
+                    className="w-full border border-border/50 rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-ring resize-none"
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    One per line (or comma-separated). Saved sites are
+                    de-duplicated and trimmed automatically.
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="submit"
+                    disabled={sitesSubmitting}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-foreground text-background text-sm font-semibold disabled:opacity-50"
+                  >
+                    {sitesSubmitting ? (
+                      <>
+                        <IconLoader2 size={14} className="animate-spin" />
+                        Saving…
+                      </>
+                    ) : (
+                      "Save locations"
+                    )}
+                  </button>
+                  {data.sites.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setShowEditSites(false)}
+                      className="text-[11px] text-muted-foreground underline underline-offset-2"
+                    >
+                      Cancel
+                    </button>
+                  )}
+                </div>
+              </sitesFetcher.Form>
+              {sitesFetcher.data?.ok === true &&
+                sitesFetcher.data.intent === "save-sites-config" && (
+                  <div className="rounded-md bg-emerald-500/10 border border-emerald-500/20 px-3 py-2 text-[12px] text-emerald-700 dark:text-emerald-300">
+                    Locations saved.
+                  </div>
+                )}
+              {sitesFetcher.data?.ok === false &&
+                sitesFetcher.data.intent === "save-sites-config" && (
+                  <div className="rounded-md bg-destructive/10 border border-destructive/20 px-3 py-2 text-[12px] text-destructive">
+                    {sitesFetcher.data.error}
+                  </div>
+                )}
+            </div>
+          )}
         </div>
 
         {/* Dev fallback: restricted-key rotation (P1b-08) — hidden behind ?devKeyEntry=1 */}
