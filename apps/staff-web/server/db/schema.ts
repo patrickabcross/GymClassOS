@@ -236,7 +236,10 @@ export const classOccurrences = table("class_occurrences", {
 // generated_through: ISO date cursor advanced by the worker after each run.
 //   null = not yet generated (first run generates from starts_on).
 // ends_on: null = open-ended rolling window.
-// active: 1 = materialise on cron; 0 = deactivated (series closed).
+// active: integer("active", { mode: "boolean" }) — the @agent-native/core schema
+//   wrapper emits a Postgres BOOLEAN column for this declaration (migration v36
+//   ensures BOOLEAN on all deploys; HUSTLE prod was hotfixed earlier).
+//   true = materialise on cron; false = deactivated (series closed).
 // ---------------------------------------------------------------------------
 export const classScheduleRules = table("class_schedule_rules", {
   id: text("id").primaryKey(),
@@ -269,10 +272,11 @@ export const classScheduleRules = table("class_schedule_rules", {
 // reference; no new migration files needed. Single-tenant: no studio_id.
 // Reads carry // guard:allow-unscoped — single-tenant gym tables.
 //
-// active uses integer-boolean (mode:"boolean") to match studio_owner_config
-// digest_enabled / heartbeat_enabled pattern. Drizzle stores 0/1; SQL DDL is
-// INTEGER NOT NULL DEFAULT 1. The unique lower(name) index in v23 is the
-// dedupe target for list-trainers / create-trainer / the seed (v26).
+// active: integer("active", { mode: "boolean" }) — the @agent-native/core schema
+// wrapper emits a Postgres BOOLEAN column for this declaration (migration v36
+// ensures the column is BOOLEAN on all deploys; HUSTLE prod was hotfixed earlier).
+// Drizzle JS layer reads it as a boolean. The unique lower(name) index in v23 is
+// the dedupe target for list-trainers / create-trainer / the seed (v26).
 // ---------------------------------------------------------------------------
 export const trainers = table("trainers", {
   id: text("id").primaryKey(),
