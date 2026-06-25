@@ -87,10 +87,28 @@ export function isSingleTenantDeploy(): boolean {
  * single-tenant contexts. In hosted production with a shared database, every
  * signed-in user needs their own user/org/workspace credential so one deploy
  * key does not silently power another tenant's chat.
+ *
+ * GymClassOS fork: this is a hard fork of agent-native; every deploy is
+ * single-tenant by definition (one Vercel project per customer, one Neon
+ * project per customer — CLAUDE.md tenancy rule). Cross-tenant credential
+ * leakage is impossible because there is exactly one tenant per deploy.
+ *
+ * The default is therefore flipped: deploy-level env-var fallback is allowed
+ * everywhere, including authenticated production requests. To opt INTO the
+ * upstream multi-tenant SaaS gate (refuse env fallback unless local DB), set
+ * `AGENT_NATIVE_MULTI_TENANT=true` — kept as an escape hatch in case a future
+ * surface ever needs to share one deploy across tenants. The legacy
+ * `AGENT_NATIVE_SINGLE_TENANT=true` env var is still honoured as a no-op
+ * (matches the new default) for back-compat with already-set Vercel configs.
  */
 export function isDeployCredentialFallbackAllowed(): boolean {
   if (process.env.NODE_ENV !== "production") return true;
-  return isLocalDatabase() || isSingleTenantDeploy();
+  // GymClassOS fork: explicit multi-tenant opt-in restores the upstream gate.
+  if (/^(1|true)$/i.test(process.env.AGENT_NATIVE_MULTI_TENANT ?? "")) {
+    return isLocalDatabase();
+  }
+  // GymClassOS fork default: single-tenant-per-deploy — env fallback allowed.
+  return true;
 }
 
 export function canUseDeployCredentialFallbackForRequest(): boolean {

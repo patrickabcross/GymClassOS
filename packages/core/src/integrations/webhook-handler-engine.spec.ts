@@ -182,6 +182,10 @@ describe("integration webhook handler engine resolution", () => {
     } else {
       process.env.NODE_ENV = originalNodeEnv;
     }
+    // GymClassOS fork: tests opt into upstream multi-tenant gating per-case;
+    // make sure the flag does not leak into the next test.
+    delete process.env.AGENT_NATIVE_MULTI_TENANT;
+    delete process.env.AGENT_NATIVE_SINGLE_TENANT;
   });
 
   // CI runs this suite with a much longer transform/import phase than local
@@ -405,7 +409,10 @@ describe("integration webhook handler engine resolution", () => {
   it("does not fall back to deployment keys in multi-tenant mode", async () => {
     const { processIntegrationTask } = await import("./webhook-handler.js");
     const sendResponse = vi.fn();
+    // GymClassOS fork: single-tenant is the default; opt back into upstream
+    // multi-tenant gating to exercise the no-fallback behaviour.
     process.env.NODE_ENV = "production";
+    process.env.AGENT_NATIVE_MULTI_TENANT = "true";
     isLocalDatabaseMock.mockReturnValue(false);
     const task: PendingTask = {
       id: "task-multitenant",

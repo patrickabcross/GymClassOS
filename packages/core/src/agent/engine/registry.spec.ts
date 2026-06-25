@@ -18,6 +18,11 @@ describe("AgentEngine registry", () => {
     delete process.env.GOOGLE_GENERATIVE_AI_API_KEY; // guard:allow-env-credential — test setup clears env to assert credential precedence
     delete process.env.BUILDER_PRIVATE_KEY; // guard:allow-env-credential — test setup clears env to assert credential precedence
     delete process.env.BUILDER_PUBLIC_KEY; // guard:allow-env-credential — test setup clears env to assert credential precedence
+    // GymClassOS fork: single-tenant-per-deploy is the default. Tests that
+    // assert upstream multi-tenant gating must opt back in via
+    // AGENT_NATIVE_MULTI_TENANT=true within the test body.
+    delete process.env.AGENT_NATIVE_MULTI_TENANT;
+    delete process.env.AGENT_NATIVE_SINGLE_TENANT;
   });
 
   it("registers and retrieves an engine", async () => {
@@ -767,8 +772,10 @@ describe("AgentEngine registry", () => {
       expect(resolved).toBe(googleEngine);
     });
 
-    it("does not auto-detect deploy-level provider env keys for signed-in production shared-database users", async () => {
+    it("does not auto-detect deploy-level provider env keys for signed-in production shared-database users (upstream multi-tenant gate)", async () => {
+      // GymClassOS fork: opt back into upstream multi-tenant gating.
       vi.stubEnv("NODE_ENV", "production");
+      vi.stubEnv("AGENT_NATIVE_MULTI_TENANT", "true");
       process.env.OPENAI_API_KEY = "sk-deploy"; // guard:allow-env-credential — fixture: prove signed-in users do NOT pick up deploy env
       vi.doMock("../../settings/store.js", () => ({
         getSetting: vi.fn().mockResolvedValue(null),
@@ -825,8 +832,10 @@ describe("AgentEngine registry", () => {
       expect(resolved).toBe(anthropicEngine);
     });
 
-    it("disables deploy env fallback for explicitly selected engines in signed-in production shared-database requests", async () => {
+    it("disables deploy env fallback for explicitly selected engines in signed-in production shared-database requests (upstream multi-tenant gate)", async () => {
+      // GymClassOS fork: opt back into upstream multi-tenant gating.
       vi.stubEnv("NODE_ENV", "production");
+      vi.stubEnv("AGENT_NATIVE_MULTI_TENANT", "true");
       process.env.OPENAI_API_KEY = "sk-deploy"; // guard:allow-env-credential — fixture: prove explicit engine selection does NOT fall back to deploy env
       vi.doMock("../../server/request-context.js", () => ({
         getRequestUserEmail: () => "new@example.com",

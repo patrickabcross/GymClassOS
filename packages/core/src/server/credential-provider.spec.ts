@@ -59,6 +59,11 @@ beforeEach(() => {
   delete process.env.BUILDER_PRIVATE_KEY;
   delete process.env.BUILDER_PUBLIC_KEY;
   delete process.env.OPENAI_API_KEY;
+  // GymClassOS fork: this fork defaults to single-tenant-per-deploy.
+  // Tests that assert upstream multi-tenant SaaS gating must opt in explicitly
+  // by setting AGENT_NATIVE_MULTI_TENANT=true within the test body.
+  delete process.env.AGENT_NATIVE_MULTI_TENANT;
+  delete process.env.AGENT_NATIVE_SINGLE_TENANT;
   mockReadAppSecret.mockResolvedValue(null);
   mockWriteAppSecret.mockResolvedValue("id");
   mockDeleteAppSecret.mockResolvedValue(true);
@@ -366,8 +371,13 @@ describe("resolveBuilderCredential", () => {
     expect(mockReadAppSecret).toHaveBeenCalledTimes(3);
   });
 
-  it("does not use deploy-level Builder keys for signed-in users on production shared databases", async () => {
+  it("does not use deploy-level Builder keys for signed-in users on production shared databases (upstream multi-tenant gate)", async () => {
+    // GymClassOS fork: AGENT_NATIVE_MULTI_TENANT=true opts back into the
+    // upstream multi-tenant SaaS gate that this test was originally written
+    // against. The fork default (single-tenant-per-deploy) would otherwise
+    // allow the env fallback here.
     process.env.NODE_ENV = "production";
+    process.env.AGENT_NATIVE_MULTI_TENANT = "true";
     process.env.BUILDER_PRIVATE_KEY = "deploy-key";
     mockIsLocalDatabase.mockReturnValue(false);
     mockGetRequestUserEmail.mockReturnValue("a@b.com");
@@ -522,8 +532,10 @@ describe("resolveBuilderCredential", () => {
     expect(await resolveBuilderCredentialSource()).toBe("env");
   });
 
-  it("does not report env as the credential source for signed-in production shared-database users", async () => {
+  it("does not report env as the credential source for signed-in production shared-database users (upstream multi-tenant gate)", async () => {
+    // GymClassOS fork: opt into upstream multi-tenant gating.
     process.env.NODE_ENV = "production";
+    process.env.AGENT_NATIVE_MULTI_TENANT = "true";
     process.env.BUILDER_PRIVATE_KEY = "deploy-key";
     mockIsLocalDatabase.mockReturnValue(false);
     mockGetRequestUserEmail.mockReturnValue("member@b.com");
@@ -594,8 +606,10 @@ describe("resolveSecret (generic)", () => {
     ]);
   });
 
-  it("does not consult process.env in an authenticated request", async () => {
+  it("does not consult process.env in an authenticated request (upstream multi-tenant gate)", async () => {
+    // GymClassOS fork: opt into upstream multi-tenant gating.
     process.env.NODE_ENV = "production";
+    process.env.AGENT_NATIVE_MULTI_TENANT = "true";
     process.env.OPENAI_API_KEY = "deploy-key";
     mockIsLocalDatabase.mockReturnValue(false);
     mockGetRequestUserEmail.mockReturnValue("a@b.com");
@@ -603,8 +617,10 @@ describe("resolveSecret (generic)", () => {
     expect(await resolveSecret("OPENAI_API_KEY")).toBeNull();
   });
 
-  it("keeps deploy env secrets blocked for signed-in production shared-database users even when AGENT_ENGINE is set", async () => {
+  it("keeps deploy env secrets blocked for signed-in production shared-database users even when AGENT_ENGINE is set (upstream multi-tenant gate)", async () => {
+    // GymClassOS fork: opt into upstream multi-tenant gating.
     process.env.NODE_ENV = "production";
+    process.env.AGENT_NATIVE_MULTI_TENANT = "true";
     process.env.AGENT_ENGINE = "builder";
     process.env.BUILDER_PRIVATE_KEY = "deploy-key";
     process.env.BUILDER_PUBLIC_KEY = "space-id";
