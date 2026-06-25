@@ -451,6 +451,74 @@ CREATE INDEX IF NOT EXISTS idx_meta_lead_attribution_member ON meta_lead_attribu
       // (migration-drift gotcha). HUSTLE's sites are seeded as DATA, not here.
       sql: `ALTER TABLE studio_owner_config ADD COLUMN IF NOT EXISTS sites JSONB`,
     },
+    // -------------------------------------------------------------------------
+    // MVN-01: Durable corrective migration — ensure trainers.active and
+    // class_schedule_rules.active are stored as proper Postgres BOOLEAN.
+    //
+    // Context: both columns were originally created as INTEGER NOT NULL DEFAULT 1
+    // (SQLite-compatible integer-boolean). The LP3 / MPV trainers seed and the
+    // recurrence engine insert 1/0 integer literals. Postgres accepts 1/0 as
+    // boolean values, but column type remains INTEGER.
+    //
+    // HUSTLE prod (billowing-sun-51091059) was hotfixed by hand to BOOLEAN before
+    // this migration was written, so this migration is a NO-OP on that database.
+    //
+    // Guard: the DO block checks pg_attribute.atttypid — if the column is ALREADY
+    // boolean (atttypid=16) the ALTER TABLE is skipped entirely (idempotent).
+    //
+    // USING cast: `USING (active <> 0)` converts existing 0/1 integer values to
+    // false/true. Value-preserving — NOT destructive. No DROP/RENAME/TRUNCATE.
+    //
+    // SQLite path: the outer `information_schema` EXISTS check makes this a no-op
+    // on the local SQLite dev DB (SQLite doesn't know BOOLEAN; INTEGER stays fine
+    // for dev purposes). The Drizzle `integer("active", { mode: "boolean" })`
+    // declaration in schema.ts remains correct for both dialects.
+    // -------------------------------------------------------------------------
+    {
+      version: 36,
+      sql: `DO $mvn01$
+BEGIN
+  -- Postgres-only guard: skip entirely on SQLite (no information_schema rows)
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'information_schema') THEN
+
+    -- Fix trainers.active if it is still INTEGER (atttypid 23) and not BOOLEAN (atttypid 16)
+    IF EXISTS (
+      SELECT 1 FROM pg_attribute a
+      JOIN pg_class c ON c.oid = a.attrelid
+      WHERE c.relname = 'trainers'
+        AND a.attname = 'active'
+        AND a.atttypid = 23   -- int4 = INTEGER
+        AND a.attnum > 0
+        AND NOT a.attisdropped
+    ) THEN
+      EXECUTE $sql$
+        ALTER TABLE trainers
+          ALTER COLUMN active TYPE BOOLEAN
+          USING (active <> 0)
+      $sql$;
+    END IF;
+
+    -- Fix class_schedule_rules.active if it is still INTEGER
+    IF EXISTS (
+      SELECT 1 FROM pg_attribute a
+      JOIN pg_class c ON c.oid = a.attrelid
+      WHERE c.relname = 'class_schedule_rules'
+        AND a.attname = 'active'
+        AND a.atttypid = 23   -- int4 = INTEGER
+        AND a.attnum > 0
+        AND NOT a.attisdropped
+    ) THEN
+      EXECUTE $sql$
+        ALTER TABLE class_schedule_rules
+          ALTER COLUMN active TYPE BOOLEAN
+          USING (active <> 0)
+      $sql$;
+    END IF;
+
+  END IF;
+END
+$mvn01$`,
+    },
     {
       version: 15,
       // postgres path: plpgsql function + conditional trigger creation
