@@ -7,7 +7,8 @@
 // defining a new one inline.
 //
 // LP3 additions: Trainer Select (from loader trainers roster) and Location
-// Select (Norwich / Wymondham). Both optional. Order follows bsport style:
+// Select (studio-configured sites via studio_owner_config.sites — GSG-01).
+// Both optional. Order follows bsport style:
 // class type → new-type fields → date/time → capacity → room → location → trainer.
 //
 // MPV Phase 2 addition: "Repeat weekly" toggle.
@@ -98,10 +99,13 @@ type DefResult = { id?: string; name?: string; error?: string };
 export function NewClassDialog({
   classTypes,
   trainers,
+  sites,
   defaultDate,
 }: {
   classTypes: ClassType[];
   trainers: Trainer[];
+  /** Studio-configured site/location names (GSG-01). Empty array when unconfigured. */
+  sites: string[];
   defaultDate: string /* "yyyy-MM-dd" */;
 }) {
   const [open, setOpen] = useState(false);
@@ -461,7 +465,7 @@ export function NewClassDialog({
             </div>
           )}
 
-          {/* Location (LP3) */}
+          {/* Location (LP3 → GSG-01: configurable from studio_owner_config.sites) */}
           <div className="space-y-2">
             <Label htmlFor="location">Location (optional)</Label>
             <Select value={location} onValueChange={setLocation}>
@@ -470,10 +474,18 @@ export function NewClassDialog({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={NONE}>— none —</SelectItem>
-                <SelectItem value="Norwich">Norwich</SelectItem>
-                <SelectItem value="Wymondham">Wymondham</SelectItem>
+                {sites.map((s) => (
+                  <SelectItem key={s} value={s}>
+                    {s}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
+            {sites.length === 0 && (
+              <p className="text-[11px] text-muted-foreground">
+                No locations configured. Add sites in Settings → Integrations.
+              </p>
+            )}
           </div>
 
           {/* Trainer (LP3) */}

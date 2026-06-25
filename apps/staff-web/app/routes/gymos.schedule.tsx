@@ -249,6 +249,18 @@ export async function loader({ request }: LoaderFunctionArgs) {
     .where(eq(schema.trainers.active, true))
     .orderBy(asc(schema.trainers.name));
 
+  // Query F — studio-global site/location names for the New Class picker
+  // (GSG-01). Reads studio_owner_config.sites and resolves via resolveSites
+  // (pure, never-throws, empty-array default — no HUSTLE names in code).
+  // guard:allow-unscoped — studio-global config (singleton row).
+  const { resolveSites } = await import("../../server/lib/sites.js");
+  const siteCfgRows = await (db as any).execute(
+    sql`SELECT sites FROM studio_owner_config LIMIT 1`,
+  );
+  const siteCfg =
+    ((siteCfgRows as any)?.rows ?? (siteCfgRows as any))?.[0] ?? {};
+  const sites = resolveSites(siteCfg.sites);
+
   // Query C — only fetch members + selected occurrence when dialog is open.
   let members: Array<{
     id: string;
@@ -275,6 +287,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     bookOccurrence,
     classTypes,
     trainers,
+    sites,
   };
 }
 
@@ -535,6 +548,7 @@ export default function GymosSchedule() {
             <NewClassDialog
               classTypes={data.classTypes}
               trainers={data.trainers}
+              sites={data.sites}
               defaultDate={selectedKey}
             />
 
