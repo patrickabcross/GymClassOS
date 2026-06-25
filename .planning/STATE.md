@@ -77,6 +77,7 @@ Last activity: 2026-06-24 — Completed quick task 260624-vzw (schedule embed on
 | 260625-d06 | Schedule filters — three AND-composed filters (location, class type, trainer) on both the staff calendar (shadcn Popover + Select, client-side over loaded data) and the public embed timetable (native `<select>`, data-* attributes, inline applyFilters() JS). Loader Query A widened with leftJoin(trainers). No schema migration. | 2026-06-25 | 511a4b39 | [260625-d06-add-location-class-type-trainer-filters-](./quick/260625-d06-add-location-class-type-trainer-filters-/) |
 | 260625-gsg | Make class sites/locations a studio-global config — pure resolveSites resolver + additive sites JSONB column (migration v35) + schedule loader threading + configurable NewClassDialog picker (replaces hardcoded Norwich/Wymondham) + Settings Locations card with UPSERT action (save-sites-config). 10/10 unit tests pass. REPEATABLE-PER-CLIENT: empty-array default, no gym names in code. TWO manual operator steps required: apply 0007_studio_sites.sql to Neon + seed HUSTLE sites as data. | 2026-06-25 | 107f1e0b | [260625-gsg-make-class-sites-locations-a-studio-glob](./quick/260625-gsg-make-class-sites-locations-a-studio-glob/) |
 | 260625-mvn | Brain page scroll fix + durable active-column corrective — migration v36 (guarded idempotent DO block, NO-OP on HUSTLE prod already hotfixed) converts trainers.active + class_schedule_rules.active INTEGER→BOOLEAN with USING(active<>0); schema.ts comment-only update; Brain page both return paths wrapped in h-full overflow-y-auto scroll container mirroring integrations page. | 2026-06-25 | 126445fa | [260625-mvn-fix-brain-page-scroll-durable-corrective](./quick/260625-mvn-fix-brain-page-scroll-durable-corrective/) |
+| 260625-x34 | Merge Messages/Leads inbox into one unified list — remove isLeadsView partition; loader loads ALL conversations; per-lead sourceMap fan-out (opt-in source + form title override via DISTINCT ON); leadSource: {type,label}|null on each row; single "Inbox" header + unconditional Import leads; no Messages/Leads chips; subtle secondary Badge with Tabler icon per lead source type. No schema migration. | 2026-06-25 | 89fa763f | [260625-x34-merge-messages-leads-inbox-into-one-list](./quick/260625-x34-merge-messages-leads-inbox-into-one-list/) |
 
 ### v2.1 Phase Summary
 
@@ -210,8 +211,8 @@ Last activity: 2026-06-24 — Completed quick task 260624-vzw (schedule embed on
 
 ## Session Continuity
 
-Last session: 2026-06-24T11:04:36.462Z
-Stopped at: Completed MC3-02-PLAN.md
+Last session: 2026-06-25T22:57:34Z
+Stopped at: Completed quick task 260625-x34 (merge messages/leads inbox)
 Resume file: None
 
 Prior session: 2026-06-20T10:22:33.153Z — Completed CV4-publish-pipeline CV4-01-PLAN.md
