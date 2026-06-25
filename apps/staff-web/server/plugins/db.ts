@@ -438,6 +438,19 @@ CREATE INDEX IF NOT EXISTS idx_meta_lead_attribution_member ON meta_lead_attribu
       version: 34,
       sql: `ALTER TABLE meta_lead_attribution ADD COLUMN IF NOT EXISTS meta_lead_id TEXT`,
     },
+    // -------------------------------------------------------------------------
+    // GSG-01: studio-global site/location names (JSONB). Additive, idempotent.
+    // NOT auto-applied to gymos-demo Neon by build — apply by hand after deploy
+    // (migration-drift gotcha). HUSTLE's sites are seeded as DATA, not here.
+    // Standalone SQL: apps/staff-web/server/db/migrations/0007_studio_sites.sql
+    // -------------------------------------------------------------------------
+    {
+      version: 35,
+      // GSG-01: studio-global site/location names (JSONB). Additive, idempotent.
+      // NOT auto-applied to gymos-demo Neon by build — apply by hand after deploy
+      // (migration-drift gotcha). HUSTLE's sites are seeded as DATA, not here.
+      sql: `ALTER TABLE studio_owner_config ADD COLUMN IF NOT EXISTS sites JSONB`,
+    },
     {
       version: 15,
       // postgres path: plpgsql function + conditional trigger creation

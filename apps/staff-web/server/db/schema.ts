@@ -386,7 +386,9 @@ export const agentSessions = table("agent_sessions", {
 // column). The legacy text PK `id` stays for backwards-compat / existing rows.
 export const webhookEvents = table("webhook_events", {
   id: text("id").primaryKey(), // e.g. "stripe:evt_..." or "whatsapp:wamid..."
-  provider: text("provider", { enum: ["stripe", "whatsapp", "meta_lead"] }).notNull(),
+  provider: text("provider", {
+    enum: ["stripe", "whatsapp", "meta_lead"],
+  }).notNull(),
   eventType: text("event_type").notNull(),
   externalId: text("external_id"), // P1b — backfilled from id, then UNIQUE(provider, external_id) via migration 0001
   payloadRaw: text("payload_raw").notNull(),
@@ -413,7 +415,13 @@ export const whatsappOptIn = table("whatsapp_opt_in", {
   evidenceMessageId: text("evidence_message_id"), // FK messages.id (inbound that triggered opt-in)
   evidencePayload: text("evidence_payload"), // JSON of the inbound msg
   source: text("source", {
-    enum: ["inbound_reply", "manual_admin", "import", "form_submission", "meta_lead_ads"],
+    enum: [
+      "inbound_reply",
+      "manual_admin",
+      "import",
+      "form_submission",
+      "meta_lead_ads",
+    ],
   }).notNull(),
   optedOutAt: text("opted_out_at"), // WA-09/WA-10: nullable — set when member opts out
 });
@@ -661,6 +669,11 @@ export const studioOwnerConfig = table("studio_owner_config", {
   metaPixelId: text("meta_pixel_id"),
   metaTestEventCode: text("meta_test_event_code"),
   metaStageEventMap: text("meta_stage_event_map"), // JSONB column; JSON string
+  // GSG-01: studio-global site/location names. JSONB in Postgres — stored as
+  // TEXT here, read/written as a JSON string array. Resolver in
+  // server/lib/sites.ts applies an EMPTY-array default when null (gym-agnostic
+  // — NO hardcoded site names in code; HUSTLE's sites are DATA). Migration v35.
+  sites: text("sites"), // JSONB column; JSON string array
   createdAt: text("created_at").notNull().default(now()),
   updatedAt: text("updated_at").notNull().default(now()),
 });
