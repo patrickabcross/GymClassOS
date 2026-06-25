@@ -248,9 +248,7 @@ export default function GymosBrain() {
           return;
         }
         toast.success(
-          id === "brand-voice"
-            ? "Brand Voice saved"
-            : "Studio Ethos saved",
+          id === "brand-voice" ? "Brand Voice saved" : "Studio Ethos saved",
         );
         // Refresh to ensure we have authoritative value
         fetchDocs();
@@ -278,11 +276,13 @@ export default function GymosBrain() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url: extractUrl.trim() }),
       });
-      const data = await res.json() as { ok: boolean; tokens?: BrandTokens; error?: string };
+      const data = (await res.json()) as {
+        ok: boolean;
+        tokens?: BrandTokens;
+        error?: string;
+      };
       if (!data.ok || !data.tokens) {
-        toast.error(
-          `Extract failed — ${data.error ?? "unknown error"}`,
-        );
+        toast.error(`Extract failed — ${data.error ?? "unknown error"}`);
         return;
       }
       setBrandTokens(data.tokens);
@@ -314,7 +314,7 @@ export default function GymosBrain() {
         );
         return;
       }
-      const data = await res.json() as { updated: boolean; reason?: string };
+      const data = (await res.json()) as { updated: boolean; reason?: string };
       if (!data.updated) {
         toast.error(`Validation failed — ${data.reason ?? "invalid tokens"}`);
         return;
@@ -343,306 +343,317 @@ export default function GymosBrain() {
 
   if (loading) {
     return (
-      <div className="flex flex-col gap-4 p-6 max-w-2xl mx-auto">
-        <Skeleton className="h-8 w-48" />
-        <Skeleton className="h-32 w-full" />
-        <Skeleton className="h-32 w-full" />
+      <div className="h-full w-full overflow-y-auto bg-background text-foreground">
+        <div className="flex flex-col gap-4 p-6 max-w-2xl mx-auto">
+          <Skeleton className="h-8 w-48" />
+          <Skeleton className="h-32 w-full" />
+          <Skeleton className="h-32 w-full" />
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-5 p-6 max-w-2xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center gap-2">
-        <IconBook2 className="size-5 text-muted-foreground" />
-        <h1 className="text-base font-semibold">Studio Brain</h1>
-        <span className="text-xs text-muted-foreground ml-1">
-          Your studio's brand knowledge, editable here
-        </span>
-      </div>
+    <div className="h-full w-full overflow-y-auto bg-background text-foreground">
+      <div className="flex flex-col gap-5 p-6 max-w-2xl mx-auto">
+        {/* Header */}
+        <div className="flex items-center gap-2">
+          <IconBook2 className="size-5 text-muted-foreground" />
+          <h1 className="text-base font-semibold">Studio Brain</h1>
+          <span className="text-xs text-muted-foreground ml-1">
+            Your studio's brand knowledge, editable here
+          </span>
+        </div>
 
-      {/* ── Brand & Styling ──────────────────────────────────────────────── */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <IconPalette className="size-4 text-muted-foreground" />
-            Brand & Styling
-          </CardTitle>
-          <p className="text-xs text-muted-foreground">
-            Visual identity tokens — colours, fonts, and logo. Used by public
-            SSR pages (forms, schedule widget, embeds, videos). Paste your
-            website URL and click Fetch &amp; extract to auto-fill.
-          </p>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          {/* URL extractor row */}
-          <div className="flex gap-2">
-            <Input
-              type="url"
-              placeholder="https://yourstudio.com"
-              value={extractUrl}
-              onChange={(e) => setExtractUrl(e.target.value)}
-              className="text-sm flex-1"
-            />
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={extracting}
-              onClick={handleExtract}
-            >
-              <IconWorld className="size-3.5 mr-1.5" />
-              {extracting ? "Fetching…" : "Fetch & extract"}
-            </Button>
-          </div>
-
-          {/* Token fields — 2-column grid on wider screens */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {(
-              [
-                { key: "displayName", label: "Studio name", type: "text" },
-                { key: "fontFamily", label: "Font family", type: "text" },
-                {
-                  key: "googleFontsHref",
-                  label: "Google Fonts URL",
-                  type: "url",
-                },
-                { key: "primary", label: "Primary colour", type: "text" },
-                {
-                  key: "primaryText",
-                  label: "Primary text colour",
-                  type: "text",
-                },
-                {
-                  key: "secondaryAccent",
-                  label: "Secondary accent",
-                  type: "text",
-                },
-                { key: "ink", label: "Body text colour", type: "text" },
-                { key: "bg", label: "Background", type: "text" },
-                { key: "bgAlt", label: "Alt background", type: "text" },
-                { key: "radius", label: "Border radius (px)", type: "number" },
-                { key: "logoUrl", label: "Logo URL", type: "url" },
-              ] as { key: keyof BrandTokens; label: string; type: string }[]
-            ).map(({ key, label, type }) => (
-              <div key={key} className="flex flex-col gap-1">
-                <Label htmlFor={`bt-${key}`} className="text-xs">
-                  {label}
-                </Label>
-                <Input
-                  id={`bt-${key}`}
-                  type={type}
-                  value={String(brandTokens[key])}
-                  onChange={(e) =>
-                    setBrandTokens((prev) => ({
-                      ...prev,
-                      [key]:
-                        type === "number"
-                          ? Number(e.target.value)
-                          : e.target.value,
-                    }))
-                  }
-                  className="text-sm"
-                />
-              </div>
-            ))}
-          </div>
-
-          {/* Live preview swatch */}
-          <div
-            className="rounded-lg p-4 flex items-center gap-3 border"
-            style={{ background: brandTokens.bg || "#ffffff" }}
-          >
-            {brandTokens.logoUrl && (
-              <img
-                src={brandTokens.logoUrl}
-                alt="logo preview"
-                className="h-8 w-auto object-contain"
-                onError={(e) => {
-                  (e.currentTarget as HTMLImageElement).style.display = "none";
-                }}
-              />
-            )}
-            <div
-              className="flex-1 min-w-0 text-sm font-semibold truncate"
-              style={{ color: brandTokens.ink || "#111111" }}
-            >
-              {brandTokens.displayName || "Studio Name"}
-            </div>
-            <div
-              className="text-xs px-3 py-1 font-medium"
-              style={{
-                background: brandTokens.primary || "#000000",
-                color: brandTokens.primaryText || "#ffffff",
-                borderRadius: `${brandTokens.radius ?? 8}px`,
-              }}
-            >
-              Book now
-            </div>
-            <div
-              className="text-xs px-3 py-1 font-medium"
-              style={{
-                background: brandTokens.secondaryAccent || "#555555",
-                color: "#ffffff",
-                borderRadius: `${brandTokens.radius ?? 8}px`,
-              }}
-            >
-              Learn more
-            </div>
-          </div>
-
-          <div className="flex justify-end">
-            <Button
-              size="sm"
-              disabled={savingBrandStyle}
-              onClick={handleSaveBrandStyle}
-            >
-              <IconDeviceFloppy className="size-3.5 mr-1.5" />
-              {savingBrandStyle ? "Saving…" : "Save brand tokens"}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* ── Brand Voice ──────────────────────────────────────────────────── */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <IconAward className="size-4 text-muted-foreground" />
-            Brand Voice
-          </CardTitle>
-          <p className="text-xs text-muted-foreground">
-            How your studio speaks — tone, values, and personality. Used to
-            personalise outbound messages to members.
-          </p>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-3">
-          <Textarea
-            placeholder="e.g. Energetic and welcoming. We celebrate every step forward, however small. Our coaches are coaches, not instructors — they meet every member where they are."
-            value={brandVoice}
-            onChange={(e) => setBrandVoice(e.target.value)}
-            rows={6}
-            className="resize-none text-sm"
-          />
-          <div className="flex justify-end">
-            <Button
-              size="sm"
-              disabled={savingBrand}
-              onClick={() => handleSave("brand-voice", brandVoice)}
-            >
-              <IconDeviceFloppy className="size-3.5 mr-1.5" />
-              {savingBrand ? "Saving…" : "Save"}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* ── Studio Ethos ─────────────────────────────────────────────────── */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <IconBook2 className="size-4 text-muted-foreground" />
-            Studio Ethos
-          </CardTitle>
-          <p className="text-xs text-muted-foreground">
-            Your studio's mission, values, and what makes it unique. Helps
-            the Brain tailor the daily owner digest and member outreach.
-          </p>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-3">
-          <Textarea
-            placeholder="e.g. We believe fitness should be accessible to everyone. Our classes are sized to 12 so every member gets real coaching attention. We run on community, not ego."
-            value={ethos}
-            onChange={(e) => setEthos(e.target.value)}
-            rows={6}
-            className="resize-none text-sm"
-          />
-          <div className="flex justify-end">
-            <Button
-              size="sm"
-              disabled={savingEthos}
-              onClick={() => handleSave("ethos", ethos)}
-            >
-              <IconDeviceFloppy className="size-3.5 mr-1.5" />
-              {savingEthos ? "Saving…" : "Save"}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* ── Class Methods (read-only, collapsed by default) ──────────────── */}
-      <Collapsible open={methodsOpen} onOpenChange={setMethodsOpen}>
+        {/* ── Brand & Styling ──────────────────────────────────────────────── */}
         <Card>
           <CardHeader className="pb-2">
-            <CollapsibleTrigger asChild>
-              <button
-                type="button"
-                className="flex items-center justify-between w-full text-left"
-              >
-                <CardTitle className="text-sm flex items-center gap-2">
-                  {methodsOpen ? (
-                    <IconChevronUp className="size-4 text-muted-foreground" />
-                  ) : (
-                    <IconChevronDown className="size-4 text-muted-foreground" />
-                  )}
-                  Class Methods
-                  <Badge variant="secondary" className="ml-1 text-[10px]">
-                    {seeding ? "syncing…" : `${classes.length} classes`}
-                  </Badge>
-                </CardTitle>
-                <span className="text-xs text-muted-foreground font-normal">
-                  Auto-seeded from class catalog
-                </span>
-              </button>
-            </CollapsibleTrigger>
+            <CardTitle className="text-sm flex items-center gap-2">
+              <IconPalette className="size-4 text-muted-foreground" />
+              Brand & Styling
+            </CardTitle>
+            <p className="text-xs text-muted-foreground">
+              Visual identity tokens — colours, fonts, and logo. Used by public
+              SSR pages (forms, schedule widget, embeds, videos). Paste your
+              website URL and click Fetch &amp; extract to auto-fill.
+            </p>
           </CardHeader>
-          <CollapsibleContent>
-            <CardContent className="pt-0">
-              {seeding ? (
-                <div className="flex items-center gap-2 text-xs text-muted-foreground py-2">
-                  <IconRefresh className="size-3.5 animate-spin" />
-                  Syncing class catalog…
+          <CardContent className="flex flex-col gap-4">
+            {/* URL extractor row */}
+            <div className="flex gap-2">
+              <Input
+                type="url"
+                placeholder="https://yourstudio.com"
+                value={extractUrl}
+                onChange={(e) => setExtractUrl(e.target.value)}
+                className="text-sm flex-1"
+              />
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={extracting}
+                onClick={handleExtract}
+              >
+                <IconWorld className="size-3.5 mr-1.5" />
+                {extracting ? "Fetching…" : "Fetch & extract"}
+              </Button>
+            </div>
+
+            {/* Token fields — 2-column grid on wider screens */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {(
+                [
+                  { key: "displayName", label: "Studio name", type: "text" },
+                  { key: "fontFamily", label: "Font family", type: "text" },
+                  {
+                    key: "googleFontsHref",
+                    label: "Google Fonts URL",
+                    type: "url",
+                  },
+                  { key: "primary", label: "Primary colour", type: "text" },
+                  {
+                    key: "primaryText",
+                    label: "Primary text colour",
+                    type: "text",
+                  },
+                  {
+                    key: "secondaryAccent",
+                    label: "Secondary accent",
+                    type: "text",
+                  },
+                  { key: "ink", label: "Body text colour", type: "text" },
+                  { key: "bg", label: "Background", type: "text" },
+                  { key: "bgAlt", label: "Alt background", type: "text" },
+                  {
+                    key: "radius",
+                    label: "Border radius (px)",
+                    type: "number",
+                  },
+                  { key: "logoUrl", label: "Logo URL", type: "url" },
+                ] as { key: keyof BrandTokens; label: string; type: string }[]
+              ).map(({ key, label, type }) => (
+                <div key={key} className="flex flex-col gap-1">
+                  <Label htmlFor={`bt-${key}`} className="text-xs">
+                    {label}
+                  </Label>
+                  <Input
+                    id={`bt-${key}`}
+                    type={type}
+                    value={String(brandTokens[key])}
+                    onChange={(e) =>
+                      setBrandTokens((prev) => ({
+                        ...prev,
+                        [key]:
+                          type === "number"
+                            ? Number(e.target.value)
+                            : e.target.value,
+                      }))
+                    }
+                    className="text-sm"
+                  />
                 </div>
-              ) : classes.length === 0 ? (
-                <p className="text-xs text-muted-foreground py-2">
-                  No classes in catalog yet. Add classes via the Schedule tab.
-                </p>
-              ) : (
-                <div className="grid gap-2">
-                  {classes.map((cls) => (
-                    <div
-                      key={cls.name}
-                      className="flex items-start gap-3 py-2 border-b border-border/30 last:border-0"
-                    >
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-sm font-medium">{cls.name}</span>
-                          {cls.category && (
-                            <Badge
-                              variant="outline"
-                              className="text-[10px] py-0"
-                            >
-                              {cls.category}
-                            </Badge>
-                          )}
-                          <span className="text-xs text-muted-foreground">
-                            {cls.durationMin} min
-                          </span>
-                        </div>
-                        {cls.description && (
-                          <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
-                            {cls.description}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+              ))}
+            </div>
+
+            {/* Live preview swatch */}
+            <div
+              className="rounded-lg p-4 flex items-center gap-3 border"
+              style={{ background: brandTokens.bg || "#ffffff" }}
+            >
+              {brandTokens.logoUrl && (
+                <img
+                  src={brandTokens.logoUrl}
+                  alt="logo preview"
+                  className="h-8 w-auto object-contain"
+                  onError={(e) => {
+                    (e.currentTarget as HTMLImageElement).style.display =
+                      "none";
+                  }}
+                />
               )}
-            </CardContent>
-          </CollapsibleContent>
+              <div
+                className="flex-1 min-w-0 text-sm font-semibold truncate"
+                style={{ color: brandTokens.ink || "#111111" }}
+              >
+                {brandTokens.displayName || "Studio Name"}
+              </div>
+              <div
+                className="text-xs px-3 py-1 font-medium"
+                style={{
+                  background: brandTokens.primary || "#000000",
+                  color: brandTokens.primaryText || "#ffffff",
+                  borderRadius: `${brandTokens.radius ?? 8}px`,
+                }}
+              >
+                Book now
+              </div>
+              <div
+                className="text-xs px-3 py-1 font-medium"
+                style={{
+                  background: brandTokens.secondaryAccent || "#555555",
+                  color: "#ffffff",
+                  borderRadius: `${brandTokens.radius ?? 8}px`,
+                }}
+              >
+                Learn more
+              </div>
+            </div>
+
+            <div className="flex justify-end">
+              <Button
+                size="sm"
+                disabled={savingBrandStyle}
+                onClick={handleSaveBrandStyle}
+              >
+                <IconDeviceFloppy className="size-3.5 mr-1.5" />
+                {savingBrandStyle ? "Saving…" : "Save brand tokens"}
+              </Button>
+            </div>
+          </CardContent>
         </Card>
-      </Collapsible>
+
+        {/* ── Brand Voice ──────────────────────────────────────────────────── */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <IconAward className="size-4 text-muted-foreground" />
+              Brand Voice
+            </CardTitle>
+            <p className="text-xs text-muted-foreground">
+              How your studio speaks — tone, values, and personality. Used to
+              personalise outbound messages to members.
+            </p>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3">
+            <Textarea
+              placeholder="e.g. Energetic and welcoming. We celebrate every step forward, however small. Our coaches are coaches, not instructors — they meet every member where they are."
+              value={brandVoice}
+              onChange={(e) => setBrandVoice(e.target.value)}
+              rows={6}
+              className="resize-none text-sm"
+            />
+            <div className="flex justify-end">
+              <Button
+                size="sm"
+                disabled={savingBrand}
+                onClick={() => handleSave("brand-voice", brandVoice)}
+              >
+                <IconDeviceFloppy className="size-3.5 mr-1.5" />
+                {savingBrand ? "Saving…" : "Save"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* ── Studio Ethos ─────────────────────────────────────────────────── */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <IconBook2 className="size-4 text-muted-foreground" />
+              Studio Ethos
+            </CardTitle>
+            <p className="text-xs text-muted-foreground">
+              Your studio's mission, values, and what makes it unique. Helps the
+              Brain tailor the daily owner digest and member outreach.
+            </p>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3">
+            <Textarea
+              placeholder="e.g. We believe fitness should be accessible to everyone. Our classes are sized to 12 so every member gets real coaching attention. We run on community, not ego."
+              value={ethos}
+              onChange={(e) => setEthos(e.target.value)}
+              rows={6}
+              className="resize-none text-sm"
+            />
+            <div className="flex justify-end">
+              <Button
+                size="sm"
+                disabled={savingEthos}
+                onClick={() => handleSave("ethos", ethos)}
+              >
+                <IconDeviceFloppy className="size-3.5 mr-1.5" />
+                {savingEthos ? "Saving…" : "Save"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* ── Class Methods (read-only, collapsed by default) ──────────────── */}
+        <Collapsible open={methodsOpen} onOpenChange={setMethodsOpen}>
+          <Card>
+            <CardHeader className="pb-2">
+              <CollapsibleTrigger asChild>
+                <button
+                  type="button"
+                  className="flex items-center justify-between w-full text-left"
+                >
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    {methodsOpen ? (
+                      <IconChevronUp className="size-4 text-muted-foreground" />
+                    ) : (
+                      <IconChevronDown className="size-4 text-muted-foreground" />
+                    )}
+                    Class Methods
+                    <Badge variant="secondary" className="ml-1 text-[10px]">
+                      {seeding ? "syncing…" : `${classes.length} classes`}
+                    </Badge>
+                  </CardTitle>
+                  <span className="text-xs text-muted-foreground font-normal">
+                    Auto-seeded from class catalog
+                  </span>
+                </button>
+              </CollapsibleTrigger>
+            </CardHeader>
+            <CollapsibleContent>
+              <CardContent className="pt-0">
+                {seeding ? (
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground py-2">
+                    <IconRefresh className="size-3.5 animate-spin" />
+                    Syncing class catalog…
+                  </div>
+                ) : classes.length === 0 ? (
+                  <p className="text-xs text-muted-foreground py-2">
+                    No classes in catalog yet. Add classes via the Schedule tab.
+                  </p>
+                ) : (
+                  <div className="grid gap-2">
+                    {classes.map((cls) => (
+                      <div
+                        key={cls.name}
+                        className="flex items-start gap-3 py-2 border-b border-border/30 last:border-0"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm font-medium">
+                              {cls.name}
+                            </span>
+                            {cls.category && (
+                              <Badge
+                                variant="outline"
+                                className="text-[10px] py-0"
+                              >
+                                {cls.category}
+                              </Badge>
+                            )}
+                            <span className="text-xs text-muted-foreground">
+                              {cls.durationMin} min
+                            </span>
+                          </div>
+                          {cls.description && (
+                            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                              {cls.description}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
+      </div>
     </div>
   );
 }
