@@ -242,3 +242,4 @@ CV1 is the foundational phase: Tiptap (no collab) + `@remotion/player` deps inst
 
 **RENDER go-ahead note:** If server-side MP4 render is approved at any point, run `/gsd:plan-phase CV-RENDER`. The gated phase is fully specified in ROADMAP.md (RENDER-01/RENDER-02) but blocked on explicit infra/cost decision.
 | 2026-06-25 | fast | Stage Hustle iOS identity (bundle uk.co.doyouhustle.app) + EAS build runbook | ✅ |
+| 2026-06-25 | fast | iOS prep: remove invalid newArchEnabled + expo-doctor pre-flight notes | ✅ |
