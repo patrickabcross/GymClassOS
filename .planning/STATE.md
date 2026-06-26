@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v2.2
 milestone_name: — Meta Conversion Tracking — IN PROGRESS
 status: deployed
-stopped_at: v2.2 (MC1+MC2+MC3) complete + DEPLOYED (staff-web live after build-fix 126ef375); Meta activation parked
+stopped_at: Completed quick task 260626-n3y (RunStudio brand logged-in app + favicon)
 last_updated: "2026-06-26T00:00:00.000Z"
 last_activity: 2026-06-26
 progress:
@@ -81,6 +81,7 @@ Last activity: 2026-06-26 — Completed quick task 260626-m1c (swap marketing ho
 | 260625-x34 | Merge Messages/Leads inbox into one unified list — remove isLeadsView partition; loader loads ALL conversations; per-lead sourceMap fan-out (opt-in source + form title override via DISTINCT ON); leadSource: {type,label}|null on each row; single "Inbox" header + unconditional Import leads; no Messages/Leads chips; subtle secondary Badge with Tabler icon per lead source type. No schema migration. | 2026-06-25 | 89fa763f | [260625-x34-merge-messages-leads-inbox-into-one-list](./quick/260625-x34-merge-messages-leads-inbox-into-one-list/) |
 | 260626-egy | Generic "Lead" fallback badge for source-less leads — loader now falls back to `{ type: "lead", label: "Lead" }` for leads with no sourceMap entry (no opt-in/form); `sourceIcon("lead")` returns IconUserPlus; member rows unaffected (still null). Single-file (gymos.messages.tsx). tsc clean. | 2026-06-26 | 21b63fd7 | [260626-egy-inbox-add-generic-lead-fallback-badge-fo](./quick/260626-egy-inbox-add-generic-lead-fallback-badge-fo/) |
 | 260626-m1c | Swap marketing homepage video slot to roughcut_overlaid_v4.mp4 — copied the 12.7 MB roughcut to `apps/staff-web/public/marketing/runstudio-film.mp4`; `videoSlot()` now takes optional `src` and renders `<video autoplay muted loop playsinline preload="metadata">` (drops play-button placeholder, keeps tag+caption); `agentSection()` wires `/marketing/runstudio-film.mp4`, so all 5 locale homepages (/, /uk, /us, /fr, /de) share it. Static-asset + SSR-markup only, no migration. | 2026-06-26 | a62aa557 | [260626-m1c-swap-marketing-homepage-video-slot-to-ro](./quick/260626-m1c-swap-marketing-homepage-video-slot-to-ro/) |
+| 260626-n3y | RunStudio-brand logged-in staff-web app + favicon — default.css replaced with ink/pulse/distance RunStudio skin (light + dark); global.css base :root studio-accent fallback → pulse; root.tsx theme-color → #14171C; favicon/icon-180/192/512.svg replaced with double-chevron mark; manifest.json de-Mailed (RunStudio name + ink colours); apple-mobile-web-app-title → RunStudio. CSS/SVG/JSON/TSX only, no DB migration. | 2026-06-26 | 818ae1c5 | [260626-n3y-runstudio-brand-logged-in-app-favicon](./quick/260626-n3y-runstudio-brand-logged-in-app-favicon/) |
 
 ### v2.1 Phase Summary
 
