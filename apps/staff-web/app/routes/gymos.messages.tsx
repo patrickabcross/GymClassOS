@@ -52,6 +52,7 @@ import {
   IconPointFilled,
   IconMessage,
   IconUser,
+  IconUserPlus,
   IconForms,
   IconUpload,
   IconBrandWhatsapp,
@@ -285,7 +286,9 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const conversations = conversationsRows.map((c) => ({
     ...c,
     leadSource:
-      c.status === "lead" ? (sourceMap[c.id] ?? null) : (null as null),
+      c.status === "lead"
+        ? (sourceMap[c.id] ?? { type: "lead", label: "Lead" })
+        : (null as null),
   }));
 
   // ─── Templates fan-out (P1b.1-05 / WA-08) ─────────────────────────────
@@ -921,6 +924,8 @@ function sourceIcon(type: string) {
       return IconBrandWhatsapp;
     case "meta_lead_ads":
       return IconBrandMeta;
+    case "lead":
+      return IconUserPlus;
     default:
       return IconUser;
   }
