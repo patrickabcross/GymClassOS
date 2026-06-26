@@ -40,9 +40,9 @@
   --input: 220 10% 90%;
   --ring: 220 10% 40%;
   --radius: 0.5rem;
-  /* RunStudio default accent fallback (orange-500 / orange-50) */ /* guard:allow-color — hex in comment, value lives in the token below as bare HSL */
-  --studio-accent: 25 95% 53%;
-  --studio-accent-soft: 33 100% 96%;
+  /* RunStudio default accent fallback — pulse #C8FF3D / pale pulse */ /* guard:allow-color — hex in comment; value lives in the bare HSL token below */
+  --studio-accent: 77 100% 62%;
+  --studio-accent-soft: 74 72% 90%;
   --sidebar-background: 220 10% 97%;
   --sidebar-foreground: 220 5% 45%;
   --sidebar-primary: 220 10% 15%;

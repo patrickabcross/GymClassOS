@@ -59,12 +59,13 @@ export async function loader(_args: Route.LoaderArgs) {
   const skinName = (process.env.GYMOS_STUDIO_SKIN ?? "default") as SkinName;
   const skin = getSkinConfig(skinName);
   // accentHex drives the <meta name="theme-color"> below — keep in sync with
-  // the skin's --primary value. This is the ONE place a brand hex lives outside
-  // the skin CSS, because a <meta> attribute is not a CSS context (no var()).
+  // the skin's --primary value (default skin = ink #14171C). This is the ONE
+  // place a brand hex lives outside the skin CSS, because a <meta> attribute
+  // is not a CSS context (no var()).
   const accentHex =
     skinName === "hustle"
       ? "#7C3AED" // guard:allow-color — theme-color <meta> hex; CSS vars not valid in HTML attribute context
-      : "#F97316"; // guard:allow-color — theme-color <meta> hex; CSS vars not valid in HTML attribute context
+      : "#14171C"; // guard:allow-color — theme-color <meta> hex; CSS vars not valid in HTML attribute context
 
   // SWEB-07: Admin email allowlist. Comma-separated admin emails surfaced to
   // the client so GymosTopNav can gate admin-only tabs. Non-sensitive: these
@@ -102,7 +103,7 @@ export async function loader(_args: Route.LoaderArgs) {
 export function Layout({ children }: { children: React.ReactNode }) {
   const data = useRouteLoaderData<typeof loader>("root");
   const studioName = data?.skin?.name ?? "default";
-  const themeColor = data?.accentHex ?? "#F97316"; // guard:allow-color — theme-color <meta> fallback hex; HTML attribute context
+  const themeColor = data?.accentHex ?? "#14171C"; // guard:allow-color — theme-color <meta> fallback hex; HTML attribute context
   return (
     <html lang="en" suppressHydrationWarning data-studio={studioName}>
       <head>

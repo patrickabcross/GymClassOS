@@ -1,12 +1,27 @@
-/* RunStudio default skin — energetic orange accent on light neutral base (R2 D-01/D-02).
+/* RunStudio default skin — official brand (docs/brand book/tokens.css).
+   ink #14171C grounds, pulse #C8FF3D the GO accent (brand rule: accent-only,
+   ≤8% of a layout — pulse drives focus rings + brand moments, NOT every button),
+   distance #0E5C50/#16786A the secondary green, track #F3F1EA the warm base.
    Activated when <html data-studio="default">. Always-available fallback. */
 :root[data-studio="default"] {
-  --primary: 24 95% 53%; /* orange-500 #F97316 */
-  --primary-foreground: 0 0% 100%; /* white text on accent */
-  --accent: 33 100% 96%; /* orange-50 #FFF7ED tint for pills/active tabs */
-  --accent-foreground: 24 80% 30%;
-  --ring: 24 80% 53%;
-  --radius: 0.5rem; /* soft-modern, matches shadcn defaults (R2 D-03) */
-  --studio-accent: 24 95% 53%;
-  --studio-accent-soft: 33 100% 96%;
+  --primary: 217 16% 9%; /* #14171C ink — primary actions are ink, not pulse */
+  --primary-foreground: 46 27% 94%; /* #F3F1EA track — light text on ink */
+  --accent: 170 28% 90%; /* pale distance tint — hover/active surfaces */
+  --accent-foreground: 171 74% 16%; /* deep distance text on the soft tint */
+  --ring: 75 100% 42%; /* #9FD500 pulse-deep — focus ring, contrast-safe on light */
+  --radius: 0.5rem;
+  --studio-accent: 77 100% 62%; /* #C8FF3D pulse — the GO accent (brand moments, sparingly) */
+  --studio-accent-soft: 74 72% 90%; /* pale pulse */
+}
+
+/* Dark mode: skin wins over .dark (R-09). Primary flips to track (light buttons)
+   so it stays visible on dark grounds; pulse brightens for the ring/accents. */
+html.dark[data-studio="default"] {
+  --primary: 46 27% 94%; /* track — light buttons on dark */
+  --primary-foreground: 217 16% 9%; /* ink text */
+  --accent: 171 30% 15%; /* dark distance surface */
+  --accent-foreground: 77 100% 62%; /* pulse text on dark accent */
+  --ring: 77 100% 62%; /* pulse — brighter focus on dark */
+  --studio-accent: 77 100% 62%;
+  --studio-accent-soft: 171 35% 18%;
 }
