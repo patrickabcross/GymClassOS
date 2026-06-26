@@ -191,23 +191,29 @@ const MARK_SVG = `<svg viewBox="0 0 58 58" aria-hidden="true"><path d="M20 16 L3
 const PLAY_SVG = `<svg viewBox="0 0 24 24" fill="none"><path d="M8 6 L18 12 L8 18 Z" fill="#14171C"/></svg>`;
 
 /**
- * An AI-video slot. Renders a poster placeholder (pulse play button + mono
- * caption) that is layout-stable. To drop in a real AI-generated clip, replace
- * the placeholder markup with a <video> tag, e.g.:
- *   <video src="/marketing/it-just-runs.mp4" poster="/marketing/it-just-runs.jpg"
- *          autoplay muted loop playsinline></video>
- * Keep the wrapper's aspect-ratio class so the layout doesn't shift.
+ * An AI-video slot. When `opts.src` is provided it renders a real `<video>`
+ * element (autoplay muted loop playsinline) with the tag and caption overlaid
+ * via the existing z-index CSS — the play-button placeholder is dropped.
+ * When `opts.src` is absent the placeholder (pulse play button + mono caption)
+ * is rendered instead, keeping the layout stable.
+ *
+ * Current wiring:
+ *   agentSection() → videoSlot({ src: "/marketing/runstudio-film.mp4", … })
  */
 function videoSlot(opts: {
   ar: "ar-16x9" | "ar-9x16";
   tag: string;
   caption: string;
+  src?: string;
   className?: string;
 }): string {
+  const inner = opts.src
+    ? `<video src="${escapeHtml(opts.src)}" autoplay muted loop playsinline preload="metadata"></video>`
+    : `<!-- Drop a real AI clip in here: <video src="…" autoplay muted loop playsinline></video> -->
+    <div class="video-slot__play" aria-hidden="true">${PLAY_SVG}</div>`;
   return `<div class="video-slot ${opts.ar}${opts.className ? " " + opts.className : ""}">
     <span class="video-slot__tag">${escapeHtml(opts.tag)}</span>
-    <!-- Drop a real AI clip in here: <video src="…" poster="…" autoplay muted loop playsinline></video> -->
-    <div class="video-slot__play" aria-hidden="true">${PLAY_SVG}</div>
+    ${inner}
     <span class="video-slot__cap"><span class="rec"></span> ${escapeHtml(opts.caption)}</span>
   </div>`;
 }
@@ -333,7 +339,7 @@ function agentSection(L: LocaleContent): string {
         <h2 class="r-h2">${escapeHtml(L.agent.h2)}</h2>
         <p class="r-lead">${escapeHtml(L.agent.lead)}</p>
       </div>
-      ${videoSlot({ ar: "ar-16x9", tag: L.agent.videoTag, caption: L.agent.videoCaption, className: "reveal" })}
+      ${videoSlot({ ar: "ar-16x9", src: "/marketing/runstudio-film.mp4", tag: L.agent.videoTag, caption: L.agent.videoCaption, className: "reveal" })}
     </div>
   </section>`;
 }
