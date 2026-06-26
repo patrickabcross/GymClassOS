@@ -125,7 +125,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           name="apple-mobile-web-app-status-bar-style"
           content="black-translucent"
         />
-        <meta name="apple-mobile-web-app-title" content="Mail" />
+        <meta name="apple-mobile-web-app-title" content="RunStudio" />
         <link rel="apple-touch-icon" href={appPath("/icon-180.svg")} />
         <link
           rel="preload"
