@@ -30,18 +30,23 @@ import type { Member } from "./member-session-helpers";
 // H3Event adapter (RESEARCH Finding 9 / Open Question 1)
 //
 // getSession takes an H3Event. React Router v7 routes receive a Web Request.
-// h3 v2's better-auth path reads event.headers (a Web Headers instance).
-// A Request already exposes request.headers as a Web Headers — so we build
-// a minimal H3-compatible event from it and pass it to the exported getSession.
+// The installed core resolves h3 v2 (2.0.x-rc), where the migration renamed
+// `event.web` → `event.req` (an instance of the web Request). getSession reads
+// headers via BOTH paths:
+//   - getHeader(event, "authorization") → event.req.headers.get(...)  (bearer())
+//   - ba.api.getSession({ headers: event.headers })                    (cookie/BA)
+// so the adapter event must expose BOTH `req` (the web Request) and `headers`.
 //
-// The Plan 03 spike device-verifies this adapter resolves a Bearer token
-// end-to-end. If getSession throws on this shape, widen the event fields
-// until event.headers.get("authorization") reaches the bearer() plugin.
+// This was verified against the real Better-auth instance during the MA1 spike:
+// the earlier shape ({ headers, node:{req,res} }) crashed with
+// "Cannot read properties of undefined (reading 'headers')" because h3 v2's
+// getHeader dereferenced the absent event.req. Keep both fields.
 // ─────────────────────────────────────────────────────────────────────────────
 async function sessionFromRequest(request: Request) {
   const event = {
+    req: request,
     headers: request.headers,
-    node: { req: {}, res: {} },
+    url: new URL(request.url),
     path: new URL(request.url).pathname,
   } as any;
   return getSession(event);
