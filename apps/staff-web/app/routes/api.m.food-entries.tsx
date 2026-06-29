@@ -2,11 +2,11 @@
 // POST /api/m/food-entries — log an entry; inserts foodItems cache row + foodEntries
 import { and, asc, eq, sql } from "drizzle-orm";
 import { getDb, schema } from "../../server/db";
-import { requireDemoMember } from "../../server/lib/demo-member";
+import { requireMemberOrDemo } from "../../server/lib/member-session";
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "react-router";
 
 export async function loader({ request }: LoaderFunctionArgs) {
-  const member = await requireDemoMember(request);
+  const member = await requireMemberOrDemo(request);
   const url = new URL(request.url);
   const date =
     url.searchParams.get("date") ?? new Date().toISOString().slice(0, 10);
@@ -47,7 +47,7 @@ export async function action({ request }: ActionFunctionArgs) {
   if (request.method !== "POST") {
     return new Response("Method not allowed", { status: 405 });
   }
-  const member = await requireDemoMember(request);
+  const member = await requireMemberOrDemo(request);
   const body = (await request.json()) as {
     foodItem: {
       id?: string;

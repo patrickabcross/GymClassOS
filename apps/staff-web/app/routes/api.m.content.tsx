@@ -2,19 +2,18 @@
 // Member-side published content list — returns all published content documents,
 // ordered by most recently updated first.
 //
-// Demo-grade: gated by requireDemoMember (DEMO_MODE + X-Demo-Member-Id header).
-// Production (PUB-02) replaces with Better-auth member sessions.
+// Gated by requireMemberOrDemo (Better-auth Bearer in production; demo header fallback).
 //
 // ONLY status='published' documents are returned — drafts are NEVER exposed.
 // guard:allow-unscoped — single-tenant content (published-only member API)
 import { desc, eq } from "drizzle-orm";
 import { getDb, schema } from "../../server/db";
-import { requireDemoMember } from "../../server/lib/demo-member";
+import { requireMemberOrDemo } from "../../server/lib/member-session";
 import type { LoaderFunctionArgs } from "react-router";
 
 export async function loader({ request }: LoaderFunctionArgs) {
   // Gate: demo member auth (replaces with Better-auth member sessions in production)
-  await requireDemoMember(request);
+  await requireMemberOrDemo(request);
   const db = getDb();
 
   // guard:allow-unscoped — single-tenant content (published-only member API)

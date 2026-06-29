@@ -7,11 +7,11 @@
 // Production (SCH-07) uses the studio's IANA timezone for DST-safe bucketing.
 import { and, asc, eq, gte, lte, sql } from "drizzle-orm";
 import { getDb, schema } from "../../server/db";
-import { requireDemoMember } from "../../server/lib/demo-member";
+import { requireMemberOrDemo } from "../../server/lib/member-session";
 import type { LoaderFunctionArgs } from "react-router";
 
 export async function loader({ request }: LoaderFunctionArgs) {
-  const member = await requireDemoMember(request);
+  const member = await requireMemberOrDemo(request);
   const db = getDb();
 
   const nowIso = new Date().toISOString();

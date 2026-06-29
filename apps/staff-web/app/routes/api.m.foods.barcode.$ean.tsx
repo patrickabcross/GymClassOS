@@ -1,12 +1,12 @@
 // GET /api/m/foods/barcode/<ean>
 // Proxies Open Food Facts product-by-barcode v2.
-import { requireDemoMember } from "../../server/lib/demo-member";
+import { requireMemberOrDemo } from "../../server/lib/member-session";
 import type { LoaderFunctionArgs } from "react-router";
 
 const UA = "RunStudio-Demo/0.1 (https://gymos.local; demo@gymos.local)";
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
-  await requireDemoMember(request);
+  await requireMemberOrDemo(request);
   const ean = params.ean;
   if (!ean) throw new Response("Missing ean", { status: 400 });
 

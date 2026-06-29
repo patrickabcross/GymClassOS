@@ -12,7 +12,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { eq } from "drizzle-orm";
 import { getDb, schema } from "../../server/db";
-import { requireDemoMember } from "../../server/lib/demo-member";
+import { requireMemberOrDemo } from "../../server/lib/member-session";
 import type { ActionFunctionArgs } from "react-router";
 
 // Per RESEARCH §State of the Art (2026-05-19 npm verify):
@@ -82,7 +82,7 @@ Rules:
 `;
 
 export async function action({ request }: ActionFunctionArgs) {
-  const member = await requireDemoMember(request);
+  const member = await requireMemberOrDemo(request);
 
   if (!process.env.ANTHROPIC_API_KEY) {
     return new Response("ANTHROPIC_API_KEY not configured", { status: 500 });
@@ -264,7 +264,8 @@ async function runTool(name: string, input: any, memberId: string) {
       `&search_simple=1&action=process&json=1&page_size=1`;
     const res = await fetch(offUrl, {
       headers: {
-        "User-Agent": "RunStudio-Demo/0.1 (https://gymos.local; demo@gymos.local)",
+        "User-Agent":
+          "RunStudio-Demo/0.1 (https://gymos.local; demo@gymos.local)",
       },
     });
     if (!res.ok) return { ok: false, reason: `OFF ${res.status}` };

@@ -1,8 +1,8 @@
 // POST /api/m/foods/analyze — Claude vision+text calorie & macro estimate.
-// Member calorie counter AI endpoint — gated by requireDemoMember.
+// Member calorie counter AI endpoint — gated by requireMemberOrDemo.
 // Returns strict JSON { ok: true, estimate: {...} } or { ok: false, error }.
 import Anthropic from "@anthropic-ai/sdk";
-import { requireDemoMember } from "../../server/lib/demo-member";
+import { requireMemberOrDemo } from "../../server/lib/member-session";
 import type { ActionFunctionArgs } from "react-router";
 
 // Haiku-4.5 ("claude-haiku-4-5") is ~cheaper but weaker at portion vision; keep sonnet for v1.
@@ -21,7 +21,7 @@ export async function action({ request }: ActionFunctionArgs) {
     );
   }
 
-  await requireDemoMember(request);
+  await requireMemberOrDemo(request);
 
   if (!process.env.ANTHROPIC_API_KEY) {
     return new Response(

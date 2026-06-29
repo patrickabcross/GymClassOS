@@ -1,7 +1,7 @@
 // GET /api/m/purchase  — list purchasable products for this studio
 // POST /api/m/purchase — create a member-scoped Connect Checkout session
 //
-// Member gate: requireDemoMember (D-07 DEMO_MODE + X-Demo-Member-Id header).
+// Member gate: requireMemberOrDemo (Better-auth Bearer in production; DEMO_MODE fallback).
 // The POST embeds metadata.memberId so the P1b-07 checkout.session.completed
 // reducer binds the granted pass to this member on payment completion.
 //
@@ -14,7 +14,7 @@
 // guard:allow-unscoped — single-tenant gym tables
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "react-router";
 import Stripe from "stripe";
-import { requireDemoMember } from "../../server/lib/demo-member";
+import { requireMemberOrDemo } from "../../server/lib/member-session";
 import { getPlatformStripe } from "../../server/lib/stripe";
 import { readConnectedAccount } from "../../server/lib/connected-account";
 
@@ -66,7 +66,7 @@ export const PILOT_PRODUCTS = [
 // Filters out entries with no priceId configured (env var not set).
 // ---------------------------------------------------------------------------
 export async function loader({ request }: LoaderFunctionArgs) {
-  await requireDemoMember(request);
+  await requireMemberOrDemo(request);
 
   // Filter out unconfigured products (empty priceId = env var not set).
   // On a fully configured studio deploy all four will be present.
@@ -88,7 +88,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 // Returns: { url: string } — the Stripe hosted Checkout URL
 // ---------------------------------------------------------------------------
 export async function action({ request }: ActionFunctionArgs) {
-  const member = await requireDemoMember(request);
+  const member = await requireMemberOrDemo(request);
 
   let body: { priceId?: string; mode?: string };
   try {

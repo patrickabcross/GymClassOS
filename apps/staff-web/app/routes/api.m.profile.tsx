@@ -10,11 +10,11 @@
 // derives them from Mifflin-St Jeor against the member's profile.
 import { eq, and, gte, sql, asc } from "drizzle-orm";
 import { getDb, schema } from "../../server/db";
-import { requireDemoMember } from "../../server/lib/demo-member";
+import { requireMemberOrDemo } from "../../server/lib/member-session";
 import type { LoaderFunctionArgs } from "react-router";
 
 export async function loader({ request }: LoaderFunctionArgs) {
-  const member = await requireDemoMember(request);
+  const member = await requireMemberOrDemo(request);
   const db = getDb();
   const nowIso = new Date().toISOString();
   const todayDate = nowIso.slice(0, 10); // YYYY-MM-DD UTC for demo bucket

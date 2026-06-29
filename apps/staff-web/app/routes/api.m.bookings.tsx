@@ -6,7 +6,7 @@
 // a single SQL transaction with SELECT ... FOR UPDATE on the occurrence row.
 import { eq, and } from "drizzle-orm";
 import { getDb, schema } from "../../server/db";
-import { requireDemoMember } from "../../server/lib/demo-member";
+import { requireMemberOrDemo } from "../../server/lib/member-session";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 
 export async function loader(_: LoaderFunctionArgs) {
@@ -18,7 +18,7 @@ export async function action({ request }: ActionFunctionArgs) {
   if (request.method !== "POST") {
     return new Response("Method not allowed", { status: 405 });
   }
-  const member = await requireDemoMember(request);
+  const member = await requireMemberOrDemo(request);
 
   let occurrenceId: string;
   try {

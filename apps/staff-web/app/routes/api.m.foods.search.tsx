@@ -1,13 +1,13 @@
 // GET /api/m/foods/search?q=<query>
 // Proxies Open Food Facts search. Server-side so we attribute correctly (ODbL)
 // and can drop in a cache table later without changing the mobile client.
-import { requireDemoMember } from "../../server/lib/demo-member";
+import { requireMemberOrDemo } from "../../server/lib/member-session";
 import type { LoaderFunctionArgs } from "react-router";
 
 const UA = "RunStudio-Demo/0.1 (https://gymos.local; demo@gymos.local)";
 
 export async function loader({ request }: LoaderFunctionArgs) {
-  await requireDemoMember(request);
+  await requireMemberOrDemo(request);
   const url = new URL(request.url);
   const q = (url.searchParams.get("q") ?? "").trim();
   if (!q) return { results: [] };

@@ -1,8 +1,8 @@
 // GET /api/m/members/list
 // Demo-only: returns the 5 seeded gym members for the first-launch picker.
-// NOT gated by requireDemoMember — the picker has no member yet — but still
-// requires DEMO_MODE=true to function. Production (P1a) replaces the picker
-// with a magic-link flow so this endpoint goes away.
+// Demo-only picker endpoint: no member auth gate (picker has no member yet);
+// still requires DEMO_MODE=true. MA1 (requireMemberOrDemo) replaces the
+// member-picker pattern — this endpoint is a demo-only remnant.
 import { asc } from "drizzle-orm";
 import { getDb, schema } from "../../server/db";
 import type { LoaderFunctionArgs } from "react-router";
