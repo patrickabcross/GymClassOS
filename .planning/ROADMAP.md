@@ -49,7 +49,7 @@
 
 Plans:
 - [x] MA1-01-PLAN.md (wave 1) — Server auth spine: role-resolver.ts (RUNSTUDIO_OPERATOR_EMAILS > RUNSTUDIO_TEACHER_EMAILS > member) + member-session.ts (requireMember + transactional/idempotent/re-claim-guarded claimMemberByEmail writing user_id only + requireMemberOrDemo dual-path) + swap all 11 /api/m/* handlers [AUTH-04, AUTH-05, AUTH-06]
-- [ ] MA1-02-PLAN.md (wave 2, after 01) — Mobile Bearer client: npx expo install expo-secure-store + lib/session.ts + sign-in.tsx (email+password, set-auth-token capture, phone-fallback, configurable Join/Forgot deep-links) + swap api.ts/agent-stream.ts to Authorization: Bearer + AuthGate → /sign-in + sign-out clears token [AUTH-01, AUTH-02, AUTH-03]
+- [x] MA1-02-PLAN.md (wave 2, after 01) — Mobile Bearer client: npx expo install expo-secure-store + lib/session.ts + sign-in.tsx (email+password, set-auth-token capture, phone-fallback, configurable Join/Forgot deep-links) + swap api.ts/agent-stream.ts to Authorization: Bearer + AuthGate → /sign-in + sign-out clears token [AUTH-01, AUTH-02, AUTH-03]
 - [ ] MA1-03-PLAN.md (wave 3, after 01+02) — Auth spike (keystone gate): idempotent test-account seed + integration claim test + device-verified checkpoint on a real iPhone (sign-in + getSession round-trip + claim + admin SSE carries the Bearer session) recorded in MA1-SPIKE-RESULTS.md before MA2/MA3/MA4 [AUTH-07]
 **UI hint**: yes
 **Research**: yes — **the auth spike is the keystone first task** (highest-uncertainty phase despite low overall risk). Resolve at plan time: can `createAuthPlugin` forward `trustedOrigins` / the server `expo()` plugin (it forks the MA1 design); the exact `set-auth-token` bearer header name on the installed better-auth version; whether the mapped session shape exposes `userId` (vs email-only). **Key Decisions to resolve at MA1 plan time:** (a) **password-reset path** — Better-auth reset assumes an email sender; the studio's only member channel today is WhatsApp and transactional email infra may not exist — decide email+password-with-a-wired-sender vs magic-link vs deferred WhatsApp-OTP (email+password is the safe v1; WhatsApp-OTP is explicitly v2); (b) confirm `mapBetterAuthSession` exposes `userId`; (c) confirm the `bearer()` `set-auth-token` header name for the installed version; (d) **unmatched-login-email policy** — show "no membership on file — contact the studio" (recommended) vs a staff-assisted/phone-match fallback; **never auto-create** a member.
@@ -105,7 +105,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| MA1. Auth + 3-Role Spine ⚑ | 1/3 | In Progress|  |
+| MA1. Auth + 3-Role Spine ⚑ | 2/3 | In Progress|  |
 | MA2. Member Booking Surface | 0/TBD | Not started | - |
 | MA3. Teacher Session Surface | 0/TBD | Not started | - |
 | MA4. Admin Mobile AI Agent | 0/TBD | Not started | - |
