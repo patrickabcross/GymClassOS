@@ -2,6 +2,7 @@
   "expo": {
     "name": "Hustle",
     "slug": "hustle",
+    "owner": "patrickalexanderross",
     "version": "0.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -25,9 +26,18 @@
       "bundler": "metro",
       "favicon": "./assets/favicon.png"
     },
-    "plugins": ["expo-router", "expo-web-browser", "expo-notifications", "expo-secure-store"],
+    "plugins": [
+      "expo-router",
+      "expo-web-browser",
+      "expo-notifications",
+      "expo-secure-store"
+    ],
     "extra": {
-      "router": {}
+      "router": {},
+      "disableRemotePush": false,
+      "eas": {
+        "projectId": "fbcb9995-eada-4fca-8a34-498cf46f4021"
+      }
     }
   }
 }
