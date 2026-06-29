@@ -2,14 +2,18 @@
 //
 // Uses react-native-sse so we can:
 //   1) POST a request body (browser EventSource only supports GET),
-//   2) send the X-Demo-Member-Id header (D-07 demo auth),
+//   2) send Authorization: Bearer <token> (MA1-02 — real session auth),
 //   3) listen for named events (delta / tool_use / tool_result / done / error)
 //      instead of having to JSON-parse a single message stream.
+//
+// RESEARCH Finding 5: react-native-sse stores options.headers in this.headers
+// and re-calls setRequestHeader on every open() (including reconnects), so
+// Bearer survives both the initial connection and any automatic reconnect.
 //
 // Returns a cancel() that the caller invokes on sheet close / unmount to
 // abort an in-flight stream and stop charging tokens.
 import EventSource from "react-native-sse";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { getSessionToken } from "./session";
 import { API_BASE_URL } from "./api";
 
 export type StreamCallbacks = {
@@ -34,17 +38,23 @@ export async function streamAgent(
   messages: Array<{ role: "user" | "assistant"; content: any }>,
   cb: StreamCallbacks,
 ): Promise<() => void> {
-  const memberId = await AsyncStorage.getItem("demoMemberId");
-  if (!memberId) throw new Error("No member selected");
+  const token = await getSessionToken();
+  if (!token) throw new Error("Not signed in");
 
-  const es = new EventSource<AgentEvents>(`${API_BASE_URL}/api/m/agent/stream`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Demo-Member-Id": memberId,
-    },
-    body: JSON.stringify({ messages }),
-  } as any);
+  // Token is captured at construction time and stored in this.headers by
+  // react-native-sse. Every open() (including reconnects) re-sets the header
+  // via setRequestHeader — see RESEARCH Finding 5 / Pitfall 7.
+  const es = new EventSource<AgentEvents>(
+    `${API_BASE_URL}/api/m/agent/stream`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ messages }),
+    } as any,
+  );
 
   es.addEventListener("delta", (e: any) => {
     try {

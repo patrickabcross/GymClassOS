@@ -1,16 +1,17 @@
-// Mobile fetch wrapper that injects X-Demo-Member-Id (D-07) on every request.
+// Mobile fetch wrapper — sends Authorization: Bearer <token> on every request.
+// MA1-02: swapped from the demo member header to a real Bearer session token.
 // All TanStack Query queryFns route through here.
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { getSessionToken } from "./session";
 
 const API_BASE = process.env.EXPO_PUBLIC_API_BASE ?? "http://localhost:8081";
 
 export async function apiFetch(path: string, init?: RequestInit) {
-  const memberId = await AsyncStorage.getItem("demoMemberId");
+  const token = await getSessionToken();
   const res = await fetch(`${API_BASE}${path}`, {
     ...init,
     headers: {
       "Content-Type": "application/json",
-      ...(memberId ? { "X-Demo-Member-Id": memberId } : {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(init?.headers ?? {}),
     },
   });
