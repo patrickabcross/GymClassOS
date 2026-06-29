@@ -17,6 +17,7 @@
     "db:generate": "drizzle-kit generate",
     "db:seed-templates": "tsx server/db/seeds/seed-whatsapp-templates.ts",
     "db:seed-demo": "tsx server/db/seeds/seed-demo-data.ts",
+    "db:seed-ma1-test-account": "tsx server/db/seeds/seed-ma1-test-account.ts",
     "db:seed-enquiry-form": "tsx server/db/seeds/seed-enquiry-form.ts",
     "db:import-ghl": "tsx scripts/import-ghl-contacts.ts"
   },

@@ -3,6 +3,13 @@
 // (ESM/CJS vitest issue) while still verifying the core claim safety properties.
 //
 // Run via: cd apps/staff-web && npx vitest run --config vitest.unit.config.ts server/lib/member-session.test.ts
+//
+// MA1-03 extension (2026-06-29): added "Seed scenario" describe block that
+// explicitly exercises the claim against a seeded unclaimed row (userId IS NULL),
+// proving the three safety properties the auth spike depends on:
+//   (a) UPDATE writes userId ONLY (dual-unique-key safety)
+//   (b) Second call returns the same row without a second UPDATE (idempotency)
+//   (c) Row already owned by a different user → { error: "RECLAIM", status: 409 }
 
 import { describe, it, expect } from "vitest";
 import {
@@ -370,5 +377,106 @@ describe("claimMemberByPhoneWithDb", () => {
     if ("error" in result) {
       expect(result.error).toBe("NO_PHONE_MATCH");
     }
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MA1-03 Seed scenario — exercises claim on the specific seeded row shape
+//
+// The seed (seed-ma1-test-account.ts) inserts:
+//   { id: "mbr_spike_ma1_001", userId: null, email: "ma1-spike@example.com" }
+//
+// These three tests prove the safety properties the device spike depends on:
+//   (a) UPDATE writes userId ONLY — never email or phoneE164
+//   (b) Second call (same userId) returns the same row without another UPDATE
+//   (c) Claim attempt by a DIFFERENT userId → { error: "RECLAIM", status: 409 }
+// ─────────────────────────────────────────────────────────────────────────────
+
+const SPIKE_EMAIL = "ma1-spike@example.com";
+const SPIKE_MEMBER_ID = "mbr_spike_ma1_001";
+const SPIKE_USER_ID = "ba_user_spike_001"; // hypothetical Better-auth user.id after sign-up
+
+function makeSpikeRow(overrides: Partial<Member> = {}): Member {
+  return makeRow({
+    id: SPIKE_MEMBER_ID,
+    userId: null, // unclaimed — as seeded
+    email: SPIKE_EMAIL,
+    phoneE164: "+447700900123",
+    firstName: "Spike",
+    lastName: "Tester",
+    ...overrides,
+  });
+}
+
+describe("MA1-03 seed scenario: claimMemberByEmail on seeded unclaimed row", () => {
+  it("(a) claim on unclaimed seeded row: UPDATE writes userId ONLY", async () => {
+    const seededRow = makeSpikeRow(); // userId: null
+    // Query 1 (byUserId) → null (not linked yet). Query 2 (byEmail) → seeded row.
+    const db = makeSequentialDb([null, seededRow]);
+
+    const result = await claimMemberByEmailWithDb(
+      db as any,
+      SPIKE_USER_ID,
+      SPIKE_EMAIL,
+    );
+
+    // Result should be a Member (not an error)
+    expect("error" in result).toBe(false);
+    if (!("error" in result)) {
+      expect(result.userId).toBe(SPIKE_USER_ID);
+      expect(result.id).toBe(SPIKE_MEMBER_ID);
+      expect(result.email).toBe(SPIKE_EMAIL);
+    }
+
+    // The UPDATE .set() call MUST only contain { userId } — never email or phoneE164
+    const setArgs = db.getLastSetArgs();
+    expect(setArgs).not.toBeNull();
+    expect(Object.keys(setArgs!)).toEqual(["userId"]);
+    expect(setArgs!.userId).toBe(SPIKE_USER_ID);
+  });
+
+  it("(b) idempotency: second claim by the same userId returns existing row without a second UPDATE", async () => {
+    // After the first claim, the row has userId set. The fast-path (byUserId query) finds it.
+    const alreadyClaimedRow = makeSpikeRow({ userId: SPIKE_USER_ID });
+    // Query 1 (byUserId) → already-claimed row → short-circuit; no UPDATE, no byEmail query.
+    const db = makeSequentialDb([alreadyClaimedRow]);
+
+    const result = await claimMemberByEmailWithDb(
+      db as any,
+      SPIKE_USER_ID,
+      SPIKE_EMAIL,
+    );
+
+    expect("error" in result).toBe(false);
+    if (!("error" in result)) {
+      expect(result.userId).toBe(SPIKE_USER_ID);
+      expect(result.id).toBe(SPIKE_MEMBER_ID);
+    }
+
+    // No UPDATE should have been issued — the fast path returned before reaching .set()
+    expect(db.getLastSetArgs()).toBeNull();
+  });
+
+  it("(c) re-claim: a different userId cannot claim a row already owned by the spike user → RECLAIM 409", async () => {
+    const claimedBySpikeUser = makeSpikeRow({ userId: SPIKE_USER_ID });
+    const interloperUserId = "ba_user_interloper_999";
+
+    // Query 1 (byUserId for interloper) → null. Query 2 (byEmail) → row owned by spike user.
+    const db = makeSequentialDb([null, claimedBySpikeUser]);
+
+    const result = await claimMemberByEmailWithDb(
+      db as any,
+      interloperUserId,
+      SPIKE_EMAIL,
+    );
+
+    expect("error" in result).toBe(true);
+    if ("error" in result) {
+      expect(result.error).toBe("RECLAIM");
+      expect((result as any).status).toBe(409);
+    }
+
+    // No UPDATE should have been issued — the re-claim guard fires before .set()
+    expect(db.getLastSetArgs()).toBeNull();
   });
 });
