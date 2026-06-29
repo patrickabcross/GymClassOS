@@ -1,87 +1,104 @@
-# Milestone v2.2 Requirements — Meta Conversion Tracking
+# Requirements: RunStudio (GymClassOS) — Milestone v2.3
 
-**Defined:** 2026-06-23
-**Goal:** Report HUSTLE's form-lead conversions and full CRM lifecycle to the studio's own Meta Pixel via browser Pixel + Conversions API (deduplicated), then extend the same chokepoint to Meta Lead Ads.
+**Defined:** 2026-06-29
+**Milestone:** v2.3 — Mobile App Production Foundation (member / teacher / admin)
+**Core Value:** Members book/pay, teachers run sessions and check members in, and admins drive the studio via an in-app AI agent — all from one authenticated native app (Expo), with push notifications closing the loop. The booking app is table stakes; **extending it into a studio-management surface (the admin AI agent) is the differentiator.**
 
-**Scope note:** Single-tenant per deploy — `pixelId`/`capiToken` are studio-global config the operator enters in Settings (no hardcoding to HUSTLE; repeatable per client). All Meta events originate from the backend off DB transitions (chokepoint rule); the Fly worker is the single sender. Strictly additive DB changes. Grounded against existing transitions — no new CRM/pipeline is built.
+**Scope note:** The RunStudio mobile app (`packages/mobile-app`, Expo) gets a real production auth foundation replacing the demo-id hack (`demoMemberId` in AsyncStorage). One Better-auth login serves **three roles routed server-side**; the AI ops agent is **admin-only**. Native (iOS/Android) only — no react-native-web target this milestone. Single-tenant per deploy preserved; strictly additive DB changes. Customer #1 = HUSTLE.
 
-**Architecture (locked in conversation 2026-06-23):**
-- CAPI fires from the Fly worker via a new pg-boss `meta-capi-event` queue; staff-web only enqueues (never calls Meta directly).
-- New additive `meta_lead_attribution` table (keyed by `member_id`) stores `fbc`/`fbp`/`initial_event_id` + per-stage fired markers — for offline attribution + idempotency.
-- Studio config: `pixelId` + `stageEventMap` + `testEventCode` stored studio-global; `META_CAPI_TOKEN` as an encrypted `app_secret`. Entered via a "Meta Conversion Tracking" card in `/gymos/settings/integrations`.
-- Event mapping (configurable, defaults): **Lead** (form submit, `action_source=website`) / **Contact** (first inbound reply on a lead conversation) / **Purchase** (Stripe reducer) / **Schedule** (booking→attended). Optimization target = **Contact**.
-- Consent: **assumed** — Meta Pixel/ad-tracking consent is managed by the customer's own site consent bar and assumed correctly configured. We do NOT implement a consent gate or signal bridge. The only consent we control is the form's WhatsApp opt-in (which governs WhatsApp messaging, not Meta tracking). *(Caveat on record: a parent-site consent bar does not natively govern a cross-origin iframe, so this is a deliberate assumption that the customer's setup permits tracking.)*
-- Graph API pinned to **v23**.
+**Sequencing:** Post-Wednesday work (Wednesday ~2026-07-01 = first paying customer onboarding; that owner uses the **web** agent, already shipped). This milestone follows after Meta tokens + Stripe go-live + the iOS member build.
 
----
+**Research:** `.planning/research/SUMMARY.md` (committed `26eedafd`) — convergent finding: the Better-auth server is already 90% wired for mobile (`bearer()` + `jwt()` mounted, `emailAndPassword` on, `getSession` resolves Bearer tokens), so auth is LOW risk with **no auth migration** and **one additive `push_tokens` table**. The real risk is the security/data boundary (gated-action leakage, claim-by-email collisions, session-scoped queries).
 
-## v2.2 Requirements
-
-### PIX — Browser Pixel + capture (in the public form iframe)
-
-- [x] **PIX-01**: The public form page (`/f/:slug`) loads the studio's Meta Pixel (templated `pixelId` from studio config) and fires a browser `Lead` event on successful submit, sharing an `event_id` with the server event for deduplication.
-- [x] **PIX-02**: `embed.js` reads `fbclid` + `_fbc`/`_fbp` cookies from the **parent page** and passes them into the cross-origin iframe (so ad-click attribution survives the iframe boundary, where `location.search` has no `fbclid` and third-party cookies may be partitioned).
-
-### CAPI — Server-side Conversions API infrastructure
-
-- [x] **CAPI-01**: Studio Meta config storage — `pixelId` + `testEventCode` stored studio-global; `stageEventMap` resolved server-side with sensible defaults (Lead/Contact/Purchase/Schedule); `META_CAPI_TOKEN` stored as an encrypted `app_secret`.
-- [x] **CAPI-02**: Additive `meta_lead_attribution` table (keyed by `member_id`) persists `fbc`/`fbp`/`initial_event_id` at submit time plus per-stage fired markers, for later offline attribution and idempotency.
-- [x] **CAPI-03**: `/api/submit/:id` is extended to accept and persist `fbc`/`fbp`/`event_id`/`pageUrl` from the iframe, and enqueues a `meta-capi-event` job — it does not call Meta directly.
-- [x] **CAPI-04**: A pg-boss `meta-capi-event` queue + Fly worker sender POSTs to the Meta Conversions API (Graph v23) with SHA-256-hashed email/phone + `fbc`/`fbp` + client IP/UA, retrying on 5xx/network failures (events are never dropped); a failing send for one tenant/event is isolated and does not break others.
-- [x] **CAPI-05**: The browser `Lead` and server `Lead` events share an identical `event_id` so Meta deduplicates them (counted once) — verified in Events Manager Test Events.
-- [x] **CAPI-06**: A dedicated **"Meta Conversion Tracking"** card in `/gymos/settings/integrations` (alongside Stripe Connect) lets the operator enter their Pixel ID (plain field → studio config via `defineAction`), Conversions API token (masked → `app_secrets`), and Test Event Code (plain field), with a status indicator + "Send test event" affordance. Single entry point for the token (no duplicate `app_secrets` row).
-
-### LIFE — Deep-funnel lifecycle events (website leads)
-
-- [x] **LIFE-01**: When a lead first replies on WhatsApp (first inbound message on a `lead` conversation, in the worker), a `Contact` CAPI event fires once using the stored `fbc`/`fbp` (`action_source=system_generated`), idempotent via `event_id=memberId:contact`.
-- [x] **LIFE-02**: When a member's purchase is recorded (Stripe reducer — `checkout.session.completed` / `invoice.paid`), a `Purchase` CAPI event fires carrying `value` + `currency` (for LTV/ROAS), keyed on the Stripe transaction id so **renewals each report** while webhook replays deduplicate.
-- [x] **LIFE-03**: When a booking's status flips to `attended`, a `Schedule` CAPI event fires once per (member, occurrence) using stored attribution.
-- [x] **LIFE-04**: The stage→event mapping is driven by the configurable `stageEventMap` (events can be renamed without code changes); the optimization target (Contact) is documented for ops.
-
-### LEAD — Meta Lead Ads (Instant Forms) + CRM lifecycle
-
-- [x] **LEAD-01**: Meta Lead Ads (Instant Form) submissions are received via the Lead Retrieval webhook (edge-webhooks), signature-verified, and ingested as `gym_members` + `lead` conversations using the same dual-unique-key reconcile as website-form leads, capturing the Meta `lead_id`.
-- [x] **LEAD-02**: Ingested Lead-Ad leads advance through the same lifecycle (Contact/Purchase/Schedule) reported back to Meta keyed on `lead_id` (Conversions API for CRM / lead lifecycle) so in-platform leads progress in Meta's Leads Center.
-- [x] **LEAD-03**: Any WhatsApp follow-up to a Lead-Ad lead routes through the existing opt-in / 24h-window / approved-template worker chokepoint (no bypass).
+**Locked decisions (this session):**
+- **Login = email + password** (Better-auth `emailAndPassword`, already wired — no new infra). Member gets their email from Stripe checkout; claim-by-email links the existing `gym_members` row.
+- **Browse = public; book = authenticated** — the app is open to browse the schedule; login is the wall at the *booking* action.
+- **No-membership is the Stripe paywall, not a hard block** — booking without an active pass routes to Stripe inline; purchase grants the pass and links the member.
+- **3-way role routing = two env allowlists + member fallback** — admin `RUNSTUDIO_OPERATOR_EMAILS` (exists), teacher `RUNSTUDIO_TEACHER_EMAILS` (new); else member. **No role toggle in the UI** — role is auto-detected post-login; the app feels like a pure member app. Do NOT use Better-auth org roles; do NOT couple teachers to `trainers.email`.
+- **Admin agent exposes ONLY non-gated verbs** via a server-side **allow-list** (gated Tier-3 filtered out + unit-tested) — the web agent gates Tier-3 only by prompt + noticeboard, which a naive fork would lose.
+- **Push: build the spine, defer most types** — v1 = booking confirmation + class reminder + admin "come look."
 
 ---
 
-## Future Requirements (deferred)
+## v2.3 Requirements
 
-- [ ] **CAPI-FUT-01**: Expose `stageEventMap` editing in the Settings card ("Advanced" reveal) so the operator can rename Meta events from the UI.
-- [ ] **STRIPE-FUT-01**: Stripe sales-side conversion tracking beyond membership Purchase (e-commerce product/catalog events, refunds as negative conversions).
-- [ ] **EMQ-FUT-01**: Event Match Quality enrichment — send additional hashed identifiers (first/last name, city) to raise match rates.
+### AUTH — Auth + 3-role foundation (the one-way-door spine)
+
+- [ ] **AUTH-01**: A user can sign in to the mobile app with email + password via Better-auth; the session token is stored in `expo-secure-store` (never AsyncStorage).
+- [ ] **AUTH-02**: A member can create an app account with the email they used at Stripe checkout (sets a password on first sign-up).
+- [ ] **AUTH-03**: The session persists across app restarts and the user can sign out (token cleared from secure store).
+- [ ] **AUTH-04**: Role is resolved server-side at login — **admin** (email in `RUNSTUDIO_OPERATOR_EMAILS`) / **teacher** (email in `RUNSTUDIO_TEACHER_EMAILS`) / else **member**, with strict precedence admin > teacher > member. There is **no role-selection toggle** in the UI.
+- [ ] **AUTH-05**: On first member sign-in, the app claims the existing `gym_members` row by email — idempotent, re-claim-guarded (`isNull(user_id)`), never auto-creating a member, never adding a unique index on `gym_members.email`.
+- [ ] **AUTH-06**: `/api/m/*` endpoints derive member identity from the verified Better-auth session; the demo `X-Demo-Member-Id` header is honored only as a non-production fallback (the live demo keeps working until the login screen ships).
+- [ ] **AUTH-07**: An auth spike proves end-to-end before dependent surfaces are built — sign-in + `getSession` round-trip against the framework Better-auth instance, and the admin SSE call carrying the session (bearer fallback if the streaming POST drops the cookie).
+
+### MEMBER — Booking surface
+
+- [ ] **MEM-01**: Anyone can open the app and **browse the class schedule** without logging in.
+- [ ] **MEM-02**: Tapping **Book** while signed out prompts sign-in (the auth wall sits at the booking action, not app entry).
+- [ ] **MEM-03**: A signed-in member with an active pass can book a class via `/api/m/bookings`.
+- [ ] **MEM-04**: A signed-in member **without** an active pass is routed to Stripe checkout inline; on successful purchase the pass is granted and the booking completes.
+- [ ] **MEM-05**: A member can see their home surface — upcoming bookings and current pass balance.
+
+### TEACHER — Session surface (run sessions; no AI)
+
+- [ ] **TCH-01**: A teacher sees the class schedule with their assigned sessions and the roster for a session.
+- [ ] **TCH-02**: A teacher can check a member in / mark attendance for a session, driving the existing `mark-booking-attended` chokepoint (no UI exists today — built here).
+- [ ] **TCH-03**: A teacher has **no** access to the admin AI agent or any admin-only surface.
+
+### ADMIN-AI — Mobile ops agent (the differentiator + the security keystone)
+
+- [ ] **AI-01**: An admin can open an in-app AI ops chat (reusing the `AgentSheet` shell) that calls non-gated platform actions in natural language and renders results that reflect in app state.
+- [ ] **AI-02**: The mobile admin agent endpoint exposes ONLY the non-gated verb set via a server-side **allow-list**; gated Tier-3 actions (`send-template-to-members`, `create-checkout-link`, `cancel-occurrence`, `reschedule-occurrence`, `publish-form`) are filtered out of the tool list — enforced server-side and covered by a unit test.
+- [ ] **AI-03**: Agent tool calls run under `runWithRequestContext` with the admin's identity, and the SSE endpoint requires an authenticated admin session (rejects member/teacher).
+
+### NOTIF — Push notifications (build the spine; defer most types)
+
+- [ ] **NOT-01**: The app registers an Expo push token for the authenticated user, persisted in an additive `push_tokens` table keyed to `user.id` (multi-device tolerated; stale tokens pruned on `DeviceNotRegistered`).
+- [ ] **NOT-02**: A member receives a booking-confirmation push and a class-reminder push (sent from the Fly worker via `expo-server-sdk`, matching the staff-web-enqueues / worker-sends pattern).
+- [ ] **NOT-03**: An admin receives a "come look" push that deep-links into the in-app agent thread.
+- [ ] **NOT-04**: Push is enabled on a real EAS dev build with `app.json` `extra.eas.projectId` populated via `eas init` (external dependency: the customer's Apple Developer account — same gate as the existing iOS build blocker).
 
 ---
+
+## v2 Requirements (deferred — tracked, not in this milestone)
+
+### Member booking (deferred)
+
+- **MEM-FUT-01**: Waitlist + auto-promotion when a spot opens (biggest deferred revenue lever; needs the push spine from NOT-01).
+- **MEM-FUT-02**: Late-cancel / no-show fees (touches Stripe + trust; policy-heavy).
+- **MEM-FUT-03**: Walk-in / spot-selection booking.
+
+### Auth (deferred)
+
+- **AUTH-FUT-01**: Passwordless / magic-link or WhatsApp-OTP login (revisit if email+password friction proves too high for WhatsApp-only members).
+- **AUTH-FUT-02**: Self-service password reset via email (requires transactional email delivery infra — not present today; **Key Decision for MA1**).
+
+### Push (deferred types)
+
+- **NOT-FUT-01**: Waitlist-spot-open, cancellation alerts, free-push reactivation campaigns (the spine built in v2.3 makes these cheap later).
 
 ## Out of Scope
 
-- **Stripe sales-side e-commerce conversion events beyond membership Purchase** — deferred (STRIPE-FUT-01); membership/pack Purchase is the only sales conversion in v2.2.
-- **Meta Offline Conversions / Offline Events API upload** — we report deep-funnel events via CAPI `system_generated` from DB transitions instead (real-time, attribution-linked), which supersedes batch offline upload.
-- **Building a CRM pipeline / lead-stage model** — not needed; lifecycle events fire off transitions that already exist (`conversations`, Stripe reducers, `bookings.status`).
-- **Multi-tenant / `studio_id` scoping** — single-tenant per deploy; `pixelId`/token are studio-global config entered per deploy.
-- **Editing `templates/` or `@agent-native/core` in place** — fork-boundary discipline; work lands in `apps/staff-web/features/*`, `services/worker/*`, `services/edge-webhooks/*`, `packages/queue/*`.
-- **Sending any PII to Meta unhashed** — only SHA-256-hashed `em`/`ph` leave the server; IP + UA are sent raw (Meta requires this); no PII in URL params.
-- **A Meta-consent gate / consent-signal bridge on our side** — Pixel/ad-tracking consent is the customer's responsibility, managed by their own site consent bar and assumed correct (we fire unconditionally). We control only the form's WhatsApp opt-in. Revisit only if a customer's setup requires us to honor an explicit consent signal.
-
----
+| Feature | Reason |
+|---------|--------|
+| "Member vs teacher/staff" role toggle on the login screen | Industry norm is auto-detect post-login; the app should feel like a pure member app to the 99% who are members |
+| Two separate apps (member app + staff app) | Solo-dev scope; one Expo binary with server-side role routing is the deliberate divergence |
+| react-native-web member target | Native iOS/Android only this milestone; `expo-secure-store` is a no-op on web and push doesn't apply — web adds auth/storage edge cases |
+| Better-auth org roles / `member` org-join for app roles | Heavier; demo doesn't seed org `member` rows; two env allowlists + member fallback is simpler and sufficient |
+| Auto-creating a `gym_members` row on unmatched login | Security + data-integrity; the Stripe paywall is the membership gate, purchase creates/links the record |
+| Teacher access to the AI agent | Teachers run sessions; the AI ops surface is admin-only by design |
+| New CRM / member pipeline | Members already enter via lead/WhatsApp/form/Stripe; this milestone adds a login + surfaces, not a new pipeline |
+| Auth migration / reshaping identity tables | No migration — reuse existing `user`/`session`/`account`; only additive `push_tokens` + the existing nullable `gym_members.user_id` |
 
 ## Traceability
 
+Phases are assigned by the roadmapper. Expected mapping (prefix `MA`):
+
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| PIX-01 | Phase MC1 | Complete |
-| PIX-02 | Phase MC1 | Complete |
-| CAPI-01 | Phase MC1 | Complete |
-| CAPI-02 | Phase MC1 | Complete |
-| CAPI-03 | Phase MC1 | Complete |
-| CAPI-04 | Phase MC1 | Complete |
-| CAPI-05 | Phase MC1 | Complete |
-| CAPI-06 | Phase MC1 | Complete |
-| LIFE-01 | Phase MC2 | Complete |
-| LIFE-02 | Phase MC2 | Complete |
-| LIFE-03 | Phase MC2 | Complete |
-| LIFE-04 | Phase MC2 | Complete |
-| LEAD-01 | Phase MC3 | Complete |
-| LEAD-02 | Phase MC3 | Complete |
-| LEAD-03 | Phase MC3 | Complete |
+| AUTH-01..07 | MA1 | Pending |
+| MEM-01..05 | MA2 | Pending |
+| TCH-01..03 | MA3 | Pending |
+| AI-01..03 | MA4 | Pending |
+| NOT-01..04 | MA5 | Pending |
