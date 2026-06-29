@@ -27,9 +27,9 @@
 - [ ] **AUTH-01**: A user can sign in to the mobile app with email + password via Better-auth; the session token is stored in `expo-secure-store` (never AsyncStorage).
 - [ ] **AUTH-02**: A member can create an app account with the email they used at Stripe checkout (sets a password on first sign-up).
 - [ ] **AUTH-03**: The session persists across app restarts and the user can sign out (token cleared from secure store).
-- [ ] **AUTH-04**: Role is resolved server-side at login — **admin** (email in `RUNSTUDIO_OPERATOR_EMAILS`) / **teacher** (email in `RUNSTUDIO_TEACHER_EMAILS`) / else **member**, with strict precedence admin > teacher > member. There is **no role-selection toggle** in the UI.
-- [ ] **AUTH-05**: On first member sign-in, the app claims the existing `gym_members` row by email — idempotent, re-claim-guarded (`isNull(user_id)`), never auto-creating a member, never adding a unique index on `gym_members.email`.
-- [ ] **AUTH-06**: `/api/m/*` endpoints derive member identity from the verified Better-auth session; the demo `X-Demo-Member-Id` header is honored only as a non-production fallback (the live demo keeps working until the login screen ships).
+- [x] **AUTH-04**: Role is resolved server-side at login — **admin** (email in `RUNSTUDIO_OPERATOR_EMAILS`) / **teacher** (email in `RUNSTUDIO_TEACHER_EMAILS`) / else **member**, with strict precedence admin > teacher > member. There is **no role-selection toggle** in the UI.
+- [x] **AUTH-05**: On first member sign-in, the app claims the existing `gym_members` row by email — idempotent, re-claim-guarded (`isNull(user_id)`), never auto-creating a member, never adding a unique index on `gym_members.email`.
+- [x] **AUTH-06**: `/api/m/*` endpoints derive member identity from the verified Better-auth session; the demo `X-Demo-Member-Id` header is honored only as a non-production fallback (the live demo keeps working until the login screen ships).
 - [ ] **AUTH-07**: An auth spike proves end-to-end before dependent surfaces are built — sign-in + `getSession` round-trip against the framework Better-auth instance, and the admin SSE call carrying the session (bearer fallback if the streaming POST drops the cookie).
 
 ### MEMBER — Booking surface
@@ -100,9 +100,9 @@ Phases assigned by the roadmapper (prefix `MA`). 22/22 requirements mapped, no o
 | AUTH-01 | MA1 | Pending |
 | AUTH-02 | MA1 | Pending |
 | AUTH-03 | MA1 | Pending |
-| AUTH-04 | MA1 | Pending |
-| AUTH-05 | MA1 | Pending |
-| AUTH-06 | MA1 | Pending |
+| AUTH-04 | MA1 | Complete |
+| AUTH-05 | MA1 | Complete |
+| AUTH-06 | MA1 | Complete |
 | AUTH-07 | MA1 | Pending |
 | MEM-01 | MA2 | Pending |
 | MEM-02 | MA2 | Pending |

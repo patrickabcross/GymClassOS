@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v2.3
 milestone_name: — Mobile App Production Foundation
-status: completed
-stopped_at: Phase MA1 context gathered
-last_updated: "2026-06-29T14:23:35.899Z"
-last_activity: "2026-06-26 (continuation of the big rollout session; final master `1da86ab3`, all pushed):"
+status: executing
+stopped_at: Completed MA1-01-PLAN.md
+last_updated: "2026-06-29T16:08:22.634Z"
+last_activity: 2026-06-29
 progress:
   total_phases: 5
   completed_phases: 0
@@ -30,10 +30,10 @@ Requirements: `.planning/REQUIREMENTS.md` (v2.3 requirements, 22 in-scope: AUTH-
 ## Current Position
 
 Milestone: v2.3 — Mobile App Production Foundation (member / teacher / admin)
-Phase: Not started — roadmap complete (5 phases MA1–MA5); next is plan-phase MA1
-Plan: —
-Status: **Milestone v2.3 started 2026-06-29.** Mobile app (`packages/mobile-app`, Expo) production auth foundation for 3 roles (member/teacher/admin) on one Better-auth login + member booking/Stripe gate + teacher check-in + admin AI ops agent + Expo push. Research-first chosen. Sequencing: POST-Wednesday (Wed ~2026-07-01 = first paying customer HUSTLE onboarding, uses the WEB agent which already ships; Wed priorities = Meta tokens + Stripe go-live + iOS member build). Decisions captured in memory [[project_gymos_mobile_owner_agent]]. **Prior milestone v2.2 (Meta Conversion Tracking) = COMPLETE + DEPLOYED** (15/15 reqs MC1–MC3; migrations v31–v34 on Neon `billowing-sun-51091059`; see [[project_gymos_deploy]]).
-Last activity: 2026-06-26 (continuation of the big rollout session; final master `1da86ab3`, all pushed):
+Phase: MA1 (Auth + 3-Role Spine (the one-way door)) — EXECUTING
+Plan: 2 of 3
+Status: Ready to execute
+Last activity: 2026-06-29
 
 1. **Schedule filters** (quick 260625-d06): location/class-type/trainer on the staff calendar (shadcn Popover) + public embed (native selects); loader Query A widened w/ trainer leftJoin. SHIPPED.
 2. **Studio-global sites config** (quick 260625-gsg): `resolveSites` + `sites` JSONB col (v35) + Settings→Integrations→Locations card; replaces the hardcoded Norwich/Wymondham picker. SHIPPED; HUSTLE sites seeded as DATA on Neon (singleton row).
@@ -148,6 +148,7 @@ Last activity: 2026-06-26 — Completed quick task 260626-m1c (swap marketing ho
 | Phase MC3 P01 | 20 | 3 tasks | 9 files |
 | Phase MC3 P03 | 424 | 2 tasks | 2 files |
 | Phase MC3 P02 | 7 | 3 tasks | 7 files |
+| Phase MA1 P01 | 780 | 3 tasks | 16 files |
 
 ## Accumulated Context
 
@@ -231,9 +232,9 @@ Last activity: 2026-06-26 — Completed quick task 260626-m1c (swap marketing ho
 
 ## Session Continuity
 
-Last session: 2026-06-29T14:23:35.862Z
-Stopped at: Phase MA1 context gathered
-Resume file: .planning/phases/MA1-auth-3-role-spine-the-one-way-door/MA1-CONTEXT.md
+Last session: 2026-06-29T16:08:22.622Z
+Stopped at: Completed MA1-01-PLAN.md
+Resume file: None
 
 Prior session: 2026-06-20T10:22:33.153Z — Completed CV4-publish-pipeline CV4-01-PLAN.md
 
