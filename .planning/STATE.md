@@ -1,13 +1,13 @@
 ---
 gsd_state_version: 1.0
-milestone: v2.2
-milestone_name: — Meta Conversion Tracking — IN PROGRESS
-status: deployed
-stopped_at: Completed quick task 260626-n3y (RunStudio brand logged-in app + favicon)
-last_updated: "2026-06-26T00:00:00.000Z"
-last_activity: 2026-06-26
+milestone: v2.3
+milestone_name: — Mobile App Production Foundation (member / teacher / admin)
+status: defining-requirements
+stopped_at: Started milestone v2.3 — gathering requirements (mobile auth + roles + agent + push)
+last_updated: "2026-06-29T00:00:00.000Z"
+last_activity: 2026-06-29
 progress:
-  total_phases: 3
+  total_phases: 0
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -29,10 +29,10 @@ Requirements: `.planning/REQUIREMENTS.md` (v2.1 requirements, 11 in-scope: CONT-
 
 ## Current Position
 
-Milestone: v2.2 — Meta Conversion Tracking
-Phase: MC3 (last phase) — COMPLETE + verified
+Milestone: v2.3 — Mobile App Production Foundation (member / teacher / admin)
+Phase: Not started — defining requirements
 Plan: —
-Status: **v2.2 fully built, verified, and DEPLOYED.** All 3 phases done (15/15 reqs: PIX/CAPI→MC1, LIFE→MC2, LEAD→MC3). Migrations v31–v34 applied to Neon `billowing-sun-51091059` by hand. staff-web (Vercel) + worker/edge (Fly) both live. NOTE: the v2.2 staff-web Vercel build failed silently at first (writeAppSecret MISSING_EXPORT) and only went live after build-fix `126ef375` — see [[project_gymos_deploy]].
+Status: **Milestone v2.3 started 2026-06-29.** Mobile app (`packages/mobile-app`, Expo) production auth foundation for 3 roles (member/teacher/admin) on one Better-auth login + member booking/Stripe gate + teacher check-in + admin AI ops agent + Expo push. Research-first chosen. Sequencing: POST-Wednesday (Wed ~2026-07-01 = first paying customer HUSTLE onboarding, uses the WEB agent which already ships; Wed priorities = Meta tokens + Stripe go-live + iOS member build). Decisions captured in memory [[project_gymos_mobile_owner_agent]]. **Prior milestone v2.2 (Meta Conversion Tracking) = COMPLETE + DEPLOYED** (15/15 reqs MC1–MC3; migrations v31–v34 on Neon `billowing-sun-51091059`; see [[project_gymos_deploy]]).
 Last activity: 2026-06-26 (continuation of the big rollout session; final master `1da86ab3`, all pushed):
 1. **Schedule filters** (quick 260625-d06): location/class-type/trainer on the staff calendar (shadcn Popover) + public embed (native selects); loader Query A widened w/ trainer leftJoin. SHIPPED.
 2. **Studio-global sites config** (quick 260625-gsg): `resolveSites` + `sites` JSONB col (v35) + Settings→Integrations→Locations card; replaces the hardcoded Norwich/Wymondham picker. SHIPPED; HUSTLE sites seeded as DATA on Neon (singleton row).

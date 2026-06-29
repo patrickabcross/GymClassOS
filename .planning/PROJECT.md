@@ -10,7 +10,35 @@ GymClassOS is a boutique fitness studio management platform — staff back-offic
 
 Coaches and studio managers run their entire day from one inbox-and-schedule surface (WhatsApp conversations + class bookings + member context). Members book, pay, and log activity / nutrition from a native iOS/Android app (forked from agent-native's `packages/mobile-app`) that includes an in-app coaching agent — without staff cobbling together WhatsApp, calendar, calorie-tracking, and CRM tools.
 
-## Current Milestone: v2.2 — Meta Conversion Tracking
+## Current Milestone: v2.3 — Mobile App Production Foundation (member / teacher / admin)
+
+**Started 2026-06-29.** The RunStudio mobile app (`packages/mobile-app`, Expo) gets a real production auth foundation serving **three roles** on one Better-auth login, replacing the demo-id hack (`demoMemberId` in AsyncStorage) and the paid-WhatsApp owner nudge.
+
+**Driver:** Gym owners aren't at their desks, and nudging them via WhatsApp incurs per-conversation Meta fees. Free, unlimited Expo push + an in-app feature set + the AI ops agent = a cheaper, richer engagement loop. And members need login anyway (to book + hit the Stripe paywall), so real auth is a **shared foundation**, not owner-only overhead.
+
+**Goal:** Members book/pay, teachers run sessions and check members in, and admins drive the studio via the in-app AI agent — all from one authenticated native app, with push notifications closing the loop.
+
+**Three roles, routed server-side at login:**
+- **Admin** (email in `RUNSTUDIO_OPERATOR_EMAILS`) — full AI ops agent (non-gated verbs) + operator features.
+- **Teacher** (email in a new staff allowlist, *not* admin) — staff schedule view + member **check-in / attendance**; **no AI surface**.
+- **Member** (otherwise) — book, pay (Stripe gate when unpaid), calorie counter; linked to `gym_members` by email (**claim-by-email**).
+
+**Target features (REQ-IDs in REQUIREMENTS.md):**
+- **AUTH** — Better-auth login in the Expo app; tokens in `expo-secure-store` (NOT AsyncStorage); session refresh/logout; 3-way role routing via two env allowlists + member fallback; **member claim-by-email** linking Better-auth `user` → existing `gym_members` row via `user_id` (nullable FK already in schema); teacher identity linking.
+- **MEMBER** — book a class via `/api/m/bookings`; unpaid (no active pass) → redirect to Stripe (`create-checkout-link` / `/api/m/purchase` already exist); member home surface.
+- **TEACHER** — staff schedule view; member **check-in / attendance** UI driving the existing `mark-booking-attended` chokepoint (no UI today, deferred per D-11 — built here).
+- **ADMIN-AI** — owner ops agent in mobile, **admin-only**: reuse the `AgentSheet` shell + `agent-stream` SSE; new owner SSE endpoint that loads the action registry + owner system prompt, authed via Better-auth session, wrapped in `runWithRequestContext({ userEmail, orgId })`. Exposes ONLY the **non-gated** verb set (Tier 1 reads, Tier 2 board authoring, direct class/content/trainer/member writes); the endpoint **filters gated Tier-3 actions** (`send-template-to-members`, `create-checkout-link`, `cancel-occurrence`, `reschedule-occurrence`, `publish-form`) out of the tool list — those stay web-only behind the noticeboard.
+- **NOTIF** — Expo push notifications; register a push token per authenticated user; admin "come look" deep-links into the agent thread, member booking/reminder taps.
+
+**Key context / constraints carried in:**
+- **Post-Wednesday work.** Wednesday (~2026-07-01) = first paying customer (HUSTLE) onboarding; that owner uses the **web** agent (already shipped, `agent-chat.ts`). Wednesday priorities are Meta token setup + Stripe go-live + the iOS member build — this milestone sequences after.
+- **The owner agent already ships on web** (`apps/staff-web/server/plugins/agent-chat.ts`, `loadActionsFromStaticRegistry` + propose/approve gating). The mobile member agent is a separate bespoke loop (`app/routes/api.m.agent.stream.tsx`, 3 hardcoded tools, demo auth). The new mobile admin endpoint forks the SSE structure but loads the registry + owner prompt.
+- **Auth is the one-way door** — security-sensitive; build it real (Better-auth, `expo-secure-store`), justified by the member side alone (no login = no booking/Stripe/push).
+- **New technical territory for this codebase:** Better-auth client in React Native/Expo, secure token storage, Expo push (APNs/FCM via EAS — iOS build gated on the Apple Dev account per STATE.md), deep-linking from push into app surfaces.
+- Single-tenant per deploy preserved; strictly additive DB changes; customer #1 = HUSTLE.
+- Phase prefix **`MA`** to avoid `.planning/phases/` collisions with existing D/P/R/AE/BD/CV/MC dirs.
+
+## Previous Milestone: v2.2 — Meta Conversion Tracking
 
 **Started 2026-06-23.** Reports HUSTLE's lead conversions and full CRM lifecycle to the studio's **own Meta Pixel** via browser Pixel + Conversions API (deduplicated, consent-gated), then extends the same chokepoint to Meta Lead Ads. This is the "tracking setup" queued as next in STATE.md after the recurring-classes work. Grounded against DB transitions that already exist — **no new CRM/pipeline is built**.
 
@@ -30,7 +58,7 @@ Coaches and studio managers run their entire day from one inbox-and-schedule sur
 - Strictly additive DB changes; fork-boundary discipline; no local dev server (verify via deploy + Test Events).
 - Phase prefix **`MC`** to avoid `.planning/phases/` collisions with existing D/P/R/AE/BD/CV dirs.
 
-## Previous Milestone: v2.1 — Content & Video Studio (staff-web)
+## Earlier Milestone: v2.1 — Content & Video Studio (staff-web)
 
 **Started 2026-06-20.** Adds two new staff tabs to `apps/staff-web` by adapting agent-native templates: a **Content** tab (from `templates/content` — Tiptap editor; reuse the non-collab pattern already built for `apps/hq` in BD3) and a **Video** tab (from `templates/videos` — in-browser Remotion editor via `@remotion/player`). Purpose: HUSTLE staff create **marketing & social** content/videos AND **member-facing** content/videos.
 
