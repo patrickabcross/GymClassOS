@@ -22,7 +22,7 @@ at the upstream owner are regenerated automatically by `eas init`.
    (e.g. a RunStudio org) so future gym apps live under the same account. This
    becomes the EAS project owner.
 3. **Register the App ID in Apple.** Certificates, Identifiers & Profiles →
-   **Identifiers** → new App ID with bundle id **`uk.co.doyouhustle.app`** (must match
+   **Identifiers** → new App ID with bundle id **`com.airunstudio.app`** (must match
    `app.json` exactly). Enable the **Push Notifications** capability here only if you
    want push (see optional section).
 
@@ -64,7 +64,7 @@ profile — EAS walks you through registering it).
 
 The app already bundles `expo-notifications`. To enable real push later:
 
-1. On the `uk.co.doyouhustle.app` App ID, enable the **Push Notifications** capability.
+1. On the `com.airunstudio.app` App ID, enable the **Push Notifications** capability.
 2. Create an **APNs Auth Key (.p8)** (Keys → new key, Apple Push Notifications service).
 3. Run `npx eas credentials` (or let `eas build` prompt) and upload the `.p8` —
    EAS configures the push key for the project.
@@ -76,8 +76,8 @@ Until then, use `--profile preview`, which strips the push entitlement.
 | Field                                                   | State                          | Who sets it                                         |
 | ------------------------------------------------------- | ------------------------------ | --------------------------------------------------- |
 | `expo.name` = `"Hustle"`                                | ✅ already set                 | committed                                           |
-| `expo.ios.bundleIdentifier` = `"uk.co.doyouhustle.app"` | ✅ already set                 | committed (must match the registered Apple App ID)  |
-| `expo.android.package` = `"uk.co.doyouhustle.app"`      | ✅ already set                 | committed                                           |
+| `expo.ios.bundleIdentifier` = `"com.airunstudio.app"` | ✅ already set                 | committed (must match the registered Apple App ID)  |
+| `expo.android.package` = `"com.airunstudio.app"`      | ✅ already set                 | committed                                           |
 | `expo.slug` = `"hustle"`                                | ✅ already set                 | committed                                           |
 | `expo.owner`                                            | ⬜ removed (was `steve8708`)   | **`eas init`** writes the new Expo account          |
 | `expo.extra.eas.projectId`                              | ⬜ removed (was upstream)      | **`eas init`** writes the new project id            |
