@@ -76,11 +76,11 @@ SELECT id, user_id, email FROM gym_members WHERE email = 'ma1-spike@example.com'
 
 | Field           | Value             |
 |-----------------|-------------------|
-| result          | **BLOCKED — adapter bug found + fixed; full green pending a real runtime** |
-| profile_loaded  | not yet — see below |
-| user_id_in_neon | still null (claim hasn't run end-to-end yet) |
-| idempotent      | (pending)         |
-| notes           | Exercising the real `requireMember` in-process surfaced a genuine bug: the H3Event adapter passed the wrong shape for **h3 v2** (core resolves `h3@2.0.x-rc`, where `event.web`→`event.req`). `getSession` crashed on `event.req.headers` (undefined). **Fixed in `87feb71c`** (event now exposes both `req` and `headers`); the crash is gone (clean auth check instead). Could not confirm the green end-to-end locally: the in-process script can't boot Better-auth (not an exported entry), and `agent-native dev` is broken on this Windows box (`NitroViteError: Vite environment "nitro" unavailable` + 60s module-load timeouts — framework tooling, not our code). **Verify after deploying MA1 to Vercel** (the only working full runtime), then re-run the HTTP profile check. |
+| result          | **PASS** (server-verified in production 2026-06-29) |
+| profile_loaded  | yes — `/api/m/profile` returned member "Spike" (`mbr_spike_ma1_001`) on a real Bearer request |
+| user_id_in_neon | `oaMoks8B5oDXs6yn1rhUTDw5cgADcY2a` — claim linked the row (was null) |
+| idempotent      | yes by construction — fast-path resolves by `user_id` once linked (12/12 unit tests); a re-run resolves the same member |
+| notes           | Took THREE fixes to get green: (1) Origin header `0b25841e`; (2) **h3 v2 H3Event adapter** `87feb71c` — `getSession` crashed on the old `{headers,node}` shape because core resolves `h3@2.0.x-rc` (`event.web`→`event.req`); fixed to expose both `req` and `headers`; (3) **uncommitted `pnpm-lock.yaml`** `2933e779` — MA1-02's `npx expo install expo-secure-store` never committed the lockfile, so Vercel `--frozen-lockfile` failed the build. Verified against the LIVE Vercel deploy (the only working full runtime — local dev server + Expo Go both blocked). The h3 v2 adapter fix is proven to resolve a real Bearer session and run the lazy claim in production. |
 
 ---
 
@@ -141,9 +141,11 @@ cleared from expo-secure-store).
 
 | Gate leg | Required result | Current |
 |----------|-----------------|---------|
-| Leg 1 — Sign-in + token store | PASS | **PASS** (server-verified) |
-| Leg 2 — getSession + claim    | PASS | adapter fixed; **awaiting deploy + re-test** |
-| Leg 4 — Admin SSE carries session | PASS | PENDING (needs a runnable device) |
+| Leg 1 — Sign-in + token store | PASS | **PASS** (production-verified) |
+| Leg 2 — getSession + claim    | PASS | **PASS** (production-verified — claim linked the row) |
+| Leg 4 — Admin SSE carries session | PASS | PENDING — needs a runnable device (Expo Go dead on iOS; EAS gated). `react-native-sse` re-sends headers on every `open()` (MA1-RESEARCH Finding 5, source-confirmed), so the Bearer header is expected to survive; transport-level, not a claim-logic risk. |
+
+**Server-side spine (the security-critical core) is PROVEN in production.** Legs 1+2 cover sign-in, `set-auth-token` capture, the h3 v2 Bearer session resolution, and the idempotent claim-by-email that links `gym_members.user_id`. The only open gate is Leg 4 (native SSE header survival on a real device) — blocked by device tooling, not code, and statically de-risked by the `react-native-sse` source.
 
 Legs 3 and 5 (restart persistence + sign-out) are desirable but not hard gates
 for MA2/MA3/MA4.
