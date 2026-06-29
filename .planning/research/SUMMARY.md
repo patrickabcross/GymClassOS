@@ -1,280 +1,161 @@
 # Project Research Summary
 
-**Project:** GymClassOS v2.0 — Self-Serve Platform + Two-Tier Brain/Dispatcher
-**Domain:** Multi-cloud SaaS operator control plane + per-customer AI agent deployment
-**Researched:** 2026-06-19
-**Confidence:** HIGH overall (framework layer, PII controls, pitfall patterns); MEDIUM for provisioning API runtime behaviour
-
-> Prior research summary (v1.2 Agentic Tab Editing) archived as SUMMARY-v1.0-archived.md.
-
----
+**Project:** RunStudio (GymClassOS) — v2.3 Mobile App Production Foundation
+**Domain:** Production auth (3 roles) + admin mobile AI agent + Expo push, added to an EXISTING Expo app on a React Router v7 / Nitro / Better-auth / Drizzle+Neon stack
+**Researched:** 2026-06-29
+**Confidence:** HIGH (framework integration points verified by reading the installed `@agent-native/core` dist + the app code; package versions verified via npm)
 
 ## Executive Summary
-GymClassOS v2.0 introduces three qualitatively new things on top of the shipped v1 foundation: (1) an operator HQ control plane (apps/hq) sitting above all per-studio deployments, (2) zero-touch self-serve provisioning that orchestrates three external cloud APIs in sequence, and (3) a two-tier brain/dispatcher where both the operator and each gym-owner get their own AI knowledge base and outbound communication engine. The research converges on a clean four-phase delivery sequence under the BD prefix. All four researchers agree on the phase grouping: BD1 (HQ Foundation) -> BD2 (Telemetry + Provisioning) -> BD3 (HQ Brain + Dispatcher) -> BD4 (Studio Brain + Dispatcher).
 
-The dominant architectural decision confirmed across all four research files is that provisioning must run in a dedicated Fly worker (services/hq-worker), not in a Vercel serverless function. The 8-step saga exceeds Vercel's 300-second timeout and requires idempotent per-step retry that Vercel functions cannot provide. A provisioning_runs state-machine table in HQ Neon drives forward steps and LIFO-ordered rollback compensations. This is the highest-risk deliverable and must be tackled early in BD2, with rollback code written before the happy path is shipped. The three new dependencies are @neondatabase/api-client, @vercel/sdk, and execa (for shelling out to flyctl, since Fly's REST API does not support secrets management as of June 2026).
+This milestone replaces the `demoMemberId`/`X-Demo-Member-Id` hack with **real Better-auth login serving three roles (member / teacher / admin) on one Expo binary**, then adds an admin-only mobile AI ops agent and Expo push to close a free engagement loop (replacing paid-WhatsApp owner nudges). The single most important — and convergent — finding across all four research files is that **the server is already 90% configured for this**: the installed framework mounts Better-auth `bearer()` and `jwt()` plugins unconditionally, `emailAndPassword` is hardcoded on, and `getSession(event)` already resolves an `Authorization: Bearer <token>` against the mounted bearer plugin. That makes the mobile auth foundation **mostly a client-side task** (Expo app stores the session in `expo-secure-store` and attaches it as a Bearer header), with a **small additive server change** — register `trustedOrigins` for the app scheme (and optionally the official `@better-auth/expo` `expo()` plugin), swap `requireDemoMember -> requireMember`. **No auth migration. No identity-table reshape. Exactly ONE new additive table (`push_tokens`).** Better-auth-in-Expo is therefore a **LOW-risk** unknown — the riskiest "no cookies in React Native" question is solved either by the first-party plugin (cookie-string-over-SecureStore) or, as a zero-new-dependency fallback, the already-live `bearer()` path.
 
-The second structural constraint is the PII-up boundary: member data must never reach HQ Neon, structurally rather than by policy. HQ has no studio DB credentials. The telemetry payload is enforced by a Zod .strict() schema at the HQ ingest endpoint, any extra field causes a 422. The ai_token_usage table at the studio level stores only counts, never prompt content or session references. A CI guard blocks any HQ schema migration that adds columns named *connection*, *database_url*, or *dsn*. These three mechanisms (no credentials, strict schema, CI guard) are non-negotiable and must ship together in BD1/BD2. The HQ Dispatcher also requires its own separate WhatsApp Business Account. Reusing a studio WABA for B2B owner communications is a Meta compliance violation confirmed by all four research streams.
+The recommended approach is a strict build order anchored on **MA1 as a one-way door**: prove the auth + role spine first and alone, then fan out MA2 (member) / MA3 (teacher) / MA4 (admin agent) — which depend only on MA1 identity and can be sequenced by business value — and do MA5 (push) **last**, because push has nothing to notify and nowhere to deep-link until the surfaces (especially the admin agent thread) exist. Build the push **spine** (token registration + deep-link routing) now, but defer most push **types**: v1 push is exactly booking confirmation + class reminder + admin "come look." This is a *production foundation*, not a feature race against Mindbody — most differentiators (waitlist auto-promote, cancellation fees, walk-ins, WhatsApp-OTP) are explicitly deferred to v1.x/v2.
 
----
+The dominant risks are **security boundaries, not technology**. Three are non-negotiable: (1) the mobile admin agent loads the full action registry but has **no noticeboard approve UI**, so gated Tier-3 verbs (`send-template-to-members`, `create-checkout-link`, `cancel-occurrence`, `reschedule-occurrence`, `publish-form`) must be filtered out with a **server-side ALLOW-LIST + a test** — the web app gates these only by prompt convention, which is not a control on mobile; (2) **claim-by-email** linking Better-auth `user -> gym_members.user_id` must be transactional/idempotent/re-claim-guarded against a `gym_members.email` that is **nullable and non-unique by design** — never add a unique index, never auto-create a member; (3) all DB changes stay strictly additive through `runMigrations` (the repo has a real prod incident from a destructive migration). Role routing is two env allowlists (`RUNSTUDIO_OPERATOR_EMAILS` + new `RUNSTUDIO_TEACHER_EMAILS`) plus a member fallback — **not** org roles, **not** coupled to `trainers.email` — and the login screen exposes **no member/staff toggle**; role is auto-detected post-login so the app feels like a pure member app.
 
 ## Key Findings
 
 ### Recommended Stack
 
-The base stack (React Router v7, Drizzle 0.45.x, Better-auth, Neon, pg-boss 12.x, Hono, Vercel, Fly.io, Anthropic SDK) is locked and unchanged. v2.0 adds exactly three new packages to apps/hq. Everything else is already present in the pnpm workspace and requires copy-in discipline rather than new installs.
+The existing stack (Expo 55, Expo Router, RN 0.83.9, TanStack Query, `react-native-sse`, Better-auth ^1.6 server, Drizzle/Neon, pg-boss, Fly worker) is **fixed**. This milestone adds four new client/server pieces, all additive. See [STACK.md](STACK.md).
 
-**New v2.0 dependencies (install in apps/hq only):**
-- @neondatabase/api-client ^10.x: typed Neon Management API client; creates/deletes Neon projects; returns connection URIs
-- @vercel/sdk ^1.27.0 (published 2026-06-16; verify at install): creates Vercel projects, sets env vars, triggers deployments, attaches domains; ESM only
-- execa ^9.x: promise-native subprocess wrapper for flyctl secrets set; use array-arg form to prevent shell injection; ESM only, Node 18+
+**Core technologies (the four new pieces):**
+- **`@better-auth/expo@1.6.22`** (client `expoClient()` + optional server `expo()` plugin): session-cookie-over-SecureStore transport for RN — purpose-built for "no browser cookies." Requires bumping server `better-auth` core `^1.6.0 -> ^1.6.22` so client/server peers agree.
+- **`expo-secure-store@55.0.15`** (sdk-55 tag): OS-keychain-backed storage for the session token — replaces the AsyncStorage demo hack. Never AsyncStorage for credentials.
+- **`expo-notifications@55.0.24`** + **`expo-network@55.0.15`** (sdk-55 tags): push permission/token/foreground-handler/deep-link on the client; `expo-network` is a required plugin peer.
+- **`expo-server-sdk@6.1.0`** (Node, on the Fly worker): validates tokens, chunks, sends, polls receipts, prunes `DeviceNotRegistered`. **Send from the worker (pg-boss), enqueue from staff-web** — matches the locked "worker is the single sender" pattern.
 
-**Critical version and runtime notes:**
-- Fly secrets CANNOT be set via the Machines REST API (restricted to Fly KMS, not GA for general secrets as of June 2026). flyctl CLI is the only working path. The provisioner must be a Fly machine where flyctl is installed in the container.
-- Use an org-scoped Fly token (fly tokens create org -o slug -x 999999h), not a deploy-scoped token. Deploy tokens cannot create new apps.
-- Tiptap 3.x (@tiptap/core ^3.22.x) and @tailwindcss/typography needed for HQD content editing; copy from templates/content/ pattern.
-- Remotion must NOT be added to apps/hq in v2.0. Requires a separate render cluster and adds 15+ heavyweight packages.
-- pg-boss 12.x cron scheduling with IANA timezone support is already proven in production (housekeeping.ts). No alternative queue library needed.
-- No Redis, no BullMQ for HQ. pg-boss on HQ Neon is sufficient.
-
-**Explicitly excluded from v2.0:** Remotion, @react-three/fiber, y-websocket in apps/hq, studio_id columns anywhere, Inngest/Trigger.dev for provisioning.
+**Hard stack traps:**
+- **SDK-55 dist-tag pinning** — `latest` for every `expo-*` package is now SDK 56; installing it into the SDK-55 app breaks the native build. **Use `npx expo install`, never bare `npm install`.**
+- **Push requires an EAS dev/prod build** (removed from Expo Go on SDK 53+) and an **`eas init` `projectId`** in `app.json` (currently MISSING) — both gated on the customer Apple Developer account.
 
 ### Expected Features
 
-Research identifies seven requirement categories (HQ-FND, PROV, TEL, HQB, HQD, GOB, GOD).
+The industry ships **two apps** (member + staff); this milestone deliberately does **one app, server-side role routing** — a defensible solo-dev choice provided the login screen hides role complexity. See [FEATURES.md](FEATURES.md).
 
-**Must ship for v2.0 launch:**
-- HQ-FND: apps/hq shell with HQ Neon + Better-auth super-admin + HQ org seed row (so accessFilter returns data, not empty results)
-- PROV: 8-step saga with LIFO rollback; slug UNIQUE constraint as first DB write; email-verification gate; watchdog alert on stuck jobs; telemetry token at Step 7; per-studio Better Stack log space as a provisioning step
-- TEL: TelemetrySnapshot Zod strict schema; studio singleton accumulator; daily push cron; last_telemetry_received_at on HQ studios (prevents false at-risk from push failures)
-- HQB: Health score from TEL data; cohort segmentation; at-risk list with last_telemetry_received_at exclusion
-- HQD: Onboarding nudge sequence to owners via HQ WABA (never studio WABA); Meta-approved templates with 2-7 day lead time before HQD can send
-- GOB: Brain shell in staff-web; class catalog auto-ingestion; brand voice document
-- GOD: Dormant member detection; heartbeat via existing unchanged chokepoint; suppression table (3-attempt/90-day); daily owner digest (propose->approve); whatsapp_opt_out_immediate sync write
+**Must have (table stakes / the v2.3 foundation):**
+- Better-auth login + `expo-secure-store` + session refresh/logout — the one-way door.
+- Server-side 3-way role routing (admin allowlist / teacher allowlist / member fallback); **no login-screen role toggle** — role auto-detected post-login.
+- Member claim-by-email linking `user -> gym_members` row.
+- Member: book a class + unpaid->Stripe gate; view upcoming/past bookings + pass status.
+- Teacher: today schedule + class roster + tap-to-check-in (drives the existing `mark-booking-attended` chokepoint; **no teacher AI**).
+- Admin: in-app AI ops agent, **Tier-3 filtered out** (the milestone true differentiator — no competitor ships a mature mobile ops agent).
+- Push **spine** + booking confirmation + class reminder + admin "come look" deep-link.
 
-**Defer to v2.x:** GOD time-of-day personalisation + three-attempt cadence; HQD AI-generated Content + Video; PROV custom domain support; GOB auto brain re-index.
+**Should have (deferred to v1.x — push spine already in place):**
+- Waitlist with auto-promotion + waitlist-available push (biggest revenue lever: ~95% vs ~71% fill).
+- Cancellation-window enforcement + late-cancel/no-show flagging (window first, **fees** later).
+- Walk-in check-in; cancellation/class-changed push; first-visit badge; in-app owner digest.
 
-**Defer to v3+:** Multi-channel member campaigns; self-service billing; multi-user HQ; ML-based health scoring.
+**Defer (v2+):** late-cancel/no-show **fee charging**; WhatsApp-OTP/passwordless login; free-push reactivation; dual-role accounts; spot selection; voice input to the agent.
 
 ### Architecture Approach
 
-The architecture is a strict three-tier topology: Tier 1 (operator HQ: one Vercel deploy + one Fly hq-worker), Tier 2 (per-studio: one Vercel staff-web + one Fly worker), Tier 3 (gym members via existing mobile + WhatsApp). The only cross-tier data flow is Studio -> HQ telemetry push over HTTPS (aggregate data only, no PII). HQ cannot reach studio Neons — structurally prevented by the absence of studio DB credentials in HQ environment.
+The build is framed as **integration points into existing files** (NEW vs MODIFIED), because the merge surface matters more than greenfield design. Auth is mostly client-side; the server changes are a role resolver, a `requireMember` claim-by-email gate, `trustedOrigins`, and `/api/owner` `publicPaths` edits. See [ARCHITECTURE.md](ARCHITECTURE.md).
 
-**Major new components:**
-
-1. apps/hq (Vercel): operator control plane with own Neon, own Better-auth, own agent-chat; forked from Dispatch + Brain + Content + Video templates (copy-out only, templates/ untouched)
-2. packages/hq-schema (pnpm workspace): Drizzle schema for HQ Neon (hq_studios, hq_provisioning_runs, hq_studio_tokens, hq_telemetry_snapshots, hq_token_usage); exports TelemetrySnapshot Zod schema shared with worker
-3. services/hq-worker (Fly, new app): pg-boss against HQ Neon; provision-studio saga + brain-ingest queue; holds NEON_API_KEY, VERCEL_API_TOKEN, FLY_API_TOKEN; flyctl installed in container
-4. apps/staff-web/server/lib/anthropic.ts (new): wraps anthropic.messages.create; intercepts response.usage.*; calls accumulator on studio_telemetry_state singleton; exact call-site needs BD1 audit of createAgentChatPlugin internals
-5. services/worker (per-studio, extended): 3 new pg-boss cron queues: telemetry-push (02:00 UTC), daily-owner-digest (06:00 studio-tz), heartbeat-reactivate (09:00 studio-tz); all GOD sends flow through unchanged sendMessage chokepoint
-6. apps/staff-web/app/routes/gymos.brain.tsx + Brain action copies: GOB studio knowledge base + ask-brain tool in staff agent
-
-**Key patterns:**
-- Provisioning: 8-step saga; step_N_at timestamps as idempotency markers; Neon 409 -> read existing ID; Vercel 409 -> fetch by name; Fly 400 -> treat as success
-- Telemetry ingest: sha256(token) lookup -> TelemetrySnapshot.strict().parse(body) -> upsert -> enqueue brain-ingest
-- GOD: query at-risk members -> INSERT messages -> enqueue outbound-whatsapp -> chokepoint handles the rest (UNCHANGED, sendMessage.ts not modified)
-- HQ org seed in runMigrations so accessFilter has an orgId from first boot
-- Fork boundary: two-commit sequence (copy first, modify second); git diff upstream/main HEAD -- templates/ must return empty after both commits
+**Major components:**
+1. **Mobile session + role router** (`lib/session.ts` NEW, `lib/api.ts`/`_layout.tsx` MODIFIED) — Bearer in SecureStore; route tab set by role.
+2. **Server role resolver + member gate** (`resolve-role.ts` NEW, `require-member.ts` NEW) — two-allowlist precedence (admin > teacher > member); idempotent claim-by-email into the existing nullable `gym_members.user_id`.
+3. **Admin mobile agent SSE** (`api.owner.agent.stream.tsx` NEW + nitro delegate) — forks the **lean member SSE loop** (NOT `agent-chat.ts`), loads the registry, filters Tier-3 by allow-list, wraps in `runWithRequestContext`, extracts the owner prompt into a shared file.
+4. **Teacher attendance** (`api.m.attendance.tsx` NEW) — a *caller* of the existing `mark-booking-attended` chokepoint, not a new write path (keeps the v2.2 Meta tracking pipeline intact).
+5. **Push** (`push_tokens` additive table keyed to **Better-auth `user.id`** not `gym_members.id`; new pg-boss `expo-push` queue on the worker; deep-link listener in `_layout.tsx`).
 
 ### Critical Pitfalls
 
-1. **Non-idempotent provisioning creates orphaned cloud resources (P-01, CRITICAL):** Neon POST /projects has no idempotency key; every retry creates a new project. Prevention: check GET /projects for existing project by name before creating; write step_N_at before API call; build LIFO rollback before the happy path.
+Top 5 of 10 (full list + verification checklist in [PITFALLS.md](PITFALLS.md)):
 
-2. **Partial failure leaves mismatched resources (P-02, CRITICAL):** Neon + Vercel succeed but Fly times out; studio appears provisioned but worker never started. Prevention: every step registers its rollback_action; rollback_provisioning_run executes compensations in reverse; use direct Vercel deploy URL (not subdomain) for healthchecks to avoid DNS propagation false-rollbacks.
-
-3. **Telemetry payload carries PII via insufficiently scoped queries (T-01, CRITICAL):** aggregate query returns GROUP BY coach_id or a debug field. Prevention: TelemetrySnapshot.strict().parse(body) at HQ ingest (422 on unknown fields); no names, emails, phones, IDs, or free-text in schema; ai_token_usage table has no prompt or session columns; Vitest test asserts member_email field returns 422.
-
-4. **HQ receives studio DB credentials (T-03, CRITICAL):** storing Neon connection string in HQ studios lets HQ query member data. Prevention: HQ studios stores only provider resource IDs (neon_project_id, vercel_project_id, fly_app_name), never connection strings; CI guard fails build if HQ schema contains *connection*, *database_url*, or *dsn* columns.
-
-5. **HQ Dispatcher routes owner messages through studio WABAs (W-03, CRITICAL):** reusing studio send path for B2B owner communications is a Meta compliance violation. Prevention: HQD uses a completely separate WABA registered to GymClassOS business account; no HQD code references services/worker or services/edge-webhooks; owner opt-ins in HQ Neon hq_whatsapp_opt_in.
-
-6. **HQ Brain + Dispatch return empty due to missing org seed (F-02, HIGH):** accessFilter scopes to orgId; with no HQ org, every query returns zero rows. Prevention: create fixed HQ org + super-admin row in runMigrations; do not replace accessFilter with allow-unscoped.
-
-7. **Anthropic token instrumentation call-site not confirmed (MEDIUM, BD1 audit required):** createAgentChatPlugin internals must be audited in BD1 to confirm the wrapper intercepts every Anthropic call path.
-
----
+1. **Gated Tier-3 actions leak into the mobile admin agent** — the web app gates them only by prompt convention + the (mobile-absent) noticeboard. **Avoid:** build the tool list from a server-side **ALLOW-LIST** (`MOBILE_ADMIN_ALLOWED_TOOLS`), not a deny-list (a deny-list silently re-admits any *new* Tier-3 verb), and assert with a unit/CI test that the gated set is absent.
+2. **Claim-by-email identity collision** — `gym_members.email` is nullable + non-unique; case/whitespace mismatch orphans users; re-claim can steal a link. **Avoid:** normalise `lower(trim(email))` both sides; claim in one transaction guarded by `isNull(user_id)`; 409 on re-claim; 403 (never auto-create) when no row; resolve admin-is-also-member precedence to admin. **Never add a unique index on `email`.**
+3. **`/api/m/*` left public after removing the demo gate** — the path stays in `publicPaths`, so deleting `requireDemoMember` without a Bearer check = unauthenticated cross-member access. **Avoid:** `requireMember` derives the member id from the **verified session, never a header/body**; keep the path public-to-guard but bearer-gate inside every handler.
+4. **Better-auth session transport in RN** — cookies do not exist in RN fetch. **Avoid:** `@better-auth/expo` client with `expo-secure-store` storage (or the already-live `bearer()` fallback); never AsyncStorage for the token. **LOW risk** because both transports are already enabled server-side.
+5. **Destructive migration / auth-table reshape on the shared prod DB** — the repo has a real prod incident here. **Avoid:** all v2.3 changes strictly additive through `runMigrations` (next version after v36); reuse the existing nullable `user_id`; **do not reshape** Better-auth identity tables (would strand the HUSTLE web owner); keep `requireDemoMember` behind `DEMO_MODE && !production` until a real EAS build verifies real auth.
 
 ## Implications for Roadmap
 
-Based on combined research, all four researchers converged on a four-phase BD-prefixed structure. The ordering is driven by hard dependency chains: HQ foundation first; provisioning (highest-risk) early in BD2; HQ Brain/Dispatcher need telemetry flowing; studio-side additions close the milestone.
+Research strongly converges on a **5-phase structure prefixed `MA`**, with MA1 as a one-way door and MA2/MA3/MA4 parallelizable by value.
 
-### Phase BD1: HQ Foundation
+### Phase MA1: Auth + 3-Role Spine (the one-way door — build first, build real, build alone)
+**Rationale:** Every downstream feature hangs off `getSession`-based identity; auth is the dependency root and security-sensitive. The convergent finding makes this lower-risk than feared — mostly client work plus small additive server changes.
+**Delivers:** Better-auth login in Expo (`expo-secure-store`, session refresh/logout); two-allowlist role resolver (admin > teacher > member) with **no login-screen toggle**; transactional/idempotent **claim-by-email**; `trustedOrigins` + `/api/owner` publicPaths; `requireDemoMember -> requireMember` swap (transitional dual-path); bump server `better-auth` core to 1.6.22.
+**Addresses:** AUTH (login, secure storage, 3-way routing, claim-by-email, teacher identity).
+**Avoids:** Pitfalls #2 (claim collision), #3 (role precedence), #4 (RN transport), #5 (`/api/m` gating), #6 (Expo Go vs EAS origin matrix), #9 (additive identity + dual-path coexistence).
+**Keystone first task — the AUTH SPIKE:** prove sign-in + `getSession` round-trip on a real device, claim-by-email links the row, **and the admin SSE carries the session** (verify the `Cookie`/`Authorization: Bearer` header survives the `react-native-sse` streaming POST; fall back to the live `bearer()` plugin if the cookie path is stripped). Resolve "can `createAuthPlugin` forward `trustedOrigins`/the server `expo()` plugin?" here — it forks the MA1 design.
 
-**Rationale:** apps/hq, HQ Neon, and services/hq-worker are the substrate all other phases build on. PII boundary controls (CI guard, HQ org seed) must exist before any other work touches HQ.
+### Phase MA2: Member Surface (book / pay-gate / home)
+**Rationale:** Members are ~99% of users and the milestone own justification for doing auth at all (no login = no booking/Stripe); natural second.
+**Delivers:** book via `/api/m/bookings`; unpaid -> Stripe (`create-checkout-link`/`/api/m/purchase`); my bookings + pass status; optimistic booking confirmation.
+**Uses:** existing Stripe + booking endpoints; MA1 member identity only.
+**Avoids:** verifies #2/#5 end-to-end (book/pay on a correctly-claimed, caller-scoped row; pass-debit on booking, not purchase).
 
-**Delivers:**
-- apps/hq scaffolded from Dispatch + Brain + Content template copies (templates/ untouched, two-commit discipline)
-- packages/hq-schema with all HQ table definitions
-- services/hq-worker skeleton (pg-boss boot, env.ts, healthz on port 3003)
-- HQ Neon provisioned manually; runMigrations seeds HQ org + super-admin row
-- Single super-admin Better-auth login with email allowlist
-- CI guards: fork boundary + HQ schema (*connection*/*database_url*/*dsn* column names blocked)
-- BD1 audit of createAgentChatPlugin to identify exact Anthropic SDK call-site for token wrapper
-- pnpm-workspace.yaml updated with packages/hq-schema and services/hq-worker
+### Phase MA3: Teacher Surface (schedule + check-in)
+**Rationale:** Independent of MA2; depends only on MA1 `role=teacher`. Minimal surface: schedule + roster + attendance. **No teacher AI.**
+**Delivers:** today schedule (filtered to the teacher); class roster; tap-to-check-in/no-show via `api.m.attendance.tsx` -> existing `mark-booking-attended` chokepoint.
+**Implements:** the deferred D-11 attendance UI as a *caller* (keeps the v2.2 Meta Schedule lifecycle event intact).
+**Avoids:** #3 teacher-with-no-record empty state.
 
-**Pitfalls addressed:** T-03 (CI guard), F-01 (fork boundary), F-02 (org seed), Anthropic call-site audit
-**Research flag:** Standard — identical patterns to apps/staff-web already in production. Skip research-phase.
+### Phase MA4: Admin Mobile AI Agent (the differentiator + the security keystone)
+**Rationale:** The milestone true edge; depends on MA1 `role=admin` + Bearer. The security boundary lives here.
+**Delivers:** `api.owner.agent.stream.tsx` (NEW) forking the lean member SSE loop; registry loaded then **Tier-3 filtered via server-side ALLOW-LIST + test**; `runWithRequestContext` from the verified session; owner prompt extracted to a shared file; `AgentSheet`/`agent-stream.ts` parametrized (endpoint/auth/title). Teachers/members get **no agent surface**.
+**Avoids:** Pitfalls #1 (gated-action allow-list — defining requirement), #7 (`runWithRequestContext` scoping), #8 (SSE bearer header + `requireAdmin` before stream opens; a member token must be rejected 403).
 
-### Phase BD2: Telemetry + Provisioning
-
-**Rationale:** TEL and PROV are independent of each other (both depend only on BD1) and run as parallel plans within one phase. PROV is the highest-risk deliverable — ship early to discover API gotchas. Rollback code ships before happy-path code.
-
-**Delivers (TEL plan):**
-- TelemetrySnapshot Zod strict schema in packages/hq-schema/src/telemetry.ts
-- studio_telemetry_state singleton table + additive migration
-- apps/staff-web/server/lib/anthropic.ts wrapper + telemetry-accumulator.ts (call-site determined in BD1)
-- services/worker/queues/telemetry-push.ts (02:00 UTC cron, pg-boss retry with backoff)
-- HQ ingest endpoint (POST /api/telemetry: sha256 token auth -> strict parse -> upsert)
-- last_telemetry_received_at column on hq_studios
-- Vitest test: member_email field in telemetry payload -> 422
-
-**Delivers (PROV plan):**
-- Saga state machine (services/hq-worker/src/queues/provision-studio.ts) with all 8 steps + LIFO rollback registered per step
-- provision-apis/ wrappers: neon.ts, vercel.ts, fly.ts
-- Public signup endpoint with slug UNIQUE constraint as first DB write (slug race prevention)
-- Email-verification gate before provisioning enqueues
-- Watchdog job (every 5 min) alerting on stuck/failed provisioning jobs; operator email alert on failure
-- Per-studio Better Stack log space as a provisioning step
-- Provisioning healthcheck uses direct Vercel deploy URL, not subdomain (avoids DNS propagation false-rollbacks)
-- Fly auto_stop_machines = stop in fly.toml template for edge-webhooks; Fly org budget alerts configured
-
-**Pitfalls addressed:** P-01 through P-06, T-01, T-02, T-04, O-01, O-03, O-04
-**Research flag:** PROV plan needs /gsd:research-phase for: (a) Fly machine deploy sequencing and flyctl secrets set timing relative to machine creation; (b) Vercel async deployment polling with @vercel/sdk 1.27.0; (c) Neon 409 error response body shape for idempotent step-1. TEL plan is standard — skip research-phase for TEL.
-
-### Phase BD3: HQ Brain + Dispatcher
-
-**Rationale:** HQB needs BD2 telemetry snapshots flowing. HQD can overlap (depends only on BD1) but HQ WABA Meta-approved templates must be submitted at BD2 completion (2-7 day lead time). Both run as parallel plans within one phase.
-
-**Delivers (HQB plan):**
-- Brain template action copies in apps/hq/actions/brain-*.ts; Brain route in apps/hq/app/routes/hq.brain.tsx
-- brain-ingest pg-boss queue in services/hq-worker
-- HQB system prompt in HQ agent-chat; list-at-risk-studios agent action
-- Health score from TEL data; cohort segmentation (new/activating/healthy/at-risk)
-- last_telemetry_received_at exclusion in at-risk queries (false-positive prevention)
-- Brain source allowlist (GymClassOS internal docs + HQ telemetry aggregate only); CSV upload rejection (email/phone/name/member column names blocked)
-
-**Delivers (HQD plan):**
-- Dispatch template action copies; Dispatch route in apps/hq/app/routes/hq.dispatch.tsx
-- HQD system prompt constraint: never reference member PII, never send about specific members
-- HQ WABA credentials stored in HQ Neon vault (separate from any studio WABA)
-- Owner opt-in captured at signup, stored in HQ hq_whatsapp_opt_in
-- Onboarding nudge sequence (day 1/3/7/14) as pg-boss jobs scheduled at provisioning time
-- Meta-approved templates for owner-comms on HQ WABA (calendar prerequisite: submit at BD2 completion)
-- Content editing surface: apps/hq/app/routes/hq.content.tsx; @tiptap/core ^3.22.x + extensions + @tailwindcss/typography installed
-
-**Pitfalls addressed:** W-03 (HQ WABA separation), W-04 (Meta template approval lead time), F-03 (Brain PII ingestion guard), O-02 (telemetry gap -> false at-risk)
-**Research flag:** HQD plan needs /gsd:research-phase to confirm HQ WABA second phone number registration in Meta Business Manager. HQB plan is standard — skip research-phase for HQB.
-
-### Phase BD4: Studio Brain + Dispatcher
-
-**Rationale:** GOB and GOD are additive to the per-studio deploy. Both depend on BD1 (fork boundary) and BD2 (anthropic.ts wrapper; PROV seeds studio_owner_config). GOD reuses the existing sendMessage chokepoint without modification — lowest risk of all four phases. Run as parallel plans.
-
-**Delivers (GOB plan):**
-- apps/staff-web/app/routes/gymos.brain.tsx (Brain template copy)
-- apps/staff-web/actions/brain-*.ts (action copies, brain- prefixed to avoid collisions)
-- Brain template tables additive migration (brain_sources, brain_raw_captures, brain_knowledge, brain_proposals, brain_sync_runs, brain_ingest_queue)
-- ask-brain tool in staff agent; GOB section in agent-chat.ts system prompt
-- Class catalog auto-ingested from class_definitions on Brain init; brand voice document UI
-
-**Delivers (GOD plan):**
-- studio_owner_config additive migration (owner phone, timezone, digest/heartbeat toggles, batch size)
-- services/worker/queues/daily-owner-digest.ts (06:00 studio-tz cron; propose->approve flow)
-- services/worker/queues/heartbeat-reactivate.ts (09:00 studio-tz cron; staggered: 09:00 + hash(studio_id) % 60min to avoid send storms)
-- heartbeat_sends table (attempt tracking); heartbeat_suppression table (3-attempt/90-day)
-- whatsapp_opt_out_immediate synchronous write in opt-out webhook handler (race-free opt-out)
-- member_reactivation and owner_daily_digest WhatsApp templates with meta_approval_status check; campaigns blocked if not approved; submit templates at BD3 completion
-- All GOD sends: INSERT messages -> enqueue outbound-whatsapp -> unchanged sendMessage chokepoint (sendMessage.ts NOT modified)
-
-**Pitfalls addressed:** W-01 (whatsapp_opt_out_immediate sync write), W-02 (staggered heartbeat start times), W-04 (GOD template approval gate in campaign runner)
-**Research flag:** Standard — GOB is a direct Brain template copy-in; GOD reuses proven pg-boss + chokepoint patterns. Skip research-phase.
+### Phase MA5: Push Notifications (closes the loop — do LAST)
+**Rationale:** Nothing to notify and nowhere to deep-link until the surfaces (esp. the admin thread) exist; **externally gated** on EAS/Apple Dev account. Build the **spine** now, defer most **types**.
+**Delivers:** `push_tokens` additive table keyed to `user.id`; `/api/m/push-token` route; pg-boss `expo-push` worker job (enqueue from staff-web, send from worker, prune `DeviceNotRegistered`); `_layout.tsx` deep-link listener. v1 push types = **booking confirmation + class reminder + admin "come look."**
+**Avoids:** #6 (EAS-build gate + `eas init` projectId), #9 (additive push-token table — register it in `runMigrations`; the migration-drift gotcha applies), #10 (token churn/pruning, contextual permission ask, quiet hours/frequency, foreground handler + cold-start deep-link).
 
 ### Phase Ordering Rationale
-
-- BD1 before all: HQ app + HQ Neon + hq-worker skeleton are prerequisites for everything; HQ org seed is prerequisite for BD3 Brain/Dispatch to return data
-- BD2 before BD3: HQB needs real telemetry snapshots; PROV must validate API sequences early (failure modes expensive to discover late); PROV seeds studio_owner_config that GOD (BD4) reads
-- BD2 TEL anthropic.ts wrapper must be in place before BD4 GOD instrumentation works correctly
-- BD3 and BD4 can technically overlap (no cross-dependency) but HQD templates submit at BD2 completion, GOD templates at BD3 completion — each gets 2-7 day approval runway
-- HQD video generation (Remotion) deferred to v2.x — HQD in BD3 covers onboarding nudges and owner-comms only
+- **MA1 is a one-way door** — no role, no auth, nothing downstream resolves; ship it alone and device-verified before fanning out.
+- **MA2/MA3/MA4 depend only on MA1 identity** and are reorderable by business priority (MA2 natural second as the auth justification; MA4 carries the security keystone).
+- **MA5 last** — push needs identities to key tokens and surfaces to deep-link into, and is externally blocked on the Apple Dev account.
+- **Additive-only discipline + dual-path (demo and real) coexistence** thread through every phase to avoid the destructive-migration / mid-migration-breakage incidents the repo has already hit.
 
 ### Research Flags
 
-**Needs /gsd:research-phase during planning:**
-- BD2 PROV plan: Fly machine deploy sequencing (flyctl secrets set timing vs. machine creation; machine-is-serving polling pattern); Vercel async deployment polling with @vercel/sdk 1.27.0; Neon 409 response body shape for idempotent step-1.
-- BD3 HQD plan: HQ WABA second phone number registration in Meta Business Manager; confirm dispatchDestinations table format for gym-owner contact info.
+Phases likely needing deeper research/spike during planning:
+- **MA1 (auth):** the **auth spike is the keystone first task** — `createAuthPlugin` `trustedOrigins`/`expo()` forwarding, the `set-auth-token` header name on the installed better-auth version, the mapped session shape (userId vs email-only), and the SSE-carries-session verification. Highest-uncertainty phase despite low overall risk.
+- **MA5 (push):** new territory for this codebase (no Expo push code present); confirm exact `expo-notifications` API + receipt-pruning flow at plan time; externally gated on EAS/Apple Dev account.
 
-**Standard patterns, skip research-phase:**
-- BD1: React Router v7 scaffold + Better-auth + Drizzle migrations — identical to production apps/staff-web.
-- BD2 TEL plan: TelemetrySnapshot Zod schema, pg-boss cron push, HQ ingest endpoint — standard patterns already in codebase.
-- BD3 HQB plan: Brain template copy-in and action wiring — identical fork-boundary discipline already used.
-- BD4 GOB + GOD: Additive Brain copy-in + pg-boss queue additions — entirely within existing codebase conventions.
-
-### Cross-Cutting Watch-Out Items (Milestone-Level)
-
-1. Provisioning idempotency and rollback before happy path: state machine schema and rollback function ship in BD2 before any real API calls are wired. Test by deliberately failing at each step in a staging environment.
-2. HQ org seed for accessFilter: confirm in BD1 that Brain and Dispatch return content (not empty) when logged in as super-admin. This is the canary for all BD3 functionality.
-3. Watchdog and alerting for unattended systems: BD2 PROV watchdog job (stuck provisioning) and studio worker heartbeat mechanism (Pitfall O-04) must ship with the respective systems, not as post-launch hardening.
-4. Token-usage instrumentation call-site audit (BD1): confirm exactly where createAgentChatPlugin calls the Anthropic SDK so the anthropic.ts wrapper intercepts every call. This audit gates the TEL plan in BD2.
-5. Meta template approval lead times: HQD owner-comms templates submit at BD2 completion (2-7 day wait before BD3 HQD goes live). GOD member reactivation templates submit at BD3 completion (2-7 day wait before BD4 GOD goes live). Calendar dependencies, not engineering tasks.
-6. B2B / B2C WABA split: HQ owns its own WABA for owner-comms; per-studio WABA is for member-comms only. Structural (different env scopes) + system prompt constraint in HQD. Never mixed.
-7. Fly secrets via flyctl subprocess: services/hq-worker Dockerfile must include flyctl. Decide base image and version pinning in BD2 PROV planning.
-
----
+Phases with well-documented patterns (lighter research):
+- **MA2 (member):** reuses existing `/api/m/bookings` + Stripe endpoints; standard optimistic-UI patterns.
+- **MA3 (teacher):** thin caller of the existing `mark-booking-attended` chokepoint; established schedule/roster patterns.
+- **MA4 (admin agent):** forks the existing member SSE loop + registry; the *novel* part is the allow-list filter (a small, testable control), not the transport.
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack (new deps) | HIGH | @neondatabase/api-client, @vercel/sdk, execa verified via official docs; Fly secrets via CLI confirmed by community thread (June 2026) |
-| Stack (base platform) | HIGH | All base stack deps verified by direct repo inspection |
-| Features (HQ-FND, TEL, HQB, GOB) | HIGH | Directly maps to existing agent-native template capabilities; additive patterns well-understood |
-| Features (PROV) | MEDIUM | API capabilities confirmed; exact runtime sequencing (Fly deploy timing, Vercel async polling) unverified in prod |
-| Features (HQD, GOD) | HIGH | Meta compliance pattern well-understood; GOD reuses existing chokepoint; HQD WABA separation is clear |
-| Architecture (component topology) | HIGH | From direct codebase inspection; all components located, file paths confirmed |
-| Architecture (provisioning saga) | MEDIUM | Saga pattern correct; individual API idempotency contracts (Neon 409 body, Vercel 409 fetch-by-name, Fly 400) need validation in BD2 |
-| Architecture (Anthropic wrapper call-site) | MEDIUM | response.usage.* fields documented and stable; exact integration point in createAgentChatPlugin needs BD1 audit |
-| Pitfalls | HIGH | CRITICAL pitfalls derived from direct PROJECT.md constraints + verified provider API behaviour; not inference |
+| Stack | HIGH | Packages + versions verified via npm registry; Better-auth Expo docs official. MEDIUM only on SSE-with-session interaction (spike-verify in MA1) and the SDK-55-vs-56 pin edge. |
+| Features | MEDIUM-HIGH | HIGH on member booking/notification/check-in mechanics (mature across Mindbody/Glofox/Mariana Tek/PushPress/Walla/F45); MEDIUM on the one-app-multi-role UX (industry norm is two apps — a deliberate, defensible divergence). |
+| Architecture | HIGH | Integration points grounded by reading the installed `@agent-native/core` dist (`bearer()`/`jwt()` always mounted, `emailAndPassword` hardcoded on, `getSession` resolves Bearer, basePath `/_agent-native/auth/ba`) + the app code. MEDIUM only on Expo push specifics (not yet in repo). |
+| Pitfalls | HIGH | The three highest-blast-radius pitfalls (Tier-3 leakage, claim collision, destructive migration) derive from direct code inspection + documented prior repo incidents. MEDIUM where prevention depends on code not yet written (new admin SSE endpoint, teacher allowlist). |
 
-**Overall confidence: HIGH** — architecture is clear, phase ordering is unambiguous, critical risks are identified with concrete prevention steps. The two MEDIUM items (provisioning API runtime behaviour, Anthropic call-site) are bounded and addressable in BD1/BD2 planning.
+**Overall confidence:** HIGH — the framework integration is verified, the build order is dependency-clean, and the risks are well-understood security/data boundaries with concrete mitigations.
 
-### Gaps to Address
+### Gaps to Address (carried-over Open Questions -> resolve as Key Decisions)
 
-- Fly machine image for provisioner: services/hq-worker Dockerfile must include flyctl. Exact base image and version pinning to decide in BD2 PROV planning.
-- Vercel SDK createDeployment async polling: exact SDK method and recommended poll interval for status: complete should be validated against a test project in BD2 before it is in the saga.
-- HQ WABA registration procedure: Meta Business Manager setup steps for a second phone number under GymClassOS account are not detailed. Resolve before BD3 HQD planning.
-- GOD template content: member_reactivation and owner_daily_digest template text must be drafted and submitted for Meta approval. Content work, not engineering, but it gates BD4 GOD. Draft at BD3 completion.
-- Neon 409 response body shape: assumed to include project_id in the error response body. Confirm against Neon API docs before writing saga step-1 idempotency code.
+These three are carried in from PROJECT.md and the pitfalls research and should be answered before/at MA1 plan time (requirements-definition should surface them explicitly):
 
----
+- **Unmatched-login-email policy** — when claim-by-email finds no `gym_members` row: show "no membership on file — contact the studio" (recommended; **never auto-create** a member — auto-create pollutes the CRM and trips the dual-unique-key upsert gotcha) vs a staff-assisted/phone-match fallback. Decide and document so code does not re-derive it inconsistently.
+- **Member-web target in scope for v2.3?** — `expo-secure-store` is a no-op on web and the Better-auth Expo client falls back to web cookie handling. PROJECT notes the member surface is native-first (web is a dev convenience). Confirm whether web is a shipping target; if yes, spike the web auth fallback.
+- **Password-reset path when WhatsApp is the only member channel** — Better-auth reset assumes an email sender; the studio only member channel today is WhatsApp. Decide v1: email/password with an email sender wired, magic-link, or a deferred WhatsApp-OTP (needs a Meta-approved login template). Email/password is the safe v1; WhatsApp-OTP is explicitly v2.
+
+Plus the operational gate: **MA5 is blocked on EAS init (`projectId`) + the customer Apple Developer account** for iOS push credentials — flag as an external dependency in the roadmap.
 
 ## Sources
 
 ### Primary (HIGH confidence)
-
-- Direct inspection of C:/Users/dimet/hustle working tree on master (2026-06-19): apps/staff-web/server/db/schema.ts, services/worker/src/index.ts, services/worker/src/queues/outbound-whatsapp.ts, services/worker/src/domain/sendMessage.ts, services/worker/src/queues/housekeeping.ts, services/worker/src/lib/env.ts, packages/queue/src/types.ts, templates/brain/server/db/schema.ts, templates/dispatch/server/db/schema.ts, templates/content/package.json, templates/videos/package.json, apps/staff-web/server/plugins/agent-chat.ts, pnpm-workspace.yaml
-- Neon Management API reference (api-docs.neon.tech/reference/createproject) — endpoint shape, region IDs, pg_version
-- Neon TypeScript SDK docs (neon.com/docs/reference/typescript-sdk) — @neondatabase/api-client, createApiClient, project CRUD
-- Vercel SDK GitHub repo (github.com/vercel/sdk) — @vercel/sdk 1.27.0 (2026-06-16); new Vercel({ bearerToken }); createProject, createProjectEnv, createDeployment, addProjectDomain
-- Fly Machines API docs (fly.io/docs/machines/api/) — POST /v1/apps, POST /v1/apps/{name}/machines, bearer token auth
-- Fly community thread — REST API secrets endpoints confirmed restricted to Fly KMS (June 2026); flyctl secrets set is the only working path
-- Fly tokens docs (fly.io/docs/flyctl/tokens-create-deploy/) — org-scoped token required for cross-app provisioning
-- Anthropic TypeScript SDK docs — response.usage.input_tokens, response.usage.output_tokens documented and stable
-- pg-boss v12 cron scheduling (DeepWiki) — boss.schedule(name, cron, data, { tz }), IANA timezone support; proven in services/worker/src/queues/housekeeping.ts
-- Meta WhatsApp Cloud API docs — template approval timeline (24-72h); template_not_approved error; per-WABA rate limits; opt-in requirements
-- .planning/PROJECT.md — all locked constraints, BD phase prefix, solo-dev constraint, fork-boundary discipline, no breaking DB changes rule
-- AGENTS.md — accessFilter + ownableColumns() model, no-unscoped-queries guard, no-drizzle-push guard, integration-webhooks queue pattern
+- **Direct codebase inspection** — `@agent-native/core` dist `better-auth-instance.js` (`bearer()`+`jwt()` always mounted, `emailAndPassword.enabled` hardcoded, `config.plugins` spread, no `trustedOrigins`), `auth.js` (`getSession` Bearer resolution order, basePath `/_agent-native/auth/ba/*`, `googleOnly` affects login HTML only), `action-discovery.js` (`loadActionsFromStaticRegistry` returns name->{tool,run,http}); `apps/staff-web` (`auth.ts`, `agent-chat.ts`, `schema.ts` gym_members.userId nullable / trainers no email, `api.m.*`, `demo-member.ts`); `packages/mobile-app` (`api.ts`, `agent-stream.ts`, `current-member.ts`, `AgentSheet.tsx`, `_layout.tsx`, `app.json` scheme + no extra.eas.projectId).
+- **npm registry** (2026-06-29) — `@better-auth/expo@1.6.22` (+ peerDeps on `better-auth@^1.6.22`, `expo-network>=8.0.7`), `expo-secure-store` sdk-55=55.0.15/latest=56.0.4, `expo-notifications` sdk-55=55.0.24, `expo-server-sdk@6.1.0`.
+- **Better-auth official Expo docs** — `expo()`/`expoClient({scheme,storagePrefix,storage:SecureStore})`, `getCookie()` + `credentials:omit`, `trustedOrigins`, custom-basePath note, `set-auth-token` bearer flow.
+- **Expo push docs** — `getExpoPushTokenAsync({projectId})`, dev-build requirement (removed from Expo Go on SDK 53+), APNs-during-`eas build`, FCM V1, `addNotificationResponseReceivedListener`/`getLastNotificationResponse` deep-link pattern; `expo-server-sdk` chunk/send/receipt/DeviceNotRegistered flow.
 
 ### Secondary (MEDIUM confidence)
+- Competitor feature analysis — PushPress, Mariana Tek, Mindbody, Glofox, Walla, F45 (two-app norm; invite/claim; unpaid->buy gate; waitlist auto-promote ~95% vs ~71%; check-in/kiosk; emerging owner AI).
+- LogRocket "React Native auth with Better Auth + Expo" — `expoClient` config + `trustedOrigins` + dev-build caveat.
 
-- Fitness-industry WhatsApp reactivation research — 18% reactivation rate targeted vs 2% cold; 3-5 touch suppression ceiling; 90-day cutoff (Keepme, Cloudstudio Manager, Hashmeta)
-- B2B SaaS churn indicators — DAU trend, sticky-feature adoption, login frequency as health score inputs (buildmvpfast, SaaS Hero, ChurnBuster)
-- Saga compensation pattern — LIFO rollback, best-effort compensation, terminal failure handling
-
-### Tertiary (LOW confidence / validate at planning time)
-
-- Neon 409 response body shape on duplicate project name — assumed standard error object with project_id; must validate before saga step-1 idempotency code is written
-- Vercel async deployment polling interval — exact SDK method and recommended interval need confirmation in BD2
-- Fly machine image base for services/hq-worker including flyctl — no specific image verified; resolve in BD2 PROV planning
+### Tertiary (LOW confidence — verify in spike)
+- `set-auth-token` exact header name on the installed better-auth version; mapped session shape (userId vs email-only); `react-native-sse` preserving the session header on a streaming POST — all to be confirmed in the MA1 auth spike.
 
 ---
-*Research completed: 2026-06-19*
+*Research completed: 2026-06-29*
 *Ready for roadmap: yes*

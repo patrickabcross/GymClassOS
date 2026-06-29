@@ -1,254 +1,277 @@
-# Stack Research — GymClassOS v2.0 (Self-Serve Platform + Two-Tier Brain/Dispatcher)
+# Stack Research
 
-**Domain:** Operator HQ app + zero-touch provisioning + two-tier AI brain/dispatcher
-**Researched:** 2026-06-19
-**Confidence:** HIGH for provisioning clients (API docs verified); MEDIUM for Fly secrets workaround (community-confirmed); HIGH for template deps (direct codebase inspection)
+**Domain:** Production auth + push notifications for an EXISTING Expo / React Native mobile app (RunStudio member/teacher/admin), backed by a Better-auth ^1.6 server on React Router v7 / H3 / Nitro / Vercel.
+**Researched:** 2026-06-29
+**Confidence:** HIGH on packages + versions (verified via npm registry + Better-auth official docs). MEDIUM on the SSE-with-session interaction and the SDK-55-vs-56 pinning edge (call-outs below).
 
-> **Scope.** This file covers ONLY what is new or changed for v2.0. The base platform stack (React Router v7, Drizzle 0.45.x, Better-auth, Neon, pg-boss 12.x, Hono, Vercel, Fly.io, WhatsApp via MYÜTIK, Stripe, @anthropic-ai/sdk) is locked and not re-researched. Every table below labels NEW vs. ALREADY PRESENT. The goal is a complete, version-pinned answer to "what do we actually install?"
-
----
-
-## The Single Most Important Finding
-
-**Three new provisioning API clients are needed; everything else is already in the workspace.** The templates for Brain and Dispatch ship as forkable standard React Router v7 apps whose deps (Drizzle, Zod, TanStack Query, Radix, etc.) are already in the workspace. The one risky dependency is video/Remotion — it is NOT needed for v2.0 and should be explicitly excluded from `apps/hq`. pg-boss already supports cron scheduling with IANA timezones (proven pattern in `services/worker/src/queues/housekeeping.ts`). Fly secrets cannot be set via the Machines REST API (not GA); the provisioner must shell out to `flyctl`.
+> **Scope discipline:** This milestone (v2.3) adds FOUR new stack capabilities to the already-validated stack. Everything in the existing stack (Expo 55, Expo Router, RN 0.83.9, TanStack Query, `react-native-sse`, Better-auth ^1.6 server, Drizzle/Neon, Anthropic SDK, Stripe Connect, pg-boss) is **fixed** and not re-researched. The four new pieces: (1) Better-auth client in Expo, (2) secure token storage, (3) Expo push, (4) deep-linking from a push tap.
 
 ---
 
-## New Dependencies by Category
+## The Single Most Important Finding (Read First)
 
-### 1. Provisioning Clients
+**Better-auth ships a first-party, maintained Expo integration — `@better-auth/expo` — and the GymClassOS server is already 90% configured for it.**
 
-Three external API clients are needed to drive zero-touch provisioning from `apps/hq`. All three authenticate via bearer tokens stored as HQ env vars.
+The riskiest unknown going in was *session transport in React Native* (no browser cookie jar). It is **solved by the official plugin**, not hand-rolled:
 
-| Library | Version | Purpose | Auth model | Install in |
-|---------|---------|---------|-----------|-----------|
-| `@neondatabase/api-client` | `^10.x` (verify exact at install: `npm view @neondatabase/api-client version`) | Neon project CRUD — create project, create role, get connection URI | `NEON_API_KEY` header via `createApiClient({ apiKey })` | `apps/hq` |
-| `@vercel/sdk` | `^1.27.0` (published 2026-06-16; verify at install) | Vercel project CRUD, env var management, deployment trigger, domain attach | `VERCEL_BEARER_TOKEN` via `new Vercel({ bearerToken })` | `apps/hq` |
-| `execa` | `^9.x` | Shell out to `flyctl` for app create + secrets set (Machines API secrets are not GA — see PITFALLS) | N/A — wraps CLI that uses `FLY_API_TOKEN` env | `apps/hq` |
+- The server enables a single `expo()` plugin. The client uses `expoClient()` from `@better-auth/expo/client`, configured with `storage: SecureStore`.
+- The Expo client **stores the session cookie in `expo-secure-store` and re-attaches it to every auth request automatically.** For your *own* API calls (`/api/m/*`, the admin SSE endpoint) you call `authClient.getCookie()` and set it as the `Cookie` header manually — see the integration section.
+- **You do NOT need a bespoke bearer-token shim.** The existing server already has both `bearer()` and `jwt()` plugins enabled (`packages/core/src/server/better-auth-instance.ts:818-829`) — those stay, but the *Expo* session path is cookie-string-over-SecureStore, handled by the plugin. The bearer plugin remains available as a fallback/alt transport if `getCookie()` ever proves awkward in a specific call site (e.g. the SSE POST).
 
-**Why `execa` instead of raw Node `child_process`:** It is promise-based, handles stderr/stdout streams, exposes exit codes cleanly, and prevents shell injection if you pass args as an array (use `execa('flyctl', ['secrets', 'set', '--app', appName, `KEY=${val}`])` — never template strings). Already a transitive dep in many workspaces; install explicitly to pin it.
+**What's missing server-side:** the `expo()` plugin is **not yet registered**, and `trustedOrigins` for the app's `agentnative://` scheme is **not yet set**. Both are small, additive changes to the shared core auth instance (or, cleaner, injected via the `config.plugins` passthrough that `createBetterAuthInstance` already supports — line 828: `...(config?.plugins ?? [])`).
 
-**Why NOT a typed Fly TypeScript SDK:** There is no official Fly TypeScript SDK. The two community SDKs (`usedatabrew/fly-machines-sdk`, `supabase/fly-admin`) are unmaintained or scoped to Supabase's own use. The Machines REST API is fully documented and adequate for app/machine creation via `fetch`, but secrets management requires `flyctl` anyway, so `execa` + CLI is the consistent choice for all Fly provisioning steps.
+**Second most important finding:** the app is on **Expo SDK 55**, but npm `latest` for every Expo package is now **SDK 56**. You MUST pin the **`sdk-55`** dist-tag versions of `expo-secure-store`, `expo-network`, and `expo-notifications` — installing `latest` will pull SDK-56 native modules into an SDK-55 app and break the build. Use `npx expo install` (which resolves the correct SDK-pinned version), never bare `npm install`.
 
-#### Neon API: what it can do
-- `POST /projects` — creates a new Neon project with `name`, `region_id`, `pg_version: 17`; returns project ID + connection URI
-- `POST /projects/{id}/branches/{branchId}/roles` — creates a database role
-- `GET /projects/{id}/connection_uri` — returns pooled + unpooled connection strings
-- Response time: sub-second; Neon creates projects in under 1 second (confirmed in docs)
-- Base URL: `https://console.neon.tech/api/v2`
-- Auth: `Authorization: Bearer {NEON_API_KEY}`
-
-#### Vercel SDK: what it can do
-- `vercel.projects.createProject({ requestBody: { name, framework } })` — create a new Vercel project
-- `vercel.projects.createProjectEnv({ idOrName, requestBody: [{ key, value, type, target }] })` — set env vars per environment (`production`, `preview`, `development`)
-- `vercel.deployments.createDeployment({ requestBody: { name, gitSource: { type: 'github', repoId, ref } } })` — trigger a deployment from a git SHA/ref
-- `vercel.projects.addProjectDomain({ idOrName, requestBody: { name: 'subdomain.gymclassos.com' } })` — attach a subdomain
-- Auth: `Authorization: Bearer {VERCEL_BEARER_TOKEN}` — generate a long-lived token from Vercel account settings (not an OAuth flow); store as HQ secret
-
-#### Fly provisioning via flyctl
-The Machines REST API (`https://api.machines.dev/v1`) handles app creation (`POST /v1/apps`) and machine creation (`POST /v1/apps/{name}/machines`) via authenticated fetch. However, secrets cannot be set via that API (endpoints exist but are restricted to Fly KMS, not yet GA for general app secrets as of June 2026 — confirmed in community thread). The only supported programmatic secret-setting path is:
-
-```
-flyctl secrets set --app {appName} KEY=VALUE [KEY2=VALUE2 ...]
-```
-
-Use `execa('flyctl', ['secrets', 'set', '--app', appName, ...secretPairs], { env: { FLY_API_TOKEN } })` where `secretPairs` is an array of `KEY=VALUE` strings. `flyctl` must be installed on the machine running `apps/hq` (Vercel build container or a local runner — see PITFALLS).
-
-For app creation and machine creation, use direct `fetch` against `api.machines.dev` — it is clean and does not require `execa`. Only secrets require the CLI detour.
-
-Fly auth token: use `fly tokens create org -o {orgSlug} -x 999999h` to generate a long-lived org-scoped token and store it as `FLY_API_TOKEN` in HQ env. A deploy-scoped token (`fly tokens create deploy -a {appName}`) is scoped to a single existing app and cannot create new apps.
+**Third:** push notifications **do not work in Expo Go on SDK 53+** — they were removed. Push requires an **EAS development build** (or production build). This compounds the existing constraint that the iOS build is gated on the customer's Apple Developer account. Local/in-app notifications still work in Expo Go; remote Expo push tokens do not.
 
 ---
 
-### 2. apps/hq Template Foundation
+## Recommended Stack
 
-`apps/hq` is forked from `templates/dispatch` + `templates/brain` (copy-in, not a workspace reference). The Content and Video templates are consulted for the HQD feature (marketing content + video generation) but the Remotion rendering stack from Video is NOT added to `apps/hq` in v2.0.
+### Core Technologies (the four new pieces)
 
-#### What each template ships (verified by direct codebase inspection)
+| Technology | Version | Purpose | Why Recommended |
+|------------|---------|---------|-----------------|
+| **`@better-auth/expo`** (client + server plugin) | **`1.6.22`** (match server `better-auth`) | Better-auth's official Expo/RN integration: `expo()` server plugin + `expoClient()` client plugin. Handles session storage in SecureStore + auto-attaches the session cookie to auth requests; powers email/password sign-in, social OAuth deep-link return, and `useSession`. | First-party, actively maintained (published days ago as of research). It *is* the answer to the "no browser cookies in RN" question — purpose-built for exactly this. Server already runs Better-auth ^1.6 with the org/jwt/bearer plugins; this is additive. |
+| **`better-auth`** (server, already present) | **bump `^1.6.0` → `^1.6.22`** in `packages/core` | The server auth instance the Expo client talks to. | `@better-auth/expo@1.6.22` **peers on `better-auth@^1.6.22`** (verified via `npm view`). The core is pinned at `^1.6.0` today — bump to `1.6.22` so client and server agree. Patch-level within the 1.6 line; low risk. Do **not** jump to the 1.7 beta or 1.0-canary. |
+| **`expo-secure-store`** | **`55.0.15`** (the `sdk-55` dist-tag — **NOT** `latest`/`56.0.4`) | Encrypted, OS-keychain-backed storage for the Better-auth session cookie/token. Replaces the `demoMemberId` AsyncStorage hack. | Session tokens are credentials — Keychain (iOS) / Keystore-backed EncryptedSharedPreferences (Android), not plaintext AsyncStorage. This is the `storage` you pass into `expoClient({ storage: SecureStore })`. **Not currently a dependency** — must be added. |
+| **`expo-notifications`** | **`55.0.24`** (the `sdk-55` dist-tag) | Client: request permission, `getExpoPushTokenAsync({ projectId })`, foreground handler, Android channel, and the response listener that drives deep-link-on-tap. | Already a dependency (`^55.0.23`) and already in `app.json` `plugins`. Bump to the latest `sdk-55` patch (`55.0.24`). The de-facto standard for Expo push. |
+| **`expo-server-sdk`** (Node, server-side) | **`6.1.0`** | Server: validate Expo push tokens, chunk, `sendPushNotificationsAsync`, poll receipts. Runs wherever the send originates. | The official Node sender for Expo push. Pure Node, no Expo runtime — fits both Vercel route handlers and the Fly worker. **Recommendation: send from the Fly worker (pg-boss), not staff-web** — push must be durable/retryable and the worker is the existing async chokepoint. Enqueue from staff-web, send from worker. |
 
-**`templates/dispatch`** — workspace control plane app
-- Vault (workspace-wide secrets with per-app grants): `vault_secrets`, `vault_grants`, `vault_requests`, `vault_audit_log` tables
-- Workspace resources (shared skills/instructions/agents/knowledge): `workspace_resources`, `workspace_resource_grants`
-- Dispatch destinations (Slack/Telegram/WhatsApp thread refs): `dispatch_destinations`, `dispatch_identity_links`, `dispatch_link_tokens`
-- Approval flow: `dispatch_approval_requests`, `dispatch_audit_events`
-- "Dreams" (agent-driven insight proposals): `dispatch_dreams`, `dispatch_dream_proposals`
-- Actions: `list-workspace-connections`, `upsert-workspace-connection`, `apply-workspace-connection-setup`, `set-workspace-connection-grant`, `list-dispatch-usage-metrics`
-- The `@agent-native/dispatch` package (`packages/dispatch`) is the reusable library; the `templates/dispatch` app is the deployable shell that imports from it
+### Supporting Libraries
 
-**`templates/brain`** — company knowledge graph app
-- Sources (Slack, GitHub, Granola, Clips, generic): `brain_sources`, `brain_source_shares`
-- Raw captures (ingested text): `brain_raw_captures`
-- Knowledge (reviewed, cited facts): `brain_knowledge`, `brain_knowledge_shares`
-- Proposals (LLM-drafted knowledge, awaiting review): `brain_proposals`, `brain_proposal_shares`
-- Sync runs: `brain_sync_runs`
-- Ingest queue (in-Postgres distillation queue): `brain_ingest_queue`
-- Text search only (no vector DB required in V1); agentic query expansion handles semantic retrieval
-- Actions: full CRUD on sources/knowledge/proposals + distillation queue management + eval tooling
+| Library | Version | Purpose | When to Use |
+|---------|---------|---------|-------------|
+| **`expo-network`** | **`55.0.15`** (`sdk-55` tag) | Peer dependency of `@better-auth/expo` (the plugin uses it for connectivity checks). | **Required by the plugin** (`peerDependencies` lists `expo-network >=8.0.7`). **Not currently a dependency** — must be added. |
+| **`expo-linking`** | `^55.0.14` (already present) | Deep-link URL construction + the `scheme` plumbing Better-auth's OAuth return and notification taps rely on. | Already a dependency. No change. Used by both the auth deep-link return and the notification-tap router. |
+| **`expo-web-browser`** | `~55.0.14` (already present) | Opens the OAuth consent screen for social sign-in and returns to the app via the scheme. Peer of `@better-auth/expo`. | Already present + in `app.json` plugins. Only strictly needed if you offer **social** (Google) sign-in in the mobile app. If mobile is email/password only for v1, it's still fine to keep. |
+| **`expo-constants`** | `^55.0.15` (already present) | Reads `expo.extra.eas.projectId` for `getExpoPushTokenAsync` and is a peer of `@better-auth/expo`. | Already present. Use `Constants.expoConfig?.extra?.eas?.projectId` to feed the push-token call. |
+| **`expo-device`** | `55.0.x` (`sdk-55` tag) | `Device.isDevice` guard — push tokens only issue on physical devices. | Optional but recommended in the registration flow to fail fast on simulators. Add via `npx expo install expo-device` if you want the guard. |
+| **`react-native-sse`** | `^1.2.1` (already present) | The existing SSE client for the member agent; reused for the new **admin** AI ops SSE endpoint. | No change. The new admin SSE call swaps `X-Demo-Member-Id` for the Better-auth session cookie (see SSE call-out below). |
 
-**`templates/content`** — Notion-like document editor
-- Tiptap 3.x rich text with collaborative editing (Yjs + Y-WebSocket)
-- Uses `@tailwindcss/typography` for prose rendering
-- Relevant to HQD: copy in the document editor surface for marketing content generation
-- Key extra deps vs. what's in the workspace: `@tiptap/core@^3.22.x`, all `@tiptap/*` extension packages, `yjs@^13.6.x`, `y-protocols@^1.0.x`, `prosemirror-markdown`, `tiptap-markdown`, `highlight.js`, `lowlight`, `@tailwindcss/typography`
+### Development Tools
 
-**`templates/videos`** — Remotion animation studio
-- Remotion `^4.0.434` + `@remotion/player` + `@remotion/transitions` — heavyweight renderer; requires a separate Remotion render cluster or Lambda for production rendering
-- `@react-three/fiber` + `@react-three/drei` for 3D compositions
-- `@agent-native/pinpoint` (the workspace analytics/observability package)
-- **DO NOT add Remotion to `apps/hq` in v2.0.** See "What NOT to Add" below.
-
-#### New packages needed for `apps/hq` that are NOT already in the workspace
-
-| Package | Version | Why needed | Template source |
-|---------|---------|------------|----------------|
-| `@neondatabase/api-client` | `^10.x` | Provisioning: create Neon projects | New for hq |
-| `@vercel/sdk` | `^1.27.0` | Provisioning: create Vercel projects + envs + deploys | New for hq |
-| `execa` | `^9.x` | Provisioning: shell out to flyctl for secrets | New for hq |
-| `@tiptap/core` | `^3.22.x` | HQD content editing surface (from content template) | content template |
-| `@tiptap/extension-*` (starter-kit + specific extensions) | `^3.22.x` | Tiptap extensions for content editing | content template |
-| `yjs` | `^13.6.x` | Collaborative editing (content template) — needed only if real-time collab is in v2.0 scope; can be deferred | content template |
-| `@tailwindcss/typography` | `^0.5.x` | Prose rendering for generated content (already in some templates) | content template |
-
-**Already present in the workspace (do NOT re-add):** `@agent-native/core`, `@agent-native/dispatch`, `drizzle-orm`, `h3`, `react`, `react-dom`, `react-router`, `vite`, `tailwindcss`, `zod`, `@tanstack/react-query`, `@tabler/icons-react`, `better-auth`, `@neondatabase/serverless`, `@anthropic-ai/sdk`, `nanoid`, `sonner`, `Radix UI primitives`, `shadcn/ui` (copy-in components).
-
----
-
-### 3. Telemetry Push Pipeline
-
-Each studio deploy pushes aggregate telemetry (token counts + engagement metrics) up to HQ on a schedule. No new infrastructure is needed.
-
-| Component | Implementation | Why |
-|-----------|---------------|-----|
-| **Sender** (per-studio worker) | `pg-boss schedule` + plain `fetch` to HQ HTTPS endpoint | pg-boss 12.x already ships with `boss.schedule(name, cron, data, { tz })` — proven in production (`housekeeping.ts`); one cron job per studio, daily or hourly aggregation |
-| **Auth** | Per-studio `TELEMETRY_TOKEN` (a secret set at provision time via `flyctl secrets set`); sent as `Authorization: Bearer` on each push | HQ verifies with a constant-time `crypto.timingSafeEqual` check; no JWT overhead needed for a server-to-server call |
-| **Receiver** (HQ) | A new Hono route in `apps/hq` (or a React Router v7 action at a public path) that accepts `POST /api/telemetry`, verifies the token, writes to HQ Neon | No new framework; same Hono/RR v7 pattern |
-| **Schema** (HQ Neon) | Two additive tables: `studio_installs` (one row per provisioned studio, holds `telemetry_token_hash`, metadata), `telemetry_events` (time-series rows: `studio_id`, `date`, `token_count_input`, `token_count_output`, `dau`, `wau`, `classes_booked`) | Token hash is stored; plain token lives only in the studio's Fly secrets. HQ never holds the plain token after provisioning |
-
-No new npm packages are needed for telemetry. The sender is `fetch` + pg-boss cron. The receiver is standard Hono/RR v7 + Drizzle.
-
----
-
-### 4. Recurring Scheduling for Heartbeat Campaigns
-
-The gym-owner dispatcher (GOD) needs daily digest + daily heartbeat reactivation sends. These are per-studio, running in each studio's `services/worker`.
-
-| Requirement | Solution | Rationale |
-|-------------|---------|-----------|
-| Daily owner digest at studio-configured time | `boss.schedule('owner-digest', cronExpr, {}, { tz: studioTimezone })` | pg-boss 12.x supports IANA timezone cron scheduling (`tz` option). Pattern verified in `housekeeping.ts` |
-| Daily heartbeat reactivation (member sends) | `boss.schedule('heartbeat-reactivation', '0 9 * * *', {}, { tz: studioTz })` | Same mechanism; the worker job queries at-risk members and enqueues individual `outbound-whatsapp` jobs per member |
-| Per-class reminders (existing) | Already implemented via `CLASS_REMINDER` queue | No change |
-| Rate limiting on reactivation batch | `boss.send('outbound-whatsapp', payload, { startAfter: delayMs })` with spread delays per member | pg-boss `startAfter` option staggers sends without a separate rate-limiter |
-
-**pg-boss is sufficient. No alternative queue library is needed.** The only constraint is that `boss.schedule()` is idempotent — calling it with the same name and different cron expression updates the schedule without error (pg-boss 12 confirmed behavior). The studio-specific timezone should be stored in HQ's `studio_installs` table and injected at provision time as a `STUDIO_TIMEZONE` Fly secret, which the worker reads on boot.
-
----
-
-### 5. AI SDK Usage in apps/hq (Brain + Dispatcher)
-
-`apps/hq` will run its own agent powered by the shared `ANTHROPIC_API_KEY`. No new AI SDK is needed.
-
-| Component | Implementation | Notes |
-|-----------|---------------|-------|
-| HQ Brain agent | `@anthropic-ai/sdk` `^0.90.x` (already in `@agent-native/core`) | Brain template uses the same agent-chat infrastructure via `createAgentChatPlugin` |
-| HQ Dispatcher agent | Same | Dispatch template is already wired to `createAgentChatPlugin` via `@agent-native/dispatch` |
-| Token usage instrumentation (TEL) | Intercept Anthropic SDK response metadata (`usage.input_tokens`, `usage.output_tokens`) in the agent-chat plugin's response handler | Already surfaced in Anthropic SDK response objects; no additional SDK needed |
+| Tool | Purpose | Notes |
+|------|---------|-------|
+| **`npx expo install`** | Installs SDK-pinned native module versions | **Use this, not `npm install`/`pnpm add`, for every `expo-*` package.** It resolves the correct version for SDK 55 automatically, sidestepping the SDK-55-vs-56 trap. For `@better-auth/expo` and `expo-server-sdk` (not Expo-native), use the normal package manager. |
+| **EAS CLI (`eas-cli`)** | Builds the dev/prod client with native push entitlements + APNs/FCM credentials | Push requires a **development build** (Expo Go cannot receive remote push on SDK 53+). `eas build` prompts to generate the APNs key (iOS) and configures FCM V1 (Android). **Gated on the customer's Apple Developer account** (per STATE.md / D2). |
+| **`eas credentials`** | Manage APNs key (iOS) + FCM V1 service account (Android) | iOS APNs key is auto-generated during `eas build` if you consent; Android needs the Firebase project's FCM V1 service-account JSON uploaded. |
+| **Expo Push Notifications Tool** (web) | Manually test a push to a captured token before wiring the server | `https://expo.dev/notifications` — fastest way to verify token capture + deep-link payload before building the server send path. |
+| **`EXPO_ACCESS_TOKEN`** (env, optional) | Enables Expo push security (rejects sends from unauthorized callers) | Set on the worker if you enable "push security" in the Expo dashboard. Recommended for production. Store in `app_secrets`/Fly env like the other server secrets. |
 
 ---
 
 ## Installation
 
 ```bash
-# In apps/hq (new app, forked from dispatch+brain templates)
-pnpm add @neondatabase/api-client @vercel/sdk execa
+# --- Mobile app (packages/mobile-app) — Expo-native: use `expo install` for correct SDK-55 pin ---
+cd packages/mobile-app
+npx expo install expo-secure-store expo-network expo-device
+npx expo install expo-notifications   # bumps existing ^55.0.23 → sdk-55 latest (55.0.24)
+# expo-linking / expo-web-browser / expo-constants already present at sdk-55
 
-# Tiptap for HQD content editing (copy from content template pattern)
-pnpm add @tiptap/core @tiptap/starter-kit @tiptap/react @tiptap/pm \
-  @tiptap/extension-placeholder @tiptap/extension-link @tiptap/extension-image \
-  @tiptap/extension-table @tiptap/extension-table-cell @tiptap/extension-table-header \
-  @tiptap/extension-table-row @tiptap/extension-task-item @tiptap/extension-task-list \
-  @tiptap/extension-bubble-menu @tiptap/extension-horizontal-rule \
-  @tiptap/extension-code-block-lowlight @tailwindcss/typography highlight.js lowlight \
-  prosemirror-markdown tiptap-markdown
+# --- Mobile app — the Better-auth client (NOT an expo-native module; normal add) ---
+pnpm --filter @agent-native/mobile-app add @better-auth/expo better-auth@1.6.22
 
-# Only if real-time collab is in v2.0 scope (can defer):
-# pnpm add yjs y-protocols @tiptap/extension-collaboration @tiptap/extension-collaboration-caret
+# --- Server: core auth instance — bump better-auth to match the expo client peer ---
+# packages/core: better-auth ^1.6.0  ->  ^1.6.22   (and add the expo plugin)
+pnpm --filter @agent-native/core add better-auth@^1.6.22 @better-auth/expo@^1.6.22
+
+# --- Server send path (Fly worker — recommended) ---
+pnpm --filter @gymos/worker add expo-server-sdk@^6.1.0
 ```
 
-```bash
-# Fly token for provisioning — one-time setup, stored as HQ env var
-fly tokens create org -o YOUR_ORG_SLUG -x 999999h
-# → store output as VERCEL_BEARER_TOKEN equivalent: FLY_API_TOKEN in apps/hq env
+> **CRITICAL — do not run a bare `npm install expo-secure-store`.** That resolves to `56.0.4` (SDK 56) and will mismatch the SDK-55 native runtime. Always `npx expo install`.
+
+---
+
+## Integration with the EXISTING server + app (concrete, not generic)
+
+### 1. Better-auth in Expo — session transport (the riskiest unknown, resolved)
+
+**Server side** — register the `expo()` plugin and add the app scheme to `trustedOrigins`. The cleanest insertion point is the existing `config.plugins` passthrough in `createBetterAuthInstance` (`packages/core/src/server/better-auth-instance.ts:828`), or add it directly to the `plugins: [...]` array alongside `jwt()` and `bearer()`:
+
+```typescript
+import { expo } from "@better-auth/expo";
+
+betterAuth({
+  // ...existing config...
+  trustedOrigins: [
+    "agentnative://",                 // the app.json scheme (verified: app.json "scheme": "agentnative")
+    // add prod/staging schemes here if they ever diverge
+    // dev only (do NOT ship to prod): "exp://", "exp://192.168.*.*:*/**"
+  ],
+  plugins: [
+    jwt({ /* existing */ }),
+    bearer(),                         // existing — keep
+    expo(),                           // NEW
+    ...(config?.plugins ?? []),
+  ],
+});
 ```
+
+- The server already mounts auth under a **custom basePath** (`/_agent-native/auth/ba`, line 580). The Expo client must be given the **full URL including that path** — Better-auth's docs explicitly call this out for custom base paths.
+- The session, cookie config, 30-day expiry, and Neon adapter all already exist and are reused — no auth-table changes (the `user`/`session`/`account` tables are already created). This satisfies the "strictly additive DB changes" constraint: **no migration needed for auth itself.**
+
+**Client side** — new file in `packages/mobile-app/lib/auth-client.ts`:
+
+```typescript
+import { createAuthClient } from "better-auth/react";
+import { expoClient } from "@better-auth/expo/client";
+import * as SecureStore from "expo-secure-store";
+
+export const authClient = createAuthClient({
+  // Full URL INCLUDING the custom basePath (server mounts at /_agent-native/auth/ba)
+  baseURL: `${process.env.EXPO_PUBLIC_API_BASE}/_agent-native/auth/ba`,
+  plugins: [
+    expoClient({
+      scheme: "agentnative",          // must match app.json
+      storagePrefix: "runstudio",     // namespaces SecureStore keys
+      storage: SecureStore,           // ← session cookie persisted in the OS keychain
+    }),
+  ],
+});
+```
+
+**Making authenticated calls to your OWN endpoints (`/api/m/*`, admin SSE)** — the plugin auto-attaches the cookie to *auth* requests, but for your app endpoints you grab the cookie string and set it yourself:
+
+```typescript
+// Replaces lib/api.ts's X-Demo-Member-Id injection
+const cookie = authClient.getCookie();          // synchronous; reads from SecureStore cache
+const res = await fetch(`${API_BASE}${path}`, {
+  ...init,
+  headers: { "Content-Type": "application/json", Cookie: cookie, ...init?.headers },
+  credentials: "omit",                           // prevent RN's fetch from interfering
+});
+```
+
+This is a **one-file change** to `lib/api.ts` (swap `X-Demo-Member-Id` → `Cookie`) and a matching change in `lib/agent-stream.ts`.
+
+**Server-side session read is unchanged.** `getSession(event)` (already used in `auth.ts`) reads the cookie the Expo client sends, identically to the web app. The new admin SSE endpoint wraps work in `runWithRequestContext({ userEmail, orgId })` exactly as the staff-web actions do — no new session machinery.
+
+> **SSE + cookie call-out (MEDIUM confidence — verify in the spike).** `react-native-sse` supports custom headers (the existing code already sends `X-Demo-Member-Id`), so attaching `Cookie: authClient.getCookie()` to the admin SSE POST is the direct path. **If** a specific RN/Nitro combination strips or mishandles the `Cookie` header on the streaming POST, the fallback is the already-enabled **`bearer()` plugin**: read the bearer token from the session and send `Authorization: Bearer <token>` instead. Both transports are live on the server today — so this is a no-new-dependency fallback. **Action: prove the SSE-with-session path in the auth spike before building the admin agent UI.**
+
+> **Role routing** is application logic, not a stack concern: after sign-in, resolve the role server-side from `session.user.email` against `RUNSTUDIO_OPERATOR_EMAILS` (admin) and a new teacher allowlist, else member. Member **claim-by-email** links the Better-auth `user` to the existing `gym_members` row via the nullable `user_id` FK already in schema (additive — no new column).
+
+### 2. Secure token storage
+
+- `expo-secure-store@55.0.15`. Used purely as the `storage` adapter handed to `expoClient` — you rarely call it directly. The plugin reads/writes the session under the `storagePrefix` keys.
+- **SDK 55 caveat:** value size limit is ~2KB per key on Android (SecureStore wraps a small encrypted blob) — fine for a session cookie/token, do not stuff large JSON in it. The Better-auth session string is well under this.
+- **Web caveat:** SecureStore is a no-op / unavailable on web (`react-native-web`). Since the app targets iOS/Android/web, the Better-auth Expo client falls back to its web cookie handling on web — but confirm the member web target's behaviour in the spike if web is in scope for v2.3 (PROJECT notes member surface is native-first; web is a dev convenience).
+
+### 3. Expo push notifications
+
+**Client registration flow** (in the mobile app, after sign-in):
+
+```typescript
+import * as Notifications from "expo-notifications";
+import * as Device from "expo-device";
+import Constants from "expo-constants";
+
+async function registerForPush(): Promise<string | null> {
+  if (!Device.isDevice) return null;                  // simulators can't get a token
+  const { status } = await Notifications.requestPermissionsAsync();
+  if (status !== "granted") return null;
+  if (Platform.OS === "android") {
+    await Notifications.setNotificationChannelAsync("default", {
+      name: "default", importance: Notifications.AndroidImportance.DEFAULT,
+    });
+  }
+  const projectId = Constants.expoConfig?.extra?.eas?.projectId;  // ← MUST be set (see below)
+  const token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
+  return token; // POST to a new /api/m/push-token endpoint, store per authenticated user
+}
+```
+
+- **`projectId` is required and currently MISSING.** `app.json` has **no `extra.eas.projectId`** (verified). It gets populated when the project is linked to EAS (`eas init`). Without it, `getExpoPushTokenAsync` throws. **This is a hard prerequisite, gated on EAS setup under the customer's account.**
+- Store the captured Expo push token in a **new additive table** (e.g. `push_tokens(user_id, expo_token, platform, created_at)`) — additive-only, satisfies the no-breaking-DB-change rule. One user can have multiple devices/tokens.
+
+**Server send flow** (Fly worker, `expo-server-sdk@6.1.0`):
+
+```typescript
+import { Expo } from "expo-server-sdk";
+const expo = new Expo({ accessToken: process.env.EXPO_ACCESS_TOKEN }); // optional but recommended
+
+// 1. filter valid tokens with Expo.isExpoPushToken(token)
+// 2. chunkPushNotifications([{ to, title, body, data: { url: "/admin/agent" } }])
+// 3. for each chunk: await expo.sendPushNotificationsAsync(chunk)  -> tickets
+// 4. later: expo.getPushNotificationReceiptsAsync(ticketIds) -> prune DeviceNotRegistered tokens
+```
+
+- **Send from the worker, enqueue from staff-web** — push is async, retryable, and must not block a request. pg-boss already exists; add a `member-push` (or `admin-push`) queue. This matches the existing "staff-web never calls external APIs directly; the worker is the chokepoint" architecture.
+- **Prune `DeviceNotRegistered`** receipts — stale tokens accumulate or Expo throttles you. Receipt-checking is not optional at scale.
+
+**EAS / APNs / FCM credentials (gated on customer Apple Dev account):**
+- **iOS:** needs the paid Apple Developer account. `eas build` prompts to generate an **APNs key** automatically; it's stored in EAS credentials. The build must be an **EAS dev or prod build** — Expo Go cannot receive remote push on SDK 53+.
+- **Android:** needs **FCM V1** credentials — upload the Firebase project's service-account JSON via `eas credentials`. (Even Expo-managed push routes Android through FCM.)
+- **Both:** require `eas init` first (to mint the `projectId`).
+
+### 4. Deep-linking from a push tap
+
+- **Scheme is already set:** `app.json` `"scheme": "agentnative"` — deep links and notification-tap routing work off this. No change needed.
+- **Pattern (Expo Router):** put a `useNotificationObserver` hook in the root layout (`app/_layout.tsx`). On a notification with `data.url`, call `router.push(url)`. Cover both cold-start (`getLastNotificationResponse()`) and warm taps (`addNotificationResponseReceivedListener`):
+
+```typescript
+function useNotificationObserver() {
+  useEffect(() => {
+    const redirect = (n: Notifications.Notification) => {
+      const url = n.request.content.data?.url;
+      if (typeof url === "string") router.push(url);   // e.g. "/admin/agent" or "/booking/123"
+    };
+    const last = Notifications.getLastNotificationResponse();
+    if (last?.notification) redirect(last.notification);
+    const sub = Notifications.addNotificationResponseReceivedListener(r => redirect(r.notification));
+    return () => sub.remove();
+  }, []);
+}
+```
+
+- **Server side:** put the destination route in the push payload's `data.url` — `{ url: "/admin/agent" }` for the admin "come look" nudge, `{ url: "/booking/<occurrenceId>" }` for a member booking/reminder. The route strings are Expo Router paths, so they map straight onto the file-based routes you build.
+- **Cold-start ordering caveat:** the observer must run high in the tree and tolerate the router/auth not being ready yet on first frame — guard the `router.push` until after the session is resolved (a member must be authenticated before `/admin/agent` is reachable). This is app logic; flag it for the planner.
 
 ---
 
 ## Alternatives Considered
 
-| Recommended | Alternative | Why Not |
-|-------------|-------------|---------|
-| `@neondatabase/api-client` | Raw `fetch` against `https://console.neon.tech/api/v2` | `api-client` ships full TypeScript types for all request/response shapes; raw fetch requires hand-typing everything; the SDK is thin and adds no runtime overhead |
-| `@vercel/sdk` | Raw `fetch` against `https://api.vercel.com` | Vercel REST API shapes are complex; SDK reduces boilerplate for createProject + createProjectEnv + createDeployment + addProjectDomain; same auth model either way |
-| `execa` for Fly secrets | `child_process.execFile` from Node stdlib | `execa` is promise-native, handles stderr properly, prevents shell injection via array args; execFile works but is callback-style and more error-prone |
-| `execa` for Fly secrets | Fly Machines API secrets endpoint via `fetch` | Fly Machines API secrets endpoints are restricted to Fly KMS (not general app secrets) as of June 2026 — they return empty arrays even for existing secrets. CLI is the only working path. |
-| pg-boss cron scheduling | External cron service (Railway Cron, Vercel Cron, etc.) | pg-boss is already running in every studio worker; adding an external cron adds a vendor + a billing relationship per studio. pg-boss cron is sub-minute-accurate enough for daily digest/heartbeat. |
-| pg-boss cron scheduling | `node-cron` or `cron` npm package | pg-boss schedule is cluster-safe (only one machine fires per cron tick across replicas because Postgres provides the locking); raw cron packages fire on every replica |
-| HQ as a separate Vercel deployment | HQ hosted on Fly | HQ is a React Router v7 SSR app — identical to `apps/staff-web`; Vercel hosting matches the existing pattern; Fly is for always-on workers, not SSR apps in this architecture |
-| Forking content template for HQD | Building a new document editor from scratch | Content template already ships Tiptap 3.x + full extension set + collaboration; copying it avoids reinventing the editor |
-| Deferring Remotion video rendering to post-v2.0 | Adding Remotion to apps/hq now | Remotion requires a render cluster or Lambda; adds significant ops complexity; the Video template's deps alone add 15+ packages; defer until the HQD use case is validated |
+| Recommended | Alternative | When to Use Alternative |
+|-------------|-------------|-------------------------|
+| `@better-auth/expo` cookie-over-SecureStore | Hand-rolled bearer-token flow using the existing `bearer()` plugin + manual SecureStore | Only if the official Expo plugin proves incompatible with the custom basePath / Nitro mount in the spike. The bearer plugin is already enabled, so this is a viable fallback — but it means re-implementing session refresh/storage the plugin gives for free. Use the plugin first. |
+| `expo-secure-store` for the session | `@react-native-async-storage/async-storage` (the current demo hack) | Never for credentials. AsyncStorage is unencrypted plaintext. Keep AsyncStorage only for non-sensitive UI state (e.g. last-viewed tab); move all auth material to SecureStore. |
+| `expo-notifications` + Expo push service | Bare `react-native-firebase` / raw APNs+FCM | Only if you outgrow Expo's push relay (e.g. need rich/critical alerts, or want to drop the Expo token indirection). Massive added native-config burden; not justified for "free owner nudges + booking reminders." Stay on Expo push. |
+| Send push from the **Fly worker** (pg-boss) | Send from a Vercel route handler via `expo-server-sdk` | A Vercel route is fine for a *one-off* synchronous send (e.g. immediate "booking confirmed"). But scheduled reminders + retries + receipt pruning belong on the worker. Default to the worker; allow a thin synchronous Vercel send only for instant in-request confirmations if needed. |
+| `better-auth@1.6.22` (stay on 1.6 line) | `better-auth@1.7.0-beta` / `1.0.0-canary` | Never mid-milestone. The 1.6 line is what the whole codebase runs; the Expo plugin's `latest` peers on 1.6.22. Re-evaluate the 1.7/2.0 line post-launch. |
 
 ---
 
-## What NOT to Add
+## What NOT to Use
 
 | Avoid | Why | Use Instead |
 |-------|-----|-------------|
-| **Remotion (`remotion`, `@remotion/player`, etc.)** | Requires a separate render cluster or Remotion Lambda for production use; not needed for v2.0 HQD which focuses on text content + AI-generated copy, not animated video | Defer to v2.1 when video generation is validated as a real feature; the Video template can be forked then |
-| **`@react-three/fiber` / `@react-three/drei`** | Part of the Video template; not needed for any v2.0 feature | Not applicable in v2.0 |
-| **`y-websocket` / real-time collab in `apps/hq`** | HQ is single super-admin in v2.0; no concurrent editors means Yjs is unnecessary overhead | Single-user content editing with Tiptap works fine without Yjs; add Yjs if/when HQ becomes multi-user |
-| **Inngest / Trigger.dev for provisioning workflows** | Adds a third-party SaaS vendor; provisioning is a short sequential workflow (10–15 steps), not a long multi-day workflow; pg-boss job + retry handles idempotent retries at the required scale | pg-boss `send` with retry count for each provisioning step; HQ tracks the step in a `provisioning_runs` table |
-| **Separate Redis / BullMQ for HQ** | HQ has a small, predictable job load (provisioning runs + telemetry ingestion); Neon + pg-boss is sufficient and consistent with the existing architecture decision | pg-boss on HQ Neon (same pattern as studio workers) |
-| **Multi-tenant `studio_id` columns in any table** | Locked by architecture decision — single-tenant code, multi-tenant deploy. HQ identifies studios by `studio_installs.id` (a HQ-internal record), not by injecting an ID into studio Neons | One Neon project per studio; HQ has its own Neon; no cross-database queries |
-| **Fly GraphQL API for provisioning** | Underdocumented; community reports inconsistency; the Machines REST API + flyctl CLI covers all provisioning needs without the GraphQL overhead | Machines REST API (`fetch` to `api.machines.dev`) for app/machine creation; `flyctl` (via `execa`) for secrets |
-| **Vercel Deploy Hooks / webhooks as the deploy trigger** | Deploy Hooks do not support passing env vars or git SHAs; the SDK's `createDeployment` gives full control over what deploys | `vercel.deployments.createDeployment()` from the SDK |
-| **`@agent-native/dispatch` workspace package as a direct dep of `apps/hq`** | It is already a dep — `templates/dispatch` already declares `"@agent-native/dispatch": "workspace:*"`. Copying the template into `apps/hq` preserves this dep. Do not re-add it as a new dep. | Fork `templates/dispatch` into `apps/hq` following the same fork-boundary pattern as `apps/staff-web` |
-| **Stripe in `apps/hq`** | HQ does not process payments; payments live in per-studio deploys | No Stripe dep in `apps/hq` |
+| **`npm install expo-secure-store` (bare, → `56.0.4`)** | Pulls SDK-56 native modules into an SDK-55 app → native build mismatch / crashes. | `npx expo install expo-secure-store` (resolves `55.0.15`, the `sdk-55` tag). |
+| **`latest` tag for ANY `expo-*` package** | `latest` = SDK 56 across the board now; the app is SDK 55. | The `sdk-55` dist-tag via `npx expo install`. |
+| **AsyncStorage for the session token** | Unencrypted plaintext on disk; the current `demoMemberId`/`X-Demo-Member-Id` hack is exactly what this milestone removes. | `expo-secure-store` as the `expoClient` storage adapter. |
+| **Testing push in Expo Go** | Remote push removed from Expo Go on SDK 53+ — tokens won't issue / sends won't arrive. | An **EAS development build** on a physical device (gated on the customer Apple Dev account for iOS). |
+| **Calling `getExpoPushTokenAsync()` without a `projectId`** | Throws — `app.json` has no `extra.eas.projectId` today. | Run `eas init` to mint the projectId, read it via `Constants.expoConfig?.extra?.eas?.projectId`. |
+| **Sending push directly from staff-web request handlers** | Breaks the "staff-web never calls external services directly; worker is the chokepoint" architecture; no durable retry. | Enqueue a pg-boss job; send from the Fly worker via `expo-server-sdk`. |
+| **A new bearer-only auth scheme that ignores the Expo plugin** | Reinvents session storage/refresh the plugin gives free; diverges from the web auth path. | The `expo()`/`expoClient()` plugin pair; keep `bearer()` only as the SSE fallback. |
+| **A new auth-table migration** | Better-auth's `user`/`session`/`account` tables already exist and are reused; member linking uses the existing nullable `user_id` FK. | No auth migration. Only the **additive** `push_tokens` table is new. |
 
 ---
 
-## Stack Patterns for v2.0 Apps
+## Stack Patterns by Variant
 
-### apps/hq (new)
+**If the mobile app offers Google/social sign-in (not just email/password):**
+- Keep `expo-web-browser` + `expo-linking` (already present) — the OAuth consent opens in the browser and returns via the `agentnative://` scheme.
+- The server's Google provider config already exists (`better-auth-instance.ts:599`); add `agentnative://` to `trustedOrigins` so the OAuth return is accepted.
 
-- Fork base: `templates/dispatch` (for vault, integrations, approval flow, workspace resources) + `templates/brain` (for knowledge graph/distillation surfaces) + feature directories from `templates/content` (for HQD content editing)
-- New features in `apps/hq/features/provisioning/` (the provisioner orchestrator), `apps/hq/features/telemetry/` (HQ telemetry ingestion + HQB cohort views)
-- Auth: single super-admin Better-auth login (email/password); no org model in v2.0
-- DB: its own Neon project (`gymos-hq`); schema = framework tables + dispatch tables + brain tables + new `studio_installs` + `provisioning_runs` + `telemetry_events`
-- Deployment: Vercel (same adapter as `apps/staff-web`: `@vercel/react-router`)
-- The provisioning orchestrator runs as an HQ server action (not a background worker) for v2.0; if provisioning needs to be async later, move to pg-boss job on HQ's own Neon
+**If email/password only for v1 (simpler):**
+- `expo()` + `expoClient()` + SecureStore is sufficient; `expo-web-browser` is unused by auth but harmless to keep (it's already a dep + plugin).
 
-### services/worker additions (per-studio)
+**If the SSE-with-cookie spike fails:**
+- Switch the admin SSE call to `Authorization: Bearer <session-token>` using the already-enabled `bearer()` plugin. Zero new dependencies; server already accepts it.
 
-- New pg-boss queues: `owner-digest`, `heartbeat-reactivation`
-- New action: `GOD` (gym-owner dispatcher) logic that reads GOB brain state + sends via existing `outbound-whatsapp` chokepoint
-- New action: `GOB` brain update (called by agent when studio data changes — classes, brand)
-- Telemetry cron: new pg-boss schedule `telemetry-push` (daily or hourly) that aggregates and POSTs to HQ
-
-### Provisioning idempotency pattern
-
-Track each provisioning step as a row in HQ's `provisioning_runs` table (`step_name`, `status: pending|complete|failed`, `output_json`). On retry, skip steps with `status='complete'`. This gives idempotent retries without needing Inngest or a saga framework.
-
-```typescript
-// Pattern in apps/hq/features/provisioning/run-step.ts
-async function runStep(runId: string, stepName: string, fn: () => Promise<unknown>) {
-  const existing = await db.query.provisioningRunSteps.findFirst({
-    where: and(eq(t.runId, runId), eq(t.stepName, stepName), eq(t.status, 'complete'))
-  });
-  if (existing) return existing.outputJson; // idempotent skip
-  const output = await fn();
-  await db.insert(t).values({ runId, stepName, status: 'complete', outputJson: output });
-  return output;
-}
-```
+**If push volume grows (many studios / many devices):**
+- Set `EXPO_ACCESS_TOKEN` (push security) on the worker, and make receipt-pruning a scheduled pg-boss job, not a fire-and-forget after-send.
 
 ---
 
@@ -256,54 +279,28 @@ async function runStep(runId: string, stepName: string, fn: () => Promise<unknow
 
 | Package A | Compatible With | Notes |
 |-----------|-----------------|-------|
-| `@neondatabase/api-client` latest | Node 22+ | HQ runs on Vercel (Node 20 LTS in Vercel's default runtime — verify; if needed, set `nodeVersion: 22` in `vercel.json`) |
-| `@vercel/sdk@1.27.x` | ESM only | Matches the `"type": "module"` pattern in all workspace apps |
-| `execa@9.x` | ESM only, Node 18+ | Must use `import { execa } from 'execa'`; CommonJS is not supported |
-| `@tiptap/core@3.22.x` | React 19.x, Vite 8.x | Content template already verified on this combo |
-| `pg-boss@12.18.x` | Neon Postgres 16/17 | Confirmed: `pgboss.*` schema auto-migrated on `boss.start()`; works on Neon WebSocket driver |
-| `@agent-native/dispatch@0.8.x` | `@agent-native/core@>=0.8.0`, React 18+/19+ | Verified in `packages/dispatch/package.json` peerDeps |
-| `better-auth@1.6.x` | React Router v7 + H3 | Same combo used by `apps/staff-web` and all templates |
-| Fly Machines API `api.machines.dev` | `flyctl` latest | App creation via REST; secrets via flyctl; both require `FLY_API_TOKEN` |
-
----
-
-## Confidence Assessment
-
-| Area | Confidence | Basis |
-|------|-----------|-------|
-| Neon API client (`@neondatabase/api-client`) | HIGH | Official Neon docs; verified endpoint shapes; auth model documented |
-| Vercel SDK (`@vercel/sdk`) | HIGH | Official SDK docs + GitHub repo verified; version 1.27.0 confirmed (npm, 2026-06-16) |
-| Fly app/machine creation via Machines REST API | HIGH | Official Machines API docs; endpoint shape for `POST /v1/apps` + `POST /v1/apps/{name}/machines` confirmed |
-| Fly secrets via flyctl (not REST API) | MEDIUM–HIGH | REST API secrets are NOT GA (community-confirmed June 2026); flyctl CLI path is the only working option; requires flyctl installed in provisioner runtime |
-| `execa` for flyctl subprocess | HIGH | Standard Node.js pattern; well-maintained package; array-arg form prevents injection |
-| pg-boss cron for heartbeat/digest scheduling | HIGH | Pattern proven in production in `services/worker/src/queues/housekeeping.ts`; pg-boss 12.18.x in worker's package.json |
-| Brain template deps | HIGH | Direct inspection of `templates/brain/package.json` and `server/db/schema.ts` |
-| Dispatch template deps | HIGH | Direct inspection of `templates/dispatch/package.json` and `packages/dispatch/src/db/schema.ts` |
-| Content template deps (Tiptap 3.x) | HIGH | Direct inspection of `templates/content/package.json` |
-| Remotion exclusion | HIGH | Direct inspection of `templates/videos/package.json`; render cluster requirement documented |
-| Telemetry push (pg-boss + fetch) | HIGH | Uses only existing primitives; no new tech risk |
+| `@better-auth/expo@1.6.22` | `better-auth@^1.6.22`, `@better-auth/core@^1.6.22` | **Server `better-auth` must be bumped `^1.6.0` → `^1.6.22`** to satisfy the peer. Verified via `npm view @better-auth/expo@1.6.22 peerDependencies`. |
+| `@better-auth/expo@1.6.22` | `expo-network >=8.0.7`, `expo-linking >=7.0.0`, `expo-constants >=17.0.0`, `expo-web-browser >=14.0.0` | All satisfied by the SDK-55 versions (Expo 55 ships these well above the floors). `expo-network` must be **added**. |
+| `expo-secure-store@55.0.15` | Expo SDK 55 (RN 0.83.9, React 19.2) | The `sdk-55` dist-tag. `latest` (`56.0.4`) is SDK 56 — do not use. |
+| `expo-notifications@55.0.24` | Expo SDK 55 | The `sdk-55` dist-tag. Already a dep at `^55.0.23`; bump within the 55 line. Requires a dev build for remote push (Expo Go removed it on 53+). |
+| `expo-network@55.0.15` | Expo SDK 55 | The `sdk-55` dist-tag. New dependency (plugin peer). |
+| `expo-server-sdk@6.1.0` | Node 18+ (server) | Runs on Vercel functions and the Fly worker. No Expo runtime dependency. |
+| `react-native-sse@^1.2.1` | Custom headers incl. `Cookie`/`Authorization` | Already proven sending `X-Demo-Member-Id`; swap to the session header. **Spike-verify** the streaming POST preserves the header. |
+| Expo push (server) | Better-auth session (server) | Orthogonal — push token lives in a new `push_tokens` table keyed by the Better-auth `user.id`. Register the token *after* sign-in so it's attributable to a user. |
 
 ---
 
 ## Sources
 
-- `templates/dispatch/package.json` + `packages/dispatch/src/db/schema.ts` — dispatch template deps and schema (direct inspection, 2026-06-19)
-- `templates/brain/package.json` + `templates/brain/server/db/schema.ts` — brain template deps and schema (direct inspection, 2026-06-19)
-- `templates/content/package.json` — content template Tiptap 3.x + Yjs deps (direct inspection, 2026-06-19)
-- `templates/videos/package.json` — Remotion 4.x dep list; excluded from v2.0 (direct inspection, 2026-06-19)
-- `services/worker/src/queues/housekeeping.ts` — production pg-boss `boss.schedule()` + `boss.work()` cron pattern (direct inspection, 2026-06-19)
-- `services/worker/package.json` — pg-boss `^12.18.0`, execa not yet present (direct inspection, 2026-06-19)
-- [Neon TypeScript SDK docs](https://neon.com/docs/reference/typescript-sdk) — `@neondatabase/api-client`, `createProject()`, `createProjectBranchRole()`, `getConnectionUri()`, auth model
-- [Neon Create Project API](https://api-docs.neon.tech/reference/createproject) — `region_id`, `pg_version: 17`, response shape
-- [Vercel SDK GitHub repo](https://github.com/vercel/sdk) — `@vercel/sdk`, `new Vercel({ bearerToken })`, `vercel.projects.createProject()`, `createProjectEnv()`, `createDeployment()`, `addProjectDomain()` — version 1.27.0 confirmed
-- [Fly Apps Resource API](https://fly.io/docs/machines/api/apps-resource/) — `POST /v1/apps`, `org_slug`, bearer token auth
-- [Fly Machines Resource API](https://fly.io/docs/machines/api/machines-resource/) — `POST /v1/apps/{name}/machines`, `config.image`, `config.env`, `config.guest`
-- [Fly Machines API secrets — community thread](https://community.fly.io/t/manage-secrets-via-machines-api/24845) — confirmed: REST secrets endpoints return empty arrays; restricted to Fly KMS (not GA for general secrets)
-- [Fly tokens docs](https://fly.io/docs/flyctl/tokens-create-deploy/) — deploy token scope; org token (`fly tokens create org`) for provisioning cross-app
-- [pg-boss cron scheduling (DeepWiki)](https://deepwiki.com/timgit/pg-boss/10.1-cron-based-scheduling) — `boss.schedule(name, cron, data, { tz })` signature; IANA timezone support confirmed; pg-boss 12.18.x
+- **Better-auth official Expo docs** (`better-auth.com/docs/integrations/expo`) — HIGH: `expo()` server plugin, `expoClient({ scheme, storagePrefix, storage: SecureStore })`, `authClient.getCookie()` + `credentials: "omit"` pattern, `trustedOrigins`, custom-basePath note, SecureStore-as-cookie-jar transport.
+- **npm registry** (`npm view`, 2026-06-29) — HIGH: `@better-auth/expo@1.6.22` (+ peerDependencies), `better-auth@1.6.22`, `expo-secure-store` sdk-55=`55.0.15`/latest=`56.0.4`, `expo-notifications` sdk-55=`55.0.24`, `expo-network` sdk-55=`55.0.15`, `expo-server-sdk@6.1.0`.
+- **Expo push setup docs** (`docs.expo.dev/push-notifications/push-notifications-setup/`) — HIGH: `getExpoPushTokenAsync({ projectId })`, permission flow, Android channel, APNs-during-`eas build`, FCM V1, paid Apple Developer requirement.
+- **Expo Notifications SDK reference** (`docs.expo.dev/versions/latest/sdk/notifications/`) — HIGH: `useNotificationObserver` / `addNotificationResponseReceivedListener` / `getLastNotificationResponse` deep-link-on-tap pattern with `router.push(data.url)`.
+- **Expo SDK 53 changelog + community** (search, 2026) — HIGH: remote push removed from Expo Go on SDK 53+; dev build required. ([Expo SDK 53 changelog](https://expo.dev/changelog/sdk-53), [Courier guide](https://www.courier.com/blog/expo-notifications))
+- **expo-server-sdk-node GitHub** — HIGH: `new Expo()`, `Expo.isExpoPushToken`, `chunkPushNotifications`, `sendPushNotificationsAsync`, `getPushNotificationReceiptsAsync`, `EXPO_ACCESS_TOKEN`.
+- **LogRocket: React Native auth with Better Auth + Expo** (`blog.logrocket.com/react-native-authentication-with-better-auth-and-expo/`) — MEDIUM: `expoClient` config example, `trustedOrigins` example, "Expo Go does not support custom schemes → dev build" caveat.
+- **Direct codebase inspection** — HIGH: `packages/core/src/server/better-auth-instance.ts` (server already has `jwt()` + `bearer()`, custom basePath `/_agent-native/auth/ba`, `config.plugins` passthrough, 30-day session, Neon adapter, `user`/`session`/`account` tables already created); `apps/staff-web/server/plugins/auth.ts` (`getSession`/`createAuthPlugin`/`publicPaths`); `packages/mobile-app/app.json` (`scheme: "agentnative"`, no `extra.eas.projectId`, `expo-notifications` already a plugin); `packages/mobile-app/lib/{api,current-member,agent-stream}.ts` (the demo-auth hack to replace); `apps/staff-web/package.json` (`better-auth@^1.6.0`).
 
 ---
-
-*Stack research for: GymClassOS v2.0 — Self-Serve Platform + Two-Tier Brain/Dispatcher*
-*Researched: 2026-06-19*
-*Confidence: HIGH overall — provisioning APIs verified against official docs; template deps from direct codebase inspection; one MEDIUM item (Fly secrets via CLI workaround)*
+*Stack research for: v2.3 Mobile App Production Foundation — Better-auth in Expo + secure storage + Expo push + deep-linking*
+*Researched: 2026-06-29*
