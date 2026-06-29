@@ -54,10 +54,10 @@ have returned a redirect (Pitfall 5 in MA1-RESEARCH.md) — note the HTTP status
 
 | Field        | Value                  |
 |--------------|------------------------|
-| result       | PENDING                |
-| http_status  |                        |
-| token_stored | (yes / no)             |
-| notes        |                        |
+| result       | **PASS** (server-verified 2026-06-29, against live deploy) |
+| http_status  | 200                    |
+| token_stored | yes — `set-auth-token` header present and read |
+| notes        | Verified the sign-in contract end-to-end via Node round-trip (faithful to native: sets `Origin`, no browser CORS). On-device UI step still pending a runnable device (Expo Go SDK-55 / EAS both blocked). Required the `Origin` header fix (`0b25841e`). |
 
 ---
 
@@ -76,11 +76,11 @@ SELECT id, user_id, email FROM gym_members WHERE email = 'ma1-spike@example.com'
 
 | Field           | Value             |
 |-----------------|-------------------|
-| result          | PENDING           |
-| profile_loaded  | (yes / no)        |
-| user_id_in_neon | (filled in)       |
-| idempotent      | (yes / no)        |
-| notes           |                   |
+| result          | **BLOCKED — adapter bug found + fixed; full green pending a real runtime** |
+| profile_loaded  | not yet — see below |
+| user_id_in_neon | still null (claim hasn't run end-to-end yet) |
+| idempotent      | (pending)         |
+| notes           | Exercising the real `requireMember` in-process surfaced a genuine bug: the H3Event adapter passed the wrong shape for **h3 v2** (core resolves `h3@2.0.x-rc`, where `event.web`→`event.req`). `getSession` crashed on `event.req.headers` (undefined). **Fixed in `87feb71c`** (event now exposes both `req` and `headers`); the crash is gone (clean auth check instead). Could not confirm the green end-to-end locally: the in-process script can't boot Better-auth (not an exported entry), and `agent-native dev` is broken on this Windows box (`NitroViteError: Vite environment "nitro" unavailable` + 60s module-load timeouts — framework tooling, not our code). **Verify after deploying MA1 to Vercel** (the only working full runtime), then re-run the HTTP profile check. |
 
 ---
 
@@ -141,12 +141,35 @@ cleared from expo-secure-store).
 
 | Gate leg | Required result | Current |
 |----------|-----------------|---------|
-| Leg 1 — Sign-in + token store | PASS | PENDING |
-| Leg 2 — getSession + claim    | PASS | PENDING |
-| Leg 4 — Admin SSE carries session | PASS | PENDING |
+| Leg 1 — Sign-in + token store | PASS | **PASS** (server-verified) |
+| Leg 2 — getSession + claim    | PASS | adapter fixed; **awaiting deploy + re-test** |
+| Leg 4 — Admin SSE carries session | PASS | PENDING (needs a runnable device) |
 
 Legs 3 and 5 (restart persistence + sign-out) are desirable but not hard gates
 for MA2/MA3/MA4.
+
+## Spike findings (2026-06-29) — two real bugs caught before any device test
+
+Both bugs would have hard-failed the on-device spike; both are now fixed.
+
+1. **Missing `Origin` header** (`0b25841e`) — Better-auth's sign-in/up endpoints reject
+   requests with no `Origin` header (`403 MISSING_OR_NULL_ORIGIN`). Neither the seed
+   (Node fetch) nor the mobile client (React Native fetch) sent one. Fixed by sending
+   the API base as `Origin` in `seed-ma1-test-account.ts` and `mobile-app/lib/sign-in-api.ts`.
+
+2. **Wrong H3Event adapter shape for h3 v2** (`87feb71c`) — `requireMember`'s
+   `sessionFromRequest` built `{ headers, node:{req,res} }`, but core resolves
+   `h3@2.0.x-rc` where `event.web`→`event.req`. `getSession` crashed
+   (`Cannot read properties of undefined (reading 'headers')`) on the first real Bearer
+   request. Fixed so the event exposes both `req` (web Request) and `headers`.
+
+**Runtime blockers hit (Windows tooling, not our code):** iOS Expo Go can't load SDK 55;
+EAS dev builds gated on the upstream owner; `agent-native dev` fails locally
+(Nitro 3 beta + Vite 8 dev-worker); Metro watch-mode times out without Watchman.
+→ The only working full runtime is the **Vercel production deploy**. MA1 is currently
+**23 commits ahead of `origin/master` (unpushed)** — the live deploy still runs the
+pre-MA1 demo-only `/api/m` handlers. Deploy MA1, then re-run the profile check to
+green Legs 2 (and 4 once a device is available).
 
 ---
 
