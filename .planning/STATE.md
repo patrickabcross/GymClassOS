@@ -1,11 +1,11 @@
 ---
 gsd_state_version: 1.0
 milestone: v2.3
-milestone_name: — Mobile App Production Foundation (member / teacher / admin)
-status: roadmap-complete
-stopped_at: Roadmap written (5 phases MA1–MA5, 22/22 reqs mapped) — next is /gsd:plan-phase MA1 (auth spike first)
-last_updated: "2026-06-29T00:00:00.000Z"
-last_activity: 2026-06-29
+milestone_name: — Mobile App Production Foundation
+status: completed
+stopped_at: Phase MA1 context gathered
+last_updated: "2026-06-29T14:23:35.899Z"
+last_activity: "2026-06-26 (continuation of the big rollout session; final master `1da86ab3`, all pushed):"
 progress:
   total_phases: 5
   completed_phases: 0
@@ -34,6 +34,7 @@ Phase: Not started — roadmap complete (5 phases MA1–MA5); next is plan-phase
 Plan: —
 Status: **Milestone v2.3 started 2026-06-29.** Mobile app (`packages/mobile-app`, Expo) production auth foundation for 3 roles (member/teacher/admin) on one Better-auth login + member booking/Stripe gate + teacher check-in + admin AI ops agent + Expo push. Research-first chosen. Sequencing: POST-Wednesday (Wed ~2026-07-01 = first paying customer HUSTLE onboarding, uses the WEB agent which already ships; Wed priorities = Meta tokens + Stripe go-live + iOS member build). Decisions captured in memory [[project_gymos_mobile_owner_agent]]. **Prior milestone v2.2 (Meta Conversion Tracking) = COMPLETE + DEPLOYED** (15/15 reqs MC1–MC3; migrations v31–v34 on Neon `billowing-sun-51091059`; see [[project_gymos_deploy]]).
 Last activity: 2026-06-26 (continuation of the big rollout session; final master `1da86ab3`, all pushed):
+
 1. **Schedule filters** (quick 260625-d06): location/class-type/trainer on the staff calendar (shadcn Popover) + public embed (native selects); loader Query A widened w/ trainer leftJoin. SHIPPED.
 2. **Studio-global sites config** (quick 260625-gsg): `resolveSites` + `sites` JSONB col (v35) + Settings→Integrations→Locations card; replaces the hardcoded Norwich/Wymondham picker. SHIPPED; HUSTLE sites seeded as DATA on Neon (singleton row).
 3. **Tenancy stash-pop resolved** (701ba1f1): `isDeployCredentialFallbackAllowed`/`isEnvVarWriteAllowed` now default single-tenant-per-deploy (allow), `AGENT_NATIVE_MULTI_TENANT=true` opt-in restores the upstream gate. Direction shift → shared/sharded subdomains (≤10 gyms, shared DB) supersedes "single-tenant code, multi-tenant deploy". See [[project_gymos_tenancy_direction]].
@@ -43,6 +44,7 @@ Last activity: 2026-06-26 (continuation of the big rollout session; final master
 7. **Inbox: merged Messages+Leads** (quick 260625-x34): the Messages/Leads tabs (a `?filter=leads` partition on `conversations.status`) are GONE — `/gymos/messages` is now one unified "Inbox" list of all conversations. Each lead carries a source badge: `Form: {form title}` (derived live from `form_submissions → forms.title`), `Imported`, `WhatsApp`, `Meta ad`, `Added manually`. NO schema change (derives from existing tables: `whatsapp_opt_in.source` + form link). Loader SQL validated against prod Neon before push (no 500 risk — lesson from #4). DEPLOYED. **Known gap (RESOLVED quick 260626-egy):** leads with no source data (e.g. the "Diag Test" rows — no opt-in, no form submission) now show a secondary "Lead" badge with IconUserPlus. Commit 21b63fd7.
 
 **OPEN ITEMS / next-session pickup:**
+
 - **Meta activation — step 1 DONE (2026-06-26), steps 2+3 still user-gated:** (1) ✅ `BETTER_AUTH_SECRET` set on Fly app `gymos-edge-webhooks` (covers BOTH `web` + `worker` processes — worker runs as a process in the same app, not a separate Fly app). Value pulled from `apps/staff-web/.env.local` and PROVEN correct by test-decrypting a live `app_secrets` row (WHATSAPP_PHONE_NUMBER_ID → valid 16-digit id). Worker can now decrypt app_secrets. (2) **PENDING (operator):** enter Pixel ID + CAPI token + Test Event Code + Page Access Token in `/gymos/settings/integrations` — no META_* keys in app_secrets yet, so CAPI sends still no-op until entered; (3) **PENDING (Meta dashboard):** subscribe the Page's `leadgen` webhook field in Meta to `https://gymos-edge-webhooks.fly.dev/webhooks/meta-lead` (verify token = WHATSAPP_VERIFY_TOKEN). See [[project_gymos_deploy]].
 - **Delete stray Vercel project `agent-native-mail-probe`** (vanilla agent-native pg-crash comparison probe, ~31d old, abandoned) — user to delete in Vercel dashboard.
 - **Embed cross-origin fix (quick 260624-icd) SHIPPED + verified live** — embed.js CORP=cross-origin, /f/{slug} XFO removed; embeds now work on third-party sites (doyouhustle.co.uk). Hard-refresh the Squarespace page to clear its cached empty state.
@@ -82,6 +84,20 @@ Last activity: 2026-06-26 — Completed quick task 260626-m1c (swap marketing ho
 | 260626-egy | Generic "Lead" fallback badge for source-less leads — loader now falls back to `{ type: "lead", label: "Lead" }` for leads with no sourceMap entry (no opt-in/form); `sourceIcon("lead")` returns IconUserPlus; member rows unaffected (still null). Single-file (gymos.messages.tsx). tsc clean. | 2026-06-26 | 21b63fd7 | [260626-egy-inbox-add-generic-lead-fallback-badge-fo](./quick/260626-egy-inbox-add-generic-lead-fallback-badge-fo/) |
 | 260626-m1c | Swap marketing homepage video slot to roughcut_overlaid_v4.mp4 — copied the 12.7 MB roughcut to `apps/staff-web/public/marketing/runstudio-film.mp4`; `videoSlot()` now takes optional `src` and renders `<video autoplay muted loop playsinline preload="metadata">` (drops play-button placeholder, keeps tag+caption); `agentSection()` wires `/marketing/runstudio-film.mp4`, so all 5 locale homepages (/, /uk, /us, /fr, /de) share it. Static-asset + SSR-markup only, no migration. | 2026-06-26 | a62aa557 | [260626-m1c-swap-marketing-homepage-video-slot-to-ro](./quick/260626-m1c-swap-marketing-homepage-video-slot-to-ro/) |
 | 260626-n3y | RunStudio-brand logged-in staff-web app + favicon — default.css replaced with ink/pulse/distance RunStudio skin (light + dark); global.css base :root studio-accent fallback → pulse; root.tsx theme-color → #14171C; favicon/icon-180/192/512.svg replaced with double-chevron mark; manifest.json de-Mailed (RunStudio name + ink colours); apple-mobile-web-app-title → RunStudio. CSS/SVG/JSON/TSX only, no DB migration. | 2026-06-26 | 818ae1c5 | [260626-n3y-runstudio-brand-logged-in-app-favicon](./quick/260626-n3y-runstudio-brand-logged-in-app-favicon/) |
+
+### v2.3 Phase Summary
+
+| Phase | Goal | Requirements | Status |
+|-------|------|--------------|--------|
+| MA1. Auth + 3-Role Spine ⚑ | Better-auth login in Expo (`expo-secure-store`); two-allowlist role resolver (admin > teacher > member, no UI toggle); transactional/idempotent claim-by-email; `requireDemoMember → requireMember` dual-path. **Auth spike first.** | AUTH-01..07 | Not started — plan next |
+| MA2. Member Booking Surface | Browse public / book authenticated; pass-holder books via `/api/m/bookings`; no-pass → Stripe inline → pass grant → booking; home (upcoming + balance) | MEM-01..05 | Not started |
+| MA3. Teacher Session Surface | Teacher schedule (assigned) + roster; tap-to-check-in via existing `mark-booking-attended` chokepoint; no teacher AI | TCH-01..03 | Not started |
+| MA4. Admin Mobile AI Agent | In-app AI ops chat (reuse `AgentSheet`/`agent-stream`); server-side ALLOW-LIST filters gated Tier-3 (+ unit test); `runWithRequestContext` + `requireAdmin` on SSE | AI-01..03 | Not started |
+| MA5. Push Notifications ⚑ | Additive `push_tokens` (keyed `user.id`) + Expo token reg + deep-link; pg-boss `expo-push` worker job (staff-web enqueues, worker sends); v1 types = booking confirm + reminder + admin "come look". EAS/Apple-gated | NOT-01..04 | Not started |
+
+**Coverage:** 22/22 v2.3 requirements mapped across MA1–MA5. No orphans, no duplicates. **⚑ = needs phase-level research/spike** (MA1 auth spike; MA5 Expo push, externally gated).
+
+**Next action:** `/gsd:plan-phase MA1` — the auth spike is the keystone first task. MA1 plan-time Key Decisions: (a) password-reset path (transactional email infra may not exist — email+password safe v1, WhatsApp-OTP is v2); (b) confirm `mapBetterAuthSession` exposes `userId`; (c) confirm the `bearer()` `set-auth-token` header name on the installed better-auth version; (d) unmatched-login-email policy (show "no membership on file", never auto-create).
 
 ### v2.1 Phase Summary
 
@@ -215,11 +231,35 @@ Last activity: 2026-06-26 — Completed quick task 260626-m1c (swap marketing ho
 
 ## Session Continuity
 
-Last session: 2026-06-25T22:57:34Z
-Stopped at: Completed quick task 260625-x34 (merge messages/leads inbox)
-Resume file: None
+Last session: 2026-06-29T14:23:35.862Z
+Stopped at: Phase MA1 context gathered
+Resume file: .planning/phases/MA1-auth-3-role-spine-the-one-way-door/MA1-CONTEXT.md
 
 Prior session: 2026-06-20T10:22:33.153Z — Completed CV4-publish-pipeline CV4-01-PLAN.md
+
+### PICK UP HERE — plan MA1 (v2.3)
+
+v2.3 roadmap is written (Mobile App Production Foundation). Five phases MA1–MA5 defined with success criteria + requirement mappings (22 reqs, 22/22 mapped). No implementation yet. MA1 + MA5 flagged for phase-level research/spike.
+
+**Next step — plan Phase MA1 (Auth + 3-Role Spine):** `/gsd:plan-phase MA1`
+
+MA1 is the one-way door. **First task = the AUTH SPIKE** (device-verified before any role surface is built): prove sign-in + `getSession` round-trip against the framework Better-auth instance, claim-by-email links the `gym_members` row, AND the admin SSE call carries the session (`Cookie`/`Authorization: Bearer` survives the `react-native-sse` streaming POST; bearer fallback if cookie is stripped).
+
+**Key Decisions to resolve at MA1 plan time:**
+
+- **Password-reset path** — Better-auth reset assumes an email sender; the studio's only member channel today is WhatsApp and transactional email infra may not exist. Decide: email+password-with-a-wired-sender (safe v1) vs magic-link vs deferred WhatsApp-OTP (explicitly v2).
+- Confirm `mapBetterAuthSession` exposes `userId` (not email-only).
+- Confirm the `bearer()` `set-auth-token` header name on the installed better-auth version.
+- **Unmatched-login-email policy** — show "no membership on file — contact the studio" (recommended); **never auto-create** a `gym_members` row; never add a unique index on `gym_members.email`.
+- Can `createAuthPlugin` forward `trustedOrigins` / the server `expo()` plugin? (forks the MA1 design).
+
+**MA-wide discipline (every phase):** additive-only `runMigrations` (next after v36; NOT auto-run — apply to Neon `billowing-sun-51091059` by hand per the migration-drift gotcha); no identity-table reshape; `/api/m/*` bearer-gates from the verified session inside each handler; worker is the single push sender; `npx expo install` (not bare npm) for SDK-55 pins.
+
+**MA5 external gate:** `eas init` (`projectId`, currently missing from `app.json`) + the customer's Apple Developer account for iOS push credentials — same blocker as the existing iOS build (see `packages/mobile-app/IOS-EAS-RUNBOOK.md`). Build the spine + register the migration now; the gate only blocks on-device push verification.
+
+**MA2/MA3/MA4** depend only on MA1 identity and are reorderable by business value (MA2 natural second; MA4 carries the security keystone — the Tier-3 allow-list filter + test). MA5 last.
+
+---
 
 ### PICK UP HERE — plan MC1
 
