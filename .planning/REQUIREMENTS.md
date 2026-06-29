@@ -93,12 +93,29 @@
 
 ## Traceability
 
-Phases are assigned by the roadmapper. Expected mapping (prefix `MA`):
+Phases assigned by the roadmapper (prefix `MA`). 22/22 requirements mapped, no orphans, no duplicates.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| AUTH-01..07 | MA1 | Pending |
-| MEM-01..05 | MA2 | Pending |
-| TCH-01..03 | MA3 | Pending |
-| AI-01..03 | MA4 | Pending |
-| NOT-01..04 | MA5 | Pending |
+| AUTH-01 | MA1 | Pending |
+| AUTH-02 | MA1 | Pending |
+| AUTH-03 | MA1 | Pending |
+| AUTH-04 | MA1 | Pending |
+| AUTH-05 | MA1 | Pending |
+| AUTH-06 | MA1 | Pending |
+| AUTH-07 | MA1 | Pending |
+| MEM-01 | MA2 | Pending |
+| MEM-02 | MA2 | Pending |
+| MEM-03 | MA2 | Pending |
+| MEM-04 | MA2 | Pending |
+| MEM-05 | MA2 | Pending |
+| TCH-01 | MA3 | Pending |
+| TCH-02 | MA3 | Pending |
+| TCH-03 | MA3 | Pending |
+| AI-01 | MA4 | Pending |
+| AI-02 | MA4 | Pending |
+| AI-03 | MA4 | Pending |
+| NOT-01 | MA5 | Pending |
+| NOT-02 | MA5 | Pending |
+| NOT-03 | MA5 | Pending |
+| NOT-04 | MA5 | Pending |

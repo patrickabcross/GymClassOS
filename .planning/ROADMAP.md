@@ -2,6 +2,116 @@
 
 ---
 
+## v2.3 — Mobile App Production Foundation (member / teacher / admin) — IN PROGRESS
+
+> **Started:** 2026-06-29 | **Branch:** `master`
+>
+> **Goal:** Members book/pay, teachers run sessions and check members in, and admins drive the studio via an in-app AI agent — all from one authenticated native Expo app, with push notifications closing the loop. The booking app is table stakes; **extending it into a studio-management surface (the admin AI agent) is the differentiator.** Replaces the demo-id hack (`demoMemberId` in AsyncStorage) and the paid-WhatsApp owner nudge with a real Better-auth login serving three server-routed roles + free Expo push.
+>
+> **Phase prefix:** MA — avoids `.planning/phases/` directory collisions with the existing D/P/R/AE/BD/CV/MC phase directories.
+>
+> **Sequencing:** Post-Wednesday work (Wed ~2026-07-01 = first paying customer HUSTLE onboarding; that owner uses the **web** agent, already shipped). This milestone follows Meta tokens + Stripe go-live + the iOS member build.
+
+### Key constraints baked into every phase
+
+- **MA1 is a one-way door.** Every downstream surface hangs off `getSession`-based identity. Build the auth + 3-role spine first, alone, and **device-verified** (the auth spike) before fanning out MA2/MA3/MA4. MA2/MA3/MA4 depend only on MA1 identity and are reorderable by business value; **MA5 is last** (nothing to notify / nowhere to deep-link until the surfaces exist).
+- **No auth migration / no identity-table reshape.** The framework Better-auth server is already 90% wired for mobile (`bearer()` + `jwt()` always mounted, `emailAndPassword` hardcoded on, `getSession` resolves `Authorization: Bearer`). Reuse existing `user`/`session`/`account`; the only new table is the additive `push_tokens` (MA5). Reshaping identity tables would strand the live HUSTLE web owner.
+- **Strictly additive DB changes.** All schema work through `runMigrations` (next version after v36). No DROP/RENAME/TRUNCATE, no `drizzle-kit push`. The migration-drift gotcha applies — additive `runMigrations` versions are NOT auto-run; apply to the studio Neon (`billowing-sun-51091059`) by hand. The repo has a real prod incident from a destructive migration.
+- **Security boundaries are the dominant risk, not technology.** Three non-negotiables: (1) the mobile admin agent loads the full registry but has **no noticeboard approve UI**, so gated Tier-3 verbs (`send-template-to-members`, `create-checkout-link`, `cancel-occurrence`, `reschedule-occurrence`, `publish-form`) MUST be filtered out by a **server-side ALLOW-LIST + a unit test** (a deny-list silently re-admits any new Tier-3 verb); (2) **claim-by-email** linking `user → gym_members.user_id` must be transactional / idempotent / re-claim-guarded against a `gym_members.email` that is **nullable + non-unique by design** — normalise `lower(trim(email))`, guard on `isNull(user_id)`, 409 on re-claim, 403 (never auto-create) when no row, admin-precedence over member; **never add a unique index on `gym_members.email`**; (3) `/api/m/*` stays public-to-guard but every handler **bearer-gates from the verified session, never a header/body**.
+- **3-way role routing = two env allowlists + member fallback.** admin `RUNSTUDIO_OPERATOR_EMAILS` (exists) > teacher `RUNSTUDIO_TEACHER_EMAILS` (new) > member (otherwise), strict precedence. **No role toggle in the UI** — role auto-detected post-login so the app feels like a pure member app. NOT Better-auth org roles; NOT coupled to `trainers.email`.
+- **Browse = public; book = authenticated.** The schedule is open to browse; login is the wall at the *booking* action. No-active-pass is the **Stripe paywall**, not a hard block — booking without a pass routes to Stripe inline; purchase grants the pass and completes the booking.
+- **Worker is the single push sender.** Push sends from the Fly worker via `expo-server-sdk` (new pg-boss `expo-push` queue); staff-web only enqueues — matches the locked "worker is the single sender" pattern. Tokens keyed to Better-auth `user.id` (not `gym_members.id`); prune on `DeviceNotRegistered`.
+- **SDK-55 dist-tag pinning + EAS gate.** Use `npx expo install` (never bare `npm install`) — `latest` for every `expo-*` is now SDK 56 and breaks the SDK-55 native build. Push requires a real EAS dev/prod build (removed from Expo Go on SDK 53+) and an `eas init` `projectId` in `app.json` (currently MISSING) — **externally gated on the customer's Apple Developer account** (same blocker as the existing iOS build).
+- **Native iOS/Android only this milestone.** No react-native-web target — `expo-secure-store` is a no-op on web and push doesn't apply.
+- **Single-tenant per deploy preserved; customer #1 = HUSTLE.** No `studio_id`.
+
+## Phases
+
+- [ ] **Phase MA1: Auth + 3-Role Spine (the one-way door)** ⚑ — Better-auth login in Expo (`expo-secure-store`, session refresh/logout); two-allowlist role resolver (admin > teacher > member, no UI toggle); transactional/idempotent claim-by-email into the existing nullable `gym_members.user_id`; `requireDemoMember → requireMember` swap (transitional dual-path). **First task = the auth spike** (sign-in + `getSession` round-trip + admin SSE carries the session). Needs phase-level research/spike.
+- [ ] **Phase MA2: Member Booking Surface** — browse public / book authenticated; signed-in member with a pass books via `/api/m/bookings`; no-pass routes to Stripe inline (pass grant → booking completes); member home (upcoming bookings + pass balance). Depends on MA1. Standard patterns.
+- [ ] **Phase MA3: Teacher Session Surface** — teacher schedule (their assigned sessions) + class roster; tap-to-check-in / mark attendance driving the existing `mark-booking-attended` chokepoint; **no teacher AI**. Depends on MA1. Standard patterns.
+- [ ] **Phase MA4: Admin Mobile AI Agent (differentiator + security keystone)** — in-app AI ops chat (reuse `AgentSheet` + `agent-stream`); new owner SSE endpoint loads the registry, **filters gated Tier-3 via a server-side ALLOW-LIST + unit test**, wraps tool calls in `runWithRequestContext`, `requireAdmin` on the stream (rejects member/teacher 403). Depends on MA1. The novel part is the allow-list filter.
+- [ ] **Phase MA5: Push Notifications (closes the loop — do LAST)** ⚑ — additive `push_tokens` table (keyed to `user.id`) + Expo token registration + deep-link routing; pg-boss `expo-push` worker job (enqueue from staff-web, send from worker, prune `DeviceNotRegistered`). v1 types = booking confirmation + class reminder + admin "come look" deep-link. Depends on MA1 + the surfaces to deep-link into. Needs phase-level research/spike; **externally gated** on `eas init` projectId + the customer's Apple Developer account.
+
+## Phase Details
+
+### Phase MA1: Auth + 3-Role Spine (the one-way door)
+**Goal**: A user signs in to the mobile app once and is silently routed to the right role (member / teacher / admin) on a real Better-auth session stored in `expo-secure-store`; a member's first sign-in safely claims their existing `gym_members` row by email; and the whole spine is proven end-to-end on a real device — including the admin SSE carrying the session — before any role-specific surface is built.
+**Depends on**: Nothing (first MA phase)
+**Requirements**: AUTH-01, AUTH-02, AUTH-03, AUTH-04, AUTH-05, AUTH-06, AUTH-07
+**Success Criteria** (what must be TRUE):
+  1. A user can sign in with email + password and create an account with the email they used at Stripe checkout; the session token lives in `expo-secure-store` (never AsyncStorage), persists across app restarts, and the user can sign out (token cleared)
+  2. On first member sign-in the app claims the existing `gym_members` row by `lower(trim(email))` — idempotent and re-claim-guarded (`isNull(user_id)`); a re-claim attempt is rejected (409); an unmatched email is rejected (403, never auto-creates a member, never adds a unique index on `gym_members.email`)
+  3. Role is resolved server-side with strict precedence admin (`RUNSTUDIO_OPERATOR_EMAILS`) > teacher (`RUNSTUDIO_TEACHER_EMAILS`) > member, with no role-selection toggle anywhere in the UI; an admin who is also a member resolves to admin
+  4. `/api/m/*` endpoints derive member identity from the verified Better-auth session, never a header/body; the demo `X-Demo-Member-Id` header is honored only as a non-production fallback so the live demo keeps working until the login screen ships
+  5. **The auth spike passes on a real device**: sign-in + `getSession` round-trip against the framework Better-auth instance succeeds, claim-by-email links the row, AND the admin SSE call carries the session (the `Cookie`/`Authorization: Bearer` header survives the `react-native-sse` streaming POST; bearer fallback if the cookie path is stripped)
+**Plans**: TBD
+**UI hint**: yes
+**Research**: yes — **the auth spike is the keystone first task** (highest-uncertainty phase despite low overall risk). Resolve at plan time: can `createAuthPlugin` forward `trustedOrigins` / the server `expo()` plugin (it forks the MA1 design); the exact `set-auth-token` bearer header name on the installed better-auth version; whether the mapped session shape exposes `userId` (vs email-only). **Key Decisions to resolve at MA1 plan time:** (a) **password-reset path** — Better-auth reset assumes an email sender; the studio's only member channel today is WhatsApp and transactional email infra may not exist — decide email+password-with-a-wired-sender vs magic-link vs deferred WhatsApp-OTP (email+password is the safe v1; WhatsApp-OTP is explicitly v2); (b) confirm `mapBetterAuthSession` exposes `userId`; (c) confirm the `bearer()` `set-auth-token` header name for the installed version; (d) **unmatched-login-email policy** — show "no membership on file — contact the studio" (recommended) vs a staff-assisted/phone-match fallback; **never auto-create** a member.
+
+### Phase MA2: Member Booking Surface
+**Goal**: Anyone can open the app and browse the schedule; a member who taps Book is walked from sign-in (if needed) through to a confirmed booking — paying inline via Stripe when they have no active pass — and can see their upcoming bookings and pass balance on a home surface.
+**Depends on**: Phase MA1 (member identity from the verified session)
+**Requirements**: MEM-01, MEM-02, MEM-03, MEM-04, MEM-05
+**Success Criteria** (what must be TRUE):
+  1. Anyone can open the app and browse the class schedule without logging in; tapping **Book** while signed out prompts sign-in (the auth wall sits at the booking action, not app entry)
+  2. A signed-in member with an active pass can book a class via `/api/m/bookings`; the booking appears immediately (optimistic) and a pass is debited on booking (not on purchase)
+  3. A signed-in member **without** an active pass is routed to Stripe checkout inline; on successful purchase the pass is granted and the booking completes
+  4. A member can see their home surface — upcoming bookings and current pass balance — scoped to their own correctly-claimed `gym_members` row (no cross-member data)
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase MA3: Teacher Session Surface
+**Goal**: A teacher opens the same app, lands silently in a teacher view of the schedule showing their assigned sessions, opens a session's roster, and checks members in — driving the existing attendance chokepoint — with no access to any admin or AI surface.
+**Depends on**: Phase MA1 (`role=teacher` from the verified session)
+**Requirements**: TCH-01, TCH-02, TCH-03
+**Success Criteria** (what must be TRUE):
+  1. A teacher sees the class schedule filtered to their assigned sessions and can open the roster for a session; a teacher with no assigned sessions sees a clear empty state (not an error)
+  2. A teacher can check a member in / mark attendance for a session, and that drives the existing `mark-booking-attended` chokepoint as a *caller* — the v2.2 Meta Schedule lifecycle event still fires (no new write path)
+  3. A teacher has no access to the admin AI agent or any admin-only surface — the agent entry point is absent for `role=teacher`, and the admin SSE endpoint rejects a teacher session
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase MA4: Admin Mobile AI Agent (differentiator + security keystone)
+**Goal**: An admin opens an in-app AI ops chat that drives the studio in natural language — calling non-gated platform actions and reflecting results in app state — while the gated Tier-3 verbs that have no mobile approval UI are structurally filtered out and proven absent by test, and the whole surface is locked to authenticated admins.
+**Depends on**: Phase MA1 (`role=admin` + Bearer session)
+**Requirements**: AI-01, AI-02, AI-03
+**Success Criteria** (what must be TRUE):
+  1. An admin can open an in-app AI ops chat (reusing the `AgentSheet` shell + `agent-stream`) that calls non-gated platform actions in natural language and renders results that reflect in app state
+  2. The mobile admin agent endpoint exposes ONLY the non-gated verb set via a server-side **allow-list**; the gated Tier-3 actions (`send-template-to-members`, `create-checkout-link`, `cancel-occurrence`, `reschedule-occurrence`, `publish-form`) are absent from the tool list — enforced server-side and proven by a unit test that asserts the gated set is filtered out
+  3. Agent tool calls run under `runWithRequestContext` with the admin's identity, and the SSE endpoint requires an authenticated admin session — a member or teacher token is rejected (403) before the stream opens
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase MA5: Push Notifications (closes the loop — do LAST)
+**Goal**: Once the surfaces exist, the app registers a push token for each authenticated user and the studio can reach them for free: members get booking-confirmation and class-reminder pushes, an admin gets a "come look" push that deep-links straight into the agent thread — all sent from the Fly worker, with the spine built for cheap future types.
+**Depends on**: Phase MA1 (identities to key tokens) + the MA2/MA3/MA4 surfaces to deep-link into
+**Requirements**: NOT-01, NOT-02, NOT-03, NOT-04
+**Success Criteria** (what must be TRUE):
+  1. The app registers an Expo push token for the authenticated user, persisted in an additive `push_tokens` table keyed to `user.id` (multi-device tolerated; stale tokens pruned on `DeviceNotRegistered`)
+  2. A member receives a booking-confirmation push and a class-reminder push, sent from the Fly worker via `expo-server-sdk` (staff-web enqueues to a new pg-boss `expo-push` queue; the worker sends)
+  3. An admin receives a "come look" push that, when tapped, deep-links into the in-app agent thread (foreground handler + cold-start `getLastNotificationResponse` both route correctly)
+  4. Push is enabled on a real EAS dev build with `app.json` `extra.eas.projectId` populated via `eas init`
+**Plans**: TBD
+**UI hint**: yes
+**Research**: yes — new territory for this codebase (no Expo push code present today). Confirm the exact `expo-notifications` API + the `expo-server-sdk` chunk/send/receipt/`DeviceNotRegistered`-pruning flow at plan time. **Externally gated** on `eas init` (`projectId`) + the customer's Apple Developer account for iOS push credentials — the same external blocker as the existing iOS build (see `packages/mobile-app/IOS-EAS-RUNBOOK.md`). Build the spine + register the migration now; the external gate only blocks on-device verification.
+
+## Progress (v2.3 — Mobile App Production Foundation)
+
+| Phase | Plans Complete | Status | Completed |
+|-------|----------------|--------|-----------|
+| MA1. Auth + 3-Role Spine ⚑ | 0/TBD | Not started | - |
+| MA2. Member Booking Surface | 0/TBD | Not started | - |
+| MA3. Teacher Session Surface | 0/TBD | Not started | - |
+| MA4. Admin Mobile AI Agent | 0/TBD | Not started | - |
+| MA5. Push Notifications ⚑ | 0/TBD | Not started | - |
+
+**Coverage:** 22/22 v2.3 requirements mapped across MA1–MA5 (AUTH-01..07 → MA1; MEM-01..05 → MA2; TCH-01..03 → MA3; AI-01..03 → MA4; NOT-01..04 → MA5). No orphans, no duplicates.
+
+**⚑ = phase needs phase-level research/spike** (MA1 auth spike — keystone first task; MA5 Expo push — new territory + externally gated on EAS/Apple Dev account). MA2/MA3/MA4 are standard patterns reusing existing endpoints/loops.
+
+---
+
 ## v2.2 — Meta Conversion Tracking — IN PROGRESS
 
 > **Started:** 2026-06-23 | **Branch:** `master`

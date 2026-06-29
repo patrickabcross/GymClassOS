@@ -2,12 +2,12 @@
 gsd_state_version: 1.0
 milestone: v2.3
 milestone_name: — Mobile App Production Foundation (member / teacher / admin)
-status: defining-requirements
-stopped_at: Started milestone v2.3 — gathering requirements (mobile auth + roles + agent + push)
+status: roadmap-complete
+stopped_at: Roadmap written (5 phases MA1–MA5, 22/22 reqs mapped) — next is /gsd:plan-phase MA1 (auth spike first)
 last_updated: "2026-06-29T00:00:00.000Z"
 last_activity: 2026-06-29
 progress:
-  total_phases: 0
+  total_phases: 5
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -17,20 +17,20 @@ progress:
 
 ## Project Reference
 
-See: `.planning/PROJECT.md` (updated 2026-06-20 — Milestone v2.1 started)
-Roadmap: `.planning/ROADMAP.md` (v2.1 section at top; v2.0 collapsed to shipped summary; full v2.0 detail archived in `milestones/v2.0-ROADMAP.md`)
-Requirements: `.planning/REQUIREMENTS.md` (v2.1 requirements, 11 in-scope: CONT-01..05, VID-01..04, PUB-01..04, NAV-01, DEP-01, MIG-01; RENDER-01/02 gated)
+See: `.planning/PROJECT.md` (updated 2026-06-24 — Current Milestone: v2.3 — Mobile App Production Foundation)
+Roadmap: `.planning/ROADMAP.md` (v2.3 section at top, 5 phases MA1–MA5; v2.2/v2.1 sections below; v2.0 collapsed to shipped summary)
+Requirements: `.planning/REQUIREMENTS.md` (v2.3 requirements, 22 in-scope: AUTH-01..07, MEM-01..05, TCH-01..03, AI-01..03, NOT-01..04; traceability mapped MA1–MA5)
 
-**Core value:** HUSTLE staff can author rich content documents and video compositions inside the staff app — with the right-rail agent assisting — and publish them so they reach members (mobile app + public marketing pages), without a new member web portal.
+**Core value:** Members book/pay, teachers run sessions and check members in, and admins drive the studio via an in-app AI agent — all from one authenticated native Expo app, with push notifications closing the loop. The booking app is table stakes; the admin AI agent is the differentiator.
 
-**Current milestone:** v2.1 — Content & Video Studio (staff-web). Started 2026-06-20. Adds `/gymos/content` (Tiptap, non-collab) + `/gymos/video` (Remotion `@remotion/player` editor) tabs to `apps/staff-web`, plus a publish pipeline for member mobile API + public SSR pages.
+**Current milestone:** v2.3 — Mobile App Production Foundation (member / teacher / admin). Started 2026-06-29. The RunStudio mobile app (`packages/mobile-app`, Expo) gets a real production Better-auth foundation serving 3 server-routed roles, replacing the `demoMemberId` hack: member booking + Stripe paywall, teacher check-in, admin AI ops agent, Expo push.
 
-**Prior art:** `apps/hq` has a non-collab Content surface (BD3 HQD-04: `apps/hq/actions/content-*.ts` + `apps/hq/app/routes/content.*.tsx`) — mine before writing new staff-web content code. The HQ Video surface is a thin deferred stub only (no Remotion dep in `apps/hq`).
+**Roadmap shape (5 phases, prefix `MA`):** MA1 Auth + 3-role spine (one-way door; auth spike first) → MA2 Member booking → MA3 Teacher check-in → MA4 Admin AI agent (allow-list keystone) → MA5 Push (last; EAS/Apple-gated). MA2/MA3/MA4 depend only on MA1 and are reorderable by value; MA5 is last. MA1 + MA5 flagged for phase-level research/spike.
 
 ## Current Position
 
 Milestone: v2.3 — Mobile App Production Foundation (member / teacher / admin)
-Phase: Not started — defining requirements
+Phase: Not started — roadmap complete (5 phases MA1–MA5); next is plan-phase MA1
 Plan: —
 Status: **Milestone v2.3 started 2026-06-29.** Mobile app (`packages/mobile-app`, Expo) production auth foundation for 3 roles (member/teacher/admin) on one Better-auth login + member booking/Stripe gate + teacher check-in + admin AI ops agent + Expo push. Research-first chosen. Sequencing: POST-Wednesday (Wed ~2026-07-01 = first paying customer HUSTLE onboarding, uses the WEB agent which already ships; Wed priorities = Meta tokens + Stripe go-live + iOS member build). Decisions captured in memory [[project_gymos_mobile_owner_agent]]. **Prior milestone v2.2 (Meta Conversion Tracking) = COMPLETE + DEPLOYED** (15/15 reqs MC1–MC3; migrations v31–v34 on Neon `billowing-sun-51091059`; see [[project_gymos_deploy]]).
 Last activity: 2026-06-26 (continuation of the big rollout session; final master `1da86ab3`, all pushed):
