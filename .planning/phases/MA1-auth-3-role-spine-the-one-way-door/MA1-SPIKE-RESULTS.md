@@ -14,16 +14,28 @@
 | Field       | Value                                          |
 |-------------|------------------------------------------------|
 | email       | ma1-spike@example.com                         |
-| password    | (from MA1_SPIKE_PASSWORD env var)              |
+| password    | 12345678  (Better-auth requires ≥ 8 chars — "123456" was rejected PASSWORD_TOO_SHORT) |
 | memberId    | mbr_spike_ma1_001                              |
-| userId      | (filled in after seed run + sign-in)           |
+| userId      | null at seed time — claim links it on first sign-in (Leg 2) |
 
-Seed the account against live Neon before running legs 1-4:
+Seeded against live Neon on 2026-06-29 — user created (HTTP 200), unclaimed gym_members row inserted.
 
 ```bash
-MA1_SPIKE_API_BASE=https://gym-class-os.vercel.app \
+MA1_SPIKE_PASSWORD='12345678' MA1_SPIKE_API_BASE=https://gym-class-os.vercel.app \
 pnpm --filter @gymos/staff-web db:seed-ma1-test-account
 ```
+
+### Pre-device finding (resolved) — Origin header required
+
+Running the seed against the live deploy surfaced a real integration bug **before**
+the device step: the Better-auth sign-up/sign-in endpoints enforce an Origin check
+and reject requests with **no** Origin header (`403 MISSING_OR_NULL_ORIGIN`). Neither
+the seed (Node `fetch`) nor the mobile client (React Native `fetch`) was sending one.
+Fixed in commit `0b25841e` by sending the API base as `Origin` (a trusted origin by
+default = baseURL) in both `seed-ma1-test-account.ts` and `mobile-app/lib/sign-in-api.ts`.
+**Implication for the device legs:** Leg 1 should now pass; if it still 403s, the
+deploy's trustedOrigins does not include `https://gym-class-os.vercel.app` — check
+`BETTER_AUTH_URL` / trustedOrigins on the Vercel env.
 
 ---
 
