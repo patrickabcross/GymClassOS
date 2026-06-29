@@ -4,11 +4,9 @@
 //   3. QueryProvider (TanStack Query — every screen uses it).
 //   4. GestureRoot (gesture-handler root view — required by @gorhom/bottom-sheet
 //      used by the agent FAB in D2-06).
-//   5. AuthGate — reads demoMemberId from AsyncStorage and redirects to
-//      /pick-member if no member is selected (D-05). Inverse redirect: if a
-//      member IS selected and we're on /pick-member, jump straight to (tabs).
-//
-// Replaced in P1a (MEMAUTH-02 magic-link) with a Better-auth session check.
+//   5. AuthGate — MA1-02: reads session token from expo-secure-store and
+//      redirects to /sign-in when no token present; persists across restarts.
+//      Demo pick-member.tsx is preserved on disk for DEMO_MODE (AUTH-06).
 import { useEffect, useState } from "react";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -16,7 +14,7 @@ import { View, ActivityIndicator, Pressable } from "react-native";
 import { useFonts } from "expo-font";
 import { Feather } from "@expo/vector-icons";
 import { QueryProvider } from "../lib/query-client";
-import { getCurrentMemberId } from "../lib/current-member";
+import { getSessionToken } from "../lib/session";
 import { GestureRoot, AgentSheetContainer } from "../lib/bottom-sheet-impl";
 import AgentSheet from "../components/AgentSheet";
 import { ThemeProvider, useTheme } from "../lib/theme";
@@ -34,11 +32,14 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const id = await getCurrentMemberId();
+      const token = await getSessionToken();
       if (cancelled) return;
-      const onPicker = segments[0] === "pick-member";
-      if (!id && !onPicker) router.replace("/pick-member");
-      if (id && onPicker) router.replace("/(tabs)");
+      const onSignIn = segments[0] === "sign-in";
+      // No token → redirect to sign-in (unless already there). AUTH-03: reads
+      // secure-store on every cold start so the session persists across restarts.
+      if (!token && !onSignIn) router.replace("/sign-in");
+      // Token present → skip back to tabs if somehow we landed on sign-in.
+      if (token && onSignIn) router.replace("/(tabs)");
       setChecked(true);
     })();
     return () => {
@@ -77,9 +78,9 @@ function AgentFabAndSheet() {
   const [open, setOpen] = useState(false);
   const theme = useTheme();
 
-  // Hide FAB on the picker screen (no member yet → no agent context).
-  const onPicker = segments[0] === "pick-member";
-  if (onPicker) return null;
+  // Hide FAB on the sign-in screen (no session yet → no agent context).
+  const onSignIn = segments[0] === "sign-in";
+  if (onSignIn) return null;
 
   const fab = {
     fabHost: {
@@ -163,6 +164,8 @@ function ThemedRoot() {
             }}
           >
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            {/* sign-in is the real auth gate (MA1-02). pick-member stays on disk for DEMO_MODE (AUTH-06). */}
+            <Stack.Screen name="sign-in" options={{ headerShown: false }} />
             <Stack.Screen name="pick-member" options={{ headerShown: false }} />
             <Stack.Screen
               name="food-add"

@@ -23,7 +23,7 @@ import { useRouter } from "expo-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as WebBrowser from "expo-web-browser";
 import { apiFetch } from "../../lib/api";
-import { clearCurrentMemberId } from "../../lib/current-member";
+import { clearSessionToken } from "../../lib/session";
 import { useTheme } from "../../lib/theme";
 
 interface Product {
@@ -242,9 +242,9 @@ export default function ProfileScreen() {
     [theme],
   );
 
-  async function switchMember() {
-    await clearCurrentMemberId();
-    router.replace("/pick-member");
+  async function signOut() {
+    await clearSessionToken();
+    router.replace("/sign-in");
   }
 
   if (isLoading) {
@@ -258,8 +258,8 @@ export default function ProfileScreen() {
     return (
       <View style={styles.center}>
         <Text style={styles.errorText}>Couldn't load profile</Text>
-        <Pressable onPress={switchMember} style={styles.btn}>
-          <Text style={styles.btnText}>Switch member</Text>
+        <Pressable onPress={signOut} style={styles.btn}>
+          <Text style={styles.btnText}>Sign out</Text>
         </Pressable>
       </View>
     );
@@ -269,10 +269,7 @@ export default function ProfileScreen() {
   const products: Product[] = productsData?.products ?? [];
 
   return (
-    <ScrollView
-      style={styles.scroll}
-      contentContainerStyle={styles.container}
-    >
+    <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
       <Pressable
         onLongPress={() => setConfirming(true)}
         delayLongPress={600}
@@ -282,12 +279,12 @@ export default function ProfileScreen() {
           {m.firstName} {m.lastName ?? ""}
         </Text>
         <Text style={styles.subtitle}>{m.email ?? m.phoneE164 ?? ""}</Text>
-        <Text style={styles.hint}>Long-press anywhere to switch member (demo)</Text>
+        <Text style={styles.hint}>Long-press anywhere to sign out</Text>
       </Pressable>
 
       {confirming && (
         <View style={styles.confirmBox}>
-          <Text style={styles.confirmText}>Switch demo member?</Text>
+          <Text style={styles.confirmText}>Sign out?</Text>
           <View style={styles.confirmRow}>
             <Pressable
               onPress={() => setConfirming(false)}
@@ -295,8 +292,8 @@ export default function ProfileScreen() {
             >
               <Text style={styles.btnText}>Cancel</Text>
             </Pressable>
-            <Pressable onPress={switchMember} style={styles.btn}>
-              <Text style={styles.btnText}>Switch</Text>
+            <Pressable onPress={signOut} style={styles.btn}>
+              <Text style={styles.btnText}>Sign out</Text>
             </Pressable>
           </View>
         </View>
