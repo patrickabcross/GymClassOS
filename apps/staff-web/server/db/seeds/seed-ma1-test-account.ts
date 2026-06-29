@@ -99,9 +99,17 @@ export async function seedMa1TestAccount(opts: SeedMa1Options = {}): Promise<{
   console.log(`      POST ${signUpUrl}`);
   console.log(`      email: ${normalised}`);
 
+  // Better-auth enforces an Origin check on cookie-setting endpoints (sign-up /
+  // sign-in). A request with no Origin header is rejected 403
+  // MISSING_OR_NULL_ORIGIN. Send the app's own origin (a trusted origin by
+  // default = baseURL) so the call is accepted. The native client must do the
+  // same (see packages/mobile-app/lib/sign-in-api.ts).
   const signUpRes = await fetch(signUpUrl, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      Origin: apiBase,
+    },
     body: JSON.stringify({ email: normalised, password, name: "Spike Tester" }),
   });
 
