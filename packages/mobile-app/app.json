@@ -8,14 +8,14 @@
     "scheme": "agentnative",
     "userInterfaceStyle": "dark",
     "ios": {
-      "bundleIdentifier": "uk.co.doyouhustle.app",
+      "bundleIdentifier": "com.airunstudio.app",
       "supportsTablet": true,
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
-      "package": "uk.co.doyouhustle.app",
+      "package": "com.airunstudio.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#111111"
