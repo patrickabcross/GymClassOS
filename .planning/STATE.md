@@ -4,7 +4,7 @@ milestone: v2.3
 milestone_name: — Mobile App Production Foundation
 status: executing
 stopped_at: "MA1-03 Task 1 done — awaiting device checkpoint (Task 2: device-verify spike on real iPhone)"
-last_updated: "2026-06-29T16:27:35.777Z"
+last_updated: "2026-06-29T20:13:09.567Z"
 last_activity: 2026-06-29
 progress:
   total_phases: 5
@@ -30,8 +30,8 @@ Requirements: `.planning/REQUIREMENTS.md` (v2.3 requirements, 22 in-scope: AUTH-
 ## Current Position
 
 Milestone: v2.3 — Mobile App Production Foundation (member / teacher / admin)
-Phase: MA1 (Auth + 3-Role Spine (the one-way door)) — EXECUTING
-Plan: 3 of 3
+Phase: MA1
+Plan: Not started
 Status: Ready to execute
 Last activity: 2026-06-29
 
