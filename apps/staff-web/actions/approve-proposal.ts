@@ -2,18 +2,15 @@ import { z } from "zod";
 import { defineAction } from "@agent-native/core";
 import { getDb, schema } from "../server/db/index.js";
 import { and, eq } from "drizzle-orm";
+import { GATED_ACTION_LIST } from "../server/lib/gated-actions.js";
 
-// Only these two actions may ever be executed via a proposal. Both route
-// through their own gates (send-template-to-members -> enqueueOutboundWhatsApp
+// Only these gated actions may ever be executed via a proposal. Both routes
+// pass their own gates (send-template-to-members -> enqueueOutboundWhatsApp
 // -> worker sendMessage() chokepoint: opt-in + 24h window + approved-template).
 // This handler NEVER calls Meta or Stripe directly.
-const ACTION_ALLOWLIST = [
-  "send-template-to-members",
-  "create-checkout-link",
-  "publish-form",
-  "cancel-occurrence",
-  "reschedule-occurrence",
-] as const;
+// Single source of truth: server/lib/gated-actions.ts (also drives the Zod
+// enum in propose-action.ts and the mobile-admin-tools defensive filter).
+const ACTION_ALLOWLIST = GATED_ACTION_LIST;
 
 export default defineAction({
   description:

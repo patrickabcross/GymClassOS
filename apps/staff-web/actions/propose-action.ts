@@ -2,6 +2,7 @@ import { z } from "zod";
 import { defineAction } from "@agent-native/core";
 import { getDb, schema } from "../server/db/index.js";
 import { nanoid } from "nanoid";
+import { GATED_ACTION_LIST } from "../server/lib/gated-actions.js";
 
 export default defineAction({
   description:
@@ -17,13 +18,7 @@ export default defineAction({
       .optional()
       .describe("Optional dashboard_tasks.id to link this proposal to a task"),
     actionName: z
-      .enum([
-        "send-template-to-members",
-        "create-checkout-link",
-        "publish-form",
-        "cancel-occurrence",
-        "reschedule-occurrence",
-      ])
+      .enum(GATED_ACTION_LIST)
       .describe(
         "The existing gated action this proposal will execute on approval",
       ),
