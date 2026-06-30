@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v2.3
 milestone_name: — Mobile App Production Foundation
-status: verifying
-stopped_at: Completed MA3-02-PLAN.md
-last_updated: "2026-06-30T20:31:55.675Z"
+status: completed
+stopped_at: Completed MA3-03-PLAN.md
+last_updated: "2026-06-30T20:41:04.273Z"
 last_activity: 2026-06-30
 progress:
   total_phases: 5
@@ -30,9 +30,9 @@ Requirements: `.planning/REQUIREMENTS.md` (v2.3 requirements, 22 in-scope: AUTH-
 ## Current Position
 
 Milestone: v2.3 — Mobile App Production Foundation (member / teacher / admin)
-Phase: MA3
-Plan: 2/3 complete (MA3-01 + MA3-02 shipped)
-Status: MA3-02 SHIPPED (teacher resource endpoints). Three teacher routes on master, each `requireTeacher`-gated and scoped by `class_occurrences.trainer_id`: `GET /api/m/teacher/schedule` (assigned occurrences, next 7d, scheduled; unlinked/no-session teacher → 200 `{items:[], trainerLinked}` empty-state, NOT error), `GET /api/m/teacher/roster?occurrenceId=` (booked|attended bookings joined to gym_members, ownership-gated — 403 foreign/null-trainer), `POST /api/m/teacher/check-in {bookingId}` (pure CALLER of mark-booking-attended; 0 new attendance writes; Meta Schedule CAPI fires inside the chokepoint; ownership-gated). Three nested Nitro delegators (five ../). All six new files tsc-clean; static no-new-write check = 0; no new agent LLM tool (teachers have no AI, TCH-03). TCH-01 + TCH-02 now complete (TCH-03 from MA3-01). Deferred: 2 pre-existing `db.execute` tsc errors in unmodified `mark-booking-attended.ts` (see MA3 deferred-items.md). **OPERATOR steps pending (runtime, from MA3-01):** apply v37 to Neon `billowing-sun-51091059`; populate `trainers.user_id` by email per teacher; set `RUNSTUDIO_TEACHER_EMAILS` on Vercel — until done, all logins resolve to member and teacher routes 403. Next: MA3-03 (mobile teacher screens — consume these endpoints + `/api/m/me`). Prior: MA1 complete, MA4 complete (3/3).
+Phase: MA3 — COMPLETE (3/3)
+Plan: 3/3 complete (MA3-01 + MA3-02 + MA3-03 shipped)
+Status: MA3 COMPLETE — TCH-01/02/03 all done. MA3-03 SHIPPED (mobile teacher surface, `packages/mobile-app`). Five files, three atomic commits on master (`5c04c2dc` useRole+FAB-gate+tabs, `34b97f1c` teacher-schedule tab, `3be6cc4d` roster+check-in). `lib/use-role.ts` reads `GET /api/m/me` once (TanStack Query, 5m staleTime, defaults member). App role-branches off it: member 5-tab set vs teacher Schedule+Profile via Expo Router `href` toggle (tabs stay declared unconditionally). **FAB gate reconciled with MA4:** `role !== "member" && !isAdmin` → members get coach FAB, admins keep the MA4 "RunStudio Ops" sheet, teachers get NO AI surface (TCH-03); also hidden while role null (no flash). Teacher Schedule tab (`app/(tabs)/teacher-schedule.tsx`, TCH-01) lists assigned sessions grouped by day, each → pushed roster; empty states are copy keyed on `trainerLinked` (unlinked vs no-sessions), never an error. Roster screen (`app/teacher-roster.tsx`, TCH-02) = optimistic tap-to-check-in (onMutate row→attended, onError rollback+toast, onSuccess invalidate) → `POST /api/m/teacher/check-in {bookingId}` (the existing mark-booking-attended chokepoint). All five MA3-03 files tsc-clean (Feather icons, prettier). Deferred: 1 pre-existing `fontVariant` readonly-tuple tsc error in unmodified `app/(tabs)/index.tsx:546` (see MA3 deferred-items.md). On-device iOS verify deferred (EAS/Apple-gated, MA1-03 pattern). **OPERATOR steps pending (runtime, from MA3-01):** apply v37 to Neon `billowing-sun-51091059`; populate `trainers.user_id` by email per teacher; set `RUNSTUDIO_TEACHER_EMAILS` on Vercel — until done, all logins resolve to member (app safely shows the member surface) and teacher routes 403. Next: MA5 (Push, last; EAS/Apple-gated). Prior: MA1 complete, MA2 planned, MA4 complete (3/3).
 Last activity: 2026-06-30
 
 1. **Schedule filters** (quick 260625-d06): location/class-type/trainer on the staff calendar (shadcn Popover) + public embed (native selects); loader Query A widened w/ trainer leftJoin. SHIPPED.
@@ -92,7 +92,7 @@ Last activity: 2026-06-26 — Completed quick task 260626-m1c (swap marketing ho
 |-------|------|--------------|--------|
 | MA1. Auth + 3-Role Spine ⚑ | Better-auth login in Expo (`expo-secure-store`); two-allowlist role resolver (admin > teacher > member, no UI toggle); transactional/idempotent claim-by-email; `requireDemoMember → requireMember` dual-path. **Auth spike first.** | AUTH-01..07 | Complete — auth spine production-verified (MA1-03 device UAT) |
 | MA2. Member Booking Surface | Browse public / book authenticated; pass-holder books via `/api/m/bookings`; no-pass → Stripe inline → pass grant → booking; home (upcoming + balance) | MEM-01..05 | Planned ✓ (4 plans/4 waves, checker PASSED 2026-06-30) |
-| MA3. Teacher Session Surface | Teacher schedule (assigned) + roster; tap-to-check-in via existing `mark-booking-attended` chokepoint; no teacher AI | TCH-01..03 | **In progress (2/3)** — 01 auth foundation + 02 resource endpoints (schedule/roster/check-in) shipped; TCH-01/02/03 complete. Next: MA3-03 mobile teacher screens |
+| MA3. Teacher Session Surface | Teacher schedule (assigned) + roster; tap-to-check-in via existing `mark-booking-attended` chokepoint; no teacher AI | TCH-01..03 | **Complete (3/3)** — 01 auth foundation + 02 resource endpoints + 03 mobile teacher surface (useRole role-branch, teacher Schedule tab, roster optimistic check-in, FAB hidden for teachers). TCH-01/02/03 done; on-device iOS verify deferred (EAS-gated) |
 | MA4. Admin Mobile AI Agent | In-app AI ops chat (reuse `AgentSheet`/`agent-stream`); server-side ALLOW-LIST filters gated Tier-3 (+ unit test); `runWithRequestContext` + `requireAdmin` on SSE | AI-01..03 | **Complete (3/3)** — 01 keystone + 02 SSE endpoint/requireAdmin/whoami + 03 mobile client (whoami-gated AgentSheet, admin endpoint reuse, AGENTS.md doc). AI-01/02/03 done; on-device iOS verify deferred (EAS-gated) |
 | MA5. Push Notifications ⚑ | Additive `push_tokens` (keyed `user.id`) + Expo token reg + deep-link; pg-boss `expo-push` worker job (staff-web enqueues, worker sends); v1 types = booking confirm + reminder + admin "come look". EAS/Apple-gated | NOT-01..04 | Not started |
 
@@ -156,8 +156,15 @@ Last activity: 2026-06-26 — Completed quick task 260626-m1c (swap marketing ho
 | Phase MA4 P03 | 141 | 2 tasks | 5 files |
 | Phase MA3 P01 | 4min | 3 tasks | 6 files |
 | Phase MA3 P02 | 4min | 3 tasks | 7 files |
+| Phase MA3 P03 | 480 | 3 tasks | 5 files |
 
 ## Accumulated Context
+
+### MA3-03 Decisions (2026-06-30)
+
+- **2026-06-30 MA3-03 — Mobile FAB gate is `role !== "member" && !isAdmin`, NOT the plan's literal `role !== "member"`.** The MA3-03 plan was authored before MA4 shipped its admin ops FAB; the literal gate would have clobbered it. Reconciled: members → coach FAB, admins → MA4 "RunStudio Ops" sheet (endpoint/title switched by `isAdmin`, untouched), teachers → NO AI surface (TCH-03). Also hidden while `role` is null so the AI never flashes for a teacher. MA4's FAB role source (`lib/whoami.ts` `fetchRole`) was left untouched; `useRole` (`GET /api/m/me`) drives only the tab-set branch.
+- **2026-06-30 MA3-03 — Role-branch via Expo Router `href: undefined|null`, every `<Tabs.Screen>` declared unconditionally.** `app/(tabs)/_layout.tsx` reads `useRole()` and toggles visibility: member → Home/Classes/Passes/Log, teacher → Schedule, Profile shared. Never conditionally unmount Tabs.Screen children (the Expo Router idiom). `lib/use-role.ts` defaults to `member` (safe fallback) and is UX-only — server `requireTeacher` is the boundary.
+- **2026-06-30 MA3-03 — Teacher empty states are COPY keyed on `trainerLinked`, never an error.** `teacher-schedule.tsx` mirrors the member `schedule.tsx` FlatList/day-grouping (booking/pass stripped); `trainerLinked === false` → "not linked to a trainer yet — contact the studio", linked+empty → "No sessions assigned to you this week", genuine fetch error → Retry view. Roster check-in (`teacher-roster.tsx`) is optimistic (mirrors `bookMutation`): onMutate flips the row to `attended`, onError rolls back + inline toast, onSuccess invalidates; drives `POST /api/m/teacher/check-in` (the existing chokepoint). All five files tsc-clean (Feather icons). Deferred: pre-existing `fontVariant` tsc error in unmodified `index.tsx:546`.
 
 ### MA3-02 Decisions (2026-06-30)
 
@@ -276,8 +283,8 @@ Last activity: 2026-06-26 — Completed quick task 260626-m1c (swap marketing ho
 
 ## Session Continuity
 
-Last session: 2026-06-30T20:31:55.663Z
-Stopped at: Completed MA3-02-PLAN.md
+Last session: 2026-06-30T20:41:04.261Z
+Stopped at: Completed MA3-03-PLAN.md
 Resume file: None
 
 Prior session: 2026-06-20T10:22:33.153Z — Completed CV4-publish-pipeline CV4-01-PLAN.md
