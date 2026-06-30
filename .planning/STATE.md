@@ -30,10 +30,10 @@ Requirements: `.planning/REQUIREMENTS.md` (v2.3 requirements, 22 in-scope: AUTH-
 ## Current Position
 
 Milestone: v2.3 — Mobile App Production Foundation (member / teacher / admin)
-Phase: MA1
-Plan: Not started
-Status: Ready to execute
-Last activity: 2026-06-30 — Completed quick task 260630-mw8 (mobile sign-in wrong-password UX); diagnosed bug #1 (calorie photo 401) as client-side — backend honors Bearer on POST/image path (verified live, incl. 1.5MB body), awaiting device retest
+Phase: MA1 complete; MA2 + MA3 + MA4 PLANNED & verified (checkers PASSED), ready to execute; MA5 not started
+Plan: MA4 (3 plans), MA2 (4 plans), MA3 (3 plans) — all checker-PASSED
+Status: Ready to execute — recommended order MA4 → MA3 → MA2 (MA3's TCH-03 server half needs MA4's requireAdmin; MA2 is independent and can run anytime)
+Last activity: 2026-06-30 — Planned+verified MA4/MA2/MA3 (research → CONTEXT → planner → plan-checker, all PASSED). Earlier: quick task 260630-mw8 (mobile sign-in wrong-password UX); diagnosed bug #1 (calorie photo 401) as client-side — backend honors Bearer on POST/image path (verified live incl. 1.5MB body), awaiting device retest
 
 1. **Schedule filters** (quick 260625-d06): location/class-type/trainer on the staff calendar (shadcn Popover) + public embed (native selects); loader Query A widened w/ trainer leftJoin. SHIPPED.
 2. **Studio-global sites config** (quick 260625-gsg): `resolveSites` + `sites` JSONB col (v35) + Settings→Integrations→Locations card; replaces the hardcoded Norwich/Wymondham picker. SHIPPED; HUSTLE sites seeded as DATA on Neon (singleton row).
@@ -90,10 +90,10 @@ Last activity: 2026-06-26 — Completed quick task 260626-m1c (swap marketing ho
 
 | Phase | Goal | Requirements | Status |
 |-------|------|--------------|--------|
-| MA1. Auth + 3-Role Spine ⚑ | Better-auth login in Expo (`expo-secure-store`); two-allowlist role resolver (admin > teacher > member, no UI toggle); transactional/idempotent claim-by-email; `requireDemoMember → requireMember` dual-path. **Auth spike first.** | AUTH-01..07 | Not started — plan next |
-| MA2. Member Booking Surface | Browse public / book authenticated; pass-holder books via `/api/m/bookings`; no-pass → Stripe inline → pass grant → booking; home (upcoming + balance) | MEM-01..05 | Not started |
-| MA3. Teacher Session Surface | Teacher schedule (assigned) + roster; tap-to-check-in via existing `mark-booking-attended` chokepoint; no teacher AI | TCH-01..03 | Not started |
-| MA4. Admin Mobile AI Agent | In-app AI ops chat (reuse `AgentSheet`/`agent-stream`); server-side ALLOW-LIST filters gated Tier-3 (+ unit test); `runWithRequestContext` + `requireAdmin` on SSE | AI-01..03 | Not started |
+| MA1. Auth + 3-Role Spine ⚑ | Better-auth login in Expo (`expo-secure-store`); two-allowlist role resolver (admin > teacher > member, no UI toggle); transactional/idempotent claim-by-email; `requireDemoMember → requireMember` dual-path. **Auth spike first.** | AUTH-01..07 | Complete — auth spine production-verified (MA1-03 device UAT) |
+| MA2. Member Booking Surface | Browse public / book authenticated; pass-holder books via `/api/m/bookings`; no-pass → Stripe inline → pass grant → booking; home (upcoming + balance) | MEM-01..05 | Planned ✓ (4 plans/4 waves, checker PASSED 2026-06-30) |
+| MA3. Teacher Session Surface | Teacher schedule (assigned) + roster; tap-to-check-in via existing `mark-booking-attended` chokepoint; no teacher AI | TCH-01..03 | Planned ✓ (3 plans/3 waves, checker PASSED 2026-06-30) |
+| MA4. Admin Mobile AI Agent | In-app AI ops chat (reuse `AgentSheet`/`agent-stream`); server-side ALLOW-LIST filters gated Tier-3 (+ unit test); `runWithRequestContext` + `requireAdmin` on SSE | AI-01..03 | Planned ✓ (3 plans/3 waves, checker PASSED 2026-06-30; read+dashboard scope) |
 | MA5. Push Notifications ⚑ | Additive `push_tokens` (keyed `user.id`) + Expo token reg + deep-link; pg-boss `expo-push` worker job (staff-web enqueues, worker sends); v1 types = booking confirm + reminder + admin "come look". EAS/Apple-gated | NOT-01..04 | Not started |
 
 **Coverage:** 22/22 v2.3 requirements mapped across MA1–MA5. No orphans, no duplicates. **⚑ = needs phase-level research/spike** (MA1 auth spike; MA5 Expo push, externally gated).
