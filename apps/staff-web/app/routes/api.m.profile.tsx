@@ -68,6 +68,36 @@ export async function loader({ request }: LoaderFunctionArgs) {
     .limit(1)
     .then((r) => r[0] ?? null);
 
+  // Upcoming bookings LIST (MEM-05) — additive plural of `upcomingBooking`.
+  // Same joins + member-scoped WHERE; earliest-first, capped at 10. Inherently
+  // scoped to the caller's own member.id (no cross-member rows).
+  // guard:allow-unscoped — single-tenant gym tables
+  const upcomingList = await db
+    .select({
+      bookingId: schema.bookings.id,
+      occurrenceId: schema.classOccurrences.id,
+      startsAt: schema.classOccurrences.startsAt,
+      className: schema.classDefinitions.name,
+    })
+    .from(schema.bookings)
+    .leftJoin(
+      schema.classOccurrences,
+      eq(schema.bookings.occurrenceId, schema.classOccurrences.id),
+    )
+    .leftJoin(
+      schema.classDefinitions,
+      eq(schema.classOccurrences.definitionId, schema.classDefinitions.id),
+    )
+    .where(
+      and(
+        eq(schema.bookings.memberId, member.id),
+        eq(schema.bookings.status, "booked"),
+        gte(schema.classOccurrences.startsAt, nowIso),
+      ),
+    )
+    .orderBy(asc(schema.classOccurrences.startsAt))
+    .limit(10);
+
   // Today's kcal total + macros
   // guard:allow-unscoped — demo D-07
   const todayTotals = await db
@@ -97,6 +127,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     },
     passBalance,
     upcomingBooking: upcoming,
+    upcomingBookings: upcomingList,
     today: {
       kcal: Number(todayTotals.kcal ?? 0),
       proteinG: Number(todayTotals.protein ?? 0),
