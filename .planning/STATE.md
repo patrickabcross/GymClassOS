@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v2.3
 milestone_name: — Mobile App Production Foundation
 status: verifying
-stopped_at: Completed MA3-01-PLAN.md
-last_updated: "2026-06-30T20:24:25.934Z"
+stopped_at: Completed MA3-02-PLAN.md
+last_updated: "2026-06-30T20:31:55.675Z"
 last_activity: 2026-06-30
 progress:
   total_phases: 5
@@ -31,8 +31,8 @@ Requirements: `.planning/REQUIREMENTS.md` (v2.3 requirements, 22 in-scope: AUTH-
 
 Milestone: v2.3 — Mobile App Production Foundation (member / teacher / admin)
 Phase: MA3
-Plan: 1/3 complete (MA3-01 shipped)
-Status: MA3-01 SHIPPED (teacher auth foundation). Additive `trainers.user_id` (TEXT) + migration v37; `requireTeacher` gate (401/403, NO gym_members claim) + `resolveTrainerIdForUser` + `sessionFromRequest` in `server/lib/teacher-session.ts`; `GET /api/m/me` surfaces the previously-unused `resolveRole` (200 for all roles, trainerId only for teachers). tsc clean across all 5 code files; role-resolver tests 6/6. TCH-01 + TCH-03 marked complete. **OPERATOR steps pending (runtime, not code):** apply v37 to Neon `billowing-sun-51091059` by hand; populate `trainers.user_id` by email per teacher; set `RUNSTUDIO_TEACHER_EMAILS` on Vercel — see MA3-01-SUMMARY.md "Manual data step". Next: MA3-02 (teacher schedule/roster/check-in endpoints). Prior: MA4 complete (3/3).
+Plan: 2/3 complete (MA3-01 + MA3-02 shipped)
+Status: MA3-02 SHIPPED (teacher resource endpoints). Three teacher routes on master, each `requireTeacher`-gated and scoped by `class_occurrences.trainer_id`: `GET /api/m/teacher/schedule` (assigned occurrences, next 7d, scheduled; unlinked/no-session teacher → 200 `{items:[], trainerLinked}` empty-state, NOT error), `GET /api/m/teacher/roster?occurrenceId=` (booked|attended bookings joined to gym_members, ownership-gated — 403 foreign/null-trainer), `POST /api/m/teacher/check-in {bookingId}` (pure CALLER of mark-booking-attended; 0 new attendance writes; Meta Schedule CAPI fires inside the chokepoint; ownership-gated). Three nested Nitro delegators (five ../). All six new files tsc-clean; static no-new-write check = 0; no new agent LLM tool (teachers have no AI, TCH-03). TCH-01 + TCH-02 now complete (TCH-03 from MA3-01). Deferred: 2 pre-existing `db.execute` tsc errors in unmodified `mark-booking-attended.ts` (see MA3 deferred-items.md). **OPERATOR steps pending (runtime, from MA3-01):** apply v37 to Neon `billowing-sun-51091059`; populate `trainers.user_id` by email per teacher; set `RUNSTUDIO_TEACHER_EMAILS` on Vercel — until done, all logins resolve to member and teacher routes 403. Next: MA3-03 (mobile teacher screens — consume these endpoints + `/api/m/me`). Prior: MA1 complete, MA4 complete (3/3).
 Last activity: 2026-06-30
 
 1. **Schedule filters** (quick 260625-d06): location/class-type/trainer on the staff calendar (shadcn Popover) + public embed (native selects); loader Query A widened w/ trainer leftJoin. SHIPPED.
@@ -92,7 +92,7 @@ Last activity: 2026-06-26 — Completed quick task 260626-m1c (swap marketing ho
 |-------|------|--------------|--------|
 | MA1. Auth + 3-Role Spine ⚑ | Better-auth login in Expo (`expo-secure-store`); two-allowlist role resolver (admin > teacher > member, no UI toggle); transactional/idempotent claim-by-email; `requireDemoMember → requireMember` dual-path. **Auth spike first.** | AUTH-01..07 | Complete — auth spine production-verified (MA1-03 device UAT) |
 | MA2. Member Booking Surface | Browse public / book authenticated; pass-holder books via `/api/m/bookings`; no-pass → Stripe inline → pass grant → booking; home (upcoming + balance) | MEM-01..05 | Planned ✓ (4 plans/4 waves, checker PASSED 2026-06-30) |
-| MA3. Teacher Session Surface | Teacher schedule (assigned) + roster; tap-to-check-in via existing `mark-booking-attended` chokepoint; no teacher AI | TCH-01..03 | Planned ✓ (3 plans/3 waves, checker PASSED 2026-06-30) |
+| MA3. Teacher Session Surface | Teacher schedule (assigned) + roster; tap-to-check-in via existing `mark-booking-attended` chokepoint; no teacher AI | TCH-01..03 | **In progress (2/3)** — 01 auth foundation + 02 resource endpoints (schedule/roster/check-in) shipped; TCH-01/02/03 complete. Next: MA3-03 mobile teacher screens |
 | MA4. Admin Mobile AI Agent | In-app AI ops chat (reuse `AgentSheet`/`agent-stream`); server-side ALLOW-LIST filters gated Tier-3 (+ unit test); `runWithRequestContext` + `requireAdmin` on SSE | AI-01..03 | **Complete (3/3)** — 01 keystone + 02 SSE endpoint/requireAdmin/whoami + 03 mobile client (whoami-gated AgentSheet, admin endpoint reuse, AGENTS.md doc). AI-01/02/03 done; on-device iOS verify deferred (EAS-gated) |
 | MA5. Push Notifications ⚑ | Additive `push_tokens` (keyed `user.id`) + Expo token reg + deep-link; pg-boss `expo-push` worker job (staff-web enqueues, worker sends); v1 types = booking confirm + reminder + admin "come look". EAS/Apple-gated | NOT-01..04 | Not started |
 
@@ -155,8 +155,17 @@ Last activity: 2026-06-26 — Completed quick task 260626-m1c (swap marketing ho
 | Phase MA4 P02 | 172 | 2 tasks | 5 files |
 | Phase MA4 P03 | 141 | 2 tasks | 5 files |
 | Phase MA3 P01 | 4min | 3 tasks | 6 files |
+| Phase MA3 P02 | 4min | 3 tasks | 7 files |
 
 ## Accumulated Context
+
+### MA3-02 Decisions (2026-06-30)
+
+- **2026-06-30 MA3-02 — Teacher schedule empty-state is 200, NOT an error.** `GET /api/m/teacher/schedule` returns `{ items: [], trainerLinked: false }` when `requireTeacher` resolves a teacher whose `trainerId` is null (trainers.user_id not yet linked). A linked teacher with no upcoming sessions returns `{ items: [], trainerLinked: true }`. Non-teachers 401/403 inside `requireTeacher` before any query. Query reuses the `api.m.schedule.tsx` Query-A shape scoped by `eq(class_occurrences.trainer_id, teacher.trainerId)`, next 7d, status `scheduled` (adds `location` to the field set).
+- **2026-06-30 MA3-02 — Roster + check-in are ownership-gated by `trainer_id` BEFORE any data return/write.** `GET /api/m/teacher/roster?occurrenceId=` fetches the occurrence's `trainer_id` first and 403s unless it equals the teacher's `trainerId`; a null `trainerId` always 403s (an unlinked teacher can never view a foreign class). 400 without `occurrenceId`, 404 unknown. Roster = `booked|attended` bookings leftJoin `gym_members` (firstName/lastName). Same gate on check-in via booking → occurrence → trainer_id.
+- **2026-06-30 MA3-02 — Check-in is a pure CALLER of the `mark-booking-attended` chokepoint, zero new write paths.** `POST /api/m/teacher/check-in {bookingId}` does `mod.default.schema.safeParse` + `mod.default.run(parsed.data)` (approve-proposal.ts pattern). The booking status flip AND the Meta `Schedule` CAPI event both fire inside the chokepoint (single attendance writer preserved). Static check: `grep -c "update(schema.bookings)\|set({ status"` on the new route = **0**. No new agent LLM tool added (teachers have no AI surface — TCH-03); the four-area Actions obligation is met by AGENTS.md docs.
+- **2026-06-30 MA3-02 — Nested Nitro delegators need five `../`.** `server/routes/api/m/teacher/*.{get,post}.ts` are one directory deeper than the `/api/m/*` siblings, so the import path to `app/routes/api.m.teacher.*.js` uses five `../` (vs four for `/api/m/*`).
+- **2026-06-30 MA3-02 — Deferred (out of scope):** two pre-existing `db.execute` tsc type-inference errors in `actions/mark-booking-attended.ts` (byte-identical to its MC3-01 state, unmodified by MA3-02) — logged to `.planning/phases/MA3-teacher-session-surface/deferred-items.md`, not fixed. MA3-02's own six files are fully tsc-clean.
 
 ### MA3-01 Decisions (2026-06-30)
 
@@ -267,8 +276,8 @@ Last activity: 2026-06-26 — Completed quick task 260626-m1c (swap marketing ho
 
 ## Session Continuity
 
-Last session: 2026-06-30T20:24:25.925Z
-Stopped at: Completed MA3-01-PLAN.md
+Last session: 2026-06-30T20:31:55.663Z
+Stopped at: Completed MA3-02-PLAN.md
 Resume file: None
 
 Prior session: 2026-06-20T10:22:33.153Z — Completed CV4-publish-pipeline CV4-01-PLAN.md
