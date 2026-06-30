@@ -519,6 +519,21 @@ BEGIN
 END
 $mvn01$`,
     },
+    // -------------------------------------------------------------------------
+    // MA3-01 (TCH-01): Teacher → trainer link. One additive nullable TEXT column
+    // on trainers, keyed to user.id (Better-auth). A logged-in teacher maps to
+    // their assigned class_occurrences via trainers.user_id → class_occurrences
+    // .trainer_id. NEVER boolean-as-int (active-column gotcha). No DROP/RENAME/
+    // TRUNCATE, no unique index.
+    //
+    // NOT auto-applied on prod Neon — apply by hand to billowing-sun-51091059
+    // (migration-drift gotcha), then run the manual by-email population UPDATE
+    // (see MA3-01-SUMMARY.md "Manual data step") once per HUSTLE teacher.
+    // -------------------------------------------------------------------------
+    {
+      version: 37,
+      sql: `ALTER TABLE trainers ADD COLUMN IF NOT EXISTS user_id TEXT`,
+    },
     {
       version: 15,
       // postgres path: plpgsql function + conditional trigger creation

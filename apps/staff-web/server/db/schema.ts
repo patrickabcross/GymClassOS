@@ -282,6 +282,11 @@ export const trainers = table("trainers", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
   homeLocation: text("home_location"),
+  // MA3: link a trainer to a Better-auth user.id so a logged-in teacher maps
+  // to their assigned class_occurrences (via class_occurrences.trainer_id).
+  // Nullable soft-ref; populated by a manual by-email data step for v1. Added
+  // by migration v37. NEVER boolean-as-int (active-column gotcha).
+  userId: text("user_id"),
   active: integer("active", { mode: "boolean" }).notNull().default(true),
   createdAt: text("created_at").notNull().default(now()),
 });
