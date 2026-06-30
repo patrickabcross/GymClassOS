@@ -33,7 +33,7 @@ Milestone: v2.3 — Mobile App Production Foundation (member / teacher / admin)
 Phase: MA1
 Plan: Not started
 Status: Ready to execute
-Last activity: 2026-06-29
+Last activity: 2026-06-30 — Completed quick task 260630-mw8 (mobile sign-in wrong-password UX); diagnosed bug #1 (calorie photo 401) as client-side — backend honors Bearer on POST/image path (verified live, incl. 1.5MB body), awaiting device retest
 
 1. **Schedule filters** (quick 260625-d06): location/class-type/trainer on the staff calendar (shadcn Popover) + public embed (native selects); loader Query A widened w/ trainer leftJoin. SHIPPED.
 2. **Studio-global sites config** (quick 260625-gsg): `resolveSites` + `sites` JSONB col (v35) + Settings→Integrations→Locations card; replaces the hardcoded Norwich/Wymondham picker. SHIPPED; HUSTLE sites seeded as DATA on Neon (singleton row).
@@ -65,6 +65,7 @@ Last activity: 2026-06-26 — Completed quick task 260626-m1c (swap marketing ho
 
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
+| 260630-mw8 | Fix mobile-app sign-in wrong-password UX — `signInWithEmail` `!res.ok` branch now maps 401/`INVALID_EMAIL_OR_PASSWORD` → "Incorrect email or password." and other non-2xx → "Couldn't sign you in. Please try again." (was surfacing raw `Sign-in failed (401): {json}`); set-auth-token/Origin/network/PHONE_REQUIRED paths untouched. Bug #2 from MA1-03 device UAT. Single-file client change, no migration. | 2026-06-30 | 199cc200 | [260630-mw8-fix-mobile-app-sign-in-wrong-password-ux](./quick/260630-mw8-fix-mobile-app-sign-in-wrong-password-ux/) |
 | 260620-c8p | Settings API Keys page: resolve secret status studio-global (by key) so saved keys show as set for every staff login, not just the saver | 2026-06-20 | ba34c8b8 | [260620-c8p-settings-api-keys-page-resolve-secret-st](./quick/260620-c8p-settings-api-keys-page-resolve-secret-st/) |
 | 260622-d1v | Trim agent-chat Settings panel to Account+Integrations only; fix LLM env-status app_secrets false-negative | 2026-06-22 | 2ecf2387 | [260622-d1v-trim-agent-chat-settings-panel-to-accoun](./quick/260622-d1v-trim-agent-chat-settings-panel-to-accoun/) |
 | 260622-e4a | Revert SettingsPanel trim; gate agent-chat gear behind operator allowlist; AGENT_NATIVE_SINGLE_TENANT flag; env-status app_secrets fix | 2026-06-22 | 4d6fe256 | [260622-e4a-revert-settings-panel-trim-gate-sidebar-](./quick/260622-e4a-revert-settings-panel-trim-gate-sidebar-/) |
