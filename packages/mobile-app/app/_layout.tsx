@@ -4,8 +4,12 @@
 //   3. QueryProvider (TanStack Query — every screen uses it).
 //   4. GestureRoot (gesture-handler root view — required by @gorhom/bottom-sheet
 //      used by the agent FAB in D2-06).
-//   5. AuthGate — MA1-02: reads session token from expo-secure-store and
-//      redirects to /sign-in when no token present; persists across restarts.
+//   5. AuthGate — MA1-02 / MA2-02: reads session token from expo-secure-store.
+//      As of MA2-02 (MEM-01) the auth wall is NO LONGER at app entry: anonymous
+//      (tokenless) users land on the tabs and can browse the schedule. The wall
+//      now sits at the Book action (MA2-03), where a Book press by a signed-out
+//      member stashes a pending-booking intent and routes to /sign-in. AuthGate
+//      only bounces an already-signed-in user OFF /sign-in (back to the tabs).
 //      Demo pick-member.tsx is preserved on disk for DEMO_MODE (AUTH-06).
 import { useEffect, useState } from "react";
 import { Stack, useRouter, useSegments } from "expo-router";
@@ -36,10 +40,11 @@ function AuthGate({ children }: { children: React.ReactNode }) {
       const token = await getSessionToken();
       if (cancelled) return;
       const onSignIn = segments[0] === "sign-in";
-      // No token → redirect to sign-in (unless already there). AUTH-03: reads
-      // secure-store on every cold start so the session persists across restarts.
-      if (!token && !onSignIn) router.replace("/sign-in");
-      // Token present → skip back to tabs if somehow we landed on sign-in.
+      // MEM-01: NO force-redirect for tokenless users — anonymous browse is
+      // allowed (the wall moved to the Book press in MA2-03). We only bounce a
+      // signed-in user OFF /sign-in back to the tabs. AUTH-03: secure-store is
+      // still read on every cold start so a real session persists across
+      // restarts (a signed-in member resumes straight into the tabs).
       if (token && onSignIn) router.replace("/(tabs)");
       setChecked(true);
     })();
