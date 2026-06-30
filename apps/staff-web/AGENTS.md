@@ -141,6 +141,34 @@ This inserts a `dashboard_proposals` row with `status='pending'`. The coach sees
 
 **CRITICAL — Compliance gates remain in force.** Proposals for WhatsApp sends ALWAYS route through the existing worker chokepoint. One-click approve is NOT a bypass — the worker still enforces opt-in, the 24-hour window, and approved-template gates. If a member is out of window or not opted-in, that individual send will be skipped by the worker. The coach approves every send; the agent never sends autonomously.
 
+## Mobile Admin Agent (read + dashboard only)
+
+The RunStudio mobile app (`packages/mobile-app`, Expo) exposes an in-app AI ops chat to admins. It reuses the same `AgentSheet` + `react-native-sse` client as the member coach — there is no second SSE client. When the signed-in user resolves to `role=admin` (client gating via `GET /api/m/whoami`), the sheet is pointed at the admin endpoint with an admin title; otherwise it keeps the member-coach behaviour. (MA4-01/02/03; req AI-01/02/03.)
+
+### Endpoint + auth gate (AI-03)
+
+- `POST /api/m/admin/agent/stream` (`app/routes/api.m.admin.agent.stream.tsx` + the Nitro wrapper `server/routes/api/m/admin/agent/stream.post.ts`) is **admin-only**. `requireAdmin(request)` (`server/lib/admin-session.ts`) throws a `Response` 401 (no session) / 403 (not admin) at the TOP of `action()` — **the gate fires BEFORE the SSE stream opens**. Teachers and members are rejected before any `ReadableStream` is constructed; the Nitro wrapper forwards the thrown `Response` as a clean HTTP status.
+- `RUNSTUDIO_OPERATOR_EMAILS` (set on Vercel for the deploy) drives the admin role via `resolveRole` — it is the allow-list of operator emails. The same env decides `showOperatorChrome` on web.
+- `GET /api/m/whoami` is role-discovery only (returns `{role}` for any signed-in caller, 401 if unauthenticated). It is **NOT** a security boundary — it just decides which agent entry the client shows. A member who forces the admin URL still 403s at `requireAdmin`.
+
+### Tool surface — explicit allow-list, NOT ALL−GATED (AI-02)
+
+- The mobile admin agent's tools are built by `buildAdminToolList(registry)` in `server/lib/mobile-admin-tools.ts` from the explicit `MOBILE_ADMIN_ALLOWLIST` — **12 verbs**: the nine Tier-1 reads (`list-fill-rate`, `list-renewals`, `list-revenue`, `list-payments`, `list-at-risk-members`, `list-inbox-summary`, `list-classes`, `list-members`, `list-trainers`) plus three Tier-2 board-authoring verbs (`upsert-section-note`, `create-task`, `complete-task`).
+- It is an **explicit allow-list, NOT `ALL − GATED` subtraction** — the static registry has ~80 actions (incl. upstream Mail + staff-only verbs) that subtraction would leak. A defensive `.filter(name => !GATED_ACTIONS.has(name))` runs on top (belt-and-suspenders).
+- v1 is **READ + DASHBOARD ONLY**: no mutating ops verbs (catalog / schedule / member / forms / content / Stripe), no gated Tier-3 verbs, and no web-only UI tools (`navigate`, `view-screen` have no mobile equivalent).
+
+### Single source of truth for gated verbs
+
+- The five gated Tier-3 verbs (`send-template-to-members`, `create-checkout-link`, `publish-form`, `cancel-occurrence`, `reschedule-occurrence`) now live in ONE file: `server/lib/gated-actions.ts` (`GATED_ACTION_LIST` tuple + `GATED_ACTIONS` set). It is re-imported by `approve-proposal.ts` (`ACTION_ALLOWLIST`), `propose-action.ts` (Zod enum), AND `mobile-admin-tools.ts` (defensive filter). **This replaces the old "update both files" gate-atomicity rule (2026-06-18)** — the lists can no longer drift. Gated verbs remain reachable on web only via `propose-action` → `approve-proposal`.
+
+### Unit-test proof (AI-02)
+
+- `server/lib/mobile-admin-tools.test.ts` (vitest, `vitest.unit.config.ts`) asserts every gated verb is structurally absent from the built tool list and that the exposed set contains no mutating verb. `gated-actions.ts` and `mobile-admin-tools.ts` are kept pure (no `@agent-native/core` import) so they remain importable under the unit runner (BD4-01 ESM/CJS caveat).
+
+### Sanctioned server-side-LLM divergence
+
+- Like the member coach agent, the mobile admin agent calls the LLM **server-side** (a manual Anthropic tool loop under `runWithRequestContext({ userEmail: admin.email })`), because the Expo binary cannot use `sendToAgentChat`. This is an **intentional, sanctioned exception** to the root `delegate-to-agent` rule — not a bug to "fix". Tool results invalidate the client react-query caches so results reflect in app state (the four-area application-state contract).
+
 ## System Prompt
 
 The system prompt for the agent chat is defined in `apps/staff-web/server/plugins/agent-chat.ts`. The prompt establishes the gym domain, the available tools, and the suggest-and-act posture. Do not duplicate it here — edit the plugin if you change it.
