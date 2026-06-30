@@ -85,7 +85,12 @@ Plans:
   1. An admin can open an in-app AI ops chat (reusing the `AgentSheet` shell + `agent-stream`) that calls non-gated platform actions in natural language and renders results that reflect in app state
   2. The mobile admin agent endpoint exposes ONLY the non-gated verb set via a server-side **allow-list**; the gated Tier-3 actions (`send-template-to-members`, `create-checkout-link`, `cancel-occurrence`, `reschedule-occurrence`, `publish-form`) are absent from the tool list — enforced server-side and proven by a unit test that asserts the gated set is filtered out
   3. Agent tool calls run under `runWithRequestContext` with the admin's identity, and the SSE endpoint requires an authenticated admin session — a member or teacher token is rejected (403) before the stream opens
-**Plans**: TBD
+**Plans**: 3 plans (3 waves)
+
+Plans:
+- [ ] MA4-01-PLAN.md (wave 1) — Security keystone: extract single `GATED_ACTIONS` source of truth (re-imported by approve-proposal + propose-action) + explicit 12-verb `MOBILE_ADMIN_ALLOWLIST` (read + dashboard only) + pure `buildAdminToolList` with defensive gated-filter + AI-02 unit test [AI-02]
+- [ ] MA4-02-PLAN.md (wave 2, after 01) — Server endpoint + gate: `requireAdmin` (401/403 before stream) + `GET /api/m/whoami` role surface + `POST /api/m/admin/agent/stream` manual tool loop over the filtered allow-list under `runWithRequestContext` [AI-01, AI-03]
+- [ ] MA4-03-PLAN.md (wave 3, after 02) — Mobile client + docs: `whoami.ts` role gate + `streamAgent` endpoint param + `AgentSheet` endpoint/title props + role-gated entry in `_layout.tsx` + document the mobile admin agent in `apps/staff-web/AGENTS.md` [AI-01]
 **UI hint**: yes
 
 ### Phase MA5: Push Notifications (closes the loop — do LAST)
@@ -108,7 +113,7 @@ Plans:
 | MA1. Auth + 3-Role Spine ⚑ | 2/3 | Complete    | 2026-06-29 |
 | MA2. Member Booking Surface | 0/TBD | Not started | - |
 | MA3. Teacher Session Surface | 0/TBD | Not started | - |
-| MA4. Admin Mobile AI Agent | 0/TBD | Not started | - |
+| MA4. Admin Mobile AI Agent | 0/3 | Not started | - |
 | MA5. Push Notifications ⚑ | 0/TBD | Not started | - |
 
 **Coverage:** 22/22 v2.3 requirements mapped across MA1–MA5 (AUTH-01..07 → MA1; MEM-01..05 → MA2; TCH-01..03 → MA3; AI-01..03 → MA4; NOT-01..04 → MA5). No orphans, no duplicates.
