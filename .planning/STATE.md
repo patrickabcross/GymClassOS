@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v2.3
 milestone_name: — Mobile App Production Foundation
 status: executing
-stopped_at: "Completed MA4-01-PLAN.md (security keystone — GATED_ACTIONS + MOBILE_ADMIN_ALLOWLIST + AI-02 test); next: MA4-02 admin SSE endpoint"
-last_updated: "2026-06-30T20:00:38.210Z"
+stopped_at: "Completed MA4-02-PLAN.md (admin SSE endpoint + requireAdmin + whoami); next: MA4-03 client AgentSheet"
+last_updated: "2026-06-30T20:06:59.913Z"
 last_activity: "2026-06-30 — Planned+verified MA4/MA2/MA3 (research → CONTEXT → planner → plan-checker, all PASSED). Earlier: quick task 260630-mw8 (mobile sign-in wrong-password UX); diagnosed bug #1 (calorie photo 401) as client-side — backend honors Bearer on POST/image path (verified live incl. 1.5MB body), awaiting device retest"
 progress:
   total_phases: 5
@@ -30,10 +30,10 @@ Requirements: `.planning/REQUIREMENTS.md` (v2.3 requirements, 22 in-scope: AUTH-
 ## Current Position
 
 Milestone: v2.3 — Mobile App Production Foundation (member / teacher / admin)
-Phase: MA1 complete; MA4-01 (security keystone) COMPLETE — MA4-02 + MA4-03 next; MA2 + MA3 PLANNED & verified (checkers PASSED), ready to execute; MA5 not started
-Plan: MA4 (3 plans — 01 done), MA2 (4 plans), MA3 (3 plans) — all checker-PASSED
-Status: Ready to execute — MA4-02 (admin SSE endpoint, consumes MOBILE_ADMIN_ALLOWLIST + buildAdminToolList from MA4-01) is next; recommended order MA4 → MA3 → MA2 (MA3's TCH-03 server half needs MA4's requireAdmin; MA2 is independent and can run anytime)
-Last activity: 2026-06-30 — Planned+verified MA4/MA2/MA3 (research → CONTEXT → planner → plan-checker, all PASSED). Earlier: quick task 260630-mw8 (mobile sign-in wrong-password UX); diagnosed bug #1 (calorie photo 401) as client-side — backend honors Bearer on POST/image path (verified live incl. 1.5MB body), awaiting device retest
+Phase: MA1 complete; MA4-01 + MA4-02 COMPLETE (MA4 → 2/3) — MA4-03 (client AgentSheet) next; MA2 + MA3 PLANNED & verified (checkers PASSED), ready to execute; MA5 not started
+Plan: MA4 (3 plans — 01+02 done), MA2 (4 plans), MA3 (3 plans) — all checker-PASSED
+Status: Ready to execute — MA4-02 SHIPPED (admin SSE endpoint /api/m/admin/agent/stream + requireAdmin 401/403 gate-before-stream + GET /api/m/whoami, all consuming MA4-01's allow-list); next MA4-03 wires the mobile AgentSheet gated by whoami. MA3's TCH-03 server half can now use requireAdmin; MA2 independent
+Last activity: 2026-06-30 — Executed MA4-02 (admin SSE endpoint + requireAdmin + whoami; 5 files, tsc clean, gate-before-stream verified, MA4-01 keystone test still 5/5). Earlier: planned+verified MA4/MA2/MA3; quick task 260630-mw8 (mobile sign-in wrong-password UX)
 
 1. **Schedule filters** (quick 260625-d06): location/class-type/trainer on the staff calendar (shadcn Popover) + public embed (native selects); loader Query A widened w/ trainer leftJoin. SHIPPED.
 2. **Studio-global sites config** (quick 260625-gsg): `resolveSites` + `sites` JSONB col (v35) + Settings→Integrations→Locations card; replaces the hardcoded Norwich/Wymondham picker. SHIPPED; HUSTLE sites seeded as DATA on Neon (singleton row).
@@ -93,7 +93,7 @@ Last activity: 2026-06-26 — Completed quick task 260626-m1c (swap marketing ho
 | MA1. Auth + 3-Role Spine ⚑ | Better-auth login in Expo (`expo-secure-store`); two-allowlist role resolver (admin > teacher > member, no UI toggle); transactional/idempotent claim-by-email; `requireDemoMember → requireMember` dual-path. **Auth spike first.** | AUTH-01..07 | Complete — auth spine production-verified (MA1-03 device UAT) |
 | MA2. Member Booking Surface | Browse public / book authenticated; pass-holder books via `/api/m/bookings`; no-pass → Stripe inline → pass grant → booking; home (upcoming + balance) | MEM-01..05 | Planned ✓ (4 plans/4 waves, checker PASSED 2026-06-30) |
 | MA3. Teacher Session Surface | Teacher schedule (assigned) + roster; tap-to-check-in via existing `mark-booking-attended` chokepoint; no teacher AI | TCH-01..03 | Planned ✓ (3 plans/3 waves, checker PASSED 2026-06-30) |
-| MA4. Admin Mobile AI Agent | In-app AI ops chat (reuse `AgentSheet`/`agent-stream`); server-side ALLOW-LIST filters gated Tier-3 (+ unit test); `runWithRequestContext` + `requireAdmin` on SSE | AI-01..03 | Planned ✓ (3 plans/3 waves, checker PASSED 2026-06-30; read+dashboard scope) |
+| MA4. Admin Mobile AI Agent | In-app AI ops chat (reuse `AgentSheet`/`agent-stream`); server-side ALLOW-LIST filters gated Tier-3 (+ unit test); `runWithRequestContext` + `requireAdmin` on SSE | AI-01..03 | In progress — 2/3 plans done (01 keystone + 02 SSE endpoint/requireAdmin/whoami); MA4-03 client AgentSheet next |
 | MA5. Push Notifications ⚑ | Additive `push_tokens` (keyed `user.id`) + Expo token reg + deep-link; pg-boss `expo-push` worker job (staff-web enqueues, worker sends); v1 types = booking confirm + reminder + admin "come look". EAS/Apple-gated | NOT-01..04 | Not started |
 
 **Coverage:** 22/22 v2.3 requirements mapped across MA1–MA5. No orphans, no duplicates. **⚑ = needs phase-level research/spike** (MA1 auth spike; MA5 Expo push, externally gated).
@@ -152,8 +152,16 @@ Last activity: 2026-06-26 — Completed quick task 260626-m1c (swap marketing ho
 | Phase MA1 P01 | 780 | 3 tasks | 16 files |
 | Phase MA1 P02 | 571 | 3 tasks | 10 files |
 | Phase MA4 P01 | 4 | 2 tasks | 5 files |
+| Phase MA4 P02 | 172 | 2 tasks | 5 files |
 
 ## Accumulated Context
+
+### MA4-02 Decisions (2026-06-30)
+
+- **2026-06-30 MA4-02 — Admin SSE is a SEPARATE route, not a role-branch.** `POST /api/m/admin/agent/stream` (`app/routes/api.m.admin.agent.stream.tsx` + Nitro wrapper `server/routes/api/m/admin/agent/stream.post.ts`, 6 `../` to app/routes — one dir deeper than the member coach wrapper's 5). Keeps the 403 surface and the tool set structurally independent from the member endpoint.
+- **2026-06-30 MA4-02 — Gate-before-stream (AI-03).** `requireAdmin(request)` (`server/lib/admin-session.ts`) throws a `Response` 401 (no session) / 403 (not admin) at the TOP of `action()` — verified to precede `new ReadableStream` (line 52 vs 86). The Nitro wrapper's `catch (err instanceof Response) → sendWebResponse(err)` forwards it as a clean HTTP status. `requireAdmin` REPLICATES member-session.ts's h3-v2 adapter ({req,headers,url,path}) rather than importing it (member-session carries claim-by-email machinery that has no place in an admin gate) + `resolveRole` (RUNSTUDIO_OPERATOR_EMAILS).
+- **2026-06-30 MA4-02 — Tool loop = registry actions under runWithRequestContext.** Tools built from the live registry via `loadActionsFromStaticRegistry(actionsRegistry)` + `buildAdminToolList(registry)` (MA4-01 allow-list + defensive GATED_ACTIONS filter — the only gate). Manual Anthropic loop: `claude-sonnet-4-6`, `turn < 8`, `max_tokens 1024`, events `delta|tool_use|tool_result|done|error`, executes `registry[name].run(input)` (already Zod-wrapped — no re-validation; unknown tool returns `{ok:false,error:"Tool not available"}`), the WHOLE stream wrapped in `runWithRequestContext({ userEmail: admin.email })`. No DB migration (chat history client-only).
+- **2026-06-30 MA4-02 — `GET /api/m/whoami` is role-discovery, NOT a gate.** Returns `{role}` for any signed-in caller (401 only if unauthenticated) via `resolveRequestRole`. MA4-03 consumes it to show the admin agent entry only for `role=admin`. The SSE endpoint stays the sole security boundary.
 
 ### MA4-01 Decisions (2026-06-30)
 
@@ -241,8 +249,8 @@ Last activity: 2026-06-26 — Completed quick task 260626-m1c (swap marketing ho
 
 ## Session Continuity
 
-Last session: 2026-06-30T20:00:38.202Z
-Stopped at: Completed MA4-01-PLAN.md (security keystone — GATED_ACTIONS + MOBILE_ADMIN_ALLOWLIST + AI-02 test); next: MA4-02 admin SSE endpoint
+Last session: 2026-06-30T20:06:59.904Z
+Stopped at: Completed MA4-02-PLAN.md (admin SSE endpoint + requireAdmin + whoami); next: MA4-03 client AgentSheet
 Resume file: None
 
 Prior session: 2026-06-20T10:22:33.153Z — Completed CV4-publish-pipeline CV4-01-PLAN.md

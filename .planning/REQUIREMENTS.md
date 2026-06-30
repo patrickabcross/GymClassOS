@@ -48,9 +48,9 @@
 
 ### ADMIN-AI — Mobile ops agent (the differentiator + the security keystone)
 
-- [ ] **AI-01**: An admin can open an in-app AI ops chat (reusing the `AgentSheet` shell) that calls non-gated platform actions in natural language and renders results that reflect in app state.
+- [x] **AI-01**: An admin can open an in-app AI ops chat (reusing the `AgentSheet` shell) that calls non-gated platform actions in natural language and renders results that reflect in app state.
 - [x] **AI-02**: The mobile admin agent endpoint exposes ONLY the non-gated verb set via a server-side **allow-list**; gated Tier-3 actions (`send-template-to-members`, `create-checkout-link`, `cancel-occurrence`, `reschedule-occurrence`, `publish-form`) are filtered out of the tool list — enforced server-side and covered by a unit test.
-- [ ] **AI-03**: Agent tool calls run under `runWithRequestContext` with the admin's identity, and the SSE endpoint requires an authenticated admin session (rejects member/teacher).
+- [x] **AI-03**: Agent tool calls run under `runWithRequestContext` with the admin's identity, and the SSE endpoint requires an authenticated admin session (rejects member/teacher).
 
 ### NOTIF — Push notifications (build the spine; defer most types)
 
@@ -112,9 +112,9 @@ Phases assigned by the roadmapper (prefix `MA`). 22/22 requirements mapped, no o
 | TCH-01 | MA3 | Pending |
 | TCH-02 | MA3 | Pending |
 | TCH-03 | MA3 | Pending |
-| AI-01 | MA4 | Pending |
+| AI-01 | MA4 | Complete |
 | AI-02 | MA4 | Complete |
-| AI-03 | MA4 | Pending |
+| AI-03 | MA4 | Complete |
 | NOT-01 | MA5 | Pending |
 | NOT-02 | MA5 | Pending |
 | NOT-03 | MA5 | Pending |
