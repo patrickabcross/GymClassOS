@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v2.3
 milestone_name: — Mobile App Production Foundation
 status: verifying
-stopped_at: Completed MA4-03-PLAN.md (mobile admin agent client — MA4 complete 3/3)
-last_updated: "2026-06-30T20:17:58.956Z"
+stopped_at: Completed MA3-01-PLAN.md
+last_updated: "2026-06-30T20:24:25.934Z"
 last_activity: 2026-06-30
 progress:
   total_phases: 5
@@ -30,9 +30,9 @@ Requirements: `.planning/REQUIREMENTS.md` (v2.3 requirements, 22 in-scope: AUTH-
 ## Current Position
 
 Milestone: v2.3 — Mobile App Production Foundation (member / teacher / admin)
-Phase: MA4
-Plan: Not started
-Status: MA4-03 SHIPPED (mobile client: fetchRole via GET /api/m/whoami gates the reused AgentSheet → admin streams from /api/m/admin/agent/stream with "RunStudio Ops" title; member/teacher keep the coach endpoint; AGENTS.md documents the surface). AI-01/02/03 satisfied; four-area agent-native contract closed. tsc clean for all touched mobile files; on-device iOS verify deferred (EAS/Apple-gated, MA1-03 pattern). Next: execute MA2 (member booking) or MA3 (teacher check-in)
+Phase: MA3
+Plan: 1/3 complete (MA3-01 shipped)
+Status: MA3-01 SHIPPED (teacher auth foundation). Additive `trainers.user_id` (TEXT) + migration v37; `requireTeacher` gate (401/403, NO gym_members claim) + `resolveTrainerIdForUser` + `sessionFromRequest` in `server/lib/teacher-session.ts`; `GET /api/m/me` surfaces the previously-unused `resolveRole` (200 for all roles, trainerId only for teachers). tsc clean across all 5 code files; role-resolver tests 6/6. TCH-01 + TCH-03 marked complete. **OPERATOR steps pending (runtime, not code):** apply v37 to Neon `billowing-sun-51091059` by hand; populate `trainers.user_id` by email per teacher; set `RUNSTUDIO_TEACHER_EMAILS` on Vercel — see MA3-01-SUMMARY.md "Manual data step". Next: MA3-02 (teacher schedule/roster/check-in endpoints). Prior: MA4 complete (3/3).
 Last activity: 2026-06-30
 
 1. **Schedule filters** (quick 260625-d06): location/class-type/trainer on the staff calendar (shadcn Popover) + public embed (native selects); loader Query A widened w/ trainer leftJoin. SHIPPED.
@@ -154,8 +154,17 @@ Last activity: 2026-06-26 — Completed quick task 260626-m1c (swap marketing ho
 | Phase MA4 P01 | 4 | 2 tasks | 5 files |
 | Phase MA4 P02 | 172 | 2 tasks | 5 files |
 | Phase MA4 P03 | 141 | 2 tasks | 5 files |
+| Phase MA3 P01 | 4min | 3 tasks | 6 files |
 
 ## Accumulated Context
+
+### MA3-01 Decisions (2026-06-30)
+
+- **2026-06-30 MA3-01 — `trainers.user_id` is plain nullable TEXT, never boolean-as-int (active-column gotcha), no unique index.** Additive migration v37 (`ALTER TABLE trainers ADD COLUMN IF NOT EXISTS user_id TEXT`), appended after the v36 entry in the runMigrations array (the array is NOT strictly numerically ordered — v15 trails v36). One human = one trainer row, resolved via `LIMIT 1`; multi-trainer-per-user is a cheap future `inArray` extension.
+- **2026-06-30 MA3-01 — Role is decided by `resolveRole` (RUNSTUDIO_TEACHER_EMAILS env allowlist) ONLY; the `trainers.user_id` link is for assigned-sessions mapping, NOT for deciding teacher-ness.** `requireTeacher` (`server/lib/teacher-session.ts`) mirrors member-session.ts's h3-v2 adapter ({req,headers,url,path}) but NEVER touches `gym_members` (teachers have no member row — the member gates would 403 them). Throws 401 (no session) / 403 (role!=="teacher"; a pure admin correctly 403s and uses the MA4 surface).
+- **2026-06-30 MA3-01 — `null` trainerId is a VALID unlinked-teacher state**, not an error. Callers (MA3-02/03) render an empty / "contact admin" view, never a 500. `resolveTrainerIdForUser(userId)` returns `string | null`.
+- **2026-06-30 MA3-01 — `GET /api/m/me` is the FIRST caller of `resolveRole`** (built + unit-tested in MA1, wired nowhere until now). Returns `{ role, userId, email, trainerId }` for ANY authenticated caller (200 for member/admin/teacher; 401 unauthenticated); `trainerId` populated only for teachers. Does NOT call requireMember — members/admins must get their role, not a 403. Nitro delegator `server/routes/api/m/me.get.ts` mirrors schedule.get.ts. This is role-discovery (UX), NOT a security boundary — teacher routes (MA3-02) gate with `requireTeacher`.
+- **2026-06-30 MA3-01 — OPERATOR runtime steps (NOT code, migration-drift gotcha):** (1) apply v37 to Neon `billowing-sun-51091059` by hand; (2) populate `trainers.user_id` by email per HUSTLE teacher via `UPDATE trainers t SET user_id=u.id FROM "user" u WHERE lower(u.email)=lower('<email>') AND lower(t.name)=lower('<name>')`; (3) set `RUNSTUDIO_TEACHER_EMAILS` on Vercel — until set, ALL users resolve to role=member. Full SQL in MA3-01-SUMMARY.md.
 
 ### MA4-03 Decisions (2026-06-30)
 
@@ -258,8 +267,8 @@ Last activity: 2026-06-26 — Completed quick task 260626-m1c (swap marketing ho
 
 ## Session Continuity
 
-Last session: 2026-06-30T20:12:32.498Z
-Stopped at: Completed MA4-03-PLAN.md (mobile admin agent client — MA4 complete 3/3)
+Last session: 2026-06-30T20:24:25.925Z
+Stopped at: Completed MA3-01-PLAN.md
 Resume file: None
 
 Prior session: 2026-06-20T10:22:33.153Z — Completed CV4-publish-pipeline CV4-01-PLAN.md

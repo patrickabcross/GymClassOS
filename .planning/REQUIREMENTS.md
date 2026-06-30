@@ -42,9 +42,9 @@
 
 ### TEACHER — Session surface (run sessions; no AI)
 
-- [ ] **TCH-01**: A teacher sees the class schedule with their assigned sessions and the roster for a session.
+- [x] **TCH-01**: A teacher sees the class schedule with their assigned sessions and the roster for a session.
 - [ ] **TCH-02**: A teacher can check a member in / mark attendance for a session, driving the existing `mark-booking-attended` chokepoint (no UI exists today — built here).
-- [ ] **TCH-03**: A teacher has **no** access to the admin AI agent or any admin-only surface.
+- [x] **TCH-03**: A teacher has **no** access to the admin AI agent or any admin-only surface.
 
 ### ADMIN-AI — Mobile ops agent (the differentiator + the security keystone)
 
@@ -109,9 +109,9 @@ Phases assigned by the roadmapper (prefix `MA`). 22/22 requirements mapped, no o
 | MEM-03 | MA2 | Pending |
 | MEM-04 | MA2 | Pending |
 | MEM-05 | MA2 | Pending |
-| TCH-01 | MA3 | Pending |
+| TCH-01 | MA3 | Complete |
 | TCH-02 | MA3 | Pending |
-| TCH-03 | MA3 | Pending |
+| TCH-03 | MA3 | Complete |
 | AI-01 | MA4 | Complete |
 | AI-02 | MA4 | Complete |
 | AI-03 | MA4 | Complete |

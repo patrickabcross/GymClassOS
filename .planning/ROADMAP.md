@@ -83,7 +83,7 @@ Plans:
 **Plans**: 3 plans (3 waves)
 
 Plans:
-- [ ] MA3-01-PLAN.md (wave 1) — Schema + teacher auth foundation: additive `trainers.user_id` (TEXT) migration v37 + manual by-email data step; `requireTeacher` gate (no gym_members claim) + `resolveTrainerIdForUser`; `GET /api/m/me` role surface wiring the already-built `resolveRole` [TCH-01, TCH-03]
+- [x] MA3-01-PLAN.md (wave 1) — Schema + teacher auth foundation: additive `trainers.user_id` (TEXT) migration v37 + manual by-email data step; `requireTeacher` gate (no gym_members claim) + `resolveTrainerIdForUser`; `GET /api/m/me` role surface wiring the already-built `resolveRole` [TCH-01, TCH-03]
 - [ ] MA3-02-PLAN.md (wave 2, after 01) — Teacher endpoints: `GET /api/m/teacher/schedule` (occurrences WHERE trainer_id = mine; empty-state not error) + `GET /api/m/teacher/roster` (ownership-gated bookings⋈gym_members) + `POST /api/m/teacher/check-in` (caller of `mark-booking-attended`, no new write path, ownership-gated) [TCH-01, TCH-02]
 - [ ] MA3-03-PLAN.md (wave 3, after 01+02) — Mobile teacher surface: `useRole` hook + FAB hidden for role≠member (TCH-03) + role-branched tab set + teacher assigned-schedule tab + roster/tap-to-check-in screen (optimistic). Admin-SSE-403 half of TCH-03 is MA4's AI-03 (ordering note) [TCH-01, TCH-02, TCH-03]
 **UI hint**: yes
@@ -123,7 +123,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | MA1. Auth + 3-Role Spine ⚑ | 2/3 | Complete    | 2026-06-29 |
 | MA2. Member Booking Surface | 0/TBD | Not started | - |
-| MA3. Teacher Session Surface | 0/3 | Planned | - |
+| MA3. Teacher Session Surface | 1/3 | In Progress|  |
 | MA4. Admin Mobile AI Agent | 3/3 | Complete    | 2026-06-30 |
 | MA5. Push Notifications ⚑ | 0/TBD | Not started | - |
 
