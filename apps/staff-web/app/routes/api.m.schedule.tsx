@@ -1,17 +1,26 @@
 // GET /api/m/schedule
 // Member-side schedule — returns occurrences for the next 7 days, with
 // class metadata, booking counts, and a flag indicating whether the
-// X-Demo-Member-Id member is already booked into each.
+// signed-in member is already booked into each.
+//
+// MEM-01 (MA2): this GET has a deliberate ANONYMOUS read branch. The schedule
+// is public to browse, so we resolve the member OPTIONALLY via
+// getOptionalMember (never 401s). An anonymous caller asserts no identity and
+// gets no member-scoped data: Query A (occurrences) + Query B (counts) always
+// run, but the per-member booked-set (Query C) is skipped and every item's
+// isBookedByMe is false. This honors the bearer-gate rule (no identity is
+// trusted from a header/body; no member-scoped data is returned). All WRITE
+// endpoints keep requireMember / requireMemberOrDemo.
 //
 // Demo-grade: no studio-timezone bucketing (uses ISO date string of startsAt).
 // Production (SCH-07) uses the studio's IANA timezone for DST-safe bucketing.
 import { and, asc, eq, gte, lte, sql } from "drizzle-orm";
 import { getDb, schema } from "../../server/db";
-import { requireMemberOrDemo } from "../../server/lib/member-session";
+import { getOptionalMember } from "../../server/lib/member-session";
 import type { LoaderFunctionArgs } from "react-router";
 
 export async function loader({ request }: LoaderFunctionArgs) {
-  const member = await requireMemberOrDemo(request);
+  const member = await getOptionalMember(request);
   const db = getDb();
 
   const nowIso = new Date().toISOString();
@@ -61,17 +70,22 @@ export async function loader({ request }: LoaderFunctionArgs) {
   for (const r of countRows) bookingCounts[r.occurrenceId] = Number(r.count);
 
   // Query C — which occurrences is THIS member already booked into?
-  // guard:allow-unscoped — demo D-07
-  const myBookings = await db
-    .select({ occurrenceId: schema.bookings.occurrenceId })
-    .from(schema.bookings)
-    .where(
-      and(
-        eq(schema.bookings.memberId, member.id),
-        eq(schema.bookings.status, "booked"),
-      ),
-    );
-  const mySet = new Set(myBookings.map((b) => b.occurrenceId));
+  // Skipped entirely for anonymous callers (member === null) — they get an
+  // empty set, so every isBookedByMe resolves to false (MEM-01 anon branch).
+  let mySet = new Set<string>();
+  if (member) {
+    // guard:allow-unscoped — single-tenant gym tables
+    const myBookings = await db
+      .select({ occurrenceId: schema.bookings.occurrenceId })
+      .from(schema.bookings)
+      .where(
+        and(
+          eq(schema.bookings.memberId, member.id),
+          eq(schema.bookings.status, "booked"),
+        ),
+      );
+    mySet = new Set(myBookings.map((b) => b.occurrenceId));
+  }
 
   const items = occurrences.map((o) => ({
     ...o,

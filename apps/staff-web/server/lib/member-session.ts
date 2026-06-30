@@ -150,6 +150,42 @@ export async function requireMember(request: Request): Promise<Member> {
 }
 
 /**
+ * getOptionalMember(request) — resolve a Better-auth Bearer session into a
+ * gym_members row WITHOUT ever throwing (MA2 / MEM-01).
+ *
+ * This is requireMember minus all the throws and minus the lazy claim:
+ *   - no session / no userId        → null
+ *   - session but no claimed member → null (does NOT lazy-claim-by-email; the
+ *                                     GET read stays side-effect-free — claim
+ *                                     happens on the first write/profile call
+ *                                     via requireMember)
+ *
+ * Used by the /api/m/schedule anonymous read branch so an unauthenticated
+ * browser gets the browse-only schedule (HTTP 200, never 401). It reuses the
+ * same sessionFromRequest h3-v2 adapter shim as requireMember (RESEARCH
+ * Pitfall 5 — do NOT re-derive the event shape).
+ */
+export async function getOptionalMember(
+  request: Request,
+): Promise<Member | null> {
+  const session = await sessionFromRequest(request);
+  if (!session?.userId) return null;
+
+  const db = getDb();
+
+  // Fast-path claim lookup only — no lazy claim, no throw.
+  // guard:allow-unscoped — single-tenant gym tables
+  const byClaim = await db
+    .select()
+    .from(schema.gymMembers)
+    .where(eq(schema.gymMembers.userId, session.userId))
+    .limit(1)
+    .then((r) => r[0] ?? null);
+
+  return byClaim;
+}
+
+/**
  * requireMemberOrDemo(request) — dual-path gate (D-17, D-18).
  *
  * In demo mode (DEMO_MODE === "true" AND NODE_ENV !== "production") the
