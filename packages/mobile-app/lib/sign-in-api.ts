@@ -31,7 +31,16 @@ export async function signInWithEmail(
   );
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`Sign-in failed (${res.status}): ${text.slice(0, 200)}`);
+    let code: string | undefined;
+    try {
+      code = (JSON.parse(text) as { code?: string })?.code;
+    } catch {
+      // non-JSON body — leave code undefined
+    }
+    if (res.status === 401 || code === "INVALID_EMAIL_OR_PASSWORD") {
+      throw new Error("Incorrect email or password.");
+    }
+    throw new Error("Couldn't sign you in. Please try again.");
   }
   // RESEARCH Finding 3 — exact header name (lowercase, hyphenated).
   const token = res.headers.get("set-auth-token");
