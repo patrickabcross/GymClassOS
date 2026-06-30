@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v2.3
 milestone_name: — Mobile App Production Foundation
 status: executing
-stopped_at: "MA1-03 Task 1 done — awaiting device checkpoint (Task 2: device-verify spike on real iPhone)"
-last_updated: "2026-06-29T20:13:09.567Z"
-last_activity: 2026-06-29
+stopped_at: "Completed MA4-01-PLAN.md (security keystone — GATED_ACTIONS + MOBILE_ADMIN_ALLOWLIST + AI-02 test); next: MA4-02 admin SSE endpoint"
+last_updated: "2026-06-30T20:00:38.210Z"
+last_activity: "2026-06-30 — Planned+verified MA4/MA2/MA3 (research → CONTEXT → planner → plan-checker, all PASSED). Earlier: quick task 260630-mw8 (mobile sign-in wrong-password UX); diagnosed bug #1 (calorie photo 401) as client-side — backend honors Bearer on POST/image path (verified live incl. 1.5MB body), awaiting device retest"
 progress:
   total_phases: 5
   completed_phases: 0
@@ -30,9 +30,9 @@ Requirements: `.planning/REQUIREMENTS.md` (v2.3 requirements, 22 in-scope: AUTH-
 ## Current Position
 
 Milestone: v2.3 — Mobile App Production Foundation (member / teacher / admin)
-Phase: MA1 complete; MA2 + MA3 + MA4 PLANNED & verified (checkers PASSED), ready to execute; MA5 not started
-Plan: MA4 (3 plans), MA2 (4 plans), MA3 (3 plans) — all checker-PASSED
-Status: Ready to execute — recommended order MA4 → MA3 → MA2 (MA3's TCH-03 server half needs MA4's requireAdmin; MA2 is independent and can run anytime)
+Phase: MA1 complete; MA4-01 (security keystone) COMPLETE — MA4-02 + MA4-03 next; MA2 + MA3 PLANNED & verified (checkers PASSED), ready to execute; MA5 not started
+Plan: MA4 (3 plans — 01 done), MA2 (4 plans), MA3 (3 plans) — all checker-PASSED
+Status: Ready to execute — MA4-02 (admin SSE endpoint, consumes MOBILE_ADMIN_ALLOWLIST + buildAdminToolList from MA4-01) is next; recommended order MA4 → MA3 → MA2 (MA3's TCH-03 server half needs MA4's requireAdmin; MA2 is independent and can run anytime)
 Last activity: 2026-06-30 — Planned+verified MA4/MA2/MA3 (research → CONTEXT → planner → plan-checker, all PASSED). Earlier: quick task 260630-mw8 (mobile sign-in wrong-password UX); diagnosed bug #1 (calorie photo 401) as client-side — backend honors Bearer on POST/image path (verified live incl. 1.5MB body), awaiting device retest
 
 1. **Schedule filters** (quick 260625-d06): location/class-type/trainer on the staff calendar (shadcn Popover) + public embed (native selects); loader Query A widened w/ trainer leftJoin. SHIPPED.
@@ -151,8 +151,15 @@ Last activity: 2026-06-26 — Completed quick task 260626-m1c (swap marketing ho
 | Phase MC3 P02 | 7 | 3 tasks | 7 files |
 | Phase MA1 P01 | 780 | 3 tasks | 16 files |
 | Phase MA1 P02 | 571 | 3 tasks | 10 files |
+| Phase MA4 P01 | 4 | 2 tasks | 5 files |
 
 ## Accumulated Context
+
+### MA4-01 Decisions (2026-06-30)
+
+- **2026-06-30 MA4-01 — Gated verbs now live in exactly one file.** `apps/staff-web/server/lib/gated-actions.ts` exports `GATED_ACTION_LIST` (tuple) + `GATED_ACTIONS` (Set); `approve-proposal.ts` (`ACTION_ALLOWLIST`) and `propose-action.ts` (Zod enum `z.enum(GATED_ACTION_LIST)`) both import it. Collapses the v1.2 "update both files" gate-atomicity rule (2026-06-18) into one edit point — the two files can no longer drift.
+- **2026-06-30 MA4-01 — `MOBILE_ADMIN_ALLOWLIST` is an explicit 12-verb list, NOT ALL−GATED.** 9 Tier-1 reads + 3 Tier-2 board-authoring verbs (`upsert-section-note`, `create-task`, `complete-task`). Subtraction would leak the ~80-action registry's upstream Mail + staff-only verbs. `buildAdminToolList(registry, allowlist?)` is a pure function that runs a defensive `.filter(!GATED_ACTIONS.has)` on top — a gated verb wrongly added to the allow-list is still structurally stripped.
+- **2026-06-30 MA4-01 — AI-02 keystone unit test uses a stub registry, no `@agent-native/core` import.** Lives at `server/lib/mobile-admin-tools.test.ts`; 5/5 green under `vitest.unit.config.ts`. Asserts gated-set integrity, the exact 12-verb allow-list, absence of any gated/mutating verb, and that the built tool list excludes injected gated verbs. `gated-actions.ts` and `mobile-admin-tools.ts` stay pure (no framework import) so they remain importable from the unit runner (BD4-01 ESM/CJS caveat).
 
 ### MC1-03 Decisions (2026-06-23)
 
@@ -234,8 +241,8 @@ Last activity: 2026-06-26 — Completed quick task 260626-m1c (swap marketing ho
 
 ## Session Continuity
 
-Last session: 2026-06-29T16:27:35.765Z
-Stopped at: MA1-03 Task 1 done — awaiting device checkpoint (Task 2: device-verify spike on real iPhone)
+Last session: 2026-06-30T20:00:38.202Z
+Stopped at: Completed MA4-01-PLAN.md (security keystone — GATED_ACTIONS + MOBILE_ADMIN_ALLOWLIST + AI-02 test); next: MA4-02 admin SSE endpoint
 Resume file: None
 
 Prior session: 2026-06-20T10:22:33.153Z — Completed CV4-publish-pipeline CV4-01-PLAN.md
