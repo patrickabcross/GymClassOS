@@ -63,7 +63,13 @@ Plans:
   2. A signed-in member with an active pass can book a class via `/api/m/bookings`; the booking appears immediately (optimistic) and a pass is debited on booking (not on purchase)
   3. A signed-in member **without** an active pass is routed to Stripe checkout inline; on successful purchase the pass is granted and the booking completes
   4. A member can see their home surface — upcoming bookings and current pass balance — scoped to their own correctly-claimed `gym_members` row (no cross-member data)
-**Plans**: TBD
+**Plans**: 4 plans (4 waves)
+
+Plans:
+- [ ] MA2-01-PLAN.md (wave 1) — Server: getOptionalMember + anonymous /api/m/schedule read; atomic pass-debit-on-booking transaction (capacity + FIFO active-pass pick + +1 pass_debits + bookings.pass_id, mirroring cancel-occurrence.ts); additive upcomingBookings[] on /api/m/profile [MEM-01, MEM-03, MEM-05]
+- [ ] MA2-02-PLAN.md (wave 2, after 01) — Mobile entry/sign-in/home: move AuthGate wall off app entry (anonymous browse); pending-booking intent store + return-to-class after sign-in; Home upcomingBookings[] list [MEM-01, MEM-02, MEM-05]
+- [ ] MA2-03-PLAN.md (wave 3, after 01+02) — Mobile booking flow on schedule.tsx: Book-press auth gate + resume; optimistic booking with NO_PASS/CAPACITY_FULL branches; no-pass product picker + Stripe purchase → poll-for-grant → re-book [MEM-02, MEM-03, MEM-04]
+- [ ] MA2-04-PLAN.md (wave 4, after 03) — Verification (checkpoints): confirm connected-account Stripe products/keywords/STRIPE_PRICE_* env; device walkthrough of all four MA2 success criteria [MEM-03, MEM-04]
 **UI hint**: yes
 
 ### Phase MA3: Teacher Session Surface
