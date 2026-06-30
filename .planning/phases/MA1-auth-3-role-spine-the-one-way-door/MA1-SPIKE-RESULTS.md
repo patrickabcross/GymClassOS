@@ -147,6 +147,25 @@ cleared from expo-secure-store).
 
 **Server-side spine (the security-critical core) is PROVEN in production.** Legs 1+2 cover sign-in, `set-auth-token` capture, the h3 v2 Bearer session resolution, and the idempotent claim-by-email that links `gym_members.user_id`. The only open gate is Leg 4 (native SSE header survival on a real device) — blocked by device tooling, not code, and statically de-risked by the `react-native-sse` source.
 
+## Device UAT (2026-06-30) — on a real iPhone, EAS dev build (`com.airunstudio.app`)
+
+Got the app running on a physical device via an EAS dev-client build (no Mac — cloud build). Path to get there required: Apple Developer enrol → register App ID `com.airunstudio.app` → `eas init` (linked `@patrickalexanderross/hustle`) → `eas build -p ios --profile development` → enable iOS Developer Mode → open Windows Firewall for port 8081 → `EXPO_USE_METRO_WORKSPACE_ROOT=1` (monorepo serverRoot) + `CI=1` (Windows watch-mode workaround) + cleared Metro cache. App points at the live deploy via `EXPO_PUBLIC_API_BASE`.
+
+**Device leg results:**
+| Leg | On device |
+|-----|-----------|
+| 1 — Sign in (`ma1-spike@example.com` / `12345678`) | **PASS** |
+| 2 — Identity/claim (member "Spike" loads) | **PASS** |
+| 3 — Restart persistence (reopen → straight in) | **PASS** |
+| 5 — Sign out (→ sign-in, stays signed out) | **PASS** |
+| 4 — Admin SSE (keystone) | **NOT YET RUN** — needs `ma1-spike@example.com` added to `RUNSTUDIO_OPERATOR_EMAILS` on Vercel + redeploy, then test agent chat streams (not 401) |
+
+### Found during device UAT — fix next session (2026-07-01)
+1. **401 Unauthorized uploading a photo to the calorie counter** (`/api/m/foods/analyze`). Bearer auth not carried on the image-upload path — the multipart/image POST likely isn't attaching `Authorization: Bearer` the way the JSON `apiFetch` does, or the analyze handler auths differently. **Investigate the upload path in `packages/mobile-app` (food-ai upload) + `api.m.foods.analyze.tsx`.**
+2. **Failed-password shows a raw 401 + raw error string.** Sign-in screen needs a polished, professional error state (friendly message, no raw status/JSON). Lives in `packages/mobile-app/app/sign-in.tsx` / `sign-in-api.ts` error handling.
+
+Both are app-polish/auth-edge items, not blockers for the MA1 spine (Legs 1/2/3/5 green). Leg 4 + these two are the remaining device-side work.
+
 Legs 3 and 5 (restart persistence + sign-out) are desirable but not hard gates
 for MA2/MA3/MA4.
 
