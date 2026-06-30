@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v2.3
 milestone_name: — Mobile App Production Foundation
 status: executing
-stopped_at: "Completed MA4-02-PLAN.md (admin SSE endpoint + requireAdmin + whoami); next: MA4-03 client AgentSheet"
-last_updated: "2026-06-30T20:06:59.913Z"
-last_activity: "2026-06-30 — Planned+verified MA4/MA2/MA3 (research → CONTEXT → planner → plan-checker, all PASSED). Earlier: quick task 260630-mw8 (mobile sign-in wrong-password UX); diagnosed bug #1 (calorie photo 401) as client-side — backend honors Bearer on POST/image path (verified live incl. 1.5MB body), awaiting device retest"
+stopped_at: Completed MA4-03-PLAN.md (mobile admin agent client — MA4 complete 3/3)
+last_updated: "2026-06-30T20:12:32.508Z"
+last_activity: "2026-06-30 — Executed MA4-03 (mobile client: whoami role gate + admin SSE endpoint reused via AgentSheet endpoint/title props; AGENTS.md documented). MA4 COMPLETE (3/3): 01 keystone + 02 SSE/requireAdmin/whoami + 03 client. tsc clean; on-device iOS verify deferred (EAS/Apple-gated)"
 progress:
   total_phases: 5
   completed_phases: 0
@@ -30,10 +30,10 @@ Requirements: `.planning/REQUIREMENTS.md` (v2.3 requirements, 22 in-scope: AUTH-
 ## Current Position
 
 Milestone: v2.3 — Mobile App Production Foundation (member / teacher / admin)
-Phase: MA1 complete; MA4-01 + MA4-02 COMPLETE (MA4 → 2/3) — MA4-03 (client AgentSheet) next; MA2 + MA3 PLANNED & verified (checkers PASSED), ready to execute; MA5 not started
-Plan: MA4 (3 plans — 01+02 done), MA2 (4 plans), MA3 (3 plans) — all checker-PASSED
-Status: Ready to execute — MA4-02 SHIPPED (admin SSE endpoint /api/m/admin/agent/stream + requireAdmin 401/403 gate-before-stream + GET /api/m/whoami, all consuming MA4-01's allow-list); next MA4-03 wires the mobile AgentSheet gated by whoami. MA3's TCH-03 server half can now use requireAdmin; MA2 independent
-Last activity: 2026-06-30 — Executed MA4-02 (admin SSE endpoint + requireAdmin + whoami; 5 files, tsc clean, gate-before-stream verified, MA4-01 keystone test still 5/5). Earlier: planned+verified MA4/MA2/MA3; quick task 260630-mw8 (mobile sign-in wrong-password UX)
+Phase: MA1 complete; **MA4 COMPLETE (3/3)** — 01 keystone + 02 SSE/requireAdmin/whoami + 03 mobile client; MA2 + MA3 PLANNED & verified (checkers PASSED), ready to execute; MA5 not started
+Plan: MA4 done (3/3); MA2 (4 plans), MA3 (3 plans) — all checker-PASSED, ready to execute
+Status: MA4-03 SHIPPED (mobile client: fetchRole via GET /api/m/whoami gates the reused AgentSheet → admin streams from /api/m/admin/agent/stream with "RunStudio Ops" title; member/teacher keep the coach endpoint; AGENTS.md documents the surface). AI-01/02/03 satisfied; four-area agent-native contract closed. tsc clean for all touched mobile files; on-device iOS verify deferred (EAS/Apple-gated, MA1-03 pattern). Next: execute MA2 (member booking) or MA3 (teacher check-in)
+Last activity: 2026-06-30 — Executed MA4-03 (mobile admin agent client; whoami role gate + admin endpoint reuse via AgentSheet endpoint/title props; AGENTS.md doc). MA4 phase complete. Earlier: MA4-02 (admin SSE endpoint + requireAdmin + whoami); planned+verified MA4/MA2/MA3
 
 1. **Schedule filters** (quick 260625-d06): location/class-type/trainer on the staff calendar (shadcn Popover) + public embed (native selects); loader Query A widened w/ trainer leftJoin. SHIPPED.
 2. **Studio-global sites config** (quick 260625-gsg): `resolveSites` + `sites` JSONB col (v35) + Settings→Integrations→Locations card; replaces the hardcoded Norwich/Wymondham picker. SHIPPED; HUSTLE sites seeded as DATA on Neon (singleton row).
@@ -93,7 +93,7 @@ Last activity: 2026-06-26 — Completed quick task 260626-m1c (swap marketing ho
 | MA1. Auth + 3-Role Spine ⚑ | Better-auth login in Expo (`expo-secure-store`); two-allowlist role resolver (admin > teacher > member, no UI toggle); transactional/idempotent claim-by-email; `requireDemoMember → requireMember` dual-path. **Auth spike first.** | AUTH-01..07 | Complete — auth spine production-verified (MA1-03 device UAT) |
 | MA2. Member Booking Surface | Browse public / book authenticated; pass-holder books via `/api/m/bookings`; no-pass → Stripe inline → pass grant → booking; home (upcoming + balance) | MEM-01..05 | Planned ✓ (4 plans/4 waves, checker PASSED 2026-06-30) |
 | MA3. Teacher Session Surface | Teacher schedule (assigned) + roster; tap-to-check-in via existing `mark-booking-attended` chokepoint; no teacher AI | TCH-01..03 | Planned ✓ (3 plans/3 waves, checker PASSED 2026-06-30) |
-| MA4. Admin Mobile AI Agent | In-app AI ops chat (reuse `AgentSheet`/`agent-stream`); server-side ALLOW-LIST filters gated Tier-3 (+ unit test); `runWithRequestContext` + `requireAdmin` on SSE | AI-01..03 | In progress — 2/3 plans done (01 keystone + 02 SSE endpoint/requireAdmin/whoami); MA4-03 client AgentSheet next |
+| MA4. Admin Mobile AI Agent | In-app AI ops chat (reuse `AgentSheet`/`agent-stream`); server-side ALLOW-LIST filters gated Tier-3 (+ unit test); `runWithRequestContext` + `requireAdmin` on SSE | AI-01..03 | **Complete (3/3)** — 01 keystone + 02 SSE endpoint/requireAdmin/whoami + 03 mobile client (whoami-gated AgentSheet, admin endpoint reuse, AGENTS.md doc). AI-01/02/03 done; on-device iOS verify deferred (EAS-gated) |
 | MA5. Push Notifications ⚑ | Additive `push_tokens` (keyed `user.id`) + Expo token reg + deep-link; pg-boss `expo-push` worker job (staff-web enqueues, worker sends); v1 types = booking confirm + reminder + admin "come look". EAS/Apple-gated | NOT-01..04 | Not started |
 
 **Coverage:** 22/22 v2.3 requirements mapped across MA1–MA5. No orphans, no duplicates. **⚑ = needs phase-level research/spike** (MA1 auth spike; MA5 Expo push, externally gated).
@@ -153,8 +153,17 @@ Last activity: 2026-06-26 — Completed quick task 260626-m1c (swap marketing ho
 | Phase MA1 P02 | 571 | 3 tasks | 10 files |
 | Phase MA4 P01 | 4 | 2 tasks | 5 files |
 | Phase MA4 P02 | 172 | 2 tasks | 5 files |
+| Phase MA4 P03 | 141 | 2 tasks | 5 files |
 
 ## Accumulated Context
+
+### MA4-03 Decisions (2026-06-30)
+
+- **2026-06-30 MA4-03 — One SSE client reused via an endpoint param, NOT a second client.** `streamAgent(messages, cb, endpoint="/api/m/agent/stream")` got a 3rd default-valued param; `EventSource` URL is now `${API_BASE_URL}${endpoint}`. Member behaviour is byte-identical when no endpoint is passed. `AgentSheet` got optional `endpoint`+`title` props (defaults = member coach); `title` drives both the header and the system-welcome line.
+- **2026-06-30 MA4-03 — Client role gating is UX-only.** `lib/whoami.ts` `fetchRole()` calls `GET /api/m/whoami` with the Bearer token; `_layout.tsx` `AgentFabAndSheet` resolves it once on mount (`fetchRole().then(setRole)`) and `isAdmin` decides `endpoint`/`title`. The server `requireAdmin` on the admin SSE endpoint is the sole security boundary — a forced URL still 403s. Fail-closed-to-member: role is `null` (member coach) until whoami resolves.
+- **2026-06-30 MA4-03 — Admin title "RunStudio Ops"; member keeps "Agent — GymClassOS Coach".** No new screens/tabs — the single FAB's sheet just switches endpoint/title by role.
+- **2026-06-30 MA4-03 — Existing tool_result cache invalidation (schedule/food-entries/profile) left in place for both agents.** Harmless for admin (keys may not exist) and satisfies AI-01 "reflect in app state" via the invalidation pattern (four-area application-state contract).
+- **2026-06-30 MA4-03 — Mobile admin agent + 12-verb allow-list + sanctioned server-side-LLM divergence documented in `apps/staff-web/AGENTS.md`** (new "Mobile Admin Agent (read + dashboard only)" section). Closes the four-area skills/instructions contract. MA4 phase complete (3/3); AI-01/02/03 satisfied. On-device iOS verification deferred (EAS/Apple-gated, MA1-03 pattern).
 
 ### MA4-02 Decisions (2026-06-30)
 
@@ -249,8 +258,8 @@ Last activity: 2026-06-26 — Completed quick task 260626-m1c (swap marketing ho
 
 ## Session Continuity
 
-Last session: 2026-06-30T20:06:59.904Z
-Stopped at: Completed MA4-02-PLAN.md (admin SSE endpoint + requireAdmin + whoami); next: MA4-03 client AgentSheet
+Last session: 2026-06-30T20:12:32.498Z
+Stopped at: Completed MA4-03-PLAN.md (mobile admin agent client — MA4 complete 3/3)
 Resume file: None
 
 Prior session: 2026-06-20T10:22:33.153Z — Completed CV4-publish-pipeline CV4-01-PLAN.md
