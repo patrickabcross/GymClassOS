@@ -38,13 +38,17 @@ type ChatMessage = {
   streaming?: boolean;
 };
 
-type Props = { onClose: () => void };
+type Props = { onClose: () => void; endpoint?: string; title?: string };
 
-export default function AgentSheet({ onClose }: Props) {
+export default function AgentSheet({
+  onClose,
+  endpoint = "/api/m/agent/stream",
+  title = "Agent — GymClassOS Coach",
+}: Props) {
   const theme = useTheme();
   const qc = useQueryClient();
   const [messages, setMessages] = useState<ChatMessage[]>([
-    { id: "sys-welcome", role: "system", text: "Agent — GymClassOS Coach" },
+    { id: "sys-welcome", role: "system", text: title },
   ]);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
@@ -85,7 +89,11 @@ export default function AgentSheet({ onClose }: Props) {
         },
         bubbleUser: { backgroundColor: theme.colors.accent },
         bubbleAgent: { backgroundColor: theme.colors.cardElevated },
-        bubbleText: { color: theme.colors.foreground, fontSize: 15, lineHeight: 20 },
+        bubbleText: {
+          color: theme.colors.foreground,
+          fontSize: 15,
+          lineHeight: 20,
+        },
         inputRow: {
           flexDirection: "row",
           alignItems: "flex-end",
@@ -150,62 +158,66 @@ export default function AgentSheet({ onClose }: Props) {
       }));
 
     try {
-      cancelRef.current = await streamAgent(wireMessages, {
-        onDelta: (t) => {
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === assistantMsg.id ? { ...m, text: m.text + t } : m,
-            ),
-          );
+      cancelRef.current = await streamAgent(
+        wireMessages,
+        {
+          onDelta: (t) => {
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === assistantMsg.id ? { ...m, text: m.text + t } : m,
+              ),
+            );
+          },
+          onToolUse: (e) => {
+            // Surface tool calls inline as a small system note so the demo viewer
+            // can see *which* tool fired.
+            setMessages((prev) => [
+              ...prev,
+              {
+                id: `sys_${Date.now()}_use`,
+                role: "system",
+                text: `· Using ${e.name}…`,
+              },
+            ]);
+          },
+          onToolResult: (_e) => {
+            // Best-effort cache invalidation — the server-side tool already
+            // wrote to the DB; the mobile cache needs to refresh so the relevant
+            // tab shows the new booking / food entry on next focus.
+            //
+            // Dual-invalidation contract from D2-05 SUMMARY:
+            //   food-entries  → Food tab list
+            //   profile       → Home tab totals (kcal ring + macro line)
+            //   schedule      → Schedule tab booking list
+            qc.invalidateQueries({ queryKey: ["schedule"] });
+            qc.invalidateQueries({ queryKey: ["food-entries"] });
+            qc.invalidateQueries({ queryKey: ["profile"] });
+          },
+          onDone: () => {
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === assistantMsg.id ? { ...m, streaming: false } : m,
+              ),
+            );
+            setSending(false);
+          },
+          onError: (_err) => {
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === assistantMsg.id
+                  ? {
+                      ...m,
+                      text: m.text || "(error — try again)",
+                      streaming: false,
+                    }
+                  : m,
+              ),
+            );
+            setSending(false);
+          },
         },
-        onToolUse: (e) => {
-          // Surface tool calls inline as a small system note so the demo viewer
-          // can see *which* tool fired.
-          setMessages((prev) => [
-            ...prev,
-            {
-              id: `sys_${Date.now()}_use`,
-              role: "system",
-              text: `· Using ${e.name}…`,
-            },
-          ]);
-        },
-        onToolResult: (_e) => {
-          // Best-effort cache invalidation — the server-side tool already
-          // wrote to the DB; the mobile cache needs to refresh so the relevant
-          // tab shows the new booking / food entry on next focus.
-          //
-          // Dual-invalidation contract from D2-05 SUMMARY:
-          //   food-entries  → Food tab list
-          //   profile       → Home tab totals (kcal ring + macro line)
-          //   schedule      → Schedule tab booking list
-          qc.invalidateQueries({ queryKey: ["schedule"] });
-          qc.invalidateQueries({ queryKey: ["food-entries"] });
-          qc.invalidateQueries({ queryKey: ["profile"] });
-        },
-        onDone: () => {
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === assistantMsg.id ? { ...m, streaming: false } : m,
-            ),
-          );
-          setSending(false);
-        },
-        onError: (_err) => {
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === assistantMsg.id
-                ? {
-                    ...m,
-                    text: m.text || "(error — try again)",
-                    streaming: false,
-                  }
-                : m,
-            ),
-          );
-          setSending(false);
-        },
-      });
+        endpoint,
+      );
     } catch (err: any) {
       setMessages((prev) =>
         prev.map((m) =>
@@ -228,7 +240,7 @@ export default function AgentSheet({ onClose }: Props) {
       style={styles.container}
     >
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Agent — GymClassOS Coach</Text>
+        <Text style={styles.headerTitle}>{title}</Text>
         <Pressable onPress={onClose} hitSlop={12}>
           <Feather name="x" size={22} color={theme.colors.muted} />
         </Pressable>
@@ -293,7 +305,11 @@ export default function AgentSheet({ onClose }: Props) {
               (!draft.trim() || sending) && { opacity: 0.5 },
             ]}
           >
-            <Feather name="send" size={18} color={theme.colors.accentForeground} />
+            <Feather
+              name="send"
+              size={18}
+              color={theme.colors.accentForeground}
+            />
           </Pressable>
         </View>
       </KeyboardAvoidingView>

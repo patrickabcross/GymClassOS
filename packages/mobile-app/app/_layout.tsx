@@ -15,6 +15,7 @@ import { useFonts } from "expo-font";
 import { Feather } from "@expo/vector-icons";
 import { QueryProvider } from "../lib/query-client";
 import { getSessionToken } from "../lib/session";
+import { fetchRole, type AppRole } from "../lib/whoami";
 import { GestureRoot, AgentSheetContainer } from "../lib/bottom-sheet-impl";
 import AgentSheet from "../components/AgentSheet";
 import { ThemeProvider, useTheme } from "../lib/theme";
@@ -76,7 +77,16 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 function AgentFabAndSheet() {
   const segments = useSegments();
   const [open, setOpen] = useState(false);
+  const [role, setRole] = useState<AppRole | null>(null);
   const theme = useTheme();
+
+  // Resolve role once via /api/m/whoami so an admin's sheet points at the admin
+  // SSE endpoint. Client-side gating only — the server requireAdmin gate on
+  // /api/m/admin/agent/stream is the real boundary (a forced URL still 403s).
+  useEffect(() => {
+    fetchRole().then(setRole);
+  }, []);
+  const isAdmin = role === "admin";
 
   // Hide FAB on the sign-in screen (no session yet → no agent context).
   const onSignIn = segments[0] === "sign-in";
@@ -116,7 +126,15 @@ function AgentFabAndSheet() {
         </Pressable>
       </View>
       <AgentSheetContainer open={open} onClose={() => setOpen(false)}>
-        {open && <AgentSheet onClose={() => setOpen(false)} />}
+        {open && (
+          <AgentSheet
+            onClose={() => setOpen(false)}
+            endpoint={
+              isAdmin ? "/api/m/admin/agent/stream" : "/api/m/agent/stream"
+            }
+            title={isAdmin ? "RunStudio Ops" : "Agent — GymClassOS Coach"}
+          />
+        )}
       </AgentSheetContainer>
     </>
   );

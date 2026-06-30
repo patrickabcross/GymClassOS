@@ -37,6 +37,7 @@ type AgentEvents = "delta" | "tool_use" | "tool_result" | "done";
 export async function streamAgent(
   messages: Array<{ role: "user" | "assistant"; content: any }>,
   cb: StreamCallbacks,
+  endpoint: string = "/api/m/agent/stream",
 ): Promise<() => void> {
   const token = await getSessionToken();
   if (!token) throw new Error("Not signed in");
@@ -44,17 +45,16 @@ export async function streamAgent(
   // Token is captured at construction time and stored in this.headers by
   // react-native-sse. Every open() (including reconnects) re-sets the header
   // via setRequestHeader — see RESEARCH Finding 5 / Pitfall 7.
-  const es = new EventSource<AgentEvents>(
-    `${API_BASE_URL}/api/m/agent/stream`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ messages }),
-    } as any,
-  );
+  // The endpoint param (default = member coach) lets MA4-03 point an admin's
+  // sheet at /api/m/admin/agent/stream without a second SSE client.
+  const es = new EventSource<AgentEvents>(`${API_BASE_URL}${endpoint}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ messages }),
+  } as any);
 
   es.addEventListener("delta", (e: any) => {
     try {
