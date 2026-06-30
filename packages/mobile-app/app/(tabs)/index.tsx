@@ -45,6 +45,17 @@ type ProfileResponse = {
     startsAt: string;
     className: string | null;
   } | null;
+  /**
+   * MA2-01 additive list of upcoming bookings (MEM-05). When present and
+   * non-empty, Home renders the full list; when absent/empty it falls back to
+   * the singular `upcomingBooking` card above for back-compat.
+   */
+  upcomingBookings?: {
+    bookingId: string;
+    occurrenceId: string;
+    startsAt: string;
+    className: string | null;
+  }[];
   today: {
     kcal: number;
     proteinG: number;
@@ -343,7 +354,7 @@ export default function HomeScreen() {
         fontSize: 16,
         textAlign: "center" as const,
         marginTop: theme.spacing.sm,
-        fontVariant: ["tabular-nums"] as const,
+        fontVariant: ["tabular-nums" as const],
         fontFamily: theme.font.regular,
       },
       macroTargets: {
@@ -398,6 +409,7 @@ export default function HomeScreen() {
     member,
     passBalance,
     upcomingBooking,
+    upcomingBookings,
     today,
     latestCoachMessage,
     studioUpdates,
@@ -405,9 +417,13 @@ export default function HomeScreen() {
   const lowBalance = passBalance <= 0;
   const fmt = (n: number) => Math.round(n);
 
+  // MEM-05: prefer the additive list when the API provides it (cap at 5 rows);
+  // otherwise fall back to the singular upcomingBooking card below.
+  const bookingList = (upcomingBookings ?? []).slice(0, 5);
+  const hasBookingList = bookingList.length > 0;
+
   return (
     <ScrollView style={s.container} contentContainerStyle={s.scroll}>
-
       {/* ── Greeting ──────────────────────────────────────────────── */}
       <Text style={s.greeting}>Hi {member.firstName}</Text>
       <Text style={s.subGreeting}>Here's your studio overview</Text>
@@ -439,24 +455,66 @@ export default function HomeScreen() {
         </View>
         {lowBalance ? (
           <View style={s.passBalanceDangerBadge}>
-            <Feather name="alert-circle" size={12} color={theme.colors.foreground} />
-            <Text style={s.passBalanceDangerText}>No credits — top up to book</Text>
+            <Feather
+              name="alert-circle"
+              size={12}
+              color={theme.colors.foreground}
+            />
+            <Text style={s.passBalanceDangerText}>
+              No credits — top up to book
+            </Text>
           </View>
         ) : (
           <Pressable
             onPress={() => router.push("/(tabs)/passes" as any)}
             style={s.topUpBtn}
           >
-            <Feather name="plus" size={14} color={theme.colors.accentForeground} />
+            <Feather
+              name="plus"
+              size={14}
+              color={theme.colors.accentForeground}
+            />
             <Text style={s.topUpBtnText}>View passes</Text>
           </Pressable>
         )}
       </View>
 
-      {/* ── Hero 2: Next Class ─────────────────────────────────────── */}
+      {/* ── Hero 2: Upcoming Classes ───────────────────────────────── */}
+      {/* MEM-05: render the additive upcomingBookings[] list when present;
+          otherwise fall back to the singular upcomingBooking card. */}
       <View style={s.heroCard}>
-        <Text style={s.sectionLabel}>Next class</Text>
-        {upcomingBooking ? (
+        <Text style={s.sectionLabel}>
+          {hasBookingList ? "Upcoming" : "Next class"}
+        </Text>
+        {hasBookingList ? (
+          bookingList.map((b, i) => (
+            <Pressable
+              key={b.bookingId}
+              onPress={() => router.push("/(tabs)/schedule")}
+              style={[
+                s.bookingRow,
+                i > 0 && {
+                  borderTopWidth: 1,
+                  borderTopColor: theme.colors.border,
+                  marginTop: theme.spacing.sm,
+                  paddingTop: theme.spacing.sm,
+                },
+              ]}
+            >
+              <View style={{ flex: 1 }}>
+                <Text style={s.bookingTitle}>{b.className ?? "Class"}</Text>
+                <Text style={s.bookingTime}>
+                  {bookingTimeLabel(b.startsAt)}
+                </Text>
+              </View>
+              <Feather
+                name="chevron-right"
+                size={22}
+                color={theme.colors.mutedFaint}
+              />
+            </Pressable>
+          ))
+        ) : upcomingBooking ? (
           <Pressable
             onPress={() => router.push("/(tabs)/schedule")}
             style={s.bookingRow}
@@ -497,7 +555,11 @@ export default function HomeScreen() {
       <View style={s.heroCard}>
         <View style={s.coachHeaderRow}>
           <View style={s.coachIconWrap}>
-            <Feather name="message-circle" size={16} color={theme.colors.accent} />
+            <Feather
+              name="message-circle"
+              size={16}
+              color={theme.colors.accent}
+            />
           </View>
           <Text style={s.coachCardTitle}>From your coach</Text>
         </View>
@@ -558,7 +620,6 @@ export default function HomeScreen() {
           <Text style={s.btnText}>+ Log a meal</Text>
         </Pressable>
       </View>
-
     </ScrollView>
   );
 }
