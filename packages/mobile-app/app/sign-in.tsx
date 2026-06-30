@@ -22,6 +22,7 @@ import * as WebBrowser from "expo-web-browser";
 import { signInWithEmail } from "../lib/sign-in-api";
 import { apiFetch } from "../lib/api";
 import { SUBSCRIBE_URL, RESET_PASSWORD_URL } from "../lib/auth-config";
+import { getPendingBooking } from "../lib/pending-booking";
 import { useTheme } from "../lib/theme";
 
 export default function SignInScreen() {
@@ -160,8 +161,11 @@ export default function SignInScreen() {
       // If 403 { code: "PHONE_REQUIRED" } → show phone fallback (D-12).
       try {
         await apiFetch("/api/m/profile");
-        // Profile loaded — email match succeeded. Navigate to tabs.
-        router.replace("/(tabs)");
+        // Profile loaded — email match succeeded. MEM-02: if a pending booking
+        // intent exists (Book press before sign-in), return the member to the
+        // schedule to complete that class; otherwise land on the tab root. The
+        // intent is NOT cleared here — MA2-03's schedule resume consumes it.
+        router.replace(getPendingBooking() ? "/(tabs)/schedule" : "/(tabs)");
       } catch (profileErr: any) {
         const msg: string = profileErr?.message ?? "";
         if (msg.includes("PHONE_REQUIRED")) {
@@ -196,7 +200,8 @@ export default function SignInScreen() {
       await apiFetch("/api/m/profile", {
         headers: { "x-claim-phone": trimmedPhone } as any,
       });
-      router.replace("/(tabs)");
+      // MEM-02: same return-to-class branch as the email-success path.
+      router.replace(getPendingBooking() ? "/(tabs)/schedule" : "/(tabs)");
     } catch (err: any) {
       const msg: string = err?.message ?? "";
       if (msg.includes("NO_PHONE_MATCH") || msg.includes("403")) {
