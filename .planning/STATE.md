@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v2.3
 milestone_name: — Mobile App Production Foundation
-status: verifying
-stopped_at: Completed MA2-02-PLAN.md
-last_updated: "2026-06-30T21:00:39.635Z"
+status: executing
+stopped_at: Completed MA2-03-PLAN.md
+last_updated: "2026-06-30T21:11:57.686Z"
 last_activity: 2026-06-30
 progress:
   total_phases: 5
@@ -31,8 +31,9 @@ Requirements: `.planning/REQUIREMENTS.md` (v2.3 requirements, 22 in-scope: AUTH-
 
 Milestone: v2.3 — Mobile App Production Foundation (member / teacher / admin)
 Phase: MA2
-Plan: 02 of 4 complete (MA2 → 2/4)
-Status: MA2-02 COMPLETE — mobile entry/sign-in/home wired (MEM-01 client + MEM-02 mechanism + MEM-05 client). Three atomic commits on master (`f26ca9da` wall-off-entry + pending-booking store, `537e5ab9` sign-in return-to-class, `9a0a1387` Home upcomingBookings[] list). One new file (`lib/pending-booking.ts` in-session intent store) + 3 edits (`app/_layout.tsx`, `app/sign-in.tsx`, `app/(tabs)/index.tsx`). AuthGate no longer force-redirects tokenless users (anonymous browse; wall moves to the Book press in MA2-03); a signed-in user is still bounced off `/sign-in`. **MA3/MA4 `_layout.tsx` role gating reconciled, NOT clobbered:** the edit is +5/-6 confined to `AuthGate`; `AgentFabAndSheet` (admin Ops FAB, teacher FAB-hide via `role !== "member" && !isAdmin`, null-flash guard) and the `teacher-roster`/`food-*` Stack screens are byte-untouched. sign-in routes to `/(tabs)/schedule` when a pending intent exists (both email + phone-claim branches), else `/(tabs)`; intent cleared by MA2-03's schedule resume. Home renders the additive `upcomingBookings[]` list (cap 5, 'Upcoming' label) with single-card + empty-state fallback. **Full `packages/mobile-app` tsc --noEmit EXIT 0** — also fixed the previously-deferred `fontVariant` readonly-tuple error in `index.tsx` (now in-scope; RESOLVED in MA3 deferred-items.md). On-device iOS verify deferred (EAS/Apple-gated, MA1-03 pattern). **MA2-03 ready:** Book press calls `setPendingBooking(occurrenceId)` → `/sign-in`; on-focus resume reads `getPendingBooking()` → re-book → `clearPendingBooking()`; 402 NO_PASS drives Stripe inline, 409 CAPACITY_FULL drives optimistic rollback. Next: MA2-03 (schedule Book-press gate + Stripe inline purchase). Prior MA3 context preserved below.
+Plan: 3 of 4 complete (MA2 → 3/4)
+Status: MA2-03 COMPLETE — mobile schedule booking + inline purchase wired end-to-end (MEM-02/03/04). Two atomic commits on master (`77502c3d` Book-press auth gate + resume + optimistic NO_PASS/CAPACITY branches; `672724bd` no-pass product picker + Stripe purchase → poll-for-grant → re-book). One edited screen (`app/(tabs)/schedule.tsx`) + 2 new files (`lib/purchase-poll.ts` pollForGrant 2s/30s; `components/ProductPickerSheet.tsx` drop-in/5-pack/10-pack, drop-in default-highlighted). Book press gates on `getSessionToken()` → signed-out stores intent + `/sign-in`; `useFocusEffect` resumes once after sign-in (server-authoritative — always mutates, lets onError(NO_PASS) open the picker). Optimistic booking: 402 NO_PASS → picker (no red error); 409 CAPACITY_FULL → rollback + "just filled up". No-pass flow: GET /api/m/purchase products → POST → `WebBrowser.openBrowserAsync` hosted Checkout → `pollForGrant` (browser return = "user came back" only, grant observed by polling) → re-POST /api/m/bookings; poll timeout → "tap Book again"; empty product list / 503 → "contact the studio" degrade (a pass-holder always books). Stale "Pay drop-in" stub (booked without paying) replaced by a single gated Book action. **Full `packages/mobile-app` tsc --noEmit EXIT 0**; prettier run; no new dependency; no migration. On-device iOS verify deferred (EAS/Apple-gated, MA1-03 pattern) — MA2-04 is the formal device pass. **OPERATOR (end-to-end MEM-04 only):** set `STRIPE_PRICE_DROP_IN`/`5_PACK`/`10_PACK` on the connected account + product descriptions containing the credit keywords. Next: MA2-04 (final member-booking plan / device UAT).
+Status (prior, MA2-02): MA2-02 COMPLETE — mobile entry/sign-in/home wired (MEM-01 client + MEM-02 mechanism + MEM-05 client). One new file (`lib/pending-booking.ts`) + 3 edits; AuthGate wall moved off app entry; sign-in returns to `/(tabs)/schedule` on a pending intent; Home renders additive `upcomingBookings[]`. MA3/MA4 `_layout.tsx` role gating reconciled, NOT clobbered.
 Status (prior, MA3): MA3 COMPLETE — TCH-01/02/03 all done. MA3-03 SHIPPED (mobile teacher surface, `packages/mobile-app`). Five files, three atomic commits on master (`5c04c2dc` useRole+FAB-gate+tabs, `34b97f1c` teacher-schedule tab, `3be6cc4d` roster+check-in). `lib/use-role.ts` reads `GET /api/m/me` once (TanStack Query, 5m staleTime, defaults member). App role-branches off it: member 5-tab set vs teacher Schedule+Profile via Expo Router `href` toggle (tabs stay declared unconditionally). **FAB gate reconciled with MA4:** `role !== "member" && !isAdmin` → members get coach FAB, admins keep the MA4 "RunStudio Ops" sheet, teachers get NO AI surface (TCH-03); also hidden while role null (no flash). Teacher Schedule tab (`app/(tabs)/teacher-schedule.tsx`, TCH-01) lists assigned sessions grouped by day, each → pushed roster; empty states are copy keyed on `trainerLinked` (unlinked vs no-sessions), never an error. Roster screen (`app/teacher-roster.tsx`, TCH-02) = optimistic tap-to-check-in (onMutate row→attended, onError rollback+toast, onSuccess invalidate) → `POST /api/m/teacher/check-in {bookingId}` (the existing mark-booking-attended chokepoint). All five MA3-03 files tsc-clean (Feather icons, prettier). Deferred: 1 pre-existing `fontVariant` readonly-tuple tsc error in unmodified `app/(tabs)/index.tsx:546` (see MA3 deferred-items.md). On-device iOS verify deferred (EAS/Apple-gated, MA1-03 pattern). **OPERATOR steps pending (runtime, from MA3-01):** apply v37 to Neon `billowing-sun-51091059`; populate `trainers.user_id` by email per teacher; set `RUNSTUDIO_TEACHER_EMAILS` on Vercel — until done, all logins resolve to member (app safely shows the member surface) and teacher routes 403. Next: MA5 (Push, last; EAS/Apple-gated). Prior: MA1 complete, MA2 planned, MA4 complete (3/3).
 Last activity: 2026-06-30
 
@@ -160,6 +161,7 @@ Last activity: 2026-06-26 — Completed quick task 260626-m1c (swap marketing ho
 | Phase MA3 P03 | 480 | 3 tasks | 5 files |
 | Phase MA2 P01 | 5min | 3 tasks | 5 files |
 | Phase MA2 P02 | 4min | 3 tasks | 4 files |
+| Phase MA2 P03 | 7min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -300,8 +302,8 @@ Last activity: 2026-06-26 — Completed quick task 260626-m1c (swap marketing ho
 
 ## Session Continuity
 
-Last session: 2026-06-30T21:00:39.627Z
-Stopped at: Completed MA2-02-PLAN.md
+Last session: 2026-06-30T21:11:57.677Z
+Stopped at: Completed MA2-03-PLAN.md
 Resume file: None
 
 Prior session: 2026-06-20T10:22:33.153Z — Completed CV4-publish-pipeline CV4-01-PLAN.md

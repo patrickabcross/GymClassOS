@@ -37,7 +37,7 @@
 - [x] **MEM-01**: Anyone can open the app and **browse the class schedule** without logging in.
 - [x] **MEM-02**: Tapping **Book** while signed out prompts sign-in (the auth wall sits at the booking action, not app entry).
 - [x] **MEM-03**: A signed-in member with an active pass can book a class via `/api/m/bookings`.
-- [ ] **MEM-04**: A signed-in member **without** an active pass is routed to Stripe checkout inline; on successful purchase the pass is granted and the booking completes.
+- [x] **MEM-04**: A signed-in member **without** an active pass is routed to Stripe checkout inline; on successful purchase the pass is granted and the booking completes.
 - [x] **MEM-05**: A member can see their home surface — upcoming bookings and current pass balance.
 
 ### TEACHER — Session surface (run sessions; no AI)
@@ -107,7 +107,7 @@ Phases assigned by the roadmapper (prefix `MA`). 22/22 requirements mapped, no o
 | MEM-01 | MA2 | Complete |
 | MEM-02 | MA2 | Complete |
 | MEM-03 | MA2 | Complete |
-| MEM-04 | MA2 | Pending |
+| MEM-04 | MA2 | Complete |
 | MEM-05 | MA2 | Complete |
 | TCH-01 | MA3 | Complete |
 | TCH-02 | MA3 | Complete |
