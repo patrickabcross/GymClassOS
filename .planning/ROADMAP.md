@@ -122,7 +122,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | MA1. Auth + 3-Role Spine ⚑ | 2/3 | Complete    | 2026-06-29 |
-| MA2. Member Booking Surface | 3/4 | In Progress|  |
+| MA2. Member Booking Surface | 3/4 | Complete    | 2026-06-30 |
 | MA3. Teacher Session Surface | 3/3 | Complete    | 2026-06-30 |
 | MA4. Admin Mobile AI Agent | 3/3 | Complete    | 2026-06-30 |
 | MA5. Push Notifications ⚑ | 0/TBD | Not started | - |
