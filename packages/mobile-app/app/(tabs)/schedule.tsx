@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef, useCallback } from "react";
 import {
   View,
   Text,
@@ -8,8 +8,15 @@ import {
   StyleSheet,
 } from "react-native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useRouter, useFocusEffect } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { apiFetch } from "../../lib/api";
+import { getSessionToken } from "../../lib/session";
+import {
+  setPendingBooking,
+  getPendingBooking,
+  clearPendingBooking,
+} from "../../lib/pending-booking";
 import { useTheme } from "../../lib/theme";
 
 type Item = {
@@ -46,9 +53,25 @@ function timeLabel(iso: string) {
   });
 }
 
+// Optimistically mark an occurrence as booked-by-me in the ["schedule"] cache.
+function markBookedInSchedule(occurrenceId: string) {
+  return (old: any) => {
+    if (!old?.items) return old;
+    return {
+      ...old,
+      items: old.items.map((it: Item) =>
+        it.id === occurrenceId
+          ? { ...it, isBookedByMe: true, bookedCount: it.bookedCount + 1 }
+          : it,
+      ),
+    };
+  };
+}
+
 export default function ScheduleScreen() {
   const theme = useTheme();
   const qc = useQueryClient();
+  const router = useRouter();
 
   const styles = useMemo(
     () =>
@@ -199,11 +222,6 @@ export default function ScheduleScreen() {
         pillTextLow: {
           color: theme.colors.danger,
         },
-        // Confirm step: choice row between "Use pass" and "Pay drop-in"
-        choiceRow: {
-          flexDirection: "row",
-          gap: theme.spacing.sm,
-        },
         choiceHint: {
           color: theme.colors.muted,
           fontSize: 12,
@@ -248,19 +266,19 @@ export default function ScheduleScreen() {
 
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [bookError, setBookError] = useState<string | null>(null);
+  // Occurrence the member is buying a pass for (drives the no-pass product
+  // picker — the picker UI + purchase→poll→re-book flow are wired in Task 2).
+  const [purchaseOccurrenceId, setPurchaseOccurrenceId] = useState<
+    string | null
+  >(null);
+
+  function showBookError(msg: string, ms = 4000) {
+    setBookError(msg);
+    setTimeout(() => setBookError(null), ms);
+  }
 
   const bookMutation = useMutation({
-    mutationFn: async ({
-      occurrenceId,
-      usePass,
-    }: {
-      occurrenceId: string;
-      usePass: boolean;
-    }) => {
-      // POST /api/m/bookings — existing endpoint. The usePass choice is
-      // recorded client-side; Stripe drop-in purchase flow is a master-branch
-      // concern (P1c.1) and not wired here. When the payment endpoint exists,
-      // pass { occurrenceId, paymentMethod: usePass ? "pass" : "drop-in" }.
+    mutationFn: async ({ occurrenceId }: { occurrenceId: string }) => {
       return apiFetch("/api/m/bookings", {
         method: "POST",
         body: JSON.stringify({ occurrenceId }),
@@ -270,25 +288,26 @@ export default function ScheduleScreen() {
       // Optimistic — mark the occurrence as isBookedByMe immediately
       await qc.cancelQueries({ queryKey: ["schedule"] });
       const previous = qc.getQueryData<any>(["schedule"]);
-      qc.setQueryData<any>(["schedule"], (old: any) => {
-        if (!old?.items) return old;
-        return {
-          ...old,
-          items: old.items.map((it: Item) =>
-            it.id === occurrenceId
-              ? { ...it, isBookedByMe: true, bookedCount: it.bookedCount + 1 }
-              : it,
-          ),
-        };
-      });
+      qc.setQueryData<any>(["schedule"], markBookedInSchedule(occurrenceId));
       setExpandedId(null);
       return { previous };
     },
-    onError: (err: any, _vars, ctx) => {
-      // Rollback
+    onError: (err: any, vars, ctx) => {
+      // Always roll back the optimistic card flip.
       if (ctx?.previous) qc.setQueryData(["schedule"], ctx.previous);
-      setBookError(String(err?.message ?? err));
-      setTimeout(() => setBookError(null), 4000);
+      const msg = String(err?.message ?? err);
+      if (msg.includes("NO_PASS") || msg.includes("402")) {
+        // Not an error — the member just has no credit. Open the product
+        // picker so they can buy a pass (Task 2 renders + drives the flow).
+        startPurchaseFlow(vars.occurrenceId);
+        return;
+      }
+      if (msg.includes("CAPACITY_FULL") || msg.includes("409")) {
+        // Race: the class filled between render and book. Soft message, not red.
+        showBookError("Sorry — this class just filled up.");
+        return;
+      }
+      showBookError(msg);
     },
     onSuccess: () => {
       // Refresh profile — updates the Home tab's upcomingBooking AND the
@@ -296,6 +315,66 @@ export default function ScheduleScreen() {
       qc.invalidateQueries({ queryKey: ["profile"] });
     },
   });
+
+  // Open the no-pass purchase flow for an occurrence. Task 1 records the
+  // intent (which opens the picker); Task 2 fetches the products, renders the
+  // ProductPickerSheet, and runs the Stripe → poll-for-grant → re-book flow.
+  const startPurchaseFlow = useCallback((occurrenceId: string) => {
+    setPurchaseOccurrenceId(occurrenceId);
+  }, []);
+
+  // Run the booking path for a signed-in member: a pass-holder books
+  // optimistically; a member with no credit is routed to the purchase flow.
+  // The server is the source of truth — even a stale "has credit" client lands
+  // in the NO_PASS branch of onError, which opens the picker.
+  const bookForSignedInMember = useCallback(
+    (occurrenceId: string) => {
+      if (passBalance > 0) {
+        bookMutation.mutate({ occurrenceId });
+      } else {
+        startPurchaseFlow(occurrenceId);
+      }
+    },
+    [passBalance, bookMutation, startPurchaseFlow],
+  );
+
+  // Book-press auth gate (MEM-02). The wall lives HERE, not at app entry:
+  // a signed-out tap stores the occurrence intent and routes to /sign-in;
+  // the resume-on-focus effect below completes the booking after sign-in.
+  const handleBookPress = useCallback(
+    async (occurrenceId: string) => {
+      setBookError(null);
+      const token = await getSessionToken();
+      if (!token) {
+        setPendingBooking(occurrenceId);
+        router.push("/sign-in");
+        return;
+      }
+      bookForSignedInMember(occurrenceId);
+    },
+    [router, bookForSignedInMember],
+  );
+
+  // Resume-after-sign-in (MEM-02). On focus, if a pending booking intent
+  // exists AND we now have a session token, consume the intent and re-issue
+  // the booking. A ref guards against a double-fire so it resumes exactly once.
+  const resumedRef = useRef(false);
+  useFocusEffect(
+    useCallback(() => {
+      const pending = getPendingBooking();
+      if (!pending || resumedRef.current) return;
+      (async () => {
+        const token = await getSessionToken();
+        if (!token) return; // still signed out — leave the intent for later
+        resumedRef.current = true;
+        clearPendingBooking();
+        // Let the server decide (pass vs no-pass) — booking onError opens the
+        // picker on NO_PASS. Don't trust a possibly-stale client passBalance.
+        bookMutation.mutate({ occurrenceId: pending });
+      })();
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []),
+  );
 
   if (isLoading) {
     return (
@@ -393,61 +472,19 @@ export default function ScheduleScreen() {
                     )}
                   </Pressable>
 
-                  {/* ── Step 2: Confirm — choose pass or drop-in ───── */}
+                  {/* ── Step 2: Confirm — one Book action ───────────── */}
+                  {/* The auth wall + pass/no-pass branching all live behind
+                      handleBookPress; no bare "pay drop-in" booking here. */}
                   {expanded && !it.isBookedByMe && (
                     <View style={styles.expandRow}>
                       {it.full ? (
                         <Text style={styles.fullText}>This class is full</Text>
-                      ) : passBalance > 0 ? (
-                        <>
-                          {/* Member has passes: offer both options */}
-                          <Text style={styles.choiceHint}>
-                            How would you like to book?
-                          </Text>
-                          <View style={styles.choiceRow}>
-                            <Pressable
-                              style={[
-                                styles.btn,
-                                { flex: 1 },
-                                bookMutation.isPending && { opacity: 0.6 },
-                              ]}
-                              disabled={bookMutation.isPending}
-                              onPress={() =>
-                                bookMutation.mutate({
-                                  occurrenceId: it.id,
-                                  usePass: true,
-                                })
-                              }
-                            >
-                              <Text style={styles.btnText}>Use 1 pass</Text>
-                            </Pressable>
-                            <Pressable
-                              style={[
-                                styles.btnSecondary,
-                                { flex: 1 },
-                                bookMutation.isPending && { opacity: 0.6 },
-                              ]}
-                              disabled={bookMutation.isPending}
-                              onPress={() =>
-                                bookMutation.mutate({
-                                  occurrenceId: it.id,
-                                  usePass: false,
-                                })
-                              }
-                            >
-                              {/* drop-in payment (Stripe purchase) is wired
-                                  in the master-branch P1c.1 workstream */}
-                              <Text style={styles.btnSecondaryText}>
-                                Pay drop-in
-                              </Text>
-                            </Pressable>
-                          </View>
-                        </>
                       ) : (
                         <>
-                          {/* No passes: only drop-in available */}
                           <Text style={styles.choiceHint}>
-                            You have no credits — pay drop-in to book.
+                            {passBalance > 0
+                              ? "Booking uses 1 credit."
+                              : "Reserve your spot — pay at checkout if you have no credits."}
                           </Text>
                           <Pressable
                             style={[
@@ -455,16 +492,9 @@ export default function ScheduleScreen() {
                               bookMutation.isPending && { opacity: 0.6 },
                             ]}
                             disabled={bookMutation.isPending}
-                            onPress={() =>
-                              bookMutation.mutate({
-                                occurrenceId: it.id,
-                                usePass: false,
-                              })
-                            }
+                            onPress={() => handleBookPress(it.id)}
                           >
-                            {/* drop-in payment (Stripe purchase) is wired
-                                in the master-branch P1c.1 workstream */}
-                            <Text style={styles.btnText}>Pay drop-in</Text>
+                            <Text style={styles.btnText}>Book</Text>
                           </Pressable>
                         </>
                       )}
