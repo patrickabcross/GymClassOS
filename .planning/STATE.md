@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v2.3
 milestone_name: — Mobile App Production Foundation
-status: completed
+status: verifying
 stopped_at: Completed MA3-03-PLAN.md
-last_updated: "2026-06-30T20:41:04.273Z"
+last_updated: "2026-06-30T20:46:09.672Z"
 last_activity: 2026-06-30
 progress:
   total_phases: 5
@@ -30,8 +30,8 @@ Requirements: `.planning/REQUIREMENTS.md` (v2.3 requirements, 22 in-scope: AUTH-
 ## Current Position
 
 Milestone: v2.3 — Mobile App Production Foundation (member / teacher / admin)
-Phase: MA3 — COMPLETE (3/3)
-Plan: 3/3 complete (MA3-01 + MA3-02 + MA3-03 shipped)
+Phase: MA3
+Plan: Not started
 Status: MA3 COMPLETE — TCH-01/02/03 all done. MA3-03 SHIPPED (mobile teacher surface, `packages/mobile-app`). Five files, three atomic commits on master (`5c04c2dc` useRole+FAB-gate+tabs, `34b97f1c` teacher-schedule tab, `3be6cc4d` roster+check-in). `lib/use-role.ts` reads `GET /api/m/me` once (TanStack Query, 5m staleTime, defaults member). App role-branches off it: member 5-tab set vs teacher Schedule+Profile via Expo Router `href` toggle (tabs stay declared unconditionally). **FAB gate reconciled with MA4:** `role !== "member" && !isAdmin` → members get coach FAB, admins keep the MA4 "RunStudio Ops" sheet, teachers get NO AI surface (TCH-03); also hidden while role null (no flash). Teacher Schedule tab (`app/(tabs)/teacher-schedule.tsx`, TCH-01) lists assigned sessions grouped by day, each → pushed roster; empty states are copy keyed on `trainerLinked` (unlinked vs no-sessions), never an error. Roster screen (`app/teacher-roster.tsx`, TCH-02) = optimistic tap-to-check-in (onMutate row→attended, onError rollback+toast, onSuccess invalidate) → `POST /api/m/teacher/check-in {bookingId}` (the existing mark-booking-attended chokepoint). All five MA3-03 files tsc-clean (Feather icons, prettier). Deferred: 1 pre-existing `fontVariant` readonly-tuple tsc error in unmodified `app/(tabs)/index.tsx:546` (see MA3 deferred-items.md). On-device iOS verify deferred (EAS/Apple-gated, MA1-03 pattern). **OPERATOR steps pending (runtime, from MA3-01):** apply v37 to Neon `billowing-sun-51091059`; populate `trainers.user_id` by email per teacher; set `RUNSTUDIO_TEACHER_EMAILS` on Vercel — until done, all logins resolve to member (app safely shows the member surface) and teacher routes 403. Next: MA5 (Push, last; EAS/Apple-gated). Prior: MA1 complete, MA2 planned, MA4 complete (3/3).
 Last activity: 2026-06-30
 
