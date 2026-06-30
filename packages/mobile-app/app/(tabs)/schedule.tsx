@@ -1,4 +1,4 @@
-import { useMemo, useState, useRef, useCallback } from "react";
+import { useMemo, useState, useRef, useCallback, useEffect } from "react";
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter, useFocusEffect } from "expo-router";
 import { Feather } from "@expo/vector-icons";
+import * as WebBrowser from "expo-web-browser";
 import { apiFetch } from "../../lib/api";
 import { getSessionToken } from "../../lib/session";
 import {
@@ -17,6 +18,11 @@ import {
   getPendingBooking,
   clearPendingBooking,
 } from "../../lib/pending-booking";
+import { pollForGrant } from "../../lib/purchase-poll";
+import {
+  ProductPickerSheet,
+  type PurchaseProduct,
+} from "../../components/ProductPickerSheet";
 import { useTheme } from "../../lib/theme";
 
 type Item = {
@@ -185,6 +191,21 @@ export default function ScheduleScreen() {
           fontSize: 13,
           fontFamily: theme.font.regular,
         },
+        infoToast: {
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 8,
+          backgroundColor: theme.colors.accentSoft,
+          padding: 12,
+          borderRadius: theme.radius.sm,
+          marginBottom: theme.spacing.sm,
+        },
+        infoToastText: {
+          color: theme.colors.accent,
+          fontSize: 13,
+          fontFamily: theme.font.regular,
+          flex: 1,
+        },
         error: {
           color: theme.colors.danger,
           marginBottom: theme.spacing.lg,
@@ -266,16 +287,46 @@ export default function ScheduleScreen() {
 
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [bookError, setBookError] = useState<string | null>(null);
-  // Occurrence the member is buying a pass for (drives the no-pass product
-  // picker — the picker UI + purchase→poll→re-book flow are wired in Task 2).
+  // Occurrence the member is buying a pass for. Non-null opens the product
+  // picker and enables the products query below.
   const [purchaseOccurrenceId, setPurchaseOccurrenceId] = useState<
     string | null
   >(null);
+  // True while the Stripe Checkout → poll-for-grant → re-book round-trip runs.
+  const [purchaseInFlight, setPurchaseInFlight] = useState(false);
 
   function showBookError(msg: string, ms = 4000) {
     setBookError(msg);
     setTimeout(() => setBookError(null), ms);
   }
+
+  // Products for the no-pass picker — fetched only once a purchase is started.
+  // GET /api/m/purchase lists the configured drop-in + packs; an empty list
+  // means Stripe products are not configured on this deploy (graceful degrade).
+  const productsQuery = useQuery<{ products: PurchaseProduct[] }>({
+    queryKey: ["purchase-products"],
+    queryFn: () => apiFetch("/api/m/purchase"),
+    enabled: purchaseOccurrenceId !== null,
+  });
+  const products: PurchaseProduct[] = productsQuery.data?.products ?? [];
+
+  // Graceful degrade: if the product list loads empty, Stripe isn't set up on
+  // this deploy. Close the picker and tell the member to contact the studio —
+  // a member who already has a pass can still book (the picker only opens for
+  // the no-pass path). Never block on this.
+  useEffect(() => {
+    if (
+      purchaseOccurrenceId !== null &&
+      productsQuery.isSuccess &&
+      products.length === 0
+    ) {
+      setPurchaseOccurrenceId(null);
+      showBookError(
+        "Online payment isn't set up yet — please contact the studio.",
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [purchaseOccurrenceId, productsQuery.isSuccess, products.length]);
 
   const bookMutation = useMutation({
     mutationFn: async ({ occurrenceId }: { occurrenceId: string }) => {
@@ -316,12 +367,83 @@ export default function ScheduleScreen() {
     },
   });
 
-  // Open the no-pass purchase flow for an occurrence. Task 1 records the
-  // intent (which opens the picker); Task 2 fetches the products, renders the
-  // ProductPickerSheet, and runs the Stripe → poll-for-grant → re-book flow.
+  // Open the no-pass purchase flow for an occurrence: records the intent,
+  // which opens the picker and enables the products query.
   const startPurchaseFlow = useCallback((occurrenceId: string) => {
     setPurchaseOccurrenceId(occurrenceId);
   }, []);
+
+  // The full no-pass purchase round-trip (MEM-04): create a Checkout session,
+  // open it in the browser, then — because the pass is granted ASYNCHRONOUSLY
+  // by the worker and success_url is a plain web page, not a deep link — poll
+  // /api/m/profile until the credit lands and re-issue the booking. The browser
+  // return only means "the member came back", never "payment succeeded".
+  const handleSelectProduct = useCallback(
+    async (product: PurchaseProduct) => {
+      const occurrenceId = purchaseOccurrenceId;
+      setPurchaseOccurrenceId(null); // close the picker immediately
+      if (!occurrenceId) return;
+
+      setPurchaseInFlight(true);
+      try {
+        const res = await apiFetch("/api/m/purchase", {
+          method: "POST",
+          body: JSON.stringify({
+            priceId: product.priceId,
+            mode: product.mode,
+          }),
+        });
+        const url: string | undefined = res?.url;
+        if (!url) {
+          showBookError("Couldn't start checkout. Please try again.");
+          return;
+        }
+
+        await WebBrowser.openBrowserAsync(url);
+
+        // Member is back. Determine success by polling for the grant, never by
+        // the browser return value.
+        const granted = await pollForGrant();
+        if (!granted) {
+          showBookError(
+            "Purchase processing — your credits will appear shortly. Tap Book again in a moment.",
+            6000,
+          );
+          qc.invalidateQueries({ queryKey: ["profile"] });
+          return;
+        }
+
+        // Credit landed — complete the booking against the fresh pass.
+        await apiFetch("/api/m/bookings", {
+          method: "POST",
+          body: JSON.stringify({ occurrenceId }),
+        });
+        qc.setQueryData(["schedule"], markBookedInSchedule(occurrenceId));
+        setExpandedId(null);
+        qc.invalidateQueries({ queryKey: ["profile"] });
+        qc.invalidateQueries({ queryKey: ["schedule"] });
+      } catch (err: any) {
+        const msg = String(err?.message ?? err);
+        if (msg.includes("503")) {
+          // Stripe not configured on this deploy — graceful degrade.
+          showBookError(
+            "Online payment isn't set up yet — please contact the studio.",
+            6000,
+          );
+        } else if (msg.includes("CAPACITY_FULL") || msg.includes("409")) {
+          // The class filled while the member was paying.
+          showBookError("Sorry — this class just filled up.");
+          qc.invalidateQueries({ queryKey: ["schedule"] });
+        } else {
+          showBookError(msg);
+        }
+      } finally {
+        setPurchaseInFlight(false);
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [purchaseOccurrenceId, qc],
+  );
 
   // Run the booking path for a signed-in member: a pass-holder books
   // optimistically; a member with no credit is routed to the purchase flow.
@@ -421,6 +543,15 @@ export default function ScheduleScreen() {
         </Text>
       </View>
 
+      {purchaseInFlight && (
+        <View style={styles.infoToast}>
+          <Feather name="loader" size={14} color={theme.colors.accent} />
+          <Text style={styles.infoToastText}>
+            Confirming your purchase — this can take a few seconds.
+          </Text>
+        </View>
+      )}
+
       {bookError && (
         <View style={styles.toast}>
           <Text style={styles.toastText}>{bookError}</Text>
@@ -512,6 +643,16 @@ export default function ScheduleScreen() {
           </View>
         }
         contentContainerStyle={{ paddingBottom: 96 }}
+      />
+
+      {/* No-pass product picker (MEM-04). The schedule owns the data + the
+          Stripe → poll-for-grant → re-book side effects; the sheet just renders
+          the choices and reports a selection. */}
+      <ProductPickerSheet
+        visible={purchaseOccurrenceId !== null && products.length > 0}
+        products={products}
+        onSelect={handleSelectProduct}
+        onClose={() => setPurchaseOccurrenceId(null)}
       />
     </View>
   );
