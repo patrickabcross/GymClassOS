@@ -124,7 +124,7 @@ Plans:
 | MA1. Auth + 3-Role Spine ⚑ | 2/3 | Complete    | 2026-06-29 |
 | MA2. Member Booking Surface | 0/TBD | Not started | - |
 | MA3. Teacher Session Surface | 0/3 | Planned | - |
-| MA4. Admin Mobile AI Agent | 3/3 | Complete   | 2026-06-30 |
+| MA4. Admin Mobile AI Agent | 3/3 | Complete    | 2026-06-30 |
 | MA5. Push Notifications ⚑ | 0/TBD | Not started | - |
 
 **Coverage:** 22/22 v2.3 requirements mapped across MA1–MA5 (AUTH-01..07 → MA1; MEM-01..05 → MA2; TCH-01..03 → MA3; AI-01..03 → MA4; NOT-01..04 → MA5). No orphans, no duplicates.

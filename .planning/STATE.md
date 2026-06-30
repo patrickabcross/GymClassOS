@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v2.3
 milestone_name: — Mobile App Production Foundation
-status: executing
+status: verifying
 stopped_at: Completed MA4-03-PLAN.md (mobile admin agent client — MA4 complete 3/3)
-last_updated: "2026-06-30T20:12:32.508Z"
-last_activity: "2026-06-30 — Executed MA4-03 (mobile client: whoami role gate + admin SSE endpoint reused via AgentSheet endpoint/title props; AGENTS.md documented). MA4 COMPLETE (3/3): 01 keystone + 02 SSE/requireAdmin/whoami + 03 client. tsc clean; on-device iOS verify deferred (EAS/Apple-gated)"
+last_updated: "2026-06-30T20:17:58.956Z"
+last_activity: 2026-06-30
 progress:
   total_phases: 5
   completed_phases: 0
@@ -30,10 +30,10 @@ Requirements: `.planning/REQUIREMENTS.md` (v2.3 requirements, 22 in-scope: AUTH-
 ## Current Position
 
 Milestone: v2.3 — Mobile App Production Foundation (member / teacher / admin)
-Phase: MA1 complete; **MA4 COMPLETE (3/3)** — 01 keystone + 02 SSE/requireAdmin/whoami + 03 mobile client; MA2 + MA3 PLANNED & verified (checkers PASSED), ready to execute; MA5 not started
-Plan: MA4 done (3/3); MA2 (4 plans), MA3 (3 plans) — all checker-PASSED, ready to execute
+Phase: MA4
+Plan: Not started
 Status: MA4-03 SHIPPED (mobile client: fetchRole via GET /api/m/whoami gates the reused AgentSheet → admin streams from /api/m/admin/agent/stream with "RunStudio Ops" title; member/teacher keep the coach endpoint; AGENTS.md documents the surface). AI-01/02/03 satisfied; four-area agent-native contract closed. tsc clean for all touched mobile files; on-device iOS verify deferred (EAS/Apple-gated, MA1-03 pattern). Next: execute MA2 (member booking) or MA3 (teacher check-in)
-Last activity: 2026-06-30 — Executed MA4-03 (mobile admin agent client; whoami role gate + admin endpoint reuse via AgentSheet endpoint/title props; AGENTS.md doc). MA4 phase complete. Earlier: MA4-02 (admin SSE endpoint + requireAdmin + whoami); planned+verified MA4/MA2/MA3
+Last activity: 2026-06-30
 
 1. **Schedule filters** (quick 260625-d06): location/class-type/trainer on the staff calendar (shadcn Popover) + public embed (native selects); loader Query A widened w/ trainer leftJoin. SHIPPED.
 2. **Studio-global sites config** (quick 260625-gsg): `resolveSites` + `sites` JSONB col (v35) + Settings→Integrations→Locations card; replaces the hardcoded Norwich/Wymondham picker. SHIPPED; HUSTLE sites seeded as DATA on Neon (singleton row).
