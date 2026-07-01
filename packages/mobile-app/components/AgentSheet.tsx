@@ -14,18 +14,24 @@
 // ['food-entries'] + ['profile']. The agent's log_food_nl is one such surface,
 // so we invalidate both on every tool_result (cheap; safe; agent doesn't know
 // which tool ran from the mobile side without parsing).
+//
+// Keyboard fix (fq6): replaced outer KeyboardAvoidingView + RN FlatList +
+// RN TextInput with gorhom BottomSheetFlatList + BottomSheetTextInput so the
+// reply composer stays visible above the keyboard inside the bottom sheet.
+// Safe-area bottom padding clears the iPhone home indicator.
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
-  TextInput,
   Pressable,
-  FlatList,
   ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
   StyleSheet,
 } from "react-native";
+import {
+  BottomSheetFlatList,
+  BottomSheetTextInput,
+} from "@gorhom/bottom-sheet";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQueryClient } from "@tanstack/react-query";
 import { Feather } from "@expo/vector-icons";
 import { streamAgent } from "../lib/agent-stream";
@@ -47,13 +53,15 @@ export default function AgentSheet({
 }: Props) {
   const theme = useTheme();
   const qc = useQueryClient();
+  const insets = useSafeAreaInsets();
   const [messages, setMessages] = useState<ChatMessage[]>([
     { id: "sys-welcome", role: "system", text: title },
   ]);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const cancelRef = useRef<(() => void) | null>(null);
-  const listRef = useRef<FlatList<ChatMessage>>(null);
+  // useRef<any> avoids gorhom generic friction (BottomSheetFlatList vs FlatList)
+  const listRef = useRef<any>(null);
 
   const styles = useMemo(
     () =>
@@ -235,17 +243,14 @@ export default function AgentSheet({
   }
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-      style={styles.container}
-    >
+    <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>{title}</Text>
         <Pressable onPress={onClose} hitSlop={12}>
           <Feather name="x" size={22} color={theme.colors.muted} />
         </Pressable>
       </View>
-      <FlatList
+      <BottomSheetFlatList
         ref={listRef}
         data={messages}
         keyExtractor={(m) => m.id}
@@ -253,6 +258,7 @@ export default function AgentSheet({
         onContentSizeChange={() =>
           listRef.current?.scrollToEnd({ animated: true })
         }
+        style={{ flex: 1 }}
         renderItem={({ item }) => {
           if (item.role === "system") {
             return <Text style={styles.systemLine}>{item.text}</Text>;
@@ -284,35 +290,34 @@ export default function AgentSheet({
           );
         }}
       />
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      {/* inputRow pinned at bottom; paddingBottom clears the iPhone home indicator */}
+      <View
+        style={[styles.inputRow, { paddingBottom: 12 + insets.bottom }]}
       >
-        <View style={styles.inputRow}>
-          <TextInput
-            value={draft}
-            onChangeText={setDraft}
-            placeholder="Ask anything…"
-            placeholderTextColor={theme.colors.mutedFaint}
-            style={styles.input}
-            multiline
-            editable={!sending}
+        <BottomSheetTextInput
+          value={draft}
+          onChangeText={setDraft}
+          placeholder="Ask anything…"
+          placeholderTextColor={theme.colors.mutedFaint}
+          style={styles.input}
+          multiline
+          editable={!sending}
+        />
+        <Pressable
+          onPress={send}
+          disabled={!draft.trim() || sending}
+          style={[
+            styles.sendBtn,
+            (!draft.trim() || sending) && { opacity: 0.5 },
+          ]}
+        >
+          <Feather
+            name="send"
+            size={18}
+            color={theme.colors.accentForeground}
           />
-          <Pressable
-            onPress={send}
-            disabled={!draft.trim() || sending}
-            style={[
-              styles.sendBtn,
-              (!draft.trim() || sending) && { opacity: 0.5 },
-            ]}
-          >
-            <Feather
-              name="send"
-              size={18}
-              color={theme.colors.accentForeground}
-            />
-          </Pressable>
-        </View>
-      </KeyboardAvoidingView>
-    </KeyboardAvoidingView>
+        </Pressable>
+      </View>
+    </View>
   );
 }
