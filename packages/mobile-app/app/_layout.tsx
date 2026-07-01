@@ -14,9 +14,9 @@
 import { useEffect, useState } from "react";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { View, ActivityIndicator, Pressable } from "react-native";
+import { View, ActivityIndicator, Pressable, Text } from "react-native";
 import { useFonts } from "expo-font";
-import { Feather } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { QueryProvider } from "../lib/query-client";
 import { getSessionToken } from "../lib/session";
 import { fetchRole, type AppRole } from "../lib/whoami";
@@ -85,12 +85,20 @@ function AgentFabAndSheet() {
   const [role, setRole] = useState<AppRole | null>(null);
   const theme = useTheme();
 
-  // Resolve role once via /api/m/whoami so an admin's sheet points at the admin
-  // SSE endpoint. Client-side gating only — the server requireAdmin gate on
+  // Resolve role via /api/m/whoami so an admin's sheet points at the admin SSE
+  // endpoint. Client-side gating only — the server requireAdmin gate on
   // /api/m/admin/agent/stream is the real boundary (a forced URL still 403s).
+  // Re-resolve on auth transitions: segments[0] flips between "sign-in" and
+  // "(tabs)", so switching accounts never leaves a STALE role that would wrongly
+  // show the owner FAB to a teacher/member (clear on sign-in, refetch on tabs).
+  const routeGroup = segments[0];
   useEffect(() => {
-    fetchRole().then(setRole);
-  }, []);
+    if (routeGroup === "sign-in") {
+      setRole(null);
+    } else {
+      fetchRole().then(setRole);
+    }
+  }, [routeGroup]);
   const isAdmin = role === "admin";
 
   // Hide FAB on the sign-in screen (no session yet → no agent context).
@@ -110,17 +118,24 @@ function AgentFabAndSheet() {
       zIndex: 100,
     },
     fab: {
-      width: 56,
-      height: 56,
-      borderRadius: theme.radius.pill,
-      backgroundColor: theme.colors.accent,
+      flexDirection: "row" as const,
       alignItems: "center" as const,
       justifyContent: "center" as const,
+      gap: 8,
+      height: 48,
+      paddingHorizontal: 16,
+      borderRadius: theme.radius.pill,
+      backgroundColor: theme.colors.accent,
       shadowColor: theme.colors.shadow,
       shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.4,
       shadowRadius: 8,
       elevation: 8,
+    },
+    fabLabel: {
+      color: theme.colors.accentForeground,
+      fontFamily: theme.font.semibold,
+      fontSize: 15,
     },
   };
 
@@ -128,11 +143,12 @@ function AgentFabAndSheet() {
     <>
       <View pointerEvents="box-none" style={fab.fabHost}>
         <Pressable style={fab.fab} onPress={() => setOpen(true)} hitSlop={8}>
-          <Feather
-            name="message-circle"
-            size={24}
+          <Ionicons
+            name="sparkles"
+            size={18}
             color={theme.colors.accentForeground}
           />
+          <Text style={fab.fabLabel}>AI chat</Text>
         </Pressable>
       </View>
       <AgentSheetContainer open={open} onClose={() => setOpen(false)}>
