@@ -14,7 +14,8 @@
     "preview-install": {
       "distribution": "internal",
       "env": {
-        "AGENT_NATIVE_MOBILE_DISABLE_REMOTE_PUSH": "1"
+        "AGENT_NATIVE_MOBILE_DISABLE_REMOTE_PUSH": "1",
+        "EXPO_PUBLIC_API_BASE": "https://gym-class-os.vercel.app"
       }
     },
     "production": {
