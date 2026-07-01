@@ -97,12 +97,10 @@ function AgentFabAndSheet() {
   const onSignIn = segments[0] === "sign-in";
   if (onSignIn) return null;
 
-  // TCH-03: teachers get NO AI surface. The FAB is hidden for any non-member
-  // EXCEPT admins, who keep the MA4 admin "RunStudio Ops" sheet (endpoint/title
-  // switched by isAdmin below). So: members → coach FAB, admins → ops FAB,
-  // teachers → no FAB. role is null while /api/m/whoami resolves → also hidden,
-  // so the AI surface never flashes before the role is known.
-  if (role !== "member" && !isAdmin) return null;
+  // FAB is admin/owner only. Members + teachers get NO FAB for now (role-specific
+  // chatbots are a future task). role is null while /api/m/whoami resolves → also
+  // hidden, so the FAB never flashes before the role is confirmed.
+  if (!isAdmin) return null;
 
   const fab = {
     fabHost: {
