@@ -20,6 +20,14 @@
     },
     "production": {
       "autoIncrement": true
+    },
+    "testflight": {
+      "distribution": "store",
+      "autoIncrement": true,
+      "env": {
+        "AGENT_NATIVE_MOBILE_DISABLE_REMOTE_PUSH": "1",
+        "EXPO_PUBLIC_API_BASE": "https://gym-class-os.vercel.app"
+      }
     }
   },
   "submit": {
