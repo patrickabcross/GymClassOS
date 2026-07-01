@@ -50,9 +50,15 @@ export function AgentSheetContainer({
   return React.createElement(BottomSheet, {
     ref,
     index: open ? 0 : -1,
-    snapPoints: ["66%"],
+    snapPoints: ["90%"],
     enablePanDownToClose: true,
     onClose,
+    // Keyboard coordination: interactive tracks the keyboard so the composer
+    // stays visible; restore returns to the snap point on blur;
+    // adjustResize prevents Android from squishing the sheet behind the IME.
+    keyboardBehavior: "interactive",
+    keyboardBlurBehavior: "restore",
+    android_keyboardInputMode: "adjustResize",
     backgroundStyle: { backgroundColor: "#1a1a1a" },
     handleIndicatorStyle: { backgroundColor: "#333" },
     children: React.createElement(BottomSheetView, {
