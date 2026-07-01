@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v2.3
 milestone_name: — Mobile App Production Foundation
 status: planning
-stopped_at: "Completed quick task 260701-fq6: mobile role UX + agent composer FAB gate + keyboard fix"
-last_updated: "2026-07-01T10:26:54.636Z"
+stopped_at: "Completed quick task 260701-gka: add non-destructive Stripe Disconnect button to Settings Integrations page"
+last_updated: "2026-07-01T11:06:11Z"
 last_activity: "2026-07-01 — Completed quick task 260701-dyk: EXPO_PUBLIC_API_BASE on the preview-install EAS profile (standalone iOS build targets live backend). Also this session (not quick tasks): activated mobile admin (owner AI) + teacher surfaces on prod for UAT — set RUNSTUDIO_OPERATOR_EMAILS + RUNSTUDIO_TEACHER_EMAILS (deploy fac67ba1), created owner.test/teacher.test accounts, linked trainers.trn_seed_12 → teacher, seeded a booked member into a teacher class; all role gating API-verified."
 progress:
   total_phases: 5
@@ -73,6 +73,7 @@ Last activity: 2026-06-26 — Completed quick task 260626-m1c (swap marketing ho
 
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
+| 260701-gka | Add non-destructive Stripe Disconnect button to Settings Integrations — `deleteConnectedAccount(accountId)` scoped DELETE helper + `disconnect-stripe` action intent + AlertDialog-guarded `disconnectFetcher` button in both connected states (pending + ready). No Stripe accounts.del; loader revalidates to not-connected state on success. | 2026-07-01 | 0a808064 | [260701-gka-add-disconnect-stripe-button-to-settings](./quick/260701-gka-add-disconnect-stripe-button-to-settings/) |
 | fast | Agent chat sheet not scrolling + composer under the window on device: gorhom bottom-sheet v5 defaults `enableDynamicSizing:true`, overriding the fixed `["90%"]` snap point so flex:1 children (BottomSheetFlatList) get no bounded height. Set `enableDynamicSizing:false` in `lib/bottom-sheet-impl.ts` so the 90% height wins → list scrolls internally, composer stays pinned. Follow-up to fq6; needs a `preview-install` rebuild. | 2026-07-01 | cdd13aca | — |
 | 260701-fq6 | Mobile role UX + agent composer: FAB gated to admin/owner-only (`if (!isAdmin) return null` — removes coach/teacher chat for now); member tabs (Home/Classes/Passes/Log) shown for ALL roles (`href: undefined`), teacher keeps additive Schedule tab; AgentSheet reply box fixed — RN FlatList/TextInput → gorhom `BottomSheetFlatList`/`BottomSheetTextInput`, dropped nested KeyboardAvoidingViews, safe-area bottom padding, snap point 66%→90% + keyboard props. Client-only, 4 files. Needs a `preview-install` rebuild to reach device. | 2026-07-01 | 8c37fb29 | [260701-fq6-mobile-role-ux-agent-composer-fab-owner-](./quick/260701-fq6-mobile-role-ux-agent-composer-fab-owner-/) |
 | 260701-dyk | Add `EXPO_PUBLIC_API_BASE=https://gym-class-os.vercel.app` to the `preview-install` EAS build profile env in `packages/mobile-app/eas.json` so standalone iOS builds target the live Vercel backend instead of the `localhost:8081` fallback (UAT device-testing setup). Additive one-key JSON change; no app source, no other profile touched. | 2026-07-01 | 1dcdab84 | [260701-dyk-add-expo-public-api-base-to-preview-inst](./quick/260701-dyk-add-expo-public-api-base-to-preview-inst/) |
