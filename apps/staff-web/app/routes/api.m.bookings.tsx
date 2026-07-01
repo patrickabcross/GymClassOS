@@ -36,6 +36,23 @@ export async function action({ request }: ActionFunctionArgs) {
   }
   const member = await requireMemberOrDemo(request);
 
+  // PARQ v2 gate — a member must have completed the PAR-Q before booking.
+  // guard:allow-unscoped — single-tenant gym members
+  {
+    const db0 = getDb() as any as {
+      execute: (q: unknown) => Promise<{ rows: unknown[] }>;
+    };
+    const { rows: parqRows } = await db0.execute(
+      sql`SELECT parq_completed_at FROM gym_members WHERE id = ${member.id} LIMIT 1`,
+    );
+    const parqCompletedAt = (
+      parqRows[0] as { parq_completed_at?: string | null } | undefined
+    )?.parq_completed_at;
+    if (!parqCompletedAt) {
+      return jsonResponse({ error: "PARQ_REQUIRED" }, 403);
+    }
+  }
+
   let occurrenceId: string;
   try {
     const json = (await request.json()) as { occurrenceId?: string };

@@ -368,6 +368,36 @@ export const submitLeadForm = defineEventHandler(async (event: H3Event) => {
   // If neither email nor phone, resolvedMemberId stays as the fresh nanoid (anonymous lead)
 
   // -------------------------------------------------------------------
+  // 9b. PARQ v2 — stamp health-form completion on the resolved member.
+  // Only for the published PARQ form (slug 'parq'). PARQ is an existing
+  // member completing a form; the upsert above resolved their row by email.
+  // guard:allow-unscoped — single-tenant gym members
+  // -------------------------------------------------------------------
+  if (form.slug === "parq") {
+    // Risk detection over the submitted PARQ answers (field ids as documented).
+    const asArr = (v: unknown): string[] =>
+      Array.isArray(v) ? v.map(String) : v == null || v === "" ? [] : [String(v)];
+    const conditions = asArr(data["conditions"]);
+    const conditionsFlag = conditions.some((c) => c && c !== "None");
+    const yn = (k: string) => String(data[k] ?? "").toLowerCase() === "yes";
+    const ynFlag = [
+      "mental_health",
+      "disability",
+      "bp_heart_medication",
+      "pregnant",
+      "other_reason",
+    ].some(yn);
+    const declarationFlag = String(data["declaration"] ?? "") !== "Yes";
+    const parqFlagged = conditionsFlag || ynFlag || declarationFlag;
+
+    await db2.execute(sql`
+      UPDATE gym_members
+      SET parq_completed_at = ${now}, parq_flagged = ${parqFlagged}
+      WHERE id = ${resolvedMemberId}
+    `);
+  }
+
+  // -------------------------------------------------------------------
   // 10. Upsert conversation with status='lead'
   // ON CONFLICT (member_id, channel) — unique index added in P1c-01 migration.
   // -------------------------------------------------------------------

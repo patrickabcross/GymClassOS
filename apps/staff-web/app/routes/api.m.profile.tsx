@@ -124,6 +124,8 @@ export async function loader({ request }: LoaderFunctionArgs) {
       email: member.email,
       phoneE164: member.phoneE164,
       goal: member.goal,
+      parqCompletedAt: member.parqCompletedAt ?? null,
+      parqFlagged: member.parqFlagged ?? false,
     },
     passBalance,
     upcomingBooking: upcoming,
