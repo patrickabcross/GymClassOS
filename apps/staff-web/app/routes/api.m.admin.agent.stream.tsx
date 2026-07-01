@@ -124,45 +124,58 @@ export async function action({ request }: ActionFunctionArgs) {
             const final = await msStream.finalMessage();
 
             if (final.stop_reason === "tool_use") {
-              const toolUse: any = final.content.find(
+              // Claude can batch MULTIPLE tool_use blocks in a single turn
+              // (parallel tool calls, e.g. renewals + at-risk "simultaneously").
+              // We MUST return a tool_result for EVERY tool_use id in the next
+              // user message, or the follow-up request 400s with "tool_use ids
+              // were found without tool_result blocks". So handle ALL of them.
+              const toolUses: any[] = final.content.filter(
                 (c: any) => c.type === "tool_use",
               );
-              if (!toolUse) {
+              if (toolUses.length === 0) {
                 send("done", { stop_reason: "tool_use_missing" });
                 break;
               }
 
-              send("tool_use", {
-                name: toolUse.name,
-                id: toolUse.id,
-                input: toolUse.input,
-              });
+              const toolResults: any[] = [];
+              for (const toolUse of toolUses) {
+                send("tool_use", {
+                  name: toolUse.name,
+                  id: toolUse.id,
+                  input: toolUse.input,
+                });
 
-              // Execute via the registry (already Zod-wrapped — do NOT
-              // re-validate). Guard an unknown/out-of-allow-list tool so a
-              // hallucinated name cannot crash the loop.
-              let result: any;
-              const entry = (registry as any)[toolUse.name];
-              if (!entry) {
-                result = { ok: false, error: "Tool not available" };
-              } else {
-                result = await entry.run(toolUse.input);
+                // Execute via the registry (already Zod-wrapped — do NOT
+                // re-validate). Guard an unknown/out-of-allow-list tool so a
+                // hallucinated name cannot crash the loop, and wrap run() so a
+                // throwing tool becomes an error result rather than aborting the
+                // whole turn (which would strand the sibling tool_use ids).
+                let result: any;
+                const entry = (registry as any)[toolUse.name];
+                if (!entry) {
+                  result = { ok: false, error: "Tool not available" };
+                } else {
+                  try {
+                    result = await entry.run(toolUse.input);
+                  } catch (toolErr: any) {
+                    result = {
+                      ok: false,
+                      error: String(toolErr?.message ?? toolErr),
+                    };
+                  }
+                }
+                send("tool_result", { id: toolUse.id, result });
+                toolResults.push({
+                  type: "tool_result",
+                  tool_use_id: toolUse.id,
+                  content: JSON.stringify(result),
+                });
               }
-              send("tool_result", { id: toolUse.id, result });
 
               convo = [
                 ...convo,
                 { role: "assistant", content: final.content as any },
-                {
-                  role: "user",
-                  content: [
-                    {
-                      type: "tool_result",
-                      tool_use_id: toolUse.id,
-                      content: JSON.stringify(result),
-                    },
-                  ],
-                } as any,
+                { role: "user", content: toolResults } as any,
               ];
               turn++;
               continue;
