@@ -126,6 +126,11 @@ export const gymMembers = table("gym_members", {
   marketingConsent: integer("marketing_consent", { mode: "boolean" })
     .notNull()
     .default(false),
+  // PARQ v2: PAR-Q health-form completion. integer(mode:"boolean") emits a
+  // Postgres BOOLEAN column (never a bigint/integer — active-column gotcha).
+  // Already applied to HUSTLE prod; migration 0009 + db.ts v38 make it durable.
+  parqCompletedAt: text("parq_completed_at"), // ISO timestamp; null = PARQ not completed
+  parqFlagged: integer("parq_flagged", { mode: "boolean" }).notNull().default(false),
   notes: text("notes"), // staff notes
   createdAt: text("created_at").notNull().default(now()),
   updatedAt: text("updated_at").notNull().default(now()),

@@ -534,6 +534,23 @@ $mvn01$`,
       version: 37,
       sql: `ALTER TABLE trainers ADD COLUMN IF NOT EXISTS user_id TEXT`,
     },
+    // -------------------------------------------------------------------------
+    // PARQ v2: record PAR-Q health-form completion on gym_members.
+    //
+    // Version 38: two additive nullable columns — parq_completed_at (TEXT ISO
+    // timestamp; null = not yet completed) and parq_flagged (BOOLEAN; true when
+    // the submission contains any health risk indicator). parq_flagged is a
+    // Postgres BOOLEAN (NOT integer/bigint — active-column gotcha). IF NOT EXISTS
+    // guards make this a no-op on HUSTLE prod (already applied by hand).
+    //
+    // Standalone reproducibility mirror: 0009_parq_columns.sql.
+    // -------------------------------------------------------------------------
+    {
+      version: 38,
+      // PARQ v2 — additive; already applied to HUSTLE prod. parq_flagged is BOOLEAN.
+      sql: `ALTER TABLE gym_members ADD COLUMN IF NOT EXISTS parq_completed_at text;
+ALTER TABLE gym_members ADD COLUMN IF NOT EXISTS parq_flagged boolean NOT NULL DEFAULT false`,
+    },
     {
       version: 15,
       // postgres path: plpgsql function + conditional trigger creation
