@@ -51,6 +51,11 @@ export function AgentSheetContainer({
     ref,
     index: open ? 0 : -1,
     snapPoints: ["90%"],
+    // v5 defaults enableDynamicSizing:true, which sizes the sheet to content and
+    // overrides the fixed 90% snap point — with flex:1 children the inner
+    // BottomSheetFlatList gets no bounded height, so it won't scroll and the
+    // composer spills below the sheet. Force it off so the 90% height wins.
+    enableDynamicSizing: false,
     enablePanDownToClose: true,
     onClose,
     // Keyboard coordination: interactive tracks the keyboard so the composer
