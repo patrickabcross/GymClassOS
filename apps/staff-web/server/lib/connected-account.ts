@@ -139,3 +139,24 @@ export async function upsertConnectedAccountReadiness(
       updated_at       = now()::text
   `);
 }
+
+/**
+ * Clear the local connected account row (disconnect).
+ *
+ * NON-DESTRUCTIVE to Stripe: this only removes RunStudio's local record so the
+ * operator can reconnect (e.g. swap a test connected account for a live one).
+ * It does NOT call Stripe accounts.del() — the Stripe account object stays
+ * intact and reconnectable.
+ *
+ * Scoped DELETE (WHERE id = accountId) — never an unscoped DELETE.
+ *
+ * guard:allow-unscoped — connected_accounts is studio-global config (single-tenant)
+ */
+export async function deleteConnectedAccount(accountId: string): Promise<void> {
+  const db = getDb();
+  // guard:allow-unscoped — connected_accounts is studio-global config (single-tenant)
+  await (db as any).execute(sql`
+    DELETE FROM connected_accounts
+    WHERE id = ${accountId}
+  `);
+}

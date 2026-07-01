@@ -46,8 +46,20 @@ import {
   IconLoader2,
   IconAd2,
   IconMapPin,
+  IconPlugConnectedX,
 } from "@tabler/icons-react";
 import { useState } from "react";
+import {
+  AlertDialog,
+  AlertDialogTrigger,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from "../components/ui/alert-dialog";
 import { getDb } from "../../server/db";
 import { readConnectedAccount } from "../../server/lib/connected-account.js";
 // Import from the /secrets subpath, NOT the bare "@agent-native/core" package:
@@ -307,6 +319,27 @@ export async function action({ request }: ActionFunctionArgs) {
     }
   }
 
+  // ── Connect: disconnect (clear local connected_accounts row — reconnectable) ─
+  if (intent === "disconnect-stripe") {
+    try {
+      const { readConnectedAccount: readAcct, deleteConnectedAccount } =
+        await import("../../server/lib/connected-account.js");
+      const account = await readAcct();
+      if (account) {
+        await deleteConnectedAccount(account.id);
+      }
+      // Idempotent: no account → no-op success. Loader revalidates → card
+      // re-renders in the not-connected state.
+      return { ok: true, intent: "disconnect-stripe" };
+    } catch (err) {
+      return {
+        ok: false,
+        error: `Could not disconnect Stripe: ${err instanceof Error ? err.message : String(err)}`,
+        intent,
+      };
+    }
+  }
+
   // ── Dev fallback: rotate restricted key (P1b-08) ─────────────────────────
   if (intent === "rotate-key") {
     const newKey = String(fd.get("key") ?? "").trim();
@@ -527,6 +560,12 @@ export default function StripeIntegrations() {
     error?: string;
     intent?: string;
   }>();
+  // Disconnect fetcher (non-destructive — clears local row only; Stripe account stays intact)
+  const disconnectFetcher = useFetcher<{
+    ok: boolean;
+    error?: string;
+    intent?: string;
+  }>();
 
   // Masked token reveal state (mirrors rotate-key UX for Meta token)
   const [showTokenField, setShowTokenField] = useState(false);
@@ -580,6 +619,52 @@ export default function StripeIntegrations() {
     outline:
       "inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-transparent text-muted-foreground border border-border/60",
   };
+
+  // Reusable Disconnect control — rendered in both the pending and ready connected states.
+  // Subtle/secondary button (bordered, muted text) — the AlertDialog's action button is the
+  // destructive one. No emojis; Tabler icon only.
+  const disconnectButton = (
+    <div className="pt-1">
+      <AlertDialog>
+        <AlertDialogTrigger asChild>
+          <button
+            type="button"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border/60 text-[12px] font-medium text-muted-foreground bg-background hover:bg-muted/40"
+          >
+            <IconPlugConnectedX size={12} />
+            Disconnect
+          </button>
+        </AlertDialogTrigger>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Disconnect Stripe?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This removes the Stripe connection from RunStudio. You can
+              reconnect anytime — your Stripe account itself isn&apos;t deleted.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <disconnectFetcher.Form method="post">
+              <input type="hidden" name="_intent" value="disconnect-stripe" />
+              <AlertDialogAction
+                type="submit"
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                Disconnect
+              </AlertDialogAction>
+            </disconnectFetcher.Form>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      {disconnectFetcher.data?.ok === false &&
+        disconnectFetcher.data.intent === "disconnect-stripe" && (
+          <div className="mt-2 rounded-md bg-destructive/10 border border-destructive/20 px-3 py-2 text-[12px] text-destructive">
+            {disconnectFetcher.data.error}
+          </div>
+        )}
+    </div>
+  );
 
   return (
     <div className="h-full w-full overflow-y-auto bg-background text-foreground">
@@ -722,6 +807,8 @@ export default function StripeIntegrations() {
                 Account id:{" "}
                 <code className="text-[10px]">{connectedAccount!.id}</code>
               </p>
+
+              {disconnectButton}
             </div>
           )}
 
@@ -736,6 +823,8 @@ export default function StripeIntegrations() {
                 Account id:{" "}
                 <code className="text-[10px]">{connectedAccount!.id}</code>
               </p>
+
+              {disconnectButton}
             </div>
           )}
         </div>
