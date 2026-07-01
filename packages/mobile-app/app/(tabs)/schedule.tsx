@@ -11,7 +11,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter, useFocusEffect } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import * as WebBrowser from "expo-web-browser";
-import { apiFetch } from "../../lib/api";
+import { apiFetch, API_BASE_URL } from "../../lib/api";
 import { getSessionToken } from "../../lib/session";
 import {
   setPendingBooking,
@@ -270,6 +270,21 @@ export default function ScheduleScreen() {
   const passBalance: number = profileData?.passBalance ?? 0;
   const lowBalance = passBalance <= 0;
 
+  // PARQ v2: read PARQ completion status from the profile query.
+  const parqCompletedAt: string | null = profileData?.member?.parqCompletedAt ?? null;
+  const memberEmail: string | undefined = profileData?.member?.email ?? undefined;
+
+  // PARQ prompt state + handler — opens /f/parq in the browser and refreshes
+  // the profile query on return so parqCompletedAt updates and Book unblocks.
+  const [parqPrompt, setParqPrompt] = useState(false);
+  const openParqForm = useCallback(async () => {
+    setParqPrompt(false);
+    const q = memberEmail ? `?email=${encodeURIComponent(memberEmail)}` : "";
+    await WebBrowser.openBrowserAsync(`${API_BASE_URL}/f/parq${q}`);
+    // Refresh profile on return so parqCompletedAt updates and Book unblocks.
+    qc.invalidateQueries({ queryKey: ["profile"] });
+  }, [memberEmail, qc]);
+
   const sections = useMemo<Section[]>(() => {
     const items: Item[] = data?.items ?? [];
     const grouped = new Map<string, Item[]>();
@@ -347,6 +362,11 @@ export default function ScheduleScreen() {
       // Always roll back the optimistic card flip.
       if (ctx?.previous) qc.setQueryData(["schedule"], ctx.previous);
       const msg = String(err?.message ?? err);
+      // PARQ server backstop — 403 PARQ_REQUIRED fires before pass/capacity checks.
+      if (msg.includes("PARQ_REQUIRED")) {
+        setParqPrompt(true);
+        return;
+      }
       if (msg.includes("NO_PASS") || msg.includes("402")) {
         // Not an error — the member just has no credit. Open the product
         // picker so they can buy a pass (Task 2 renders + drives the flow).
@@ -451,13 +471,19 @@ export default function ScheduleScreen() {
   // in the NO_PASS branch of onError, which opens the picker.
   const bookForSignedInMember = useCallback(
     (occurrenceId: string) => {
+      // PARQ v2 client pre-check — block BEFORE pass-book AND before purchase.
+      // A no-pass member must not reach the Stripe flow until PARQ is complete.
+      if (!parqCompletedAt) {
+        setParqPrompt(true);
+        return;
+      }
       if (passBalance > 0) {
         bookMutation.mutate({ occurrenceId });
       } else {
         startPurchaseFlow(occurrenceId);
       }
     },
-    [passBalance, bookMutation, startPurchaseFlow],
+    [parqCompletedAt, passBalance, bookMutation, startPurchaseFlow],
   );
 
   // Book-press auth gate (MEM-02). The wall lives HERE, not at app entry:
@@ -549,6 +575,27 @@ export default function ScheduleScreen() {
           <Text style={styles.infoToastText}>
             Confirming your purchase — this can take a few seconds.
           </Text>
+        </View>
+      )}
+
+      {/* PARQ v2: health form prompt — shown before booking when PARQ is not complete */}
+      {parqPrompt && (
+        <View style={styles.infoToast}>
+          <Feather name="alert-circle" size={14} color={theme.colors.accent} />
+          <Text style={styles.infoToastText}>
+            Complete your health form (PAR-Q) before booking a class.
+          </Text>
+          <View style={{ flexDirection: "column", gap: 4 }}>
+            <Pressable style={styles.btn} onPress={openParqForm}>
+              <Text style={styles.btnText}>Complete</Text>
+            </Pressable>
+            <Pressable
+              style={styles.btnSecondary}
+              onPress={() => setParqPrompt(false)}
+            >
+              <Text style={styles.btnSecondaryText}>Dismiss</Text>
+            </Pressable>
+          </View>
         </View>
       )}
 
