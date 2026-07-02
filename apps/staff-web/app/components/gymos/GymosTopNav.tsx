@@ -80,6 +80,8 @@ export function GymosTopNav() {
   const isSettings = path.startsWith("/gymos/settings");
   // BD4-01: Studio Brain (GOB-03) — admin-only tab.
   const isBrain = path.startsWith("/gymos/brain");
+  // C47: Passes & Classes catalog tab (admin-only).
+  const isCatalog = path.startsWith("/gymos/catalog");
   // CV1 NAV-01: Video studio tab (admin-only authoring surface).
   // Content tab is intentionally hidden from the nav — gyms aren't writing
   // articles. The /gymos/content route still exists but is unlinked.
@@ -146,6 +148,11 @@ export function GymosTopNav() {
       {isAdmin && (
         <Link to="/gymos/brain" className={tabClass(isBrain)}>
           Brain
+        </Link>
+      )}
+      {isAdmin && (
+        <Link to="/gymos/catalog" className={tabClass(isCatalog)}>
+          Catalog
         </Link>
       )}
       {/* Content tab hidden — gyms aren't writing articles. Route still exists. */}

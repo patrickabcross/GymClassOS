@@ -23,6 +23,8 @@ const VIEW_TO_PATH: Record<string, string> = {
   content: "/gymos/content",
   video: "/gymos/video",
   settings: "/gymos/settings/integrations",
+  // C47: Passes & Classes catalog — agent can navigate({view:'catalog'})
+  catalog: "/gymos/catalog",
 };
 
 export function GymosNavBridge() {
