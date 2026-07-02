@@ -4,6 +4,7 @@ import { schema, getDb } from "../../lib/db.js";
 import { enqueueMetaCapiEvent } from "@gymos/queue";
 import { toMajorUnits, getMemberHashes, getOrUpsertAttribution } from "../metaLifecycle.js";
 import { resolveStageEvent } from "../../lib/stage-event-map.js";
+import { lookupPassTypeByPrice } from "./pass-type-grant.js";
 
 type TxClient = any; // Drizzle transaction client — keep loose for now
 
@@ -20,6 +21,15 @@ type TxClient = any; // Drizzle transaction client — keep loose for now
  *   - payments: ON CONFLICT (stripe_payment_intent_id) DO NOTHING
  *   - passes: deterministic id = `pass_<paymentIntentId>_<lineItemId>`
  *     + ON CONFLICT (id) DO NOTHING
+ *
+ * Pass grant strategy (quick-260702-g8f):
+ *   1. Subscription mode checkouts → SKIP; invoice.paid is the sole grant path
+ *      for subscriptions to avoid double-granting on both checkout + first invoice.
+ *   2. Payment mode with a price matching pass_types.stripe_price_id → pass_type-driven
+ *      grant: pass_type_id stamped, credits from pass_type (null → 999 unlimited sentinel),
+ *      expiry from validity_days.
+ *   3. Payment mode with no matching pass_types row → legacy keyword fallback (description
+ *      keywords "10-pack", "5-pack", "drop-in"/"1-class"); pass_type_id = NULL (allow-all).
  */
 export async function checkoutSessionCompleted(
   event: Stripe.Event,
@@ -86,27 +96,69 @@ export async function checkoutSessionCompleted(
   }
 
   // Grant passes — deterministic IDs make replay safe.
-  // Demo: simple "pack" detection by line item description. P2 builds
-  // pass_products table.
+  //
+  // Pass-type-driven grant: if the line item price matches pass_types.stripe_price_id,
+  // stamp pass_type_id and use the type's credits/validity_days.
+  // Legacy keyword fallback: no matching pass_types row → match by description keyword;
+  // pass_type_id stays NULL (= allow-all; existing members never break).
+  //
+  // Subscription mode: NO pass here — invoice.paid is the sole grant path for
+  // subscriptions. Granting on both checkout AND invoice would double-grant on the
+  // first billing cycle.
   for (const li of fullSession.line_items?.data ?? []) {
-    const credits = passCreditsForLineItem(li);
-    if (credits === null || !memberId || !paymentIntentId) continue;
+    // Subscription grants live ONLY in invoice.paid.
+    if (fullSession.mode === "subscription") continue;
+
+    if (!memberId || !paymentIntentId) continue;
+
+    const priceId =
+      typeof li.price === "string" ? li.price : li.price?.id;
+    const pt = priceId ? await lookupPassTypeByPrice(tx, priceId) : null;
 
     const passId = `pass_${paymentIntentId}_${li.id}`;
-    await tx.execute(sql`
-      INSERT INTO passes (id, member_id, granted, source, stripe_charge_id, product_name, expires_at, created_at)
-      VALUES (
-        ${passId},
-        ${memberId},
-        ${credits},
-        'purchase',
-        ${paymentIntentId},
-        ${li.description ?? "pack"},
-        NULL,
-        NOW()
-      )
-      ON CONFLICT (id) DO NOTHING
-    `);
+
+    if (pt) {
+      // Pass-type-driven grant: stamp pass_type_id, use pass_type credits + expiry.
+      const granted = pt.credits ?? 999; // null credits = unlimited sentinel
+      const expiresAt =
+        pt.validityDays != null
+          ? new Date(Date.now() + pt.validityDays * 86400000).toISOString()
+          : null;
+      await tx.execute(sql`
+        INSERT INTO passes (id, member_id, granted, source, stripe_charge_id, product_name, expires_at, pass_type_id, created_at)
+        VALUES (
+          ${passId},
+          ${memberId},
+          ${granted},
+          'purchase',
+          ${paymentIntentId},
+          ${li.description ?? pt.name},
+          ${expiresAt},
+          ${pt.id},
+          NOW()
+        )
+        ON CONFLICT (id) DO NOTHING
+      `);
+    } else {
+      // Legacy keyword fallback — pass_type_id = NULL (allow-all for pre-catalog members).
+      const credits = passCreditsForLineItem(li);
+      if (credits === null) continue;
+      await tx.execute(sql`
+        INSERT INTO passes (id, member_id, granted, source, stripe_charge_id, product_name, expires_at, pass_type_id, created_at)
+        VALUES (
+          ${passId},
+          ${memberId},
+          ${credits},
+          'purchase',
+          ${paymentIntentId},
+          ${li.description ?? "pack"},
+          NULL,
+          NULL,
+          NOW()
+        )
+        ON CONFLICT (id) DO NOTHING
+      `);
+    }
   }
 
   // MC2 LIFE-02: Purchase CAPI event. Best-effort (D-17) — never roll back the
@@ -143,10 +195,15 @@ export async function checkoutSessionCompleted(
 }
 
 /**
- * Demo helper: map line item to pass credits.
- * Production (P2): pass_products table keyed on price/product id.
+ * Legacy helper: map line item to pass credits by description keyword.
+ *
+ * Used as fallback when no pass_types row matches the line item price.
+ * The pass_type-driven path (see above) supersedes this for items with a known
+ * stripe_price_id. Kept for backward compatibility with pre-catalog products.
+ *
+ * Exported for testing.
  */
-function passCreditsForLineItem(li: Stripe.LineItem): number | null {
+export function passCreditsForLineItem(li: Stripe.LineItem): number | null {
   const desc = (li.description ?? "").toLowerCase();
   if (desc.includes("10-pack") || desc.includes("10 pack")) return 10;
   if (desc.includes("5-pack") || desc.includes("5 pack")) return 5;
