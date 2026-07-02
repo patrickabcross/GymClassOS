@@ -232,6 +232,11 @@ function ThemedRoot() {
               name="teacher-roster"
               options={{ title: "Roster", headerShown: true }}
             />
+            {/* DE6: member self-check-in via kiosk QR scanner. */}
+            <Stack.Screen
+              name="checkin-scan"
+              options={{ title: "Check in", headerShown: true, presentation: "modal" }}
+            />
           </Stack>
           <AgentFabAndSheet />
         </AuthGate>
