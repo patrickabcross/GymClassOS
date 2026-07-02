@@ -4,7 +4,9 @@ const insertChain = {
   values: vi.fn().mockReturnThis(),
   onConflictDoNothing: vi.fn().mockResolvedValue(undefined),
 };
-const executeMock = vi.fn().mockResolvedValue({ rowCount: 1 });
+// executeMock handles both the pass_types SELECT and the passes INSERT.
+// Default: { rows: [] } → lookupPassTypeByPrice returns null → legacy keyword path.
+const executeMock = vi.fn().mockResolvedValue({ rows: [] });
 const mockTx = {
   insert: vi.fn().mockReturnValue(insertChain),
   execute: executeMock,
@@ -30,7 +32,8 @@ describe("checkoutSessionCompleted (STR-03)", () => {
   beforeEach(() => {
     insertChain.values.mockClear();
     insertChain.onConflictDoNothing.mockClear();
-    executeMock.mockClear();
+    // Reset both call history AND the once-queue so tests don't bleed into each other.
+    executeMock.mockReset().mockResolvedValue({ rows: [] });
     stripeRetrieve.mockReset();
   });
 
@@ -155,5 +158,155 @@ describe("checkoutSessionCompleted (STR-03)", () => {
       JSON.stringify(c[0]).includes("passes"),
     );
     expect(passesCall).toBeUndefined();
+  });
+
+  // -------------------------------------------------------------------------
+  // NEW: pass_type-driven grant cases (added in quick-260702-g8f)
+  // -------------------------------------------------------------------------
+
+  it("pass_type match: stamps pass_type_id and correct credits/expiry for known price", async () => {
+    // First execute call = pass_types SELECT → return a matching row.
+    executeMock.mockResolvedValueOnce({
+      rows: [{ id: "drop_in", name: "Drop-in", credits: 1, validity_days: 180 }],
+    });
+
+    stripeRetrieve.mockResolvedValueOnce({
+      id: "cs_typed",
+      customer: "cus_typed",
+      payment_intent: "pi_typed",
+      amount_total: 1400,
+      currency: "gbp",
+      created: 1700000000,
+      mode: "payment",
+      metadata: { memberId: "mem_typed" },
+      line_items: {
+        data: [
+          {
+            id: "li_typed",
+            price: { id: "price_dropin" },
+            description: "Drop-in class",
+          },
+        ],
+      },
+    });
+
+    const event = { data: { object: { id: "cs_typed" } } } as any;
+    await checkoutSessionCompleted(event, mockTx as any, mockStripe, "acct_x");
+
+    const insertCall = executeMock.mock.calls.find((c) =>
+      JSON.stringify(c[0]).includes("INSERT INTO passes"),
+    );
+    expect(insertCall).toBeDefined();
+    const sqlStr = JSON.stringify(insertCall![0]);
+    expect(sqlStr).toContain("pass_pi_typed_li_typed");
+    expect(sqlStr).toContain("drop_in"); // pass_type_id stamped
+    expect(sqlStr).toContain("ON CONFLICT");
+  });
+
+  it("pass_type match: unlimited pass_type (credits null) → granted = 999", async () => {
+    // credits = null → granted = 999 (unlimited sentinel)
+    executeMock.mockResolvedValueOnce({
+      rows: [{ id: "unlimited", name: "Unlimited", credits: null, validity_days: null }],
+    });
+
+    stripeRetrieve.mockResolvedValueOnce({
+      id: "cs_unlimited",
+      customer: "cus_ul",
+      payment_intent: "pi_ul",
+      amount_total: 8500,
+      currency: "gbp",
+      created: 1700000000,
+      mode: "payment",
+      metadata: { memberId: "mem_ul" },
+      line_items: {
+        data: [
+          {
+            id: "li_ul",
+            price: { id: "price_unlimited_pay" },
+            description: "30 Days Unlimited",
+          },
+        ],
+      },
+    });
+
+    const event = { data: { object: { id: "cs_unlimited" } } } as any;
+    await checkoutSessionCompleted(event, mockTx as any, mockStripe, "acct_x");
+
+    const insertCall = executeMock.mock.calls.find((c) =>
+      JSON.stringify(c[0]).includes("INSERT INTO passes"),
+    );
+    expect(insertCall).toBeDefined();
+    const sqlStr = JSON.stringify(insertCall![0]);
+    // 999 is the unlimited sentinel
+    expect(sqlStr).toContain("999");
+    expect(sqlStr).toContain("unlimited"); // pass_type_id
+    expect(sqlStr).toContain("ON CONFLICT");
+  });
+
+  it("subscription mode: no pass INSERT in this reducer (invoice.paid owns subscription grants)", async () => {
+    stripeRetrieve.mockResolvedValueOnce({
+      id: "cs_sub_mode",
+      customer: "cus_sub",
+      payment_intent: null,
+      amount_total: 8500,
+      currency: "gbp",
+      created: 1700000000,
+      mode: "subscription",
+      metadata: { memberId: "mem_sub" },
+      line_items: {
+        data: [
+          {
+            id: "li_sub",
+            price: { id: "price_sub" },
+            description: "Unlimited membership",
+          },
+        ],
+      },
+    });
+
+    const event = { data: { object: { id: "cs_sub_mode" } } } as any;
+    await checkoutSessionCompleted(event, mockTx as any, mockStripe, "acct_x");
+
+    // No pass INSERT must occur for subscription-mode checkouts
+    const insertCall = executeMock.mock.calls.find((c) =>
+      JSON.stringify(c[0]).includes("INSERT INTO passes"),
+    );
+    expect(insertCall).toBeUndefined();
+  });
+
+  it("unknown price + keyword description: falls back to legacy keyword grant with pass_type_id = NULL", async () => {
+    // executeMock returns default { rows: [] } for the pass_types SELECT → no match
+    stripeRetrieve.mockResolvedValueOnce({
+      id: "cs_legacy",
+      customer: "cus_legacy",
+      payment_intent: "pi_legacy",
+      amount_total: 1400,
+      currency: "gbp",
+      created: 1700000000,
+      mode: "payment",
+      metadata: { memberId: "mem_legacy" },
+      line_items: {
+        data: [
+          {
+            id: "li_legacy",
+            price: { id: "price_unrecognised_xyz" },
+            description: "drop-in class",
+          },
+        ],
+      },
+    });
+
+    const event = { data: { object: { id: "cs_legacy" } } } as any;
+    await checkoutSessionCompleted(event, mockTx as any, mockStripe, "acct_x");
+
+    const insertCall = executeMock.mock.calls.find((c) =>
+      JSON.stringify(c[0]).includes("INSERT INTO passes"),
+    );
+    expect(insertCall).toBeDefined();
+    const sqlStr = JSON.stringify(insertCall![0]);
+    expect(sqlStr).toContain("pass_pi_legacy_li_legacy");
+    expect(sqlStr).toContain("ON CONFLICT");
+    // Legacy path must write pass_type_id = NULL
+    expect(sqlStr).toContain("NULL");
   });
 });
