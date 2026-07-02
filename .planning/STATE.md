@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v2.3
 milestone_name: — Mobile App Production Foundation
 status: planning
-stopped_at: Completed quick/260701-vob-parq-v2 PARQ health gate
-last_updated: "2026-07-01T22:05:13.330Z"
+stopped_at: Completed quick-260702-g8f-PLAN.md
+last_updated: "2026-07-02T11:09:10.382Z"
 last_activity: "2026-07-01 — Completed quick task 260701-gka: non-destructive "Disconnect Stripe" button on staff-web Integrations (clears local connected_accounts row via scoped delete + shadcn AlertDialog confirm; reconnectable; no accounts.del) — web change, deploys via push. Device UAT in progress: preview-install iOS build live on device; owner login + owner AI (RunStudio Ops) verified streaming real data on device; Bug#1 (calorie photo) + Bug#2 (wrong-email alert) confirmed fixed. Adopted "everyone is a member; role reveals extra" model — gave owner.test/teacher.test gym_members rows (mbr_staff_owner_001 / mbr_staff_teacher_001) so /api/m/profile stops 403→PHONE_REQUIRED. Completed quick task 260701-fq6 (FAB owner-only + member tabs for all roles + AgentSheet composer fix) — NEEDS a preview-install rebuild to land on device. Earlier: quick 260701-dyk: EXPO_PUBLIC_API_BASE on the preview-install EAS profile (standalone iOS build targets live backend). Also this session (not quick tasks): activated mobile admin (owner AI) + teacher surfaces on prod for UAT — set RUNSTUDIO_OPERATOR_EMAILS + RUNSTUDIO_TEACHER_EMAILS (deploy fac67ba1), created owner.test/teacher.test accounts, linked trainers.trn_seed_12 → teacher, seeded a booked member into a teacher class; all role gating API-verified."
 progress:
   total_phases: 5
@@ -316,8 +316,8 @@ Last activity: 2026-06-26 — Completed quick task 260626-m1c (swap marketing ho
 
 ## Session Continuity
 
-Last session: 2026-07-01T22:05:00.542Z
-Stopped at: Completed quick/260701-vob-parq-v2 PARQ health gate
+Last session: 2026-07-02T11:09:10.368Z
+Stopped at: Completed quick-260702-g8f-PLAN.md
 Resume file: None
 
 Prior session: 2026-06-20T10:22:33.153Z — Completed CV4-publish-pipeline CV4-01-PLAN.md
