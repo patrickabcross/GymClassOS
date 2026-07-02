@@ -10,6 +10,7 @@ import {
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter, useFocusEffect } from "expo-router";
 import { Feather } from "@expo/vector-icons";
+import { fetchRole, type AppRole } from "../../lib/whoami";
 import * as WebBrowser from "expo-web-browser";
 import { apiFetch, API_BASE_URL } from "../../lib/api";
 import { getSessionToken } from "../../lib/session";
@@ -78,6 +79,13 @@ export default function ScheduleScreen() {
   const theme = useTheme();
   const qc = useQueryClient();
   const router = useRouter();
+
+  // DE6: resolve role to show the "Scan to check in" button only for members.
+  const [role, setRole] = useState<AppRole | null>(null);
+  useEffect(() => {
+    fetchRole().then(setRole);
+  }, []);
+  const isMember = role === "member";
 
   const styles = useMemo(
     () =>
@@ -215,6 +223,25 @@ export default function ScheduleScreen() {
           color: theme.colors.mutedFaint,
           marginTop: 32,
           fontFamily: theme.font.regular,
+        },
+        // DE6: Scan to check in — members-only, secondary to Book
+        scanRow: {
+          flexDirection: "row" as const,
+          alignItems: "center" as const,
+          gap: 8,
+          backgroundColor: theme.colors.cardElevated,
+          paddingHorizontal: 14,
+          paddingVertical: 10,
+          borderRadius: theme.radius.sm,
+          borderWidth: 1,
+          borderColor: theme.colors.border,
+          alignSelf: "flex-start" as const,
+          marginBottom: theme.spacing.sm,
+        },
+        scanText: {
+          color: theme.colors.foreground,
+          fontFamily: theme.font.semibold,
+          fontSize: 14,
         },
         // Pass balance pill (persistent header above the FlatList)
         pillRow: {
@@ -603,6 +630,17 @@ export default function ScheduleScreen() {
         <View style={styles.toast}>
           <Text style={styles.toastText}>{bookError}</Text>
         </View>
+      )}
+
+      {/* DE6: Scan to check in — members only; teachers/admins use the kiosk/roster flows */}
+      {isMember && (
+        <Pressable
+          style={styles.scanRow}
+          onPress={() => router.push("/checkin-scan")}
+        >
+          <Feather name="maximize" size={16} color={theme.colors.foreground} />
+          <Text style={styles.scanText}>Scan to check in</Text>
+        </Pressable>
       )}
 
       <FlatList
