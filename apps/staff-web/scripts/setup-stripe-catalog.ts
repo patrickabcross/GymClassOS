@@ -425,7 +425,15 @@ async function main(): Promise<void> {
   console.log("\n--- Coupons & Promo Codes ---");
   for (const coupon of COUPONS) {
     console.log(`\n[${coupon.code}]`);
-    await ensureCouponAndPromo(coupon, acctOpts);
+    // Non-fatal: discounts are optional for the sandbox. A coupon/promo-code
+    // API hiccup must never abort the critical pass_types upsert below.
+    try {
+      await ensureCouponAndPromo(coupon, acctOpts);
+    } catch (err: any) {
+      console.warn(
+        `  ⚠ skipped ${coupon.code} — ${err?.code ?? err?.message ?? "unknown error"} (non-fatal; fix discounts separately)`,
+      );
+    }
   }
 
   // ------------------------------------------------------------------
