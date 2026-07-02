@@ -226,6 +226,27 @@ export default function FoodScreen() {
           fontSize: 16,
           fontFamily: theme.font.semibold,
         },
+        primaryOption: {
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 12,
+          backgroundColor: theme.colors.accent,
+          padding: 20,
+          borderRadius: theme.radius.md,
+        },
+        primaryOptionText: {
+          color: theme.colors.accentForeground,
+          fontSize: 18,
+          fontFamily: theme.font.semibold,
+        },
+        subLabel: {
+          color: theme.colors.mutedFaint,
+          fontSize: 11,
+          fontFamily: theme.font.semibold,
+          textTransform: "uppercase",
+          letterSpacing: 0.5,
+          marginTop: 4,
+        },
       }),
     [theme],
   );
@@ -289,6 +310,21 @@ export default function FoodScreen() {
             <View style={styles.handle} />
             <Text style={styles.sheetTitle}>Add food</Text>
             <Pressable
+              style={styles.primaryOption}
+              onPress={() => {
+                setAddOpen(false);
+                router.push("/food-ai?capture=1");
+              }}
+            >
+              <Feather
+                name="camera"
+                size={22}
+                color={theme.colors.accentForeground}
+              />
+              <Text style={styles.primaryOptionText}>Snap a meal</Text>
+            </Pressable>
+            <Text style={styles.subLabel}>More ways to add</Text>
+            <Pressable
               style={styles.addOption}
               onPress={() => {
                 setAddOpen(false);
@@ -310,21 +346,11 @@ export default function FoodScreen() {
               }}
             >
               <Feather
-                name="camera"
+                name="maximize-2"
                 size={20}
                 color={theme.colors.foreground}
               />
               <Text style={styles.addOptionText}>Scan barcode</Text>
-            </Pressable>
-            <Pressable
-              style={styles.addOption}
-              onPress={() => {
-                setAddOpen(false);
-                router.push("/food-ai");
-              }}
-            >
-              <Feather name="zap" size={20} color={theme.colors.foreground} />
-              <Text style={styles.addOptionText}>AI estimate</Text>
             </Pressable>
           </Pressable>
         </Pressable>

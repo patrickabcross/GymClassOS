@@ -12,7 +12,7 @@ import {
   StyleSheet,
 } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { Feather } from "@expo/vector-icons";
 import { apiFetch } from "../lib/api";
@@ -38,10 +38,12 @@ export default function FoodAiScreen() {
   const theme = useTheme();
   const qc = useQueryClient();
 
+  const params = useLocalSearchParams<{ capture?: string }>();
+
   const [mode, setMode] = useState<Mode>("input");
   const [description, setDescription] = useState("");
   const [photoBase64, setPhotoBase64] = useState<string | null>(null);
-  const [showCamera, setShowCamera] = useState(false);
+  const [showCamera, setShowCamera] = useState(params.capture === "1");
   const [perm, requestPerm] = useCameraPermissions();
   const cameraRef = useRef<CameraView>(null);
 
@@ -114,15 +116,15 @@ export default function FoodAiScreen() {
           flexDirection: "row",
           alignItems: "center",
           gap: 8,
-          backgroundColor: theme.colors.card,
+          backgroundColor: theme.colors.accent,
           borderRadius: theme.radius.md,
-          padding: 14,
+          padding: 18,
           marginBottom: 16,
         },
         cameraBtnText: {
-          color: theme.colors.foreground,
-          fontFamily: theme.font.regular,
-          fontSize: 15,
+          color: theme.colors.accentForeground,
+          fontFamily: theme.font.semibold,
+          fontSize: 16,
         },
         captureBtn: {
           position: "absolute",
@@ -522,19 +524,7 @@ export default function FoodAiScreen() {
       contentContainerStyle={styles.scroll}
       keyboardShouldPersistTaps="handled"
     >
-      <Text style={styles.sectionLabel}>Describe your meal</Text>
-      <TextInput
-        value={description}
-        onChangeText={setDescription}
-        placeholder="e.g. chicken caesar salad"
-        placeholderTextColor={theme.colors.mutedFaint}
-        style={styles.descInput}
-        multiline
-        numberOfLines={3}
-        autoFocus
-      />
-
-      <Text style={styles.sectionLabel}>Photo (optional)</Text>
+      <Text style={styles.sectionLabel}>Snap your meal</Text>
       {photoBase64 ? (
         <View style={styles.photoAttachedRow}>
           <Feather name="check-circle" size={18} color={theme.colors.accent} />
@@ -545,10 +535,25 @@ export default function FoodAiScreen() {
         </View>
       ) : (
         <Pressable style={styles.cameraBtn} onPress={() => setShowCamera(true)}>
-          <Feather name="camera" size={20} color={theme.colors.foreground} />
+          <Feather
+            name="camera"
+            size={20}
+            color={theme.colors.accentForeground}
+          />
           <Text style={styles.cameraBtnText}>Take photo</Text>
         </Pressable>
       )}
+
+      <Text style={styles.sectionLabel}>Or describe it</Text>
+      <TextInput
+        value={description}
+        onChangeText={setDescription}
+        placeholder="e.g. chicken caesar salad"
+        placeholderTextColor={theme.colors.mutedFaint}
+        style={styles.descInput}
+        multiline
+        numberOfLines={3}
+      />
 
       {estimateError && <Text style={styles.errorText}>{estimateError}</Text>}
 

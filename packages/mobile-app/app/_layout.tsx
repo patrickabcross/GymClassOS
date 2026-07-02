@@ -227,6 +227,14 @@ function ThemedRoot() {
                 presentation: "modal",
               }}
             />
+            <Stack.Screen
+              name="food-ai"
+              options={{
+                title: "Snap a meal",
+                headerShown: true,
+                presentation: "modal",
+              }}
+            />
             {/* MA3-03: pushed teacher roster screen (tap a session → roster). */}
             <Stack.Screen
               name="teacher-roster"
@@ -235,7 +243,11 @@ function ThemedRoot() {
             {/* DE6: member self-check-in via kiosk QR scanner. */}
             <Stack.Screen
               name="checkin-scan"
-              options={{ title: "Check in", headerShown: true, presentation: "modal" }}
+              options={{
+                title: "Check in",
+                headerShown: true,
+                presentation: "modal",
+              }}
             />
           </Stack>
           <AgentFabAndSheet />
