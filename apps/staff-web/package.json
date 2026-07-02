@@ -19,7 +19,8 @@
     "db:seed-demo": "tsx server/db/seeds/seed-demo-data.ts",
     "db:seed-ma1-test-account": "tsx server/db/seeds/seed-ma1-test-account.ts",
     "db:seed-enquiry-form": "tsx server/db/seeds/seed-enquiry-form.ts",
-    "db:import-ghl": "tsx scripts/import-ghl-contacts.ts"
+    "db:import-ghl": "tsx scripts/import-ghl-contacts.ts",
+    "stripe:setup-catalog": "tsx scripts/setup-stripe-catalog.ts"
   },
   "gymos": {
     "forbiddenDependencies": [
