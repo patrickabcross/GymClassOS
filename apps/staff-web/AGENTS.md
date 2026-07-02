@@ -100,20 +100,61 @@ These are the tools available via `defineAction` in `apps/staff-web/actions/`. E
 | `brain-extract-brand`      | —    | **Staff-only operator action — NOT an agent LLM tool.** Fetches a public URL (SSRF-guarded) and asks Claude to extract 11 TenantBrand tokens (displayName, fontFamily, googleFontsHref, primary, primaryText, secondaryAccent, ink, bg, bgAlt, radius, logoUrl). Does NOT write to the DB — returns `{ok:true, tokens}` for the operator to review in the Brain tab UI before saving. To persist, call `update-brain-doc` with `id:'brand-styling'` and `body: JSON.stringify(tokens)`. Call this action from UI only; do not invoke it as a chat tool. | `{ok:true, tokens: TenantBrand}` or `{ok:false, error}` (FETCH_FAILED / ANTHROPIC_API_KEY not configured / CLAUDE_ERROR / PARSE_ERROR) |
 | `mark-booking-attended`    | —    | (Staff/programmatic chokepoint, not an agent LLM tool.) The single path that flips a booking to `status='attended'` (+ `attended_at`) and fires the Meta `Schedule` CAPI event once per (member, occurrence). Idempotent — re-marking an already-attended booking is a no-op. No check-in UI yet (deferred per D-11). Enqueue failure is best-effort and never undoes the status write (D-17). | `{attended:true}` or `{error:'BOOKING_NOT_FOUND'\|'BOOKING_CANCELLED'}` |
 
-### Stripe Product setup (pilot configuration — studio Stripe dashboard task)
+### Stripe Product setup — HUSTLE pass catalog + setup script
 
 `create-checkout-link` creates sessions on the **connected account** (direct charge via `{ stripeAccount }`). Prices MUST be configured on the connected account — platform-account prices 404 when scoped to a connected account.
 
-For `create-checkout-link` to result in pass credits being granted (mode=`payment`), the Stripe Product's **description** must contain one of the keywords that the P1b-07 reducer (`services/worker/src/domain/stripeReducers/checkout-session-completed.ts`) matches inside `passCreditsForLineItem()`:
+#### Running the setup script
 
-| Keyword in product description | Pass credits granted on `checkout.session.completed` |
-| ------------------------------ | ---------------------------------------------------- |
-| `10-pack` or `10 pack`         | 10 credits                                           |
-| `5-pack` or `5 pack`           | 5 credits                                            |
-| `drop-in` or `1-class`         | 1 credit                                             |
-| anything else                  | **0 credits — payment recorded but NO pass granted** |
+```
+pnpm --filter @gymos/staff-web stripe:setup-catalog
+```
 
-For mode=`subscription`, the `invoice.paid` reducer (P1b-07) grants pass credits or records the subscription renewal. Both reducers read `metadata.memberId`; subscription reducer also reads `subscription_data.metadata.memberId` (set by this action automatically — Pitfall 2 fix).
+Run with `STRIPE_SECRET_KEY=sk_test_...` first (safe, idempotent, no real charges), then re-run with the live key + connected account for production. The script creates or verifies 8 products/prices on the connected account, creates 2 coupons + promo codes, and upserts 8 `pass_types` rows in the app database.
+
+- Products carry `metadata.runstudio_pass_key = <key>` for stable idempotency across re-runs.
+- Prices carry a stable `lookup_key = runstudio_<key>`; `transfer_lookup_key: true` keeps the key current if a price is replaced.
+- `pass_types.stripe_price_id` is stamped on each row so the reducers can look up the pass type by price at grant time.
+
+#### HUSTLE pass catalog (8 items)
+
+| key | name | mode | credits | validity_days | all_categories | allowed_categories | price (GBP) |
+| --- | ---- | ---- | ------- | ------------- | -------------- | ------------------ | ----------- |
+| `drop_in` | Drop-in | payment | 1 | 180 | true | — | £14.00 |
+| `pack_5` | 5 Class Pack | payment | 5 | 180 | true | — | £60.00 |
+| `pack_10` | 10 Class Pack | payment | 10 | 180 | true | — | £110.00 |
+| `unlimited` | Unlimited | subscription | null (unlimited) | — | true | — | £85.00/mo |
+| `one_per_week` | 1 Session / Week | subscription | 5 | 30 | true | — | £44.00/mo |
+| `two_per_week` | 2 Sessions / Week | subscription | 9 | 30 | true | — | £64.00/mo |
+| `hyrox` | HYROX Unlimited | subscription | null (unlimited) | — | false | `["hyrox"]` | £85.00/mo |
+| `intro_30` | 30 Days for £30 | payment | null (unlimited) | 30 | true | — | £30.00 |
+
+`credits = null` means unlimited — the reducer writes `granted = 999` (the unlimited sentinel; booking math at `api.m.bookings.tsx` computes `remaining = granted − SUM(debits)` and 999 never depletes in a billing cycle).
+
+**Coupons + promo codes** (both apply at checkout, typically Unlimited):
+
+| code | amount_off | description |
+| ---- | ---------- | ----------- |
+| `STUDENT` | £20 | Student discount |
+| `BLUELIGHT` | £10 | Blue Light discount |
+
+#### Pass grant flow — pass_type-driven (quick-260702-g8f)
+
+The two Stripe reducers in `services/worker/src/domain/stripeReducers/` are now **pass_type-driven**. When a Stripe price matches `pass_types.stripe_price_id`, the granted pass has `pass_type_id` STAMPED (so the C47 category enforcement at `POST /api/m/bookings` bites on real purchases):
+
+- **`checkout.session.completed`** — handles one-off pack purchases (`mode=payment`):
+  - If `line_item.price.id` matches a `pass_types.stripe_price_id`: grant with `pass_type_id`, `credits` from pass_type (`null → granted = 999`), `expires_at = now + validity_days` (null validity → NULL).
+  - If NO match: legacy keyword fallback (`drop-in`/`1-class` → 1 credit, `5-pack` → 5, `10-pack` → 10); `pass_type_id = NULL` (allow-all — existing members never break).
+  - Subscription-mode checkouts → **skip entirely**; `invoice.paid` owns subscription grants to avoid double-granting.
+
+- **`invoice.paid`** — handles subscription grants (first payment + every renewal):
+  - If `sub.items.data[0].price.id` matches a `pass_types.stripe_price_id`: grant one pass per invoice with deterministic id `pass_sub_<invoiceId>` + `ON CONFLICT (id) DO NOTHING` (replay-safe).
+  - `expires_at` = `current_period_end` derived robustly in priority order: (1) invoice line `period.end`, (2) sub item `current_period_end`, (3) sub `current_period_end`, (4) `now + 31 days` fallback — NEVER epoch-0 (immediately-expired pass silently blocks booking).
+  - If NO match: subscription mirror + payment row recorded only (no keyword fallback for subscriptions).
+
+**Idempotency:** every new pass INSERT uses a deterministic id + `ON CONFLICT (id) DO NOTHING`. Stripe replays are always safe.
+
+For mode=`subscription`, both reducers read `metadata.memberId`; subscription reducer also reads `subscription_data.metadata.memberId` (set by `create-checkout-link` automatically — Pitfall 2 fix).
 
 `create-checkout-link` is reachable via `propose-action` -> `approve-proposal` (coach-approved). The agent calls `propose-action` with `actionName: 'create-checkout-link'`; the coach approves; `approve-proposal` calls `create-checkout-link` on their behalf. Also used directly from `/embed/buy` public flow (Plan 05).
 
