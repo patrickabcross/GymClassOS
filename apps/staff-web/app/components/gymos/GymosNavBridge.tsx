@@ -25,6 +25,8 @@ const VIEW_TO_PATH: Record<string, string> = {
   settings: "/gymos/settings/integrations",
   // C47: Passes & Classes catalog — agent can navigate({view:'catalog'})
   catalog: "/gymos/catalog",
+  // DE6: Kiosk — admin tablet check-in surface
+  kiosk: "/gymos/kiosk",
 };
 
 export function GymosNavBridge() {

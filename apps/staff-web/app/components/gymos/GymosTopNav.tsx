@@ -86,6 +86,8 @@ export function GymosTopNav() {
   // Content tab is intentionally hidden from the nav — gyms aren't writing
   // articles. The /gymos/content route still exists but is unlinked.
   const isVideo = path.startsWith("/gymos/video");
+  // DE6: Kiosk tab — admin-only tablet check-in surface.
+  const isKiosk = path.startsWith("/gymos/kiosk");
 
   // P1b.1-livefix: sign-out hits the better-auth backward-compat shim at
   // POST /_agent-native/auth/logout (see packages/core/src/server/auth.ts:2697
@@ -159,6 +161,11 @@ export function GymosTopNav() {
       {isAdmin && (
         <Link to="/gymos/video" className={tabClass(isVideo)}>
           Video
+        </Link>
+      )}
+      {isAdmin && (
+        <Link to="/gymos/kiosk" className={tabClass(isKiosk)}>
+          Kiosk
         </Link>
       )}
       {/* Right-aligned cluster: Settings (admin-only) + Sign out (always).
