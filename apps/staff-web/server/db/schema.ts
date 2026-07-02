@@ -312,6 +312,54 @@ export const bookings = table("bookings", {
   attendedAt: text("attended_at"),
 });
 
+// ---------------------------------------------------------------------------
+// C47-SCHEMA: Pass types catalog — studio-defined pass products.
+//
+// DDL created by migration v39 (C47, apps/staff-web/server/plugins/db.ts).
+// This Drizzle export is the schema-layer reference; no new migration files
+// needed beyond 0010_pass_types_catalog.sql (reproducibility mirror).
+//
+// Single-tenant: no studio_id. Reads carry
+// // guard:allow-unscoped — single-tenant gym tables.
+//
+// allCategories / active: integer("...", { mode: "boolean" }) — the
+// @agent-native/core schema wrapper emits a Postgres BOOLEAN column for these
+// declarations. DDL in v39 declares BOOLEAN directly (avoids active-column
+// gotcha). Existing integer booleans (trainers, class_schedule_rules) were
+// retrofitted in v36; these are BOOLEAN from the start.
+//
+// allowedCategories: JSON array of category strings (matched against
+// class_definitions.category). Ignored when allCategories = true.
+// ---------------------------------------------------------------------------
+export const passTypes = table("pass_types", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  /** null = unlimited (no per-booking credit cap; passes.granted governs balance for limited types) */
+  credits: integer("credits"),
+  /** price in pence; null = not for sale (manual grant only) */
+  pricePennies: integer("price_pennies"),
+  /** Stripe Price ID on the connected account — wired in a later phase */
+  stripePriceId: text("stripe_price_id"),
+  /** validity window in days from first use; null = never expires */
+  validityDays: integer("validity_days"),
+  /**
+   * true = books ANY class category (unlimited compatibility sentinel).
+   * MUST emit Postgres BOOLEAN — active-column gotcha applies.
+   */
+  allCategories: integer("all_categories", { mode: "boolean" })
+    .notNull()
+    .default(false),
+  /**
+   * JSON array of category strings this pass type allows, e.g. '["yoga","hiit"]'.
+   * Matched against class_definitions.category at booking time.
+   * Ignored when allCategories = true.
+   */
+  allowedCategories: text("allowed_categories"),
+  /** BOOLEAN — active=false deactivates (no hard delete) */
+  active: integer("active", { mode: "boolean" }).notNull().default(true),
+  createdAt: text("created_at").notNull().default(now()),
+});
+
 // Passes — grants. balance = sum(passes.granted where !expired) - sum(pass_debits.amount)
 export const passes = table("passes", {
   id: text("id").primaryKey(),
@@ -325,6 +373,11 @@ export const passes = table("passes", {
   productName: text("product_name"), // "10-pack" / "monthly unlimited"
   expiresAt: text("expires_at"), // ISO; null = never
   createdAt: text("created_at").notNull().default(now()),
+  /**
+   * C47: soft-ref to pass_types.id. null = legacy pass; treated as allow-all
+   * at booking (books any class category). Added by migration v39 (additive).
+   */
+  passTypeId: text("pass_type_id"),
 });
 
 // Pass debits — append-only ledger. Negative amounts allowed for cancellation refunds.

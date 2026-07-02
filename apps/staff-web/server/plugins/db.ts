@@ -551,6 +551,51 @@ $mvn01$`,
       sql: `ALTER TABLE gym_members ADD COLUMN IF NOT EXISTS parq_completed_at text;
 ALTER TABLE gym_members ADD COLUMN IF NOT EXISTS parq_flagged boolean NOT NULL DEFAULT false`,
     },
+    // -------------------------------------------------------------------------
+    // C47: Pass types catalog — studio-defined pass products with category-based
+    // class compatibility.
+    //
+    // Version 39: TWO additive statements in one version entry.
+    //   (a) CREATE TABLE IF NOT EXISTS pass_types — the product catalog.
+    //       Columns: id (TEXT PK), name (TEXT NOT NULL), credits (INTEGER —
+    //       null = unlimited), price_pennies (INTEGER), stripe_price_id (TEXT),
+    //       validity_days (INTEGER — null = never expires), all_categories
+    //       (BOOLEAN NOT NULL DEFAULT false — "books any class" sentinel),
+    //       allowed_categories (TEXT — JSON array of category strings; ignored
+    //       when all_categories is true), active (BOOLEAN NOT NULL DEFAULT true),
+    //       created_at (TEXT DEFAULT now() NOT NULL).
+    //       Booleans declared as BOOLEAN from the start (avoids active-column
+    //       gotcha; no retrofit migration needed like v36 for trainers).
+    //   (b) ALTER TABLE passes ADD COLUMN IF NOT EXISTS pass_type_id TEXT —
+    //       soft-ref to pass_types.id. null = legacy pass (allow-all at booking;
+    //       existing HUSTLE members never break).
+    //
+    // Additive only — NO DROP / RENAME / TRUNCATE (CLAUDE.md constraint).
+    // Idempotent: IF NOT EXISTS / IF NOT EXISTS guards on both statements.
+    // Postgres types: BOOLEAN, TEXT, INTEGER, now() — NOT SQLite datetime('now')
+    //   (Correction: this DB is Neon Postgres; `now()` is the correct function).
+    //
+    // NOT auto-applied to studio Neon (billowing-sun-51091059) by build —
+    // hand-apply 0010_pass_types_catalog.sql to that project after deploy
+    // (migration-drift gotcha). Without this, /gymos/catalog and the booking
+    // category check will 500 on the missing table/column.
+    // -------------------------------------------------------------------------
+    {
+      version: 39,
+      sql: `CREATE TABLE IF NOT EXISTS pass_types (
+  id                 TEXT PRIMARY KEY,
+  name               TEXT NOT NULL,
+  credits            INTEGER,
+  price_pennies      INTEGER,
+  stripe_price_id    TEXT,
+  validity_days      INTEGER,
+  all_categories     BOOLEAN NOT NULL DEFAULT false,
+  allowed_categories TEXT,
+  active             BOOLEAN NOT NULL DEFAULT true,
+  created_at         TEXT DEFAULT now() NOT NULL
+);
+ALTER TABLE passes ADD COLUMN IF NOT EXISTS pass_type_id TEXT`,
+    },
     {
       version: 15,
       // postgres path: plpgsql function + conditional trigger creation
